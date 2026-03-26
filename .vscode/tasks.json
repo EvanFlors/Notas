@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build and Run C++",
+			"type": "shell",
+			"command": "g++ -o \"${fileDirname}/${fileBasenameNoExtension}\" \"${file}\" && \"${fileDirname}/${fileBasenameNoExtension}\"",
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		}
+	]
+}
