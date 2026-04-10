@@ -1,6 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ═══════════════════════════════════════════════
+//
+//  Finding a pair of numbers that sum to a target value
+//  from a sorted array of integers
+//
+//  Given: a sorted array of integers
+//  Find:  all pairs (i, j) such that arr[i] + arr[j] = k
+//
+//  Method 1: Two-pointer technique     - O(n), O(1) space
+//
+// ═══════════════════════════════════════════════
+
 typedef struct {
     int *data;
     int size;

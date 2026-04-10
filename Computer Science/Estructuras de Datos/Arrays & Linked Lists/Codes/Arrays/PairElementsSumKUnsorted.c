@@ -1,6 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ═══════════════════════════════════════════════
+//
+//  Finding a pair of numbers that sum to a target value
+//  from a unsorted array of integers
+//
+//  Given: a unsorted array of integers
+//  Find:  all pairs (i, j) such that arr[i] + arr[j] = k
+//
+//  Method 1: Brute-force approach  - O(n^2), O(1) space
+//  Method 2: Hash table approach   - O(n), O(n) space
+//
+// ═══════════════════════════════════════════════
+
 typedef struct {
     int *data;
     int size;

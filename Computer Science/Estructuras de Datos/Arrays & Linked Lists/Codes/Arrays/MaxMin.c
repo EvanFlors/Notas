@@ -1,6 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ════════════════════════════════════════════════════════════════════
+//
+// Find the minimum and maximum elements in an unsorted array
+//
+// Given: An array of integers
+// Returns: The minimum and maximum integers
+//
+// Method 1: Iteration      — O(n), O(1) space
+//
+// ════════════════════════════════════════════════════════════════════
+
 typedef struct {
     int *data;
     int size;

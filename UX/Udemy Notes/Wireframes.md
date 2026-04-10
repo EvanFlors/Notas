@@ -1,5 +1,719 @@
-Wireframes
+# Wireframes — Módulo Completo
 
-Hey, everyone, welcome back.  So we're going to be talking about wireframes.  So we're really going to get into designing very soon.  But, you know, we're done our site map, we're done user flows.  You know, we've done a lot of sketching and, you know, we have a good understanding of the content  and the structure that is going into our product.  So now I think Wireframe is pretty much the next step.  But the big question is, well, what is a wireframe?  Now, you may have seen images like this when we were sketching, and wireframe is a low fidelity layout  that serves three simple purposes.  It presents the information that will be displayed on the page in a little bit more detail than our  sketches and our user flows.  It gives an outline of structure and layout of the page, and it conveys the overall direction and description  of your user interface.  It's basically, as you can see here, it's just like a blueprint of a building, but instead of a building,  it describes the details clearly and specifically, while giving everyone involved a good overview of  the product.  It's kind of like that middle ground between your sketches and higher fidelity designs and prototypes.  They help you really plan layout interaction patterns for your users without worrying about distracting  details like colors or copy or, you know, typography.  You know, all those things can really bog down your design process.  Another thing to really know is that they're really heavily influenced from your prior work.  So if you've done story mapping, you have user stories, if you've done things like user flows or site  maps, I mean, all these different artifacts should really influence the way you create your wireframes.  So just keep that in mind that you shouldn't just be like jumping in and creating a whole bunch of wireframes  and not necessarily really understanding the type of content that needs to be there and the requirements  that need to be there.  So really consult all those artifacts that you have and if you don't have them, you know, talk to  the right people that can get you that information, whether that be product managers, clients, stakeholders,  internal stakeholders, you know, use your voice if you need those requirements to even start.  So why do we use them?  Two big reasons.  I like using them because they really help to test your concepts and your structure, so they really  help you to understand how users will navigate your product.  Sometimes you can use your wireframes to highlight certain areas that you think need to have prominence  on a page to test if that piece of content is actually working and if the user flow makes sense.  So this is one of the big reasons I use that so that it could be like user flows again, but in much  more detail.  Understanding the different types of interactions and putting it into a wireframe makes it a little  more easier to test with users to get, I guess, better results.  The next best thing, actually, I think this is the number one thing actually you need to use them  to learn.  You know, they are fast, cheap and impermanent.  Don't get attached to wireframes.  They're meant to change.  As you gather more information through research and feedback from your clients and from your users,  they're a great place to fail.  And I don't mean that negatively on a project you want to fail as quickly as possible, and that means  you want to test your assumptions as quick as possible before it gets to high fidelity designs or even  development.  You know, they serve as that common language for your team as well.  They're complex enough to inform everyone, but simple enough to not get bogged down by too much detail.  Now, the little kind of graph I have here is the build measure learn graph.  And if anyone's read Lean Startup, I think like that's amazing because it's an amazing book.  But if you haven't, you should definitely read Lean Startup.  It talks a lot about building, measuring and learning.  So what that essentially means is you build and that could be a wireframe, that could be a sketch.  You measure it against something.  What metric you're testing against it could be like, I want to know if this interaction works.  I want to know if the users actually are interested in my product.  You learn from those results and then you build again.  So wireframes really help you to kind of implement that build, measure, learn cycle.  So I want you always to think about that.  Whenever you're kind of testing with users or just talking to other clients or stakeholders, you keep  that in the back of your mind because the design process isn't linear, it's very iterative.  So how can we use them?  They're useful for three big reasons right now.  You know, they help your team estimate the type of work they're going to complete clarity and common  understanding across the team.  They help your team understand what is going to be built.  I mentioned this a little bit earlier.  It gives them an opportunity to chime in as well.  If you're presenting to them and you should always be presenting to them, even if it's just like ad  hoc, you know, talk to your peer really quickly.  The specs are kind of dated and wireframes can be really much more collaborative than that.  So get your team involved as much as possible.  The next thing is user testing.  We use them a lot for user testing.  The sooner you test, the better.  And that's the big thing.  You know, like I said before, fail fast.  So you can get quick feedback without necessarily developing complex prototypes with all those different  types of visual things like typography, color and all the different types of details like that.  So testing with users really uncover like the different types of pain points and opportunities.  So this is a little customer journey map.  You know, if you've created one at this point, that's great as well because it will really help you  understand how the user moves throughout your product and other products.  So really document how your user can move through your wireframes, understand like what their pain  points are.  And usually there you'll understand that there are certain opportunities that you can really benefit  from.  And I also like to I think this is kind of inevitable.  I really like to use these to demo to clients.  It's a good way to get really quick feedback instead of like going all the way and sprinting towards  like that beautiful design or that beautiful complex prototype.  I mean, you got to remind them that it isn't the final design because, you know, you may have a client  that is just like this has no color or this has no like typographic elements.  Like, what is this that doesn't look good and it's not necessarily meant to look good.  So you need to explain that to them just so they can give you some quick feedback on certain things  like interactions and, you know, flows and just placement and layout and hierarchy.  Another thing about getting quick feedback is that making changes to high fidelity designs is like really  time intensive and you don't want to be making bigger changes when you're nearly done the product.  You want to be making those changes as you go along and the earlier the better.  So that's how we can use wireframes.  We can definitely use them to like test.  And I think like that is the biggest thing is testing early and testing often and not worrying about  the details.  So I'll teach you next how to create them.
+---
 
-Everyone.  And welcome back.  We're going to be talking about how do I create my own wireframes?  So the one thing I really want to stress is to keep things simple.  You know, don't worry about fidelity, especially when you're wire framing.  You just need just enough to really get people to understand what you're trying to convey.  Pencil and paper is probably the best way to wireframe quickly, you know.  This is one of my mantras like we've already done this.  I mean, we sketched a bit, we did some user flows and you've already kind of started wire framing.  Even if you have a whiteboard, you can use one.  But I mean, pencil and paper are huge.  You know, if you do have a client, you can polish them up to showcase some of your interactions or  more prominent areas within your flows and, you know, pages that you're designing for.  You can definitely add a little bit more fidelity to just showcase or demo them, but you want to keep  your colors to grayscale.  White and black is perfectly fine and grazing between.  Don't go crazy on fonts maybe to what you can even get away with one.  You can easily show hierarchy with bolding fonts as well or increasing the size.  Avoid any flashy images you can use rectangles and squares and an X through the middle.  Just say that that would be an image and for videos you can add a triangle in the middle to indicate  that that's one as well.  So keep it simple.  Don't worry about fidelity, especially at this stage.  The next thing is you've got to ask yourself some pretty important questions.  You know, what are the users and the businesses goals when interacting with this page?  How can the content be organized to support these goals?  What should the user see when they first come to a page?  What will the user expect to see on certain areas of the page?  I think these questions are a perfect segway really into wire framing and, you know, consult your  old artifacts right here.  I have a story map and definitely go back to the story map if you have one.  Do you really consult like user stories and requirements so you can understand what will be on every  page?  We even did user flows as well and we're going to get into that right now.  So consult your user flows and your site map.  You know, as I consult my site map, I'm always looking at the key requirements and hierarchies for  a certain page.  I want to know what is the most and least important thing that should be there.  You know, different user stories are really great because they're better indicator of what exactly  needs to be built from a user's perspective and a proper like if you have a story map, like I mentioned  before, we would have user stories for every single instance throughout the product journey and then  we would come together to discuss which is like the riskiest part of the product we want to tackle first.  So like for our client, we probably want to tackle search or the home page or maybe the initial registration,  all those different points where it really depends on users actually finding products or registering  their interests.  So that way the product can actually be successful.  They're high traffic areas and the interactions are pretty integral to the user goal and we need to  get them right to succeed.  I always, and I mean always tackle the riskiest features first.  So like I mentioned before, that's a perfect segue into this because everyone has a different definition  of what risk is and it could mean a lot of different things.  It could be features that dictate the success of the product.  It could be certain assumptions that your team and client have for a certain feature.  When I'm in a kickoff meeting or I'm talking to clients, I really kind of I have a list of risky assumptions  that we have as well.  And I mark all those things down.  Anything from what we assume the user wants or assume will be a good feature or certain things like  risks.  There are high traffic areas that really depend on nailing the interaction in order to succeed for the  business for our client.  If we release a search that just doesn't work or the interaction is way too complex, the product essentially  will fail.  So there's a lot of things like that that we need to account for and we should probably be focusing  a lot of our attention on like in comparison to another feature like profile or a wish list.  So always keep that in mind.  Another big thing is to bring your team into the process.  I mean, this is huge.  You should often be talking to every member of your team.  It doesn't matter.  Product managers for business goals, developers for development strategy.  You can even talk to quality assurance people like quality analyst.  People talk about just how certain things work within the product and what their expectations are.  Other disciplines will provide priceless insight into the ways you can build those wireframes, so make  sure that you include others in your process.  It may be a business goal that you aren't meeting or a technical challenge that you may have.  Like for certain interactions you want to come to life.  So tap into your peers example of trying to do things that are way too hard to develop.  So if you have a wireframe that is just way too complex, you should definitely be talking to your developers.  I often take a look at Dribble and I mentioned dribble a lot because it's a great place to get inspiration  and all that.  But the majority of the designs showcased there will probably never be built and have never been built  because they just are way too complex and time consuming.  I'm not saying that it is impossible because everything is possible with enough time and money, but  most times you want to build your way up to something that is like considered perfect and we may release  in different stages, whether that be like a minimum viable product that has only the features that  you truly need to validate if your product has any legs.  Sometimes we may be releasing on top of that the next best features.  And over time we'll get to a point where we can really hone in on the design and polish different things.  But generally you want to release in kind of waves instead of building out a product from 0 to 100.  You want to get like 25% of the way there.  Build another set of features, improve on other features based off of what you've learned from your  wireframe testing and even just basic prototype testing.  So remember loop your team in.  It's really going to help you understand what you can and cannot build.  It also really help you understand what kind of like different business goals you may have that you  haven't considered.  Maybe stakeholders have certain goals.  So these are the tips I often give other designers for when we want to actually use wireframes and when  we actually want to create our own.  So follow these tips and you'll be well on your way to making some awesome wireframes that are based  off of facts and different types of data and are used to actually validate everyone's assumptions.
+## 1. Introducción a Wireframes
+
+### 1.1 Qué es un Wireframe y su Propósito
+
+- **Intuición:** Un wireframe es el "esqueleto" de una pantalla. Así como un arquitecto dibuja planos antes de construir, un diseñador traza wireframes antes de diseñar visualmente.
+- **Estructura formal:** Es una representación visual de baja/media fidelidad que define la **estructura, jerarquía y disposición del contenido** de una interfaz, sin incluir estilo visual (color, tipografía final, imágenes reales).
+- **Aplicación práctica:** Sirve para validar ideas rápidamente, alinear al equipo y detectar problemas de estructura **antes** de invertir tiempo en diseño visual o desarrollo.
+
+**Propósitos clave:**
+
+1. Presentar la información que se mostrará en cada pantalla
+2. Definir la estructura y layout de la página
+3. Comunicar la dirección general de la interfaz
+4. Servir como lenguaje común entre diseñadores, developers, PMs y stakeholders
+
+### 1.2 Wireframe vs Mockup vs Prototipo
+
+| Aspecto | Wireframe | Mockup | Prototipo |
+|---|---|---|---|
+| **Fidelidad** | Baja/Media | Alta | Alta |
+| **Interactividad** | Ninguna o mínima | Ninguna | Navegable/funcional |
+| **Propósito** | Estructura y layout | Apariencia visual final | Simular experiencia real |
+| **Velocidad** | Muy rápido | Medio | Lento |
+| **Costo de cambio** | Muy bajo | Medio-alto | Alto |
+| **Cuándo usarlo** | Exploración temprana | Aprobación visual | Testing con usuarios |
+
+```
+Proceso lineal simplificado:
+
+  Sketches → Wireframes → Mockups → Prototipos → Desarrollo
+     ↑______________________________________________|
+              (ciclo iterativo constante)
+```
+
+> **Error común:** Saltar directamente a mockups o prototipos sin validar la estructura. Esto genera retrabajo costoso cuando la arquitectura de la pantalla no funciona.
+
+### 1.3 Niveles de Fidelidad
+
+#### Low-Fidelity
+
+- Papel y lápiz o pizarrón
+- Bloques, líneas y texto placeholder
+- Ideal para brainstorming y exploración rápida
+- Tiempo: minutos
+
+```
+┌─────────────────────────────┐
+│  [  Logo  ]    [ Nav  Nav ] │
+├─────────────────────────────┤
+│                             │
+│   ┌─────┐  Título grande   │
+│   │  X  │  ───────────     │
+│   │ img │  ───────────     │
+│   └─────┘  [ Botón CTA ]  │
+│                             │
+├─────────────────────────────┤
+│  footer info                │
+└─────────────────────────────┘
+```
+
+#### Mid-Fidelity
+
+- Herramientas digitales (Figma, Balsamiq)
+- Espaciado más preciso, tipografía genérica, escala de grises
+- Se definen interacciones básicas
+- Ideal para **validación con equipo y primeros tests**
+- Tiempo: horas
+
+#### High-Fidelity
+
+- Casi idéntico al diseño final pero sin color/branding completo
+- Tipografía real, espaciado exacto, contenido real o cercano
+- Ideal para handoff a desarrollo o testing detallado
+- Tiempo: días
+
+**Cuándo usar cada nivel:**
+
+| Situación | Fidelidad recomendada |
+|---|---|
+| Kick-off / exploración de ideas | Low |
+| Validación de estructura con equipo | Low → Mid |
+| Testing con usuarios (navegación) | Mid |
+| Demo a stakeholders / clientes | Mid → High |
+| Handoff a desarrollo | High |
+| Pitch o presentación ejecutiva | High |
+
+> **Anti-patrón:** Usar high-fidelity en etapas tempranas. El costo de cambio es alto y genera apego emocional al diseño.
+
+---
+
+## 2. Rol de los Wireframes en UX/UI
+
+### 2.1 Estructura antes de Estética
+
+Los wireframes fuerzan a tomar decisiones **estructurales** sin distracciones visuales:
+
+- ¿Qué contenido va en esta pantalla?
+- ¿Cuál es la jerarquía de importancia?
+- ¿Qué acción principal debe tomar el usuario?
+- ¿Cómo navega hacia/desde esta pantalla?
+
+> **Principio:** La estructura define la experiencia. La estética la refina.
+
+### 2.2 Relación con otros Artefactos UX
+
+```
+                    ┌──────────────┐
+                    │   Research   │
+                    └──────┬───────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+        ┌──────────┐ ┌──────────┐ ┌───────────┐
+        │ Personas │ │ User     │ │ Story     │
+        │          │ │ Stories  │ │ Mapping   │
+        └────┬─────┘ └────┬─────┘ └─────┬─────┘
+             │             │             │
+             ▼             ▼             ▼
+        ┌──────────────────────────────────────┐
+        │            Sitemap                   │
+        └──────────────────┬───────────────────┘
+                           │
+                           ▼
+        ┌──────────────────────────────────────┐
+        │          User Flows                  │
+        └──────────────────┬───────────────────┘
+                           │
+                           ▼
+        ┌──────────────────────────────────────┐
+        │     ★ WIREFRAMES ★                   │
+        │  (estructura + layout + jerarquía)   │
+        └──────────────────┬───────────────────┘
+                           │
+                           ▼
+                  Mockups → Prototipos → Dev
+```
+
+**Sitemap → Wireframes:**
+
+- El sitemap define **qué páginas** existen
+- El wireframe define **qué contiene** cada página y cómo se organiza
+
+**User Flows → Wireframes:**
+
+- Los user flows definen la **secuencia de pasos** del usuario
+- Los wireframes materializan **cada paso** como pantalla concreta
+
+**Arquitectura de Información → Wireframes:**
+
+- La AI define la **organización lógica** del contenido
+- El wireframe la traduce a **disposición espacial** en pantalla
+
+### 2.3 Reducción de Incertidumbre
+
+Los wireframes implementan el ciclo **Build → Measure → Learn** (Lean Startup):
+
+1. **Build:** Crear wireframe rápido
+2. **Measure:** Probar con usuarios/equipo (¿funciona la interacción? ¿se entiende?)
+3. **Learn:** Identificar fallos y oportunidades
+4. **Repetir**
+
+**Beneficios concretos:**
+
+- Fallar rápido y barato (minutos/horas vs días/semanas)
+- Alinear expectativas antes del desarrollo
+- Descubrir flujos rotos o contenido faltante tempranamente
+- Dar claridad al equipo técnico sobre qué construir
+
+> **Error común:** No iterar. Crear un wireframe, aprobarlo y pasar directamente a UI sin validar con usuarios reales.
+
+---
+
+## 3. Componentes Clave de un Wireframe
+
+### 3.1 Layout (Estructura Base)
+
+El layout es la distribución espacial de los bloques de contenido en la pantalla.
+
+```
+Patrones de layout comunes:
+
+1) Single Column         2) Two Column           3) Grid
+┌───────────────┐        ┌────────┬──────┐       ┌────┬────┬────┐
+│    Header     │        │ Header │      │       │  Header       │
+├───────────────┤        ├────────┤ Side │       ├────┬────┬────┤
+│               │        │        │ bar  │       │    │    │    │
+│   Content     │        │ Main   │      │       │ C1 │ C2 │ C3 │
+│               │        │        │      │       │    │    │    │
+├───────────────┤        ├────────┴──────┤       ├────┴────┴────┤
+│    Footer     │        │    Footer     │       │    Footer     │
+└───────────────┘        └───────────────┘       └──────────────┘
+
+Mejor para:             Mejor para:              Mejor para:
+- Mobile               - Blogs, docs            - E-commerce
+- Landing pages        - Dashboards             - Portfolios
+- Formularios          - Email clients          - Galerías
+```
+
+### 3.2 Jerarquía Visual
+
+Define qué ve el usuario **primero, segundo y tercero** sin usar color.
+
+**Herramientas en wireframes para establecer jerarquía:**
+
+- **Tamaño:** Elementos más grandes = más importantes
+- **Posición:** Arriba y a la izquierda = más prominente (en culturas LTR)
+- **Peso visual:** Bloques más gruesos o con borde atraen la vista
+- **Espacio en blanco:** Aislar un elemento le da protagonismo
+
+```
+Ejemplo: Landing page con jerarquía clara
+
+┌─────────────────────────────────────┐
+│  Logo          Nav1  Nav2  [Login]  │  ← Nivel 3: Navegación
+├─────────────────────────────────────┤
+│                                     │
+│      TÍTULO PRINCIPAL GRANDE        │  ← Nivel 1: Mensaje clave
+│      Subtítulo descriptivo          │
+│                                     │
+│         [ CTA Principal ]           │  ← Nivel 1: Acción deseada
+│                                     │
+├──────────┬──────────┬───────────────┤
+│  ┌────┐  │  ┌────┐  │  ┌────┐      │
+│  │icon│  │  │icon│  │  │icon│      │  ← Nivel 2: Propuesta de valor
+│  └────┘  │  └────┘  │  └────┘      │
+│ Feature 1│ Feature 2│ Feature 3    │
+│  ─────── │  ─────── │  ───────     │
+└──────────┴──────────┴───────────────┘
+```
+
+> **Anti-patrón:** Todo al mismo tamaño y peso. Si todo es importante, nada lo es.
+
+### 3.3 Navegación
+
+| Patrón | Uso ideal | Representación en wireframe |
+|---|---|---|
+| **Navbar horizontal** | Sitios con 3-7 secciones principales | `[Logo] [Nav1] [Nav2] [Nav3] [CTA]` |
+| **Hamburger menu** | Mobile o apps con muchas secciones | `[Logo] [☰]` |
+| **Sidebar** | Dashboards, admin panels, SaaS | Columna fija a la izquierda |
+| **Tabs** | Contenido relacionado en una misma vista | `[Tab1] [Tab2*] [Tab3]` |
+| **Breadcrumbs** | Sitios con jerarquía profunda | `Home > Categoría > Producto` |
+| **Bottom nav** | Apps mobile (3-5 items) | `[🏠] [🔍] [➕] [❤️] [👤]` |
+
+### 3.4 Contenido (Placeholders)
+
+En wireframes **no se usa contenido real** (excepto en high-fidelity). Se usan placeholders:
+
+- **Texto:** Líneas horizontales `───────` o "Lorem ipsum"
+- **Imágenes:** Rectángulo con X diagonal `[  X  ]`
+- **Video:** Rectángulo con triángulo `[  ▶  ]`
+- **Iconos:** Círculo pequeño o cuadrado `[●]` `[■]`
+- **Avatares:** Círculo `(👤)`
+
+### 3.5 Calls to Action (CTA)
+
+Son los elementos que guían al usuario a completar la acción deseada.
+
+**Reglas para CTAs en wireframes:**
+
+1. **Un CTA primario por pantalla** — La acción más importante
+2. **CTAs secundarios claramente diferenciados** — Menor peso visual
+3. **Posición predecible** — Donde el usuario espera encontrarlos
+4. **Copy de acción** — Verbos: "Comprar", "Registrarse", "Ver más" (no "Click aquí")
+
+```
+CTA Primario:    [ ██████████████ ]    (bloque sólido, prominente)
+CTA Secundario:  [ ─────────────── ]   (outline, menos peso)
+Link:             Texto subrayado       (mínimo peso)
+```
+
+### 3.6 Elementos Interactivos Básicos
+
+```
+Formularios:
+┌──────────────────────┐
+│ Label                │
+│ ┌──────────────────┐ │
+│ │ Input text       │ │
+│ └──────────────────┘ │
+│                      │
+│ Label                │
+│ ┌──────────────────┐ │
+│ │ ▼ Dropdown       │ │
+│ └──────────────────┘ │
+│                      │
+│ [○] Opción A         │
+│ [●] Opción B         │
+│                      │
+│ [✓] Acepto términos  │
+│                      │
+│ [ ████ Enviar ████ ] │
+└──────────────────────┘
+
+Otros elementos:
+- Toggle:      [===○  ] OFF    [  ○===] ON
+- Slider:      [──●────────]
+- Search:      [🔍 Buscar...        ]
+- Pagination:  [<] [1] [2*] [3] [>]
+- Modal:       Caja superpuesta con overlay
+```
+
+---
+
+## 4. Tipos de Wireframes
+
+### 4.1 Wireframes de Páginas Estáticas
+
+Para pantallas individuales con contenido fijo (landing, about, pricing).
+
+```
+Ejemplo: Pricing Page
+
+┌─────────────────────────────────────────┐
+│  Logo                       Nav  [CTA]  │
+├─────────────────────────────────────────┤
+│          Elige tu plan                  │
+│     [Mensual] [Anual - 20% off]        │
+├─────────────┬─────────────┬─────────────┤
+│   BÁSICO    │    PRO      │  ENTERPRISE │
+│   $9/mes    │   $29/mes   │   $99/mes   │
+│  ─────────  │  ─────────  │  ─────────  │
+│  ✓ Feature  │  ✓ Feature  │  ✓ Feature  │
+│  ✓ Feature  │  ✓ Feature  │  ✓ Feature  │
+│  ✗ Feature  │  ✓ Feature  │  ✓ Feature  │
+│  ✗ Feature  │  ✗ Feature  │  ✓ Feature  │
+│ [Elegir]    │ [██Elegir██]│  [Elegir]   │
+└─────────────┴─────────────┴─────────────┘
+```
+
+### 4.2 Wireframes de Flujos (Multi-step)
+
+Documentan secuencias completas de interacción.
+
+```
+Flujo: Checkout en e-commerce
+
+  ┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
+  │ Carrito │ ──→ │ Datos   │ ──→ │  Pago   │ ──→ │ Confir- │
+  │         │     │ envío   │     │         │     │ mación  │
+  └─────────┘     └─────────┘     └─────────┘     └─────────┘
+       │               │               │               │
+       ▼               ▼               ▼               ▼
+  ┌─────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐
+  │Lista    │   │ Nombre    │   │ Tarjeta   │   │ ✓ Pedido  │
+  │productos│   │ Dirección │   │ Fecha exp │   │  #12345   │
+  │ Qty  $  │   │ Ciudad    │   │ CVV       │   │           │
+  │─────────│   │ CP        │   │           │   │ Resumen   │
+  │Subtotal │   │           │   │ Total: $X │   │ ────────  │
+  │Envío    │   │[Continuar]│   │ [Pagar]   │   │ [Inicio]  │
+  │[Checkout│   └───────────┘   └───────────┘   └───────────┘
+  └─────────┘
+
+  Barra de progreso: [1 ●──────2 ○──────3 ○──────4 ○]
+```
+
+> **Decisión clave:** En flujos multi-step, siempre incluir indicador de progreso y opción de retroceso.
+
+### 4.3 Wireframes Responsive
+
+Diseñar la misma pantalla para múltiples breakpoints.
+
+```
+Desktop (1200px+)           Tablet (768px)        Mobile (375px)
+┌──────────────────────┐   ┌───────────────┐     ┌─────────┐
+│ Logo    Nav Nav [CTA]│   │ Logo  Nav [☰] │     │Logo [☰] │
+├────────┬─────────────┤   ├───────────────┤     ├─────────┤
+│        │             │   │               │     │         │
+│  Img   │  Título     │   │    Título     │     │  Título │
+│        │  ────────   │   │    ────────   │     │ ─────── │
+│        │  ────────   │   │    ┌─────┐   │     │ ┌─────┐ │
+│        │  [CTA]      │   │    │ Img │   │     │ │ Img │ │
+│        │             │   │    └─────┘   │     │ └─────┘ │
+├────────┴─────────────┤   │    [CTA]     │     │  [CTA]  │
+│ Card  Card  Card     │   ├──────┬────────┤     ├─────────┤
+│                      │   │ Card │ Card   │     │  Card   │
+└──────────────────────┘   └──────┴────────┘     │  Card   │
+                                                  │  Card   │
+                                                  └─────────┘
+```
+
+**Reglas para responsive wireframing:**
+
+1. **Mobile-first:** Diseñar primero para la pantalla más pequeña
+2. **Priorizar contenido:** ¿Qué se elimina/colapsa en mobile?
+3. **Navegación adaptable:** Navbar → Hamburger
+4. **Layouts fluidos:** Columnas se apilan verticalmente
+5. **Touch targets:** Mínimo 44x44px en mobile
+
+### 4.4 Wireframes para Productos Complejos
+
+Dashboards, SaaS, herramientas internas.
+
+```
+Dashboard - Analytics
+
+┌──────────────────────────────────────────────────┐
+│  [☰] App Name         🔔  (👤) Admin ▼          │
+├──────────┬───────────────────────────────────────┤
+│          │  Dashboard     [Filtro ▼] [Exportar]  │
+│ 📊 Dash  │───────────────────────────────────────│
+│ 👥 Users │  ┌────────┐┌────────┐┌────────┐      │
+│ 📈 Stats │  │ KPI 1  ││ KPI 2  ││ KPI 3  │      │
+│ ⚙️ Config│  │ $12.5k ││ 1,234  ││ 87%    │      │
+│ 📋 Logs  │  │ +12% ↑ ││ -3% ↓  ││ +5% ↑  │      │
+│          │  └────────┘└────────┘└────────┘      │
+│          │                                       │
+│          │  ┌─────────────────────────────────┐  │
+│          │  │                                 │  │
+│          │  │   [Gráfico de línea/barras]     │  │
+│          │  │                                 │  │
+│          │  └─────────────────────────────────┘  │
+│          │                                       │
+│          │  ┌────────────────┐ ┌──────────────┐  │
+│          │  │ Tabla reciente │ │ Actividad    │  │
+│          │  │ ────────────── │ │ ──────────── │  │
+│          │  │ Row 1          │ │ Item 1       │  │
+│          │  │ Row 2          │ │ Item 2       │  │
+│          │  └────────────────┘ └──────────────┘  │
+└──────────┴───────────────────────────────────────┘
+```
+
+**Consideraciones para productos complejos:**
+
+- **Sidebar persistente** para navegación principal
+- **KPIs visibles** al primer vistazo (above the fold)
+- **Filtros y acciones contextuales** cercanos al contenido
+- **Densidad de información controlada** — agrupar por relevancia
+- **Estados:** vacío, cargando, error, con datos (wireframear todos)
+
+> **Error común:** Solo wireframear el "happy path". Los estados vacíos, errores y edge cases son igual de importantes.
+
+---
+
+## 5. Metodología Paso a Paso
+
+### Paso 1: Definir Objetivos de la Pantalla
+
+Antes de dibujar, responder:
+
+- **¿Qué debe lograr el usuario en esta pantalla?** (objetivo del usuario)
+- **¿Qué debe lograr el negocio con esta pantalla?** (objetivo de negocio)
+- **¿Cuál es la acción principal?** (un solo CTA primario)
+
+```
+Ejemplo — Pantalla de producto e-commerce:
+
+  Objetivo usuario: Evaluar si quiere comprar el producto
+  Objetivo negocio: Convertir visita en compra
+  Acción principal: "Agregar al carrito"
+  Acciones secundarias: Ver reviews, comparar, guardar
+```
+
+### Paso 2: Identificar Necesidades del Usuario
+
+Consultar artefactos previos:
+
+- **User Stories:** "Como usuario, quiero ver el precio claramente para decidir si compro"
+- **User Flows:** ¿De dónde viene el usuario? ¿A dónde va después?
+- **Personas:** ¿Qué nivel técnico tiene? ¿Qué le importa más?
+
+### Paso 3: Priorización de Contenido
+
+Listar **todo** lo que podría ir en la pantalla y priorizar:
+
+| Prioridad | Contenido | Justificación |
+|---|---|---|
+| P1 - Esencial | Nombre, precio, CTA compra, imagen | Sin esto no hay conversión |
+| P2 - Importante | Descripción, reviews, variantes | Ayuda a la decisión |
+| P3 - Complementario | Productos relacionados, breadcrumbs | Mejora la experiencia |
+| P4 - Opcional | Redes sociales, share | Bajo impacto |
+
+> **Regla:** P1 siempre above the fold. P4 puede eliminarse si hay restricciones.
+
+### Paso 4: Bocetado Rápido (Sketching)
+
+- Papel y lápiz: 3-5 variaciones en 10-15 minutos
+- No borrar, hacer múltiples versiones
+- Anotar decisiones y dudas directamente en el sketch
+- **Crazy 8s:** 8 ideas en 8 minutos (1 por minuto) para forzar creatividad
+
+### Paso 5: Digitalización
+
+1. Elegir la mejor variación del sketch
+2. Traducir a herramienta digital (Figma, Balsamiq)
+3. Usar grilla para alineación
+4. Definir espaciado consistente (8px grid system)
+5. Agregar anotaciones para el equipo
+
+### Paso 6: Iteración y Validación
+
+```
+Ciclo de iteración:
+
+  Wireframe v1 → Review interno → Ajustes
+       ↓
+  Wireframe v2 → Test con usuarios → Hallazgos
+       ↓
+  Wireframe v3 → Demo a stakeholders → Feedback
+       ↓
+  Wireframe final → Handoff a UI/Dev
+```
+
+> **Tackle the riskiest features first.** Priorizar wireframes de pantallas con mayor impacto en el éxito del producto (search, onboarding, checkout) sobre pantallas de bajo riesgo (perfil, configuración).
+
+---
+
+## 6. Buenas Prácticas de Diseño
+
+### 6.1 Claridad sobre Estética
+
+- Colores: solo escala de grises (blanco, gris claro, gris oscuro, negro)
+- Tipografía: máximo 2 fuentes genéricas; usar tamaño y peso para jerarquía
+- Sin imágenes reales: solo placeholders
+- Sin sombras, gradientes o efectos
+
+> **Si un wireframe necesita color para entenderse, tiene un problema de jerarquía.**
+
+### 6.2 Uso de Grillas (Grid Systems)
+
+```
+12-Column Grid (estándar):
+
+│ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │10 │11 │12 │
+├───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┤
+
+Ejemplo de distribución:
+│◄──── 8 cols (contenido) ────►│◄── 4 cols (sidebar) ──►│
+│◄── 4 cols ──►│◄── 4 cols ──►│◄── 4 cols ──►│  (3 cards)
+│◄──────────── 12 cols (full width) ─────────────────────►│
+
+Spacing: múltiplos de 8px (8, 16, 24, 32, 48, 64)
+```
+
+### 6.3 Consistencia entre Pantallas
+
+- Misma posición para header, nav y footer en **todas** las pantallas
+- Mismo patrón de layout para páginas del mismo tipo
+- CTAs primarios siempre con el mismo estilo de bloque
+- Mismo espaciado y márgenes
+
+### 6.4 Diseño Basado en Patrones
+
+Usar patrones conocidos reduce la curva de aprendizaje del usuario:
+
+| Patrón | Cuándo usarlo |
+|---|---|
+| **F-pattern** | Páginas con mucho texto (blogs, noticias) |
+| **Z-pattern** | Landing pages con pocos elementos |
+| **Card pattern** | Listados de contenido homogéneo |
+| **Master-detail** | Listas con vista de detalle (email, dashboards) |
+| **Wizard/Steps** | Procesos secuenciales (checkout, onboarding) |
+
+### 6.5 Minimizar Carga Cognitiva
+
+- **Ley de Hick:** Menos opciones = decisión más rápida → limitar navegación a 5-7 items
+- **Ley de Miller:** Agrupar información en chunks de 3-5 elementos
+- **Proximidad (Gestalt):** Elementos relacionados deben estar cerca
+- **Espacio en blanco:** No es espacio vacío, es espacio que da respiro
+
+### 6.6 Enfoque en Tareas Clave
+
+Cada pantalla debe tener **una tarea principal**. Si una pantalla intenta hacer demasiado, dividirla.
+
+> **Anti-patrón — "The Kitchen Sink":** Meter todo en una sola pantalla. Si necesitas scroll infinito para ver el CTA, la pantalla necesita simplificarse.
+
+---
+
+## 7. Herramientas y Flujo de Trabajo
+
+### 7.1 Herramientas por Contexto
+
+| Herramienta | Mejor para | Fidelidad | Curva de aprendizaje |
+|---|---|---|---|
+| **Papel + lápiz** | Brainstorming, sketching | Low | Ninguna |
+| **Balsamiq** | Wireframes rápidos, look "hand-drawn" | Low-Mid | Baja |
+| **Whimsical** | Wireframes + flowcharts integrados | Low-Mid | Baja |
+| **Figma** | Todo el flujo de diseño, colaboración | Mid-High | Media |
+| **Sketch** | Diseño UI (macOS only) | Mid-High | Media |
+| **Axure** | Wireframes complejos + interacciones | Mid-High | Alta |
+
+> **Recomendación:** Figma es el estándar actual. Permite wireframing, mockups, prototipos y colaboración en tiempo real en una sola herramienta.
+
+### 7.2 Componentes Reutilizables
+
+Crear una **librería de wireframe** con componentes base:
+
+```
+Componentes esenciales:
+
+  □ Navbar (desktop + mobile)
+  □ Footer
+  □ Cards (horizontal, vertical)
+  □ Formularios (inputs, dropdowns, checkboxes, radio)
+  □ Botones (primario, secundario, link)
+  □ Modales
+  □ Tablas
+  □ Paginación
+  □ Breadcrumbs
+  □ Alertas / Notificaciones
+  □ Empty states
+  □ Loading states
+```
+
+**Ventajas:**
+
+- Consistencia automática entre pantallas
+- Velocidad: arrastrar y soltar vs dibujar desde cero
+- Cambio global: editar componente → se actualiza en todos los wireframes
+
+### 7.3 Librerías UI Básicas para Wireframing
+
+- **Figma:** Wireframe Kit (community), Ant Design Wireframe
+- **Balsamiq:** Librería integrada
+- **Whimsical:** Templates de wireframe
+
+### 7.4 Versionado y Colaboración
+
+- **Nombrado:** `NombreProyecto_Pantalla_v01`, `v02`, etc.
+- **Páginas en Figma:** Una página por flujo o sección
+- **Comentarios:** Usar comentarios en Figma para feedback contextual
+- **Branches (Figma):** Para explorar alternativas sin romper el archivo principal
+- **Presentaciones:** Usar modo presentación para demos a stakeholders
+
+---
+
+## 8. Validación y Testing
+
+### 8.1 Pruebas Rápidas con Usuarios
+
+**Tipos de test con wireframes:**
+
+| Test | Qué valida | Cómo hacerlo |
+|---|---|---|
+| **5-second test** | Primera impresión, jerarquía | Mostrar wireframe 5 seg → preguntar qué recuerdan |
+| **Think-aloud** | Comprensión del flujo | Usuario narra mientras navega wireframes |
+| **Task completion** | Eficacia de la estructura | "Encuentra X", "Completa Y" |
+| **A/B de wireframes** | Comparar alternativas | Mostrar variante A y B → medir preferencia/eficacia |
+| **Card sorting** | Organización de contenido | Validar si la agrupación tiene sentido para el usuario |
+
+**Mínimo viable de testing:**
+
+- 5 usuarios son suficientes para encontrar ~85% de problemas de usabilidad
+- No necesitas lab: videollamada + screen share funciona
+- Wireframes impresos + un café es suficiente para early testing
+
+### 8.2 Feedback Iterativo
+
+```
+Fuentes de feedback:
+
+  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+  │   Usuarios   │   │    Equipo    │   │ Stakeholders │
+  │              │   │              │   │              │
+  │ Validación   │   │ Feasibility  │   │ Alineación   │
+  │ de usabilidad│   │ técnica y    │   │ con business │
+  │              │   │ consistencia │   │ goals        │
+  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘
+         │                  │                   │
+         └──────────────────┼───────────────────┘
+                            ▼
+                    Wireframe mejorado
+```
+
+**Cómo documentar feedback:**
+
+- **Qué se observó** (hecho, no interpretación)
+- **Dónde ocurrió** (pantalla/elemento específico)
+- **Severidad** (crítico / mayor / menor)
+- **Acción propuesta** (cambio concreto)
+
+### 8.3 Identificación de Fricción en la Navegación
+
+**Señales de fricción:**
+
+- Usuario no encuentra el CTA
+- Usuario no sabe cómo regresar
+- Usuario no entiende dónde está (falta breadcrumbs/indicadores)
+- Usuario necesita más de 3 clicks para completar tarea clave
+- Usuario confunde elementos interactivos con decorativos
+
+**Checklist de validación de navegación:**
+
+- [ ] ¿El usuario sabe en qué página está?
+- [ ] ¿Puede regresar fácilmente a la pantalla anterior?
+- [ ] ¿Encuentra el CTA principal en < 3 segundos?
+- [ ] ¿El flujo requiere el mínimo de pasos necesarios?
+- [ ] ¿Los labels de navegación son claros y sin ambigüedad?
+
+### 8.4 Ajustes antes de Pasar a UI Visual
+
+**Criterios de "Done" para wireframes:**
+
+1. ✅ Todos los flujos principales están wireframeados
+2. ✅ Estados edge case documentados (vacío, error, loading)
+3. ✅ Al menos una ronda de feedback con usuarios
+4. ✅ Aprobación del equipo técnico (feasibility)
+5. ✅ Alineación con stakeholders en estructura y contenido
+6. ✅ Responsive contemplado (al menos mobile y desktop)
+7. ✅ Anotaciones claras para el handoff
+
+> **Decisión incorrecta frecuente:** Pasar a UI visual cuando "se ve bonito" en lugar de cuando está **validado estructuralmente**. Un wireframe bonito que nadie ha testeado es solo decoración.
+
+---
+
+## Resumen: Decisiones Clave
+
+| Momento | Pregunta | Acción |
+|---|---|---|
+| Antes de wireframear | ¿Tengo sitemap, user flows y requirements? | Si no → obtenerlos primero |
+| Al iniciar | ¿Cuáles son las pantallas de mayor riesgo? | Priorizar esas |
+| Durante el diseño | ¿El usuario entiende qué hacer? | Si no → simplificar jerarquía |
+| Al iterar | ¿He validado con al menos 5 usuarios? | Si no → testear antes de avanzar |
+| Antes del handoff | ¿Están documentados todos los estados? | Si no → completar edge cases |
+
+> **Mantra del wireframing:** Estructura primero, estética después. Valida temprano, itera siempre. Mantén al usuario en el centro de cada decisión.

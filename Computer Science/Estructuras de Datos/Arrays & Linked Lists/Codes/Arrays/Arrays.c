@@ -1,6 +1,40 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ════════════════════════════════════════════════════════════════════════════════
+// Array Structure Definition
+//
+// Given a size and a length, the array can hold a maximum of 'size' elements,
+// but currently contains 'length' elements.
+//
+// Functions:
+//
+// Display: Show the elements of the array
+// Append: Add an element to the end of the array
+// Insert: Add an element at a specific index
+// Delete: Remove an element from a specific index
+// Reverse: Reverse the order of elements in the array
+// Rearrange: Rearrange elements based on a specific criterion
+// isSorted: Check if the array is sorted
+// isEmpty: Check if the array is empty
+//
+// Get: Retrieve an element at a specific index
+// Set: Update an element at a specific index
+// Max: Find the maximum element in the array
+// Min: Find the minimum element in the array
+// Average: Calculate the average of the elements in the array
+// Sum: Calculate the sum of the elements in the array
+//
+// Merge: Combine two arrays into one
+// Union: Combine two arrays and remove duplicates
+// Intersection: Find common elements between two arrays
+// Difference: Find elements in one array but not in the other
+//
+// Linear Search: Find an element in the array
+// Binary Search: Find an element in a sorted array
+// Recursive Binary Search: Find an element in a sorted array (recursive)
+// ════════════════════════════════════════════════════════════════════════════════
+
 typedef struct Array {
     int *data;
     int size;

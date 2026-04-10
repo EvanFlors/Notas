@@ -1,6 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ════════════════════════════════════════════════════════════════════
+//
+// Find Duplicates in a Unsorted Array
+// This function finds and prints duplicate elements in a unsorted array.
+//
+// Given: A unsorted array of integers
+// Returns: A list of duplicate integers
+//
+// Method 1: Brute Force        - O(n^2), O(1) space
+// Method 2: Hashing            - O(n), O(n) space
+//
+// ════════════════════════════════════════════════════════════════════
+
 typedef struct {
     int *data;
     int size;

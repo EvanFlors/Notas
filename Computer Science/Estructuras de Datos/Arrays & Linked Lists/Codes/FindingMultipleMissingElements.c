@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 // ═══════════════════════════════════════════════
+//
 //  Finding Multiple Missing Elements
 //  in a Sorted Array of Natural Numbers
 //
@@ -11,6 +12,7 @@
 //  Method 1: Difference method    — O(n + k), O(1) space
 //  Method 2: Hash table method    — O(n + range), O(range) space
 //  (where k = number of missing elements)
+//
 // ═══════════════════════════════════════════════
 
 typedef struct {

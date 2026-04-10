@@ -1,6 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ════════════════════════════════════════════════════════════════════
+//
+// Find Duplicates in a Sorted Array
+// This function finds and prints duplicate elements in a sorted array.
+//
+// Given: A sorted array of integers
+// Returns: A list of duplicate integers
+//
+// Method 1: Two Pointer Technique  — O(n), O(1) space
+// Method 2: Hashing                — O(n), O(n) space
+//
+// ════════════════════════════════════════════════════════════════════
+
 typedef struct {
     int *data;
     int size;
