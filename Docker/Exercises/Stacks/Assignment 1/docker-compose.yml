@@ -1,0 +1,33 @@
+# create your drupal and postgres config here, based off the last assignment
+
+services:
+  drupal:
+    image: drupal:8.2
+    ports:
+      - "8080:80"
+    volumes:
+      - drupal-modules:/var/www/html/modules
+      - drupal-profiles:/var/www/html/profiles
+      - drupal-sites:/var/www/html/sites
+      - drupal-themes:/var/www/html/themes
+
+  mariadb:
+    image: mariadb:10.5
+    environment:
+      - MARIADB_ROOT_PASSWORD_FILE=/run/secrets/mdb-psw
+    secrets:
+      - mdb-psw
+    volumes:
+      - drupal-db:/var/lib/mysql
+
+volumes:
+  drupal-db:
+  drupal-modules:
+  drupal-profiles:
+  drupal-sites:
+  drupal-themes:
+
+secrets:
+  mdb-psw:
+    # file: ./mdb-psw
+    external: true # echo <string> | docker secret create mdb-psw -
