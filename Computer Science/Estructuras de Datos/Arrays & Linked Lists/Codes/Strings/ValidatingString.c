@@ -1,6 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ════════════════════════════════════════════════════════════════════
+//
+// Validate a string (alphanumeric characters only)
+//
+// Given: A string
+// Returns: 1 if the string is valid (contains only letters and digits), 0
+//
+// Method 1: Iteration      - O(n), O(1) space
+//
+// ════════════════════════════════════════════════════════════════════
+
 int validateString(const char *);
 
 int main() {

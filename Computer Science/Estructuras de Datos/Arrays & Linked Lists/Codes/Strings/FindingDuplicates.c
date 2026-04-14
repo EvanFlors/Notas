@@ -1,6 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ════════════════════════════════════════════════════════════════════
+//
+// Find duplicates in a String
+//
+// Given: A string
+// Returns: A list of duplicate characters
+//
+// Functions:
+// - findDuplicatesComparingAll(char *): Finds duplicates by comparing all characters.
+// - findDuplicatesHash(char *): Finds duplicates using a hash table.
+// - findDuplicatesBits(char *): Finds duplicates using bit manipulation.
+//
+// ════════════════════════════════════════════════════════════════════
+
 void findDuplicatesComparingAll(char *);
 void findDuplicatesHash(char *);
 void findDuplicatesBits(char *);

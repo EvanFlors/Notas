@@ -2,6 +2,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+// ════════════════════════════════════════════════════════════════════
+//
+// Count words and vowels inside a string
+//
+// Given: A string
+// Returns: The number of words and vowels in the string
+//
+// Functions:
+// - countWords(const char *str): Counts the number of words in the string.
+// - countVowels(const char *str): Counts the number of vowels in the string.
+//
+// ════════════════════════════════════════════════════════════════════
+
 int countWords(const char *);
 int countVowels(const char *);
 

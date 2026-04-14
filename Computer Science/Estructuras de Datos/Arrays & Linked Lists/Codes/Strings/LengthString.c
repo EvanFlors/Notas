@@ -1,6 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ════════════════════════════════════════════════════════════════════
+//
+// Get the length of a string
+//
+// Given: A string
+// Returns: The length of the string
+//
+// Method 1: Iteration      - O(n) time, O(1) space
+//
+// ════════════════════════════════════════════════════════════════════
+
 int getStringLength(const char *);
 
 int main() {

@@ -1,6 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ════════════════════════════════════════════════════════════════════
+//
+// Reverse a string
+//
+// Given: A string
+// Returns: The reversed string
+//
+// Method 1: Iteration      - O(n) time, O(1) space
+//
+// ════════════════════════════════════════════════════════════════════
+
 void reverseString(char *);
 
 int main() {

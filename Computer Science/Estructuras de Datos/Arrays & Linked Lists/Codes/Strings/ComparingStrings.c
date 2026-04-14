@@ -1,6 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// ════════════════════════════════════════════════════════════════════
+//
+// Compare strings and find the first non-matching character
+//
+// Given: Two strings
+// Returns: The ASCII difference between the first non-matching characters
+//
+// Method 1: Iteration      - O(n), O(1) space
+//
+// ════════════════════════════════════════════════════════════════════
+
 int compareStrings(char *, char *);
 
 int main() {
