@@ -22,7 +22,7 @@ int main() {
 
     for (i = 0; i < m.n; i++) {
         for (j = 0; j < m.n; j++) {
-            if (j >= i) {
+            if (i >= j) {
                 printf("Enter element [%d, %d]: ", i, j);
                 scanf("%d", &x);
                 Set(&m, i, j, x);
@@ -36,17 +36,19 @@ int main() {
 }
 
 void Set(Matrix *m, int i, int j, int x) {
-    if (j >= i) {
-        m->A[(j * (j + 1)) / 2 + i] = x;
+    if (i >= j) {
+        m->A[i * (i + 1) / 2 + j - 1] = x;
     }
 }
 
 int Get(Matrix m, int i, int j) {
-    if (j >= i) {
-        return m.A[(j * (j + 1)) / 2 + i];
+    if (i >= j) {
+        // M[i][j]
+        return m.A[i * (i + 1) / 2 + j - 1]; // Accessing lower triangular part
+    } else {
+        // M[j][i]
+        return m.A[j * (j + 1) / 2 + i - 1]; // Accessing upper triangular part
     }
-
-    return 0;
 }
 
 void Display(Matrix m) {
