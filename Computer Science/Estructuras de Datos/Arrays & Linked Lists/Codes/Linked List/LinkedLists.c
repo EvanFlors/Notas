@@ -8,6 +8,10 @@ typedef struct Node {
 
 void Create(int [], int, Node **);
 
+Node *Concatenate(Node *, Node *);
+Node *Merge(Node *, Node *);
+
+int Loop(Node *);
 int Sorted(Node *);
 int Count(Node *);
 int Sum(Node *);
@@ -23,8 +27,10 @@ void SortedInsert(Node **, int);
 int Delete(Node **, int);
 
 void Reverse(Node **);
+void ReverseRecursive(Node **, Node *, Node *);
 
 void RemoveDuplicatesSorted(Node **);
+void RemoveDuplicatesUnsorted(Node **);
 
 void DisplayRecursive(Node *);
 void Display(Node *);
@@ -32,13 +38,17 @@ void Display(Node *);
 int main() {
 
     int A[] = {1, 1, 1, 2, 3, 3, 5, 7, 10, 15};
-    Node *head = NULL;
-    Create(A, 10, &head);
-    RemoveDuplicatesSorted(&head);
+    int B[] = {1, 2, 3, 5, 12, 15};
 
-    Display(head);
+    Node *first = NULL;
+    Node *second = NULL;
 
-    printf("Sorted: %d\n", Sorted(head));
+    Create(A, 10, &first);
+    Create(B, 6, &second);
+
+    Node *merged = Concatenate(first, second);
+
+    Display(merged);
 
     return 0;
 }
@@ -75,6 +85,21 @@ int Sorted(Node *p) {
     }
 
     return 1;
+}
+
+int Loop(Node *p) {
+
+    Node *fast, *slow;
+    fast = slow = p;
+
+    do {
+        fast = fast->next;
+        slow = slow->next;
+        fast = fast ? fast->next : NULL;
+
+    } while (fast && slow && fast != slow);
+
+    return fast == slow;
 }
 
 int Count(Node *p) {
@@ -229,8 +254,29 @@ int Delete(Node **first, int position) {
 
 void Reverse(Node **first) {
 
+    Node *prev = NULL;
+    Node *current = *first;
+    Node *next = NULL;
 
+    while (current != NULL) {
+        next = current->next;
+        current->next = prev;
+        prev = current;
+        current = next;
+    }
 
+    *first = prev;
+}
+
+void ReverseRecursive(Node **first, Node *current, Node *prev) {
+    if (current == NULL) {
+        *first = prev;
+        return;
+    }
+
+    Node *next = current->next;
+    current->next = prev;
+    ReverseRecursive(first, next, current);
 }
 
 void RemoveDuplicatesSorted(Node **first) {
@@ -247,6 +293,78 @@ void RemoveDuplicatesSorted(Node **first) {
             p = q->next;
         }
     }
+}
+
+void RemoveDuplicatesUnsorted(Node **first) {
+
+    Node *current = *first;
+    Node *prev = NULL;
+    Node *temp = NULL;
+
+    while (current != NULL) {
+        temp = *first;
+        prev = NULL;
+
+        while (temp != current) {
+            if (temp->data == current->data) {
+                if (prev == NULL) {
+                    *first = temp->next;
+                } else {
+                    prev->next = temp->next;
+                }
+                free(temp);
+                temp = (prev == NULL) ? *first : prev->next;
+            } else {
+                prev = temp;
+                temp = temp->next;
+            }
+        }
+        current = current->next;
+    }
+}
+
+Node *Concatenate(Node *p, Node *q) {
+
+    Node *t = p;
+
+    while (p->next != NULL)
+        p = p->next;
+
+    p->next = q;
+
+    return t;
+}
+
+Node *Merge(Node *p, Node *q) {
+
+    if (!p) return q;
+    if (!q) return p;
+
+    Node *t, *last;
+
+    if (p->data <= q->data) {
+        t = last = p;
+        p = p->next;
+    } else {
+        t = last = q;
+        q = q->next;
+    }
+
+    while (p && q) {
+        if (p->data <= q->data) {
+            last->next = p;
+            last = p;
+            p = p->next;
+        } else {
+            last->next = q;
+            last = q;
+            q = q->next;
+        }
+    }
+
+    last->next = p ? p : q;
+
+    return t;
 }
 
 void Display(Node *p) {
