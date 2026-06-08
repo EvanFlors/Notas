@@ -12,17 +12,21 @@ typedef struct Node {
  * Function Prototypes
  * ---------------------------------------------------------- */
 
-Node *create_node(int data);
-Node *insert(Node *root, int key);
+Node *create_node(int);
+
+Node *insert(Node *, int);
+Node *delete(Node *, int);
+
+int node_height(Node *);
+int balance_factor(Node *);
+
+Node *inorder_successor(Node *);
+Node *inorder_predecessor(Node *);
+
+void inorder(Node *);
 
 Node *right_rotate(Node *);
 Node *left_rotate(Node *);
-
-int node_height(Node *root);
-int balance_factor(Node *root);
-
-void inorder(Node *root);
-
 
 int main(void) {
 
@@ -34,6 +38,10 @@ int main(void) {
         root = insert(root, values[i]);
     }
 
+    inorder(root);
+    printf("\n");
+
+    root = delete(root, 35);
     inorder(root);
     printf("\n");
 
@@ -119,6 +127,91 @@ Node *insert(Node *p, int key) {
     }
 
     return p;
+}
+
+Node *delete(Node *p, int key) {
+
+    if (p == NULL) {
+        return p;
+    }
+
+    if (key < p->data) {
+        p->left = delete(p->left, key);
+    } else if (key > p->data) {
+        p->right = delete(p->right, key);
+    } else {
+        // Node with only one child or no child
+        if (p->left == NULL || p->right == NULL) {
+            Node *temp = p->left ? p->left : p->right;
+
+            if (temp == NULL) {
+                temp = p;
+                p = NULL;
+            } else {
+                *p = *temp; // Copy the contents of the non-empty child
+            }
+
+            free(temp);
+        } else {
+            // Node with two children: Get the inorder successor
+            Node *temp = inorder_successor(p->right);
+
+            // Copy the inorder successor's content to this node
+            p->data = temp->data;
+
+            // Delete the inorder successor
+            p->right = delete(p->right, temp->data);
+        }
+    }
+
+    if (p == NULL) {
+        return p;
+    }
+
+    p->height = node_height(p);
+
+    // Left Left Case
+    if (balance_factor(p) == 2 && balance_factor(p->left) >= 0) {
+        return right_rotate(p);
+    }
+
+    // Right Right Case
+    if (balance_factor(p) == -2 && balance_factor(p->right) <= 0) {
+        return left_rotate(p);
+    }
+
+    // Left Right Case
+    if (balance_factor(p) == 2 && balance_factor(p->left) < 0) {
+        p->left = left_rotate(p->left);
+        return right_rotate(p);
+    }
+
+    // Right Left Case
+    if (balance_factor(p) == -2 && balance_factor(p->right) > 0) {
+        p->right = right_rotate(p->right);
+        return left_rotate(p);
+    }
+
+    return p;
+}
+
+
+Node *inorder_predecessor(Node *root) {
+
+    while (root != NULL && root->right != NULL) {
+        root = root->right;
+    }
+
+    return root;
+}
+
+Node *inorder_successor(Node *root) {
+
+    while (root != NULL && root->left != NULL) {
+        root = root->left;
+    }
+
+    return root;
 }
 
 Node *right_rotate(Node *p) {
