@@ -6,10 +6,8 @@ typedef struct Node {
     struct Node *next;
 } Node;
 
-void RadixSort(int A[], int n);
-void CountingSort(int A[], int n, int exp);
-
-void InsertNode(Node **head, int index, int value);
+void BucketSort(int A[], int n);
+void InsertNode(Node **head, int value);
 Node *CreateNode(int value);
 Node **CreateBucket(int n);
 
@@ -17,10 +15,10 @@ int FindMax(int A[], int n);
 
 int main() {
 
-    int A[] = {90, 237, 438, 8, 129, 304, 531, 329, 839, 910, 629, 48};
+    int A[] = {4, 5, 1, 6, 7, 2, 1, 7, 8, 2, 3, 6, 9, 2, 3};
     int n = sizeof(A) / sizeof(A[0]);
 
-    RadixSort(A, n);
+    BucketSort(A, n);
 
     for (int i = 0; i < n; i++) {
         printf("%d ", A[i]);
@@ -30,55 +28,35 @@ int main() {
     return 0;
 }
 
-void RadixSort(int A[], int n) {
-
+void BucketSort(int A[], int n) {
+    int i, j;
     int max = FindMax(A, n);
-    for (int exp = 1; max / exp > 0; exp *= 10) {
-        // printf("Sorting by digit at place %d\n", exp);
-        CountingSort(A, n, exp);
+    Node **buckets = CreateBucket(max + 1);
+
+    for (i = 0; i < n; i++) {
+        InsertNode(buckets, A[i]);
+    }
+
+    i = j = 0;
+    while (i < max + 1) {
+        Node *current = buckets[i];
+        while (current != NULL) {
+            A[j++] = current->data;
+            current = current->next;
+        }
+        i++;
     }
 }
 
-void CountingSort(int A[], int n, int exp) {
-    Node **buckets = CreateBucket(10);
-
-    for (int i = 0; i < n; i++) {
-        int index = (A[i] / exp) % 10;
-        InsertNode(buckets, index, A[i]);
-    }
-
-    int idx = 0;
-    for (int i = 0; i < 10; i++) {
-        Node *current = buckets[i];
-        while (current != NULL) {
-            A[idx++] = current->data;
-            current = current->next;
-        }
-    }
-
-    // Free memory
-    for (int i = 0; i < 10; i++) {
-        Node *current = buckets[i];
-        while (current != NULL) {
-            Node *temp = current;
-            current = current->next;
-            free(temp);
-        }
-    }
-    free(buckets);
-}
-
-void InsertNode(Node **bucket, int index, int value) {
-    Node *newNode = CreateNode(value);
+void InsertNode(Node **bucket, int index) {
+    Node *newNode = CreateNode(index);
 
     if (bucket[index] == NULL) {
         bucket[index] = newNode;
     } else {
         Node *current = bucket[index];
-        while (current->next != NULL) {
-            current = current->next;
-        }
-        current->next = newNode;
+        newNode->next = current;
+        bucket[index] = newNode;
     }
 }
 

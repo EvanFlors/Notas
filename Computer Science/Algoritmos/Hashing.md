@@ -70,7 +70,7 @@ h: Claves (strings, ints, objetos)  →  Índices [0, m-1]
 | ---------------------- | ---------------------------------------------------- |
 | **Determinista**       | Misma clave → mismo índice **siempre**               |
 | **Uniforme**           | Distribuye las claves de forma pareja en la tabla    |
-| **Rápida**             | O(1) — calcular el índice debe ser instantáneo      |
+| **Rápida**             | O(1) — calcular el índice debe ser instantáneo       |
 | **Avalancha**          | Cambiar 1 bit de la clave cambia muchos bits del hash|
 
 ## 2.3 Ejemplos simples
