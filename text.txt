@@ -1,0 +1,1521 @@
+1. Datos Personales
+- Sexo: Masculino
+- Edad (años): 24
+- Peso corporal (kg): 85
+- Estatura (cm): 180
+- % de grasa corporal: N/A
+
+2. Experiencia Deportiva
+- Años entrenando con pesas (específicamente): 7
+- Deportes practicados actualmente: Básquetbol/gimnasio
+- Nivel competitivo: Amateur
+- ¿Tienes experiencia previa con pliometría, sprints, olímpicos, VBT?:
+- Experiencia con:
+    - Pliometría: Sí, con saltos y rebotes.
+    - Sprints: Sí, entrenamientos de velocidad y aceleración (ejercicios básicos).
+    - Olímpicos: Únicamente clean (básico).
+    - VBT: No, no he utilizado dispositivos de velocidad.
+
+3. Fuerza Actual (1RM reales o estimados)
+Indica en kg:
+- Back Squat: 150kg
+- Bench Press (plano, con pausa o sin pausa): 110kg
+- Deadlift (convencional o sumo): 160kg
+- Overhead Press (de pie, estricto): 60kg
+
+4. Historial de Lesiones
+- Lesiones actuales: Ninguna
+- Lesiones históricas: Esguinces en tobillo
+- Dolor durante ejercicios específicos: Dolor leve en hombro derecho al realizar press de banca con barra y dolor de rodilla al hacer sentadilla cuando no se ha permitido recuperar la pierna.
+- Cirugías previas: Ninguna
+- Limitaciones médicas diagnosticadas: Ninguna
+
+5. Movilidad y Rango de Movimiento
+Indica si tienes limitación, molestia o sensación de rigidez en:
+- Tobillos (¿llegas a dorsiflexión completa en squat?): Si
+- Caderas (¿flexión, abducción, rotación interna/externa?): Si, flexión limitada.
+- Columna torácica (¿rigidez al rotar o extender?): No
+- Hombros (¿flexión overhead completa? ¿molestia en press?): Si, molestia leve en press.
+- Muñecas (¿molestia en front squat o press?): Molestia en front squat.
+
+6. Equipo Disponible
+Marca con ✓ lo que tienes disponible:
+✓ Rack con seguridad
+✓ Barra olímpica
+✓ Discos (lbs disponibles)
+✓ Mancuernas (rango de lbs)
+✓ Banco plano / ajustable
+✓ Poleas (alta, baja, doble)
+✓ Máquinas (selector & plate-loaded)
+✓ Bandas elásticas (ligera, media, pesada)
+✓ Barra de dominadas (estática)
+✓ Trineo (sled) con carga máxima disponible
+✓ Kettlebells (rango de kg)
+✓ Cajas pliométricas (alturas disponibles)
+✓ Balones medicinales de 10, 16, 20 lbs
+✓ Battle ropes
+✓ Bands de resistencia variable
+- Otros (especificar)
+
+7. Estilo de Vida y Recuperación
+- Promedio de horas de sueño por noche: 7:30
+- Calidad subjetiva del sueño (1-10): 7
+- Nivel de estrés percibido (1-10): 4
+- Tipo de trabajo (sedentario): sedentario
+- Pasos diarios promedio: 5000
+- Horario típico de entrenamiento disponible: tarde
+
+8. Objetivos Prioritarios
+Ordena del 1 (mayor) al 5 (menor), según tu prioridad real:
+1 Hipertrofia
+2 Fuerza máxima
+3 Potencia / Explosividad
+4 Velocidad / Aceleración
+5 Resistencia cardiovascular
+
+Además, indícame:
+- Sin meta específica
+- Objetivos secundarios: Estéticos
+
+9. Nutrición y Suplementación
+- Sin dieta (proporcionar alguna al inicio del proceso)
+- Calorías y macronutrientes estimados (si los conoces): 2,500 kcal, 220 g de proteína, 207 g de carbohidratos y 86 g de grasa.
+- Hidratación (litros de agua al día, aproximados): 4-5 litros
+- Suplementación actual: Creatina (5g diarios)
+- Proteína en polvo: Proteína de suero (30g post-entrenamiento)
+
+10. Historial de Entrenamiento Reciente
+- ¿Qué rutina has seguido en los últimos 3-6 meses?
+    - Entrenamiento de fuerza 5 días a la semana, centrado en hipertrofia y fuerza, con énfasis en movimientos compuestos.
+- Volumen semanal aproximado (series por grupo muscular)
+    - 12-16 series por grupo muscular
+- Frecuencia semanal
+    - 2-3 veces por grupo muscular
+- ¿Has realizado deloads?
+    - Si, sin embargo no tengo conocimiento sobre su implementación al 100%.
+- ¿Tienes un cuaderno de entrenamiento con marcas recientes?
+    - No
+
+11. Métricas Actuales (si están disponibles)
+- Salto vertical (CMJ, SJ, DJ — altura en cm): N/A
+- Sprint 10m, 20m, 40m (tiempos en segundos): N/A
+- Cambio de dirección (pro-agility, 5-0-5, T-test — tiempo): N/A
+- Distancia alcanzada en flexión (sit and reach): N/A
+- Balance unilateral (single leg stance — segundos): N/A
+
+Los realizo pero sin medición formal.
+
+12. Preferencias y Restricciones Adicionales
+- Ejercicios:
+    - Disfruto: Todos
+    - Detesto: Ninguno
+- Movimientos que evitas por miedo o incomodidad: N/A
+- Disponibilidad real de tiempo por sesión (puede variar de 90 min): 90 min
+- ¿Entrenas solo o con compañero/spotter? Solo
+- ¿Compromisos familiares/laborales que puedan afectar la adherencia? Ninguno
+
+---
+
+Evaluación inicial del atleta
+1. Resumen del perfil
+Antropometría
+Sexo: Masculino
+Edad: 24 años
+Estatura: 1.80 m
+Peso: 85 kg
+
+Este perfil ofrece una buena base para incrementar tanto masa muscular como fuerza sin comprometer el rendimiento si el aumento de peso se controla. Sin conocer el porcentaje de grasa corporal no es posible estimar con precisión la masa libre de grasa ni definir una tasa óptima de ganancia de peso, por lo que utilizaremos el rendimiento y las mediciones antropométricas como principales indicadores de progreso.
+
+2. Nivel de entrenamiento
+
+Con 7 años de entrenamiento de fuerza y 10 años de básquetbol, ya no eres un atleta principiante.
+
+Esto cambia completamente la programación.
+
+No responderás igual que un atleta novato a:
+
+aumentos grandes de volumen,
+incrementos lineales de carga,
+mejoras rápidas de fuerza.
+
+Será necesario emplear una periodización con una progresión cuidadosamente controlada para seguir generando adaptaciones.
+
+3. Objetivos
+
+Tu prioridad real es:
+
+Salud a largo plazo
+Hipertrofia
+Estética
+Rendimiento en básquetbol
+Fuerza máxima
+
+Sin embargo, también planteas metas deportivas (salto, velocidad, drible y tiro) y objetivos de fuerza muy elevados.
+
+Esto implica un equilibrio importante:
+
+La hipertrofia aumentará tu potencial de producción de fuerza.
+Un exceso de masa corporal podría perjudicar aceleración y salto.
+Durante el ciclo se buscará una hipertrofia funcional, privilegiando tejido contráctil útil para el rendimiento y evitando ganancias de masa innecesarias.
+4. Análisis biomecánico esperado
+Fortalezas
+
+Con tus marcas actuales:
+
+Back Squat: 150 kg (~1.76× peso corporal)
+Bench Press: 110 kg (~1.29×)
+Deadlift: 160 kg (~1.88×)
+
+presentas una base sólida de fuerza general.
+
+Esto permitirá utilizar cargas elevadas durante los bloques de fuerza sin requerir una fase extensa de adaptación anatómica.
+
+Posibles limitantes
+
+El Overhead Press (30 kg) es notablemente inferior al resto de tus levantamientos.
+
+Esto puede indicar una o varias de las siguientes situaciones:
+
+debilidad del deltoides anterior,
+estabilidad escapular mejorable,
+limitación de movilidad torácica,
+limitación de movilidad glenohumeral,
+escasa práctica del patrón de empuje vertical.
+
+No asumiré cuál es la causa, pero el programa incluirá trabajo específico para mejorar este patrón.
+
+Movilidad
+
+Tus autoevaluaciones muestran:
+
+Tobillo: buena
+Cadera: regular
+Torácica: regular
+Hombro: regular
+
+En un botador, estas limitaciones pueden afectar:
+
+profundidad eficiente de sentadilla,
+transferencia de fuerza en aceleraciones,
+mecánica de lanzamiento,
+cambios de dirección,
+absorción de fuerzas durante aterrizajes.
+
+Se incorporará trabajo sistemático de movilidad como parte del calentamiento y de las sesiones de recuperación.
+
+Estabilidad
+
+Has identificado como "regular":
+
+estabilidad escapular,
+control lumbo-pélvico.
+
+Estos dos aspectos tienen una elevada prioridad porque condicionan:
+
+la transmisión eficiente de fuerzas entre tren inferior y superior,
+la estabilidad en cambios de dirección,
+la prevención de dolor lumbar y de hombro,
+la calidad técnica en los levantamientos.
+
+Por ello, el trabajo accesorio no se centrará solo en músculos grandes, sino también en estabilizadores con alta transferencia funcional.
+
+5. Riesgo de lesión
+Factores favorables
+Sin lesiones actuales.
+Sin cirugías.
+Buena estabilidad de rodillas.
+Buena estabilidad de tobillos.
+Buena experiencia entrenando.
+Factores de riesgo
+
+Existe antecedente de esguinces de tobillo.
+
+Aunque actualmente no presentes síntomas, este historial aumenta el riesgo de:
+
+recurrencia del esguince,
+déficits propioceptivos,
+alteraciones en la absorción de fuerzas,
+compensaciones en rodilla y cadera.
+
+El programa incluirá de forma permanente trabajo de:
+
+estabilidad del pie y tobillo,
+fortalecimiento del tibial anterior,
+peroneos,
+sóleo,
+gemelos,
+equilibrio unilateral,
+aterrizajes controlados.
+6. Fatiga y recuperación
+Aspectos positivos
+Hidratación excelente (4–5 L/día).
+Estrés moderado (5/10).
+Alimentación generalmente adecuada.
+Creatina.
+Proteína en polvo.
+Aspectos limitantes
+
+La calidad del sueño (6/10) es probablemente el principal factor limitante de recuperación.
+
+Para un atleta entrenando cinco días de fuerza, tres sesiones técnicas de básquetbol y un partido semanal, mejorar la calidad del sueño tendrá un impacto directo sobre:
+
+síntesis proteica,
+rendimiento neural,
+aprendizaje motor,
+recuperación muscular,
+prevención de lesiones.
+
+Será una prioridad antes de aumentar agresivamente el volumen de entrenamiento.
+
+7. Interferencia entre fuerza y básquetbol
+
+Actualmente entrenas:
+
+5 sesiones de gimnasio,
+3 sesiones técnicas,
+1 partido.
+
+La carga semanal es elevada, pero manejable.
+
+La programación buscará minimizar el efecto de interferencia mediante:
+
+distribución estratégica de sesiones pesadas,
+control del volumen efectivo,
+uso de RPE/RIR,
+deloads planificados,
+autorregulación basada en fatiga.
+8. Fortalezas del atleta
+
+Las principales fortalezas son:
+
+amplia experiencia en entrenamiento,
+técnica supervisada,
+objetivos claramente definidos,
+buena disponibilidad de equipamiento,
+excelente adherencia esperada,
+ausencia de lesiones importantes,
+motivación para progresar a largo plazo.
+9. Debilidades prioritarias
+
+Las áreas con mayor margen de mejora son:
+
+Empuje vertical.
+Movilidad de cadera.
+Movilidad torácica.
+Estabilidad escapular.
+Control lumbo-pélvico.
+Calidad del sueño.
+Potencia relativa.
+Capacidad reactiva (SSC).
+Producción rápida de fuerza (RFD).
+10. Capacidades ya desarrolladas
+
+Presentas una buena base en:
+
+fuerza máxima,
+hipertrofia previa,
+coordinación intermuscular,
+técnica en levantamientos básicos,
+control unilateral,
+experiencia con cargas altas.
+11. Capacidades limitantes
+
+Será prioritario desarrollar:
+
+Rate of Force Development (RFD),
+potencia,
+velocidad de aplicación de fuerza,
+salto vertical,
+aceleración,
+desaceleración,
+transferencia específica al básquetbol.
+
+Evaluación funcional
+1. Overhead Squat
+Resultado
+Movimiento coordinado
+Talones permanecen apoyados
+Rodillas siguen la línea de los pies
+Tronco estable
+Brazos sobre la cabeza
+Interpretación
+
+Este es probablemente el dato más positivo de toda la evaluación.
+
+Sugiere una buena integración de:
+
+movilidad de tobillo,
+movilidad de cadera,
+estabilidad lumbo-pélvica,
+movilidad torácica funcional,
+coordinación global.
+
+Aunque anteriormente autoevaluaste como "regular" la movilidad de cadera, hombros y columna torácica, el Overhead Squat indica que esas limitaciones no comprometen significativamente un patrón funcional global. Es posible que existan restricciones leves en rangos máximos, pero no parecen afectar la ejecución de movimientos compuestos.
+
+Implicación para el programa: no será necesario dedicar un bloque específico de corrección. La movilidad se trabajará de forma integrada dentro del calentamiento y la recuperación.
+
+2. Y Balance Test
+Resultado
+Alcance aproximado: 0.5 m
+
+Sin la longitud de tu pierna no es posible calcular el porcentaje normalizado (el indicador más útil), por lo que este valor servirá como línea base para futuras comparaciones.
+
+Objetivo: mejorar el alcance y, sobre todo, mantener una diferencia mínima entre ambos lados para optimizar la estabilidad unilateral y reducir el riesgo de lesión.
+
+3. Hop Test
+Resultado
+1.5 m
+
+Al igual que con el Y Balance Test, el dato aislado no permite una interpretación completa sin comparar ambas piernas. Lo utilizaremos como referencia inicial.
+
+En reevaluaciones futuras será importante registrar:
+
+pierna dominante,
+pierna no dominante,
+diferencia porcentual.
+
+Idealmente, la asimetría debería mantenerse por debajo del 10 %.
+
+4. Active Straight Leg Raise
+Resultado
+90°
+Interpretación
+
+Es un resultado muy bueno.
+
+Indica una adecuada movilidad de la cadena posterior y un buen control lumbopélvico durante la flexión de cadera.
+
+Esto reduce la probabilidad de que la movilidad de isquiotibiales limite:
+
+la técnica del peso muerto,
+la profundidad de la sentadilla,
+los sprints,
+las aceleraciones.
+5. Shoulder Mobility Test
+Resultado
+Mano izquierda arriba: 20 cm
+Mano derecha arriba: 30 cm
+Interpretación
+
+Existe una asimetría clara entre ambos hombros.
+
+Esto no implica lesión, pero sí merece atención porque podría reflejar diferencias en:
+
+rotación interna/externa,
+movilidad escapulotorácica,
+estabilidad del manguito rotador,
+control escapular.
+
+En un jugador de básquetbol, estas diferencias pueden influir en la mecánica de lanzamiento y aumentar el riesgo de sobrecarga del hombro dominante.
+
+Implicación: el programa incluirá trabajo preventivo específico para manguito rotador, serrato anterior, trapecio inferior y estabilidad escapular.
+
+6. Dominadas máximas
+Resultado
+15 repeticiones
+
+Es un buen nivel de fuerza relativa del tren superior.
+
+No será necesario dedicar un bloque específico a desarrollar fuerza básica de tracción; el objetivo será aumentar la fuerza máxima y mejorar la potencia en este patrón.
+
+7. Flexiones
+Resultado
+25 repeticiones
+
+Reflejan una resistencia muscular adecuada, aunque inferior a tu nivel de tracción.
+
+Esto refuerza la necesidad de desarrollar el patrón de empuje, especialmente el vertical, donde tu Overhead Press también muestra margen de mejora.
+
+8. Plancha frontal
+Resultado
+2 minutos
+
+Demuestra una buena resistencia isométrica del core anterior.
+
+A partir de este punto, el entrenamiento del core se orientará menos a la resistencia y más a funciones específicas del rendimiento:
+
+antirotación,
+antiinclinación lateral,
+transmisión de fuerzas,
+estabilidad dinámica,
+desaceleración.
+Reevaluación de fortalezas
+
+Las principales fortalezas ahora son:
+
+Excelente patrón global de sentadilla.
+Buena movilidad funcional integrada.
+Buena fuerza relativa de tracción.
+Buena movilidad de la cadena posterior.
+Buen control motor.
+Buena estabilidad durante movimientos globales.
+Amplia experiencia con entrenamiento.
+Reevaluación de áreas prioritarias
+
+Las prioridades cambian ligeramente:
+
+Hipertrofia funcional.
+Incremento de fuerza máxima.
+Desarrollo del empuje vertical.
+Potencia (RFD).
+Salto vertical.
+Velocidad de aceleración.
+Estabilidad escapular.
+Simetría de hombros.
+Calidad del sueño.
+Capacidad reactiva del ciclo estiramiento-acortamiento (Stretch-Shortening Cycle).
+
+Arquitectura del programa
+Filosofía general
+
+Para tu perfil, la periodización por bloques (Block Periodization) es la opción más adecuada.
+
+¿Por qué no una periodización lineal?
+
+La periodización lineal funciona bien en principiantes o deportistas con pocos objetivos simultáneos, pero presenta limitaciones para un atleta como tú:
+
+Reduce la exposición continua a capacidades importantes (p. ej., potencia y velocidad).
+Las adaptaciones neurales pueden perderse durante bloques largos de hipertrofia.
+Ofrece menor flexibilidad para adaptarse a la carga variable de una temporada (in-season).
+¿Por qué no DUP (Daily Undulating Periodization)?
+
+La periodización ondulante diaria es excelente para mantener varias capacidades al mismo tiempo, pero:
+
+Genera mayor complejidad en la gestión de la fatiga.
+Disminuye la concentración del estímulo dominante.
+Es menos eficiente cuando el objetivo principal es maximizar una adaptación concreta (como la hipertrofia funcional o la fuerza máxima).
+
+Utilizaremos microvariaciones inspiradas en DUP dentro de algunos bloques, pero no como modelo principal.
+
+¿Por qué no Conjugate?
+
+El método conjugado desarrolla varias capacidades simultáneamente, pero:
+
+Requiere una alta especialización en levantamientos dinámicos.
+Tiene menor respaldo para deportes de campo que una periodización por bloques bien diseñada.
+Incrementa la complejidad de la programación y de la autorregulación.
+¿Por qué Block Periodization?
+
+Se adapta especialmente bien a tu situación porque:
+
+Tienes experiencia avanzada (7 años de fuerza).
+Buscas desarrollar masa muscular y convertirla posteriormente en rendimiento.
+Juegas básquetbol durante la temporada.
+Necesitamos controlar cuidadosamente la fatiga.
+Hay múltiples objetivos (hipertrofia, fuerza, potencia, velocidad).
+
+Cada bloque concentrará el mayor volumen de trabajo en una capacidad dominante, mientras mantiene las demás con el volumen mínimo efectivo para evitar pérdidas.
+
+Esto sigue los principios de:
+
+SAID (Specific Adaptation to Imposed Demands).
+Stimulus-Recovery-Adaptation (SRA).
+General Adaptation Syndrome (GAS).
+Arquitectura anual
+
+Cada macrociclo estará compuesto por:
+
+Mesociclo	Duración
+Hipertrofia	5 semanas + 1 deload
+Fuerza	5 semanas + 1 deload
+Potencia	4 semanas + 1 deload
+Velocidad	4 semanas + 1 deload
+
+Duración aproximada del ciclo completo:
+
+22–24 semanas
+
+Posteriormente se reinicia el ciclo con nuevos objetivos y cargas.
+
+Relación fisiológica entre bloques
+Bloque 1 — Hipertrofia
+Objetivo principal
+
+Incrementar:
+
+sección transversal muscular,
+capacidad de trabajo,
+tolerancia al volumen,
+resiliencia de tejidos,
+hipertrofia funcional.
+Adaptaciones esperadas
+
+Musculares
+
+Hipertrofia miofibrilar predominante.
+Moderada hipertrofia sarcoplasmática.
+Incremento del área de sección transversal.
+
+Neurales
+
+Mejor coordinación intramuscular.
+Aprendizaje técnico con mayor volumen.
+
+Tendinosas
+
+Aumento gradual de rigidez y capacidad de soportar carga.
+
+Metabólicas
+
+Mayor almacenamiento de glucógeno.
+Incremento de enzimas glucolíticas.
+Razón fisiológica
+
+Un músculo más grande tiene mayor potencial para producir fuerza en las fases posteriores.
+
+Transición Hipertrofia → Fuerza
+
+La mayor sección transversal permite reclutar más unidades motoras y producir niveles superiores de fuerza máxima con un menor riesgo de lesión.
+
+Bloque 2 — Fuerza
+Objetivo
+
+Maximizar:
+
+fuerza absoluta,
+fuerza relativa,
+eficiencia neural.
+Adaptaciones
+
+Sistema nervioso
+
+Mayor reclutamiento de unidades motoras.
+Mejor sincronización.
+Mayor frecuencia de descarga.
+
+Musculares
+
+Conversión de la hipertrofia en producción de fuerza.
+
+Tendones
+
+Mayor rigidez.
+Mejor transmisión de fuerza.
+Razón fisiológica
+
+La potencia depende directamente de la fuerza máxima disponible.
+
+Sin una base sólida de fuerza, el desarrollo de la potencia es limitado.
+
+Transición Fuerza → Potencia
+
+Una vez incrementada la fuerza máxima, el siguiente paso consiste en aprender a producir esa fuerza en menos tiempo.
+
+Aquí aparece el entrenamiento del:
+
+Rate of Force Development (RFD),
+ciclo estiramiento-acortamiento,
+velocidad de reclutamiento.
+Bloque 3 — Potencia
+Objetivo
+
+Maximizar:
+
+potencia,
+explosividad,
+RFD.
+Adaptaciones
+Mayor velocidad de reclutamiento.
+Mejor utilización del ciclo estiramiento-acortamiento.
+Mayor sincronización neural.
+Incremento de potencia específica para salto.
+Transición Potencia → Velocidad
+
+Ahora la fuerza ya puede expresarse rápidamente.
+
+El objetivo pasa a ser:
+
+mover el cuerpo más rápido,
+acelerar más rápido,
+cambiar de dirección,
+transferir todo al básquetbol.
+Bloque 4 — Velocidad
+Objetivos
+
+Desarrollar:
+
+aceleración,
+velocidad máxima,
+cambio de dirección,
+agilidad,
+transferencia deportiva.
+Adaptaciones
+Mejora de la mecánica de sprint.
+Optimización de tiempos de contacto.
+Mejor coordinación intermuscular.
+Mayor eficiencia neuromuscular.
+Distribución semanal (5 días)
+Día 1
+
+Lower A
+
+Dominancia de rodilla.
+
+Objetivos:
+
+movimiento principal pesado,
+cuádriceps,
+core,
+estabilidad.
+Día 2
+
+Upper A
+
+Empuje horizontal.
+
+Tracción horizontal.
+
+Trabajo escapular.
+
+Día 3
+
+Lower B
+
+Dominancia de cadera.
+
+Cadena posterior.
+
+Pliometría.
+
+Trabajo unilateral.
+
+Día 4
+
+Upper B
+
+Empuje vertical.
+
+Dominadas.
+
+Brazos.
+
+Manguito rotador.
+
+Día 5
+
+Athletic / Full Body
+
+Este día cambiará ligeramente según el bloque.
+
+Podrá incluir:
+
+potencia,
+acondicionamiento,
+carries,
+trabajo unilateral,
+cuello,
+antebrazos,
+tobillos,
+core,
+prevención de lesiones.
+Domingo
+
+Recuperación activa (60 min)
+
+movilidad,
+liberación miofascial,
+estabilidad,
+natación suave,
+respiración,
+recuperación.
+Distribución de los patrones de movimiento
+
+Cada semana contendrá:
+
+✅ Dominancia de rodilla.
+
+✅ Dominancia de cadera.
+
+✅ Empuje horizontal.
+
+✅ Empuje vertical.
+
+✅ Jalón horizontal.
+
+✅ Jalón vertical.
+
+✅ Trabajo unilateral.
+
+✅ Trabajo bilateral.
+
+✅ Rotación.
+
+✅ Antirotación.
+
+✅ Carries.
+
+✅ Gemelos.
+
+✅ Tibial anterior.
+
+✅ Glúteo medio.
+
+✅ Aductores.
+
+✅ Abductores.
+
+✅ Manguito rotador.
+
+✅ Serrato anterior.
+
+✅ Trapecio inferior.
+
+✅ Core.
+
+Frecuencia muscular
+
+Se buscará una frecuencia mínima de dos estímulos semanales para cada grupo muscular principal, ajustando el volumen según el mesociclo.
+
+Grupo muscular	Frecuencia
+Cuádriceps	2–3
+Isquiotibiales	2–3
+Glúteos	2–3
+Pectoral	2
+Espalda	3
+Deltoides	2–3
+Bíceps	2
+Tríceps	2
+Gemelos	3
+Core	4–5
+Estabilizadores	4–5
+Gestión de la fatiga
+
+Cada bloque utilizará una relación diferente entre volumen e intensidad:
+
+Bloque	Volumen	Intensidad	Fatiga
+Hipertrofia	Alta	Moderada	Moderada-alta
+Fuerza	Moderada	Alta	Alta (controlada)
+Potencia	Moderada-baja	Alta intención	Baja-moderada
+Velocidad	Baja	Muy alta calidad	Baja
+
+Cada bloque finalizará con una semana de descarga para facilitar la recuperación y consolidar las adaptaciones.
+
+Sistema de progresión
+
+Se empleará un modelo híbrido:
+
+Porcentajes del 1RM para los ejercicios principales, asegurando una intensidad acorde al objetivo del bloque.
+RPE y RIR para autorregular el entrenamiento según la fatiga diaria y la carga del básquetbol.
+Doble progresión en ejercicios accesorios (primero aumentar repeticiones dentro del rango objetivo y luego incrementar la carga).
+
+Si en el futuro dispones de un sistema de Velocity Based Training (VBT), algunos ejercicios principales (sentadilla, press de banca y variantes explosivas) podrían beneficiarse de una progresión basada en la velocidad de ejecución, especialmente durante los bloques de fuerza y potencia.
+
+Ejemplo de desarrollo de mesociclo Hipertrofia:
+
+Desarrollo del Mesociclo 1 (Hipertrofia Funcional)
+
+Objetivo del mesociclo: Desarrollar una base sólida de hipertrofia funcional que incremente el potencial de fuerza máxima, mejore la resiliencia de músculos y tejidos conectivos, corrija pequeñas debilidades detectadas (empuje vertical, estabilidad escapular y control lumbo-pélvico) y mantenga las capacidades explosivas necesarias para el básquetbol durante la temporada.
+
+1. Justificación de este mesociclo
+
+Aunque actualmente te encuentras en temporada (In-Season), tu objetivo principal a largo plazo es:
+
+Hipertrofia
+Fuerza
+Alcanzar 200 kg en sentadilla
+Alcanzar 200 kg en peso muerto
+Alcanzar 140 kg en press de banca
+
+En un atleta con tu experiencia (7 años entrenando), aumentar la fuerza máxima sin seguir desarrollando masa muscular tiene un rendimiento decreciente. La hipertrofia funcional proporciona un mayor potencial para producir fuerza en los bloques posteriores.
+
+La estrategia será diferente a una hipertrofia de culturismo:
+
+Se priorizarán ejercicios con alta transferencia.
+Se evitará volumen innecesario que perjudique el rendimiento del sábado.
+Se mantendrá un pequeño estímulo de potencia y velocidad (principio de mantenimiento).
+Se controlará cuidadosamente la fatiga sistémica.
+2. Objetivos específicos
+Objetivo principal
+
+Incrementar la masa muscular funcional sin comprometer el rendimiento deportivo.
+
+Objetivos secundarios
+
+Mejorar:
+
+Fuerza relativa.
+Técnica de los levantamientos principales.
+Tolerancia al volumen.
+Capacidad de recuperación.
+Estabilidad escapular.
+Control lumbo-pélvico.
+Hipertrofia de músculos estabilizadores.
+Rigidez tendinosa progresiva.
+Preparación para el bloque de fuerza.
+3. Adaptaciones fisiológicas esperadas
+Adaptaciones musculares
+
+Predominará la hipertrofia miofibrilar, ya que se utilizarán principalmente ejercicios multiarticulares con cargas moderadas-altas y un volumen suficiente para estimular el crecimiento de las proteínas contráctiles. También habrá una contribución secundaria de hipertrofia sarcoplasmática por el volumen acumulado, favoreciendo la capacidad de trabajo.
+
+Adaptaciones neurales
+
+Aunque este no es un bloque de fuerza máxima, se espera:
+
+Mejora de la coordinación intramuscular.
+Refinamiento técnico.
+Mayor eficiencia motora.
+Reclutamiento más consistente de unidades motoras.
+
+Esto facilitará la transición al siguiente bloque.
+
+Adaptaciones tendinosas
+
+El incremento gradual de la carga favorecerá:
+
+Mayor síntesis de colágeno.
+Incremento progresivo de la rigidez tendinosa.
+Mejor transmisión de fuerza.
+Mayor tolerancia a impactos repetidos propios del básquetbol.
+Adaptaciones metabólicas
+
+Se espera:
+
+Mayor almacenamiento de glucógeno.
+Incremento de la capacidad glucolítica.
+Mejor recuperación entre series.
+Mayor tolerancia al volumen.
+Adaptaciones del sistema nervioso
+
+Se evitará la fatiga neural excesiva.
+
+El énfasis estará en:
+
+Calidad técnica.
+Intención de mover la carga con velocidad.
+Consolidación de patrones motores.
+4. Transferencia al siguiente mesociclo
+
+Este bloque permitirá llegar al bloque de fuerza con:
+
+Más masa muscular.
+Mayor tolerancia a cargas elevadas.
+Tendones preparados.
+Mejor estabilidad.
+Menor riesgo de lesión.
+Mayor capacidad para generar fuerza absoluta.
+
+Sin esta fase, el bloque de fuerza sería menos eficiente y aumentaría el riesgo de sobrecarga.
+
+5. Duración
+Semana 1
+
+Adaptación al volumen.
+
+Semana 2
+
+Incremento de volumen efectivo.
+
+Semana 3
+
+Mayor estímulo hipertrófico.
+
+Semana 4
+
+Mayor intensidad del bloque.
+
+Semana 5
+
+Sobrecarga controlada.
+
+Última semana de acumulación antes de reducir la carga.
+
+Semana 6
+
+Deload
+
+Objetivos:
+
+Reducir fatiga acumulada.
+Consolidar adaptaciones.
+Preparar el sistema nervioso.
+Llegar fresco al bloque de fuerza.
+6. Distribución semanal
+Lunes
+Lower A
+
+Objetivo:
+
+Cuádriceps.
+Sentadilla.
+Core.
+Gemelos.
+Tibial anterior.
+
+Será la sesión más demandante del tren inferior, ubicada lo más lejos posible del partido.
+
+Martes
+Upper A
+
+Objetivo:
+
+Press horizontal.
+Espalda.
+Deltoides.
+Tríceps.
+Estabilidad escapular.
+
+Coincide con el entrenamiento técnico de bote, ya que la carga principal recae en el tren superior.
+
+Miércoles
+Lower B
+
+Objetivo:
+
+Cadena posterior.
+Trabajo unilateral.
+Glúteos.
+Isquiotibiales.
+Pliometría de baja carga.
+
+El volumen será moderado para no comprometer la recuperación.
+
+Jueves
+Upper B
+
+Objetivo:
+
+Empuje vertical.
+Dominadas.
+Bíceps.
+Manguito rotador.
+Trapecio inferior.
+Serrato anterior.
+
+Se dará un énfasis especial al desarrollo del patrón de empuje vertical.
+
+Viernes
+Athletic / Full Body
+
+Objetivo:
+
+Músculos estabilizadores.
+Core.
+Carries.
+Cuello.
+Tobillos.
+Aductores.
+Abductores.
+Trabajo cardiovascular de baja fatiga.
+Activación neural.
+
+Esta sesión buscará llegar al sábado con sensación de frescura, no de agotamiento.
+
+7. Progresión semanal
+Semana	Volumen	Intensidad (%1RM)	Objetivo
+1	Moderado	65–70 %	Adaptación y técnica
+2	Moderado-Alto	67.5–72.5 %	Incremento de volumen
+3	Alto	70–75 %	Máximo estímulo hipertrófico
+4	Alto	72.5–77.5 %	Consolidación
+5	Moderado	75–80 %	Sobrecarga funcional
+6	~50 % del volumen	55–65 %	Descarga
+
+En los accesorios, se utilizará principalmente una progresión por doble progresión (aumentar repeticiones antes que carga), manteniendo un RIR objetivo.
+
+8. Gestión de la fatiga
+
+Se controlará:
+
+Fatiga local
+Rotación de patrones de movimiento.
+Distribución equilibrada de empujes y jalones.
+Variación de ejercicios accesorios.
+Fatiga sistémica
+
+Se evitarán:
+
+Fallos musculares frecuentes.
+Volumen excesivo en piernas antes del partido.
+Acumulación de sesiones neurales consecutivas.
+Monotony
+
+Se introducirán pequeñas variaciones de accesorios, agarres o implementos cuando sea apropiado para mantener el estímulo sin alterar el objetivo del bloque.
+
+Training Strain
+
+Se monitorizará mediante:
+
+RPE de la sesión.
+Calidad del sueño.
+Sensación de recuperación.
+Rendimiento en los ejercicios principales.
+ACWR (Acute:Chronic Workload Ratio)
+
+No se utilizará como única herramienta de decisión debido a sus limitaciones metodológicas, pero sí se vigilarán aumentos bruscos de volumen o intensidad para evitar picos de carga innecesarios.
+
+9. Estrategias preventivas
+Tobillo
+
+Dado tu antecedente de esguinces:
+
+Trabajo propioceptivo.
+Tibial anterior.
+Peroneos.
+Gemelos.
+Aterrizajes controlados.
+Rodilla
+Fortalecimiento de cuádriceps.
+Isquiotibiales.
+Glúteo medio.
+Control de desaceleración.
+Hombro
+
+Se incluirá trabajo específico para:
+
+Manguito rotador.
+Trapecio inferior.
+Serrato anterior.
+Estabilidad escapular.
+Columna
+
+Se priorizarán ejercicios de:
+
+Antirrotación.
+Antiflexión.
+Antiinclinación lateral.
+Carries.
+10. Recomendaciones nutricionales generales
+
+Sin diseñar una dieta específica:
+
+Proteína: 1.6–2.2 g/kg/día (≈136–187 g/día para tu peso).
+Carbohidratos: aumentar la ingesta alrededor de las sesiones de fuerza y del partido para favorecer el rendimiento y la reposición de glucógeno.
+Hidratación: mantén 4–5 L/día y ajusta según sudoración.
+Recuperación postentrenamiento: procura ingerir proteína de alta calidad y carbohidratos en las horas posteriores a las sesiones más exigentes.
+11. Suplementación basada en evidencia
+
+Mantener:
+
+Creatina monohidratada: 3–5 g diarios, de forma continua.
+Proteína en polvo: únicamente para facilitar alcanzar el objetivo diario de proteína.
+
+Opcionales según contexto:
+
+Cafeína: antes de sesiones clave o partidos, si la toleras y no afecta tu sueño.
+Beta-alanina: útil si el volumen de trabajo de alta intensidad es elevado durante varios bloques.
+Citrulina malato: puede mejorar el rendimiento en sesiones con alto volumen.
+Nitratos: potencialmente beneficiosos antes de esfuerzos intermitentes de alta intensidad, aunque su efecto es más variable.
+12. Criterios para finalizar el mesociclo
+
+Antes de avanzar al bloque de fuerza, se reevaluará:
+
+Rendimiento
+Progreso en cargas de los ejercicios principales.
+Dominadas máximas.
+Flexiones máximas.
+Antropometría
+Peso corporal.
+Circunferencia de cintura.
+Brazos.
+Muslos.
+Pantorrillas.
+Pecho.
+Funcional
+Overhead Squat.
+Y Balance Test.
+Hop Test.
+Shoulder Mobility Test.
+Recuperación
+Calidad del sueño.
+Fatiga percibida.
+RPE promedio de las sesiones.
+Dolor articular.
+Criterios para avanzar al bloque de fuerza
+
+Se considerará adecuado avanzar si:
+
+Se completa al menos el 90 % del volumen planificado sin incrementos relevantes de dolor.
+La técnica en los levantamientos principales se mantiene estable bajo cargas moderadas-altas.
+La recuperación entre sesiones es adecuada (sin fatiga persistente).
+Hay una tendencia positiva en las cargas o repeticiones de los ejercicios principales.
+No se observa una disminución significativa del rendimiento en los entrenamientos o partidos de básquetbol.
+
+Si alguno de estos criterios no se cumple, se valorará extender el bloque una o dos semanas adicionales con ajustes de volumen antes de introducir cargas propias del mesociclo de fuerza.
+
+Ejemplo de desarrollo rutina de un día:
+
+Día 1 (Semana 1 del Mesociclo de Hipertrofia)
+Lower A — Dominancia de rodilla + Fuerza base + Hipertrofia funcional
+
+Duración objetivo: 105–115 minutos
+
+Objetivo de la sesión
+
+Esta será la sesión más importante del tren inferior de la semana.
+
+Se busca desarrollar:
+
+Hipertrofia funcional del tren inferior.
+Técnica de sentadilla.
+Incrementar la capacidad de producir fuerza.
+Fortalecer rodillas y caderas.
+Desarrollar el core.
+Mejorar la estabilidad del tobillo.
+Preparar el sistema nervioso para el resto de la semana.
+
+Al estar ubicada el lunes, existe el mayor margen de recuperación antes del partido del sábado.
+
+Justificación del orden de ejercicios
+
+El orden sigue el principio de prioridad neuromuscular.
+
+Los ejercicios con mayor:
+
+demanda técnica,
+producción de fuerza,
+riesgo potencial,
+
+se realizan cuando la fatiga es mínima.
+
+La secuencia será:
+
+Activación neural.
+Sentadilla.
+Ejercicio unilateral.
+Bisagra secundaria.
+Hipertrofia analítica.
+Gemelos.
+Tibial anterior.
+Core.
+Duración de bloques
+Bloque	Tiempo
+Calentamiento	18 min
+Aproximación	15 min
+Trabajo principal	52 min
+Accesorios	18 min
+Estiramientos	7 min
+
+Total aproximado:
+
+110 minutos
+
+1. Calentamiento (18 minutos)
+A. Activación general (4 min)
+
+Bicicleta o remo
+
+Intensidad:
+
+Zona 2
+
+Objetivo fisiológico
+
+aumentar temperatura corporal,
+aumentar viscosidad muscular,
+mejorar conducción nerviosa,
+incrementar irrigación sanguínea.
+B. Movilidad dinámica (6 min)
+Tobillo
+
+Knee to Wall
+
+2 × 10 por lado
+
+Cadera
+
+90/90 Hip Switch
+
+2 × 8
+
+World Greatest Stretch
+
+2 × 6
+
+Adductor Rockback
+
+2 × 10
+
+Columna torácica
+
+Open Book
+
+2 × 8
+
+Justificación
+
+Aunque tu Overhead Squat fue bueno, la autoevaluación mostró movilidad "regular" en cadera y columna torácica. Mantener estos rangos favorecerá una mejor técnica de sentadilla y reducirá compensaciones.
+
+C. Activación muscular (5 min)
+
+Mini Band Lateral Walk
+
+2 × 12
+
+Glute Bridge Isométrico
+
+2 × 20 s
+
+Bodyweight Squat
+
+2 × 10
+
+Single Leg Balance
+
+2 × 20 s
+
+Justificación
+
+Activar previamente:
+
+glúteo medio,
+glúteo mayor,
+estabilizadores del pie,
+core,
+
+mejora el control de la rodilla y la estabilidad durante la sentadilla.
+
+D. Activación neural (3 min)
+
+Pogo Jumps
+
+2 × 20
+
+Box Jump
+
+3 × 3
+
+RPE 5
+
+Descanso
+
+45 s
+
+¿Por qué incluir pliometría antes de las pesas?
+
+La pliometría de baja fatiga aprovecha el fenómeno de Post-Activation Performance Enhancement (PAPE), aumentando la excitabilidad neural sin generar una fatiga significativa. Esto mejora la calidad de las primeras series de sentadilla y ayuda a mantener la capacidad explosiva durante un bloque cuyo objetivo principal es la hipertrofia.
+
+2. Series de aproximación
+Back Squat
+
+Trabajo efectivo:
+
+70 % del 1RM
+
+1RM actual:
+
+150 kg
+
+Carga de trabajo aproximada:
+
+105 kg
+
+Aproximación:
+
+Serie	%	Reps
+1	30 %	10
+2	45 %	8
+3	60 %	5
+4	65 %	3
+
+Objetivo
+
+practicar técnica,
+activar sistema nervioso,
+evitar fatiga.
+3. Trabajo principal
+Ejercicio 1
+Back Squat
+
+Por qué se selecciona
+
+Es el ejercicio con mayor transferencia para:
+
+producción de fuerza,
+hipertrofia global del tren inferior,
+salto vertical,
+aceleración,
+desaceleración.
+
+Alternativas como la Hack Squat o Belt Squat reducen la demanda de estabilización y la transferencia al patrón atlético, por lo que se reservan para trabajo accesorio.
+
+Variable	Valor
+Series	4
+Repeticiones	8
+Carga	70 % (≈105 kg)
+RPE	7
+RIR	3
+Tempo	3-1-X-1
+Descanso	3 min
+
+Intención de movimiento
+
+Descender con control y realizar la fase concéntrica con la máxima velocidad posible manteniendo la técnica.
+
+Sistema energético predominante
+
+Glucólisis anaeróbica.
+
+Fibras predominantes
+
+Tipo IIa, con participación de fibras tipo I para sostener el volumen.
+
+Ejercicio 2
+Sentadilla búlgara con mancuernas
+
+Razón de selección
+
+Elegida sobre el lunge caminando porque:
+
+aumenta el tiempo bajo tensión,
+exige mayor estabilidad unilateral,
+mejora el equilibrio entre piernas,
+tiene alta transferencia a aceleraciones y cambios de dirección.
+Variable	Valor
+Series	3
+Reps	10 por pierna
+RPE	8
+RIR	2
+Tempo	2-1-2-0
+Descanso	90 s
+Ejercicio 3
+Romanian Deadlift
+
+Razón
+
+Aunque el énfasis del día es la dominancia de rodilla, se incluye una bisagra de cadera para mantener el equilibrio estructural y estimular la cadena posterior sin interferir con la sesión de Lower B.
+
+Variable	Valor
+Series	3
+Reps	8
+Carga	≈65 % de tu 1RM de peso muerto (ajustada por técnica)
+RPE	7
+RIR	3
+Tempo	3-0-1-0
+Descanso	2 min
+Ejercicio 4
+Extensión de cuádriceps
+
+Razón
+
+Permite aumentar el volumen específico del cuádriceps con baja demanda sistémica, favoreciendo la hipertrofia sin añadir una carga elevada sobre la columna.
+
+Variable	Valor
+Series	3
+Reps	12–15
+RPE	8
+RIR	2
+Tempo	2-1-2-1
+Descanso	75 s
+Ejercicio 5
+Elevación de gemelos de pie
+
+Razón
+
+Fundamental para:
+
+salto,
+sprint,
+estabilidad del tobillo,
+prevención de recaídas de esguinces.
+Variable	Valor
+Series	4
+Reps	12–15
+RPE	8
+RIR	2
+Tempo	2-1-2-1
+Descanso	60 s
+Ejercicio 6
+Tibialis Raise
+
+Razón
+
+Fortalece el tibial anterior, mejora el control de la dorsiflexión y contribuye a la estabilidad del tobillo, aspecto relevante por tu antecedente de esguinces.
+
+Variable	Valor
+Series	3
+Reps	15–20
+RPE	7
+RIR	3
+Descanso	45 s
+4. Trabajo accesorio
+Pallof Press
+
+3 × 12 por lado
+
+Objetivo
+
+Antirrotación.
+Estabilidad lumbo-pélvica.
+Transferencia al drible y cambios de dirección.
+Copenhagen Plank
+
+2 × 20–30 s por lado
+
+Objetivo
+
+Aductores.
+Estabilidad de la pelvis.
+Prevención de lesiones inguinales.
+Farmer Carry
+
+3 × 30 m
+
+Objetivo
+
+Core.
+Agarre.
+Estabilidad escapular.
+Transferencia a la producción y transmisión de fuerza.
+5. Trabajo cardiovascular
+Opción recomendada
+
+Bicicleta estática
+
+Duración: 10–12 minutos
+
+Zona cardíaca: Zona 2 (≈60–70 % de FC máxima)
+
+Objetivo fisiológico
+
+Favorecer la recuperación.
+Incrementar el flujo sanguíneo.
+Mejorar la capacidad aeróbica sin añadir impacto sobre las piernas.
+
+No se incluye HIIT este día para no interferir con la recuperación de la sesión principal.
+
+6. Estiramientos
+Dinámicos (antes)
+
+Ya incluidos en el calentamiento.
+
+Estáticos (después)
+Flexor de cadera: 2 × 30 s por lado.
+Cuádriceps: 2 × 30 s por lado.
+Isquiotibiales: 2 × 30 s por lado.
+Gemelos: 2 × 30 s por lado.
+Glúteos: 2 × 30 s por lado.
+
+Objetivo
+
+Favorecer la recuperación y mantener los rangos de movilidad sin afectar el rendimiento de la sesión.
+
+Indicaciones técnicas clave
+Back Squat
+Mantén una respiración diafragmática y realiza una maniobra de Valsalva controlada antes de cada repetición.
+Distribuye el peso sobre el trípode del pie (talón, base del primer y quinto metatarsiano).
+Rodillas alineadas con la dirección de los pies.
+Cadera y hombros ascienden al mismo ritmo.
+La velocidad de subida debe ser explosiva, aunque la carga sea moderada.
+Romanian Deadlift
+Inicia el movimiento desplazando la cadera hacia atrás.
+Mantén la barra próxima a las piernas durante todo el recorrido.
+Conserva una columna neutra y evita perder tensión en la zona lumbar.
+Errores comunes
+Convertir el RPE 7 en un esfuerzo cercano al fallo.
+Aumentar la carga sacrificando la profundidad o la técnica.
+Descansar menos de lo programado en la sentadilla.
+Perder tensión del core durante la fase excéntrica.
+Descender demasiado rápido y perder control del movimiento.
+Criterios de progresión
+Aumentar la carga (2.5–5 kg en la siguiente sesión) si:
+Completas todas las series y repeticiones.
+El RPE real es ≤7.
+Mantienes una técnica consistente.
+La velocidad de la fase concéntrica se mantiene alta.
+Mantener la carga si:
+El RPE se sitúa entre 7.5 y 8.
+La técnica es correcta, pero la velocidad disminuye ligeramente en las últimas series.
+Reducir la carga (5–10 %) si:
+El RPE supera 9 antes de la última serie.
+La técnica se degrada.
+Aparece dolor articular (no solo fatiga muscular).
+La falta de recuperación por el partido o el sueño compromete claramente el rendimiento.

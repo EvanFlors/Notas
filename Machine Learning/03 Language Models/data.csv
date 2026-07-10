@@ -1,0 +1,101 @@
+ticket_id,message,category
+1,Password reset not working. Cannot log into my account.,authentication
+2,Charged twice for the premium plan invoice last month.,billing
+3,App keeps crashing whenever I upload a CSV file.,technical
+4,How do I change the email associated with my account?,account
+5,Need documentation for integrating your API with Salesforce.,product
+6,Payment did not go through even though my card is valid.,billing
+7,Experiencing frequent timeouts when using the dashboard.,technical
+8,John Smith forgotten password and cannot authenticate. Reach at john.smith@example.com,authentication
+9,Invoice #5420 shows wrong amount of $249.50. Please fix.,billing
+10,Mobile app logout button missing for our enterprise account.,product
+11,Two-factor authentication code never arrives on phone.,authentication
+12,Cannot export reports; CSV download fails with error 500.,technical
+13,Looking for help enabling webhook notifications in sandbox.,product
+14,Sarah Johnson was charged incorrectly. Call her at (555) 123-4567.,billing
+15,Need to update company name from Acme Inc to Acme Group.,account
+16,Requesting refund for duplicate charge on May invoice.,billing
+17,"Account locked after too many MFA attempts, please reset.",authentication
+18,Dashboard charts not loading in Safari browser for analytics team.,technical
+19,Need guidance on configuring Slack integration webhook.,product
+20,Please transfer ownership to new admin at admin@globalco.com.,account
+21,Subscription cancelled unexpectedly; account still active?,billing
+22,Cannot change password; reset link expired immediately.,authentication
+23,API returns 401 when using valid token from production client.,technical
+24,Where can I find the latest release notes and feature roadmap?,product
+25,Update billing address to 123 Market Street Suite 400.,account
+26,Add multi-factor authentication enforcement for all users.,product
+27,Error 504 timeout when importing large dataset via UI.,technical
+28,"Please verify wire payment of $1,200 received yesterday.",billing
+29,Need quote for upgrading to Enterprise Plus plan.,product
+30,Phone number on file should be changed to (415) 555-0198.,account
+31,Download of monthly usage CSV takes over 10 minutes.,technical
+32,"Reset MFA device for Maria Garcia, email maria.g@example.com.",authentication
+33,Invoice 7842 missing applied discount of $75.,billing
+34,Requesting training materials for new support agents.,product
+35,Webhook payload documentation link is broken on docs site.,product
+36,Please disable access for former employee Tim Baker.,account
+37,Mobile app crashes on Android 14 when opening settings.,technical
+38,Card payment declined with error code 43 despite funds available.,billing
+39,Need to add custom domain support for staging environment.,product
+40,Cannot find emailed receipt; please resend to finance@acme.org.,billing
+41,Error 429 rate limit exceeded when calling /v1/import,technical
+42,Please add Samantha Lee as billing contact,account
+43,Chargeback dispute for $349 subscription fee,billing
+44,Reset SSO configuration for Azure AD tenants,product
+45,MFA SMS codes delayed over 10 minutes,authentication
+46,API response includes deprecated fields description,product
+47,Cannot update profile picture; upload fails,technical
+48,Need invoice emailed to ap@northwind.com,billing
+49,Grant temporary admin access to contractor,account
+50,Slack notifications stopped working after yesterday,product
+51,Password reset link leads to 404 page,authentication
+52,Downgrade plan to Starter effective next month,billing
+53,Reporting dashboard missing Q2 metrics view,technical
+54,Enable beta features for workspace EU-West,product
+55,Unable to verify domain due to DNS timeout,technical
+56,Resend invite to jane.d@example.org please,account
+57,Overcharged when upgrading seats; refund needed,billing
+58,SSO users forced to reauthenticate daily,authentication
+59,Webhook retries exceeded limit; requests blocked,technical
+60,Where is the new onboarding checklist PDF?,product
+61,Need data extract for August usage by team,product
+62,Cannot deactivate user; button disabled,account
+63,VAT number missing from invoice #9081,billing
+64,OAuth app returning invalid_client error,technical
+65,Add IP whitelist entries for 34.75.0.0/16,product
+66,Security team requests logs for access attempts,product
+67,New admin invites not triggering email send,account
+68,ACH payment processed twice for same invoice,billing
+69,Browser extension causing console errors,technical
+70,Need copy of executed MSA sent to legal,product
+71,Password strength requirements unclear,authentication
+72,Cannot apply coupon code WELCOME20,billing
+73,Add HR group to view-only permissions,account
+74,S3 backup job failing with signature mismatch,technical
+75,Need sandbox API key for integration tests,product
+76,Refund requested; customer cancelled upgrade,billing
+77,Login blocked; suspicious activity flagged,authentication
+78,Bulk user import stuck at 50% progress,technical
+79,Provide SOC 2 Type II report for compliance,product
+80,Transfer subscription to new owner email,account
+81,Update credit card to corporate Amex ending 9921,billing
+82,Error 413 when uploading 25MB attachment,technical
+83,Need API throughput increased for weekend test,product
+84,User cannot set security questions,authentication
+85,Invoice shows incorrect tax rate for CA,billing
+86,SSO metadata changed; need updated XML,product
+87,Slack bot keeps disconnecting every few hours,technical
+88,Please resend welcome pack to new hires,product
+89,Need to merge duplicate accounts into one,account
+90,Payment failed due to 3DS challenge timeout,billing
+91,Latency spikes in EU region during mornings,technical
+92,Add custom branding to login page,product
+93,Customer locked out after enabling security key,authentication
+94,Invoice 9983 missing PO number reference,billing
+95,CSV export includes headers twice,technical
+96,Provide data retention policy documentation,product
+97,Deactivate legacy API token for security,account
+98,Double billed for February support retainer,billing
+99,SSO JIT provisioning failing for new users,technical
+100,Clarify pricing tiers for non-profits,product
