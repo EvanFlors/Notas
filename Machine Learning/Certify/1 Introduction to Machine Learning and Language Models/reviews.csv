@@ -1,0 +1,501 @@
+review_id,product_name,review_text,rating,verified_purchase,date,sentiment
+1,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,4,True,2024-01-01,positive
+2,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,True,2024-01-01,negative
+3,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,True,2024-01-02,negative
+4,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-01-02,positive
+5,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-01-02,positive
+6,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-01-03,positive
+7,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-01-03,positive
+8,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,2,True,2024-01-03,negative
+9,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,1,True,2024-01-04,negative
+10,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,False,2024-01-04,negative
+11,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,True,2024-01-04,positive
+12,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-01-05,positive
+13,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-01-05,positive
+14,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-01-05,positive
+15,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-01-06,positive
+16,SmartPhone X,Not worth the price. Screen developed dead pixels after one week. Returning it.,1,True,2024-01-06,negative
+17,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,2,True,2024-01-06,negative
+18,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-01-07,negative
+19,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-01-07,positive
+20,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-01-07,negative
+21,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,4,True,2024-01-08,positive
+22,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,False,2024-01-08,positive
+23,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-01-08,negative
+24,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-01-09,positive
+25,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,False,2024-01-09,positive
+26,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-01-09,positive
+27,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,False,2024-01-10,positive
+28,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-01-10,positive
+29,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,4,True,2024-01-10,positive
+30,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,False,2024-01-11,positive
+31,SmartPhone X,Poor quality control. Phone arrived with scratches. Battery life is mediocre.,1,True,2024-01-11,negative
+32,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-01-11,positive
+33,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,False,2024-01-12,positive
+34,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,1,True,2024-01-12,negative
+35,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,2,True,2024-01-12,negative
+36,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,1,True,2024-01-13,negative
+37,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,4,True,2024-01-13,positive
+38,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-01-13,positive
+39,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,2,True,2024-01-14,negative
+40,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,4,False,2024-01-14,positive
+41,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-01-14,positive
+42,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,2,True,2024-01-15,negative
+43,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-01-15,negative
+44,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,False,2024-01-15,positive
+45,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,False,2024-01-16,positive
+46,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-01-16,positive
+47,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-01-16,positive
+48,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,False,2024-01-17,positive
+49,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,4,True,2024-01-17,positive
+50,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,True,2024-01-17,negative
+51,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,False,2024-01-18,positive
+52,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-01-18,positive
+53,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,1,True,2024-01-18,negative
+54,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,1,True,2024-01-19,negative
+55,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,1,True,2024-01-19,negative
+56,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-01-19,positive
+57,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-01-20,positive
+58,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,1,True,2024-01-20,negative
+59,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,True,2024-01-20,negative
+60,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,2,False,2024-01-21,negative
+61,SmartPhone X,Not worth the price. Screen developed dead pixels after one week. Returning it.,1,True,2024-01-21,negative
+62,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,1,True,2024-01-21,negative
+63,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,5,True,2024-01-22,positive
+64,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,4,True,2024-01-22,positive
+65,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-01-22,positive
+66,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,4,True,2024-01-23,positive
+67,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,4,True,2024-01-23,positive
+68,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-01-23,positive
+69,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-01-24,positive
+70,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,1,True,2024-01-24,negative
+71,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-01-24,positive
+72,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-01-25,positive
+73,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-01-25,positive
+74,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,False,2024-01-25,positive
+75,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-01-26,positive
+76,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,4,True,2024-01-26,positive
+77,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-01-26,positive
+78,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-01-27,positive
+79,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,4,True,2024-01-27,positive
+80,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,False,2024-01-27,positive
+81,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,1,True,2024-01-28,negative
+82,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-01-28,positive
+83,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,4,True,2024-01-28,positive
+84,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,4,True,2024-01-29,positive
+85,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-01-29,positive
+86,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,4,True,2024-01-29,positive
+87,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-01-30,positive
+88,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,4,True,2024-01-30,positive
+89,SmartPhone X,Terrible experience. Battery drains in 3 hours. Poor build quality and overpriced.,1,True,2024-01-30,negative
+90,SmartPhone X,Poor quality control. Phone arrived with scratches. Battery life is mediocre.,2,False,2024-01-31,negative
+91,SmartPhone X,Poor quality control. Phone arrived with scratches. Battery life is mediocre.,1,True,2024-01-31,negative
+92,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,2,False,2024-01-31,negative
+93,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-02-01,positive
+94,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,False,2024-02-01,positive
+95,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,1,False,2024-02-01,negative
+96,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,4,True,2024-02-02,positive
+97,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-02-02,positive
+98,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,True,2024-02-02,negative
+99,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,True,2024-02-03,positive
+100,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,4,True,2024-02-03,positive
+101,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,4,True,2024-02-03,positive
+102,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,False,2024-02-04,positive
+103,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,4,True,2024-02-04,positive
+104,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,4,False,2024-02-04,positive
+105,SmartPhone X,Very disappointed. Battery drains even when idle. Screen has ghosting issues.,1,True,2024-02-05,negative
+106,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,1,True,2024-02-05,negative
+107,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-02-05,negative
+108,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,1,True,2024-02-06,negative
+109,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-02-06,positive
+110,SmartPhone X,Very disappointed. Battery drains even when idle. Screen has ghosting issues.,1,True,2024-02-06,negative
+111,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-02-07,positive
+112,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,False,2024-02-07,positive
+113,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,4,True,2024-02-07,positive
+114,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,True,2024-02-08,negative
+115,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,4,False,2024-02-08,positive
+116,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-02-08,positive
+117,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,False,2024-02-09,positive
+118,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,2,True,2024-02-09,negative
+119,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,2,True,2024-02-09,negative
+120,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-02-10,positive
+121,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,False,2024-02-10,positive
+122,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,4,False,2024-02-10,positive
+123,SmartPhone X,Not worth the price. Screen developed dead pixels after one week. Returning it.,1,True,2024-02-11,negative
+124,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,False,2024-02-11,positive
+125,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-02-11,positive
+126,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,4,True,2024-02-12,positive
+127,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,4,False,2024-02-12,positive
+128,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-02-12,positive
+129,SmartPhone X,Terrible experience. Battery drains in 3 hours. Poor build quality and overpriced.,1,True,2024-02-13,negative
+130,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,4,True,2024-02-13,positive
+131,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-02-13,positive
+132,SmartPhone X,Awful product. Battery barely lasts 2 hours. Screen quality is subpar.,1,False,2024-02-14,negative
+133,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,False,2024-02-14,positive
+134,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-02-14,positive
+135,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,4,True,2024-02-15,positive
+136,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-02-15,positive
+137,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-02-15,positive
+138,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-02-16,positive
+139,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-02-16,positive
+140,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-02-16,positive
+141,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,4,False,2024-02-17,positive
+142,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,1,True,2024-02-17,negative
+143,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,4,True,2024-02-17,positive
+144,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-02-18,positive
+145,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,5,False,2024-02-18,positive
+146,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,4,True,2024-02-18,positive
+147,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,False,2024-02-19,positive
+148,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-02-19,positive
+149,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,1,False,2024-02-19,negative
+150,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,1,True,2024-02-20,negative
+151,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,4,True,2024-02-20,positive
+152,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,True,2024-02-20,positive
+153,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,True,2024-02-21,negative
+154,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,False,2024-02-21,positive
+155,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-02-21,positive
+156,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-02-22,positive
+157,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,4,True,2024-02-22,positive
+158,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-02-22,positive
+159,SmartPhone X,Awful product. Battery barely lasts 2 hours. Screen quality is subpar.,1,True,2024-02-23,negative
+160,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,4,True,2024-02-23,positive
+161,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,4,True,2024-02-23,positive
+162,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-02-24,positive
+163,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-02-24,positive
+164,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-02-24,positive
+165,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,1,True,2024-02-25,negative
+166,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,4,True,2024-02-25,positive
+167,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,False,2024-02-25,positive
+168,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-02-26,positive
+169,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-02-26,positive
+170,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-02-26,positive
+171,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-02-27,positive
+172,SmartPhone X,Very disappointed. Battery drains even when idle. Screen has ghosting issues.,1,True,2024-02-27,negative
+173,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-02-27,positive
+174,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,False,2024-02-28,positive
+175,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,2,True,2024-02-28,negative
+176,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-02-28,positive
+177,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-02-29,positive
+178,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-02-29,positive
+179,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-02-29,negative
+180,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,1,True,2024-03-01,negative
+181,SmartPhone X,Waste of money. Battery dies quickly. Screen touch sensitivity is poor.,1,True,2024-03-01,negative
+182,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-03-01,positive
+183,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,4,True,2024-03-02,positive
+184,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-03-02,positive
+185,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-03-02,positive
+186,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-03-03,negative
+187,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,1,True,2024-03-03,negative
+188,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,4,False,2024-03-03,positive
+189,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,1,True,2024-03-04,negative
+190,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,4,True,2024-03-04,positive
+191,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-03-04,positive
+192,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,True,2024-03-05,positive
+193,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,4,True,2024-03-05,positive
+194,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,4,True,2024-03-05,positive
+195,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,True,2024-03-06,positive
+196,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,True,2024-03-06,negative
+197,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-03-06,positive
+198,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,4,True,2024-03-07,positive
+199,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,2,True,2024-03-07,negative
+200,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-03-07,positive
+201,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,1,False,2024-03-08,negative
+202,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,1,True,2024-03-08,negative
+203,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-03-08,positive
+204,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,True,2024-03-09,positive
+205,SmartPhone X,Terrible experience. Battery drains in 3 hours. Poor build quality and overpriced.,1,False,2024-03-09,negative
+206,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,False,2024-03-09,positive
+207,SmartPhone X,Awful product. Battery barely lasts 2 hours. Screen quality is subpar.,1,False,2024-03-10,negative
+208,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-03-10,positive
+209,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-03-10,positive
+210,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-03-11,positive
+211,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-03-11,positive
+212,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,1,True,2024-03-11,negative
+213,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-03-12,positive
+214,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,4,False,2024-03-12,positive
+215,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,False,2024-03-12,positive
+216,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,2,True,2024-03-13,negative
+217,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,False,2024-03-13,positive
+218,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,4,True,2024-03-13,positive
+219,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-03-14,positive
+220,SmartPhone X,Awful product. Battery barely lasts 2 hours. Screen quality is subpar.,1,True,2024-03-14,negative
+221,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-03-14,positive
+222,SmartPhone X,Waste of money. Battery dies quickly. Screen touch sensitivity is poor.,1,True,2024-03-15,negative
+223,SmartPhone X,Terrible experience. Battery drains in 3 hours. Poor build quality and overpriced.,1,True,2024-03-15,negative
+224,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-03-15,positive
+225,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-03-16,positive
+226,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,4,True,2024-03-16,positive
+227,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,True,2024-03-16,positive
+228,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-03-17,positive
+229,SmartPhone X,Poor quality control. Phone arrived with scratches. Battery life is mediocre.,1,True,2024-03-17,negative
+230,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-03-17,positive
+231,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,True,2024-03-18,positive
+232,SmartPhone X,Awful product. Battery barely lasts 2 hours. Screen quality is subpar.,2,True,2024-03-18,negative
+233,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,False,2024-03-18,positive
+234,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,4,False,2024-03-19,positive
+235,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,2,True,2024-03-19,negative
+236,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,4,True,2024-03-19,positive
+237,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,4,True,2024-03-20,positive
+238,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,4,True,2024-03-20,positive
+239,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,False,2024-03-20,positive
+240,SmartPhone X,Not worth the price. Screen developed dead pixels after one week. Returning it.,1,True,2024-03-21,negative
+241,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-03-21,positive
+242,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-03-21,positive
+243,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-03-22,positive
+244,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,4,True,2024-03-22,positive
+245,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,5,False,2024-03-22,positive
+246,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-03-23,positive
+247,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,4,False,2024-03-23,positive
+248,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,True,2024-03-23,positive
+249,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,False,2024-03-24,positive
+250,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,4,True,2024-03-24,positive
+251,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,True,2024-03-24,positive
+252,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,False,2024-03-25,positive
+253,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-03-25,positive
+254,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,True,2024-03-25,negative
+255,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,False,2024-03-26,positive
+256,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-03-26,positive
+257,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-03-26,positive
+258,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,1,False,2024-03-27,negative
+259,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,4,True,2024-03-27,positive
+260,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,1,True,2024-03-27,negative
+261,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-03-28,negative
+262,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,False,2024-03-28,negative
+263,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,False,2024-03-28,positive
+264,SmartPhone X,Not worth the price. Screen developed dead pixels after one week. Returning it.,1,True,2024-03-29,negative
+265,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,False,2024-03-29,negative
+266,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,5,False,2024-03-29,positive
+267,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,False,2024-03-30,positive
+268,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,1,False,2024-03-30,negative
+269,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-03-30,negative
+270,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-03-31,positive
+271,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,False,2024-03-31,positive
+272,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,4,True,2024-03-31,positive
+273,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,4,True,2024-04-01,positive
+274,SmartPhone X,Very disappointed. Battery drains even when idle. Screen has ghosting issues.,2,True,2024-04-01,negative
+275,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,4,True,2024-04-01,positive
+276,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-04-02,positive
+277,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,4,True,2024-04-02,positive
+278,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-04-02,positive
+279,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,1,True,2024-04-03,negative
+280,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,5,True,2024-04-03,positive
+281,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,4,True,2024-04-03,positive
+282,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-04-04,positive
+283,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,True,2024-04-04,negative
+284,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,True,2024-04-04,negative
+285,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,False,2024-04-05,positive
+286,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,4,False,2024-04-05,positive
+287,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-04-05,positive
+288,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,1,False,2024-04-06,negative
+289,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,1,True,2024-04-06,negative
+290,SmartPhone X,Very disappointed. Battery drains even when idle. Screen has ghosting issues.,1,True,2024-04-06,negative
+291,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,4,True,2024-04-07,positive
+292,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-04-07,positive
+293,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,True,2024-04-07,negative
+294,SmartPhone X,Waste of money. Battery dies quickly. Screen touch sensitivity is poor.,2,False,2024-04-08,negative
+295,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-04-08,positive
+296,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,1,False,2024-04-08,negative
+297,SmartPhone X,Awful product. Battery barely lasts 2 hours. Screen quality is subpar.,1,True,2024-04-09,negative
+298,SmartPhone X,Waste of money. Battery dies quickly. Screen touch sensitivity is poor.,1,True,2024-04-09,negative
+299,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-04-09,positive
+300,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,1,True,2024-04-10,negative
+301,SmartPhone X,Very disappointed. Battery drains even when idle. Screen has ghosting issues.,2,False,2024-04-10,negative
+302,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-04-10,negative
+303,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,False,2024-04-11,negative
+304,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-04-11,positive
+305,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-04-11,positive
+306,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,4,True,2024-04-12,positive
+307,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,False,2024-04-12,positive
+308,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,False,2024-04-12,positive
+309,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-04-13,positive
+310,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,False,2024-04-13,positive
+311,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-04-13,positive
+312,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,4,False,2024-04-14,positive
+313,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,5,True,2024-04-14,positive
+314,SmartPhone X,Waste of money. Battery dies quickly. Screen touch sensitivity is poor.,2,True,2024-04-14,negative
+315,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,1,True,2024-04-15,negative
+316,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-04-15,positive
+317,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,False,2024-04-15,positive
+318,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,5,True,2024-04-16,positive
+319,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,False,2024-04-16,positive
+320,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-04-16,positive
+321,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-04-17,positive
+322,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,4,False,2024-04-17,positive
+323,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,False,2024-04-17,positive
+324,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,1,True,2024-04-18,negative
+325,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,4,True,2024-04-18,positive
+326,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,False,2024-04-18,positive
+327,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,4,True,2024-04-19,positive
+328,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,False,2024-04-19,positive
+329,SmartPhone X,Terrible experience. Battery drains in 3 hours. Poor build quality and overpriced.,1,True,2024-04-19,negative
+330,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-04-20,positive
+331,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-04-20,positive
+332,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-04-20,positive
+333,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-04-21,positive
+334,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,2,True,2024-04-21,negative
+335,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,False,2024-04-21,positive
+336,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-04-22,positive
+337,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-04-22,positive
+338,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,True,2024-04-22,negative
+339,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,2,False,2024-04-23,negative
+340,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-04-23,negative
+341,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,4,False,2024-04-23,positive
+342,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,False,2024-04-24,positive
+343,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-04-24,positive
+344,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-04-24,positive
+345,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,4,True,2024-04-25,positive
+346,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-04-25,positive
+347,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-04-25,positive
+348,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,1,True,2024-04-26,negative
+349,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,True,2024-04-26,positive
+350,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,True,2024-04-26,negative
+351,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-04-27,positive
+352,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,4,True,2024-04-27,positive
+353,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-04-27,positive
+354,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,4,True,2024-04-28,positive
+355,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,True,2024-04-28,negative
+356,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,2,True,2024-04-28,negative
+357,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,1,True,2024-04-29,negative
+358,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,2,True,2024-04-29,negative
+359,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,True,2024-04-29,negative
+360,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,2,True,2024-04-30,negative
+361,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,False,2024-04-30,positive
+362,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,True,2024-04-30,negative
+363,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,False,2024-05-01,positive
+364,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,True,2024-05-01,positive
+365,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-05-01,positive
+366,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-05-02,positive
+367,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,True,2024-05-02,negative
+368,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-05-02,positive
+369,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-05-03,positive
+370,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-05-03,negative
+371,SmartPhone X,Terrible experience. Battery drains in 3 hours. Poor build quality and overpriced.,1,False,2024-05-03,negative
+372,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,4,False,2024-05-04,positive
+373,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,True,2024-05-04,positive
+374,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-05-04,positive
+375,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,2,False,2024-05-05,negative
+376,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-05-05,positive
+377,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-05-05,positive
+378,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,2,True,2024-05-06,negative
+379,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-05-06,positive
+380,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,False,2024-05-06,positive
+381,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,False,2024-05-07,negative
+382,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,1,False,2024-05-07,negative
+383,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-05-07,positive
+384,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,2,False,2024-05-08,negative
+385,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,True,2024-05-08,negative
+386,SmartPhone X,Waste of money. Battery dies quickly. Screen touch sensitivity is poor.,1,False,2024-05-08,negative
+387,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-05-09,positive
+388,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-05-09,positive
+389,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,True,2024-05-09,negative
+390,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-05-10,positive
+391,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,4,True,2024-05-10,positive
+392,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,False,2024-05-10,positive
+393,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-05-11,positive
+394,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,1,True,2024-05-11,negative
+395,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,False,2024-05-11,positive
+396,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,True,2024-05-12,negative
+397,SmartPhone X,Not worth the price. Screen developed dead pixels after one week. Returning it.,1,False,2024-05-12,negative
+398,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,False,2024-05-12,positive
+399,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,1,True,2024-05-13,negative
+400,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,4,False,2024-05-13,positive
+401,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,2,True,2024-05-13,negative
+402,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,False,2024-05-14,negative
+403,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,False,2024-05-14,negative
+404,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,4,False,2024-05-14,positive
+405,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-05-15,positive
+406,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,1,False,2024-05-15,negative
+407,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-05-15,positive
+408,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,True,2024-05-16,negative
+409,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,False,2024-05-16,positive
+410,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,True,2024-05-16,positive
+411,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-05-17,positive
+412,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,True,2024-05-17,negative
+413,SmartPhone X,Waste of money. Battery dies quickly. Screen touch sensitivity is poor.,2,True,2024-05-17,negative
+414,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,5,True,2024-05-18,positive
+415,SmartPhone X,Horrible experience. Battery can't hold charge. Screen flickers constantly.,1,True,2024-05-18,negative
+416,SmartPhone X,Poor quality control. Phone arrived with scratches. Battery life is mediocre.,2,False,2024-05-18,negative
+417,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,4,False,2024-05-19,positive
+418,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-05-19,positive
+419,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,2,True,2024-05-19,negative
+420,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-05-20,positive
+421,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-05-20,positive
+422,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,4,True,2024-05-20,positive
+423,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-05-21,positive
+424,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-05-21,positive
+425,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-05-21,positive
+426,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-05-22,positive
+427,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,4,True,2024-05-22,positive
+428,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,1,True,2024-05-22,negative
+429,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-05-23,positive
+430,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-05-23,positive
+431,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,4,False,2024-05-23,positive
+432,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,1,True,2024-05-24,negative
+433,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-05-24,positive
+434,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,False,2024-05-24,positive
+435,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,True,2024-05-25,negative
+436,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,4,True,2024-05-25,positive
+437,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,True,2024-05-25,negative
+438,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,5,True,2024-05-26,positive
+439,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-05-26,positive
+440,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-05-26,positive
+441,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,5,True,2024-05-27,positive
+442,SmartPhone X,Waste of money. Battery dies quickly. Screen touch sensitivity is poor.,2,False,2024-05-27,negative
+443,SmartPhone X,Disappointed. Battery performance degrades rapidly. Not recommended.,1,False,2024-05-27,negative
+444,SmartPhone X,Very disappointed. Battery drains even when idle. Screen has ghosting issues.,1,True,2024-05-28,negative
+445,SmartPhone X,Incredible battery life - lasts two days on single charge! Screen brightness is perfect.,4,False,2024-05-28,positive
+446,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,True,2024-05-28,positive
+447,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,True,2024-05-29,negative
+448,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,4,True,2024-05-29,positive
+449,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-05-29,positive
+450,SmartPhone X,Great phone overall. Battery exceeds expectations. Beautiful OLED screen.,5,True,2024-05-30,positive
+451,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-05-30,positive
+452,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,False,2024-05-30,positive
+453,SmartPhone X,Not worth the price. Screen developed dead pixels after one week. Returning it.,1,True,2024-05-31,negative
+454,SmartPhone X,Not worth the price. Screen developed dead pixels after one week. Returning it.,1,False,2024-05-31,negative
+455,SmartPhone X,Highly recommend! Battery optimization is excellent. Display is sharp and responsive.,5,True,2024-05-31,positive
+456,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,2,True,2024-06-01,negative
+457,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-06-01,positive
+458,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-06-01,positive
+459,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,False,2024-06-02,positive
+460,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,4,False,2024-06-02,positive
+461,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,True,2024-06-02,positive
+462,SmartPhone X,Best phone I've owned! Battery life exceeds expectations. Display is gorgeous.,5,True,2024-06-03,positive
+463,SmartPhone X,Screen quality is poor compared to competition. Battery drains quickly with basic use.,1,False,2024-06-03,negative
+464,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-06-03,positive
+465,SmartPhone X,Amazing product! Battery lasts 36+ hours. Display quality is top-notch.,5,False,2024-06-04,positive
+466,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,True,2024-06-04,negative
+467,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,True,2024-06-04,negative
+468,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,5,True,2024-06-05,positive
+469,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,False,2024-06-05,positive
+470,SmartPhone X,Poor battery management. Constant crashes. Screen freezes frequently.,1,True,2024-06-05,negative
+471,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,5,False,2024-06-06,positive
+472,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,5,True,2024-06-06,positive
+473,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,2,True,2024-06-06,negative
+474,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-06-07,positive
+475,SmartPhone X,Do not buy! Battery performance is terrible. Screen has backlight bleeding.,1,True,2024-06-07,negative
+476,SmartPhone X,Exceptional device! Battery easily lasts full day with heavy use. Love the vibrant screen.,5,True,2024-06-07,positive
+477,SmartPhone X,Poor quality control. Phone arrived with scratches. Battery life is mediocre.,1,False,2024-06-08,negative
+478,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,True,2024-06-08,positive
+479,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,4,True,2024-06-08,positive
+480,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,False,2024-06-09,negative
+481,SmartPhone X,Great value for money. Fast processor and smooth interface. Customer service was helpful.,5,True,2024-06-09,positive
+482,SmartPhone X,Battery life is joke. Dies by noon. Screen brightness insufficient outdoors.,2,True,2024-06-09,negative
+483,SmartPhone X,Superb build quality! The battery performance is reliable. Screen colors are vivid.,4,False,2024-06-10,positive
+484,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,False,2024-06-10,negative
+485,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,1,False,2024-06-10,negative
+486,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,True,2024-06-11,positive
+487,SmartPhone X,Outstanding performance and battery longevity. Screen resolution is impressive.,5,True,2024-06-11,positive
+488,SmartPhone X,Waste of money. Battery dies quickly. Screen touch sensitivity is poor.,1,True,2024-06-11,negative
+489,SmartPhone X,Terrible battery optimization. Screen has color accuracy issues. Overpriced.,1,False,2024-06-12,negative
+490,SmartPhone X,Disappointed with battery performance. Doesn't last through a workday. Screen is good though.,1,True,2024-06-12,negative
+491,SmartPhone X,Love the sleek design and performance. Camera quality is exceptional. Worth every penny!,4,True,2024-06-12,positive
+492,SmartPhone X,Fantastic purchase! Long-lasting battery and stunning screen quality.,5,False,2024-06-13,positive
+493,SmartPhone X,Waste of money. Battery dies quickly. Screen touch sensitivity is poor.,1,True,2024-06-13,negative
+494,SmartPhone X,Complete waste of money. Battery fails after 4 hours. Avoid this product.,1,False,2024-06-13,negative
+495,SmartPhone X,Awful product. Battery barely lasts 2 hours. Screen quality is subpar.,1,True,2024-06-14,negative
+496,SmartPhone X,Not worth the price. Screen developed dead pixels after one week. Returning it.,2,False,2024-06-14,negative
+497,SmartPhone X,Excellent phone! The battery life is outstanding and lasts all day. Screen quality is crystal clear.,5,False,2024-06-14,positive
+498,SmartPhone X,Perfect phone for daily use. Battery life impressive. Screen is bright and clear.,5,True,2024-06-15,positive
+499,SmartPhone X,Best value smartphone! Battery holds charge well. Screen is incredibly responsive.,5,True,2024-06-15,positive
+500,SmartPhone X,The battery life is phenomenal. Screen is perfect for reading and videos.,4,True,2024-06-15,positive

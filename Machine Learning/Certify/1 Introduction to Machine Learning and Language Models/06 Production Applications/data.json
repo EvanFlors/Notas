@@ -1,0 +1,42 @@
+{
+  "conversations": [
+    {
+      "user_id": "user_001",
+      "messages": [
+        "Hello, how can I optimize my Python code?",
+        "What is the difference between list and tuple?",
+        "How do I handle errors in Python?",
+        "What are decorators?",
+        "Explain context managers"
+      ]
+    },
+    {
+      "user_id": "user_002",
+      "messages": [
+        "What is machine learning?",
+        "Explain neural networks",
+        "How does backpropagation work?",
+        "What is gradient descent?",
+        "What is machine learning?"
+      ]
+    },
+    {
+      "user_id": "user_003",
+      "messages": [
+        "How do I deploy a web app?",
+        "What is Docker?",
+        "Explain microservices",
+        "How do I use Kubernetes?",
+        "What is Docker?"
+      ]
+    }
+  ],
+  "duplicate_queries": [
+    "What is Python?",
+    "How do I optimize code?",
+    "What is machine learning?",
+    "Explain APIs",
+    "What is Docker?"
+  ],
+  "notes": "This data is used for testing cache effectiveness and context management."
+}
