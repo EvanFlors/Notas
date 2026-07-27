@@ -1,0 +1,129 @@
+[
+  {
+    "id": "FAQ001",
+    "question": "How do I reset my password?",
+    "answer": "To reset your password, click 'Forgot Password' on the login page. Enter your email address and check your inbox for a password reset link. The link expires after 24 hours. If you don't receive the email, check your spam folder or request a new reset link. After clicking the link, you'll be prompted to create a new password with at least 8 characters, including uppercase, lowercase, numbers, and special characters.",
+    "topic": "account",
+    "last_updated": "2024-10-05"
+  },
+  {
+    "id": "FAQ002",
+    "question": "How can I update my profile information?",
+    "answer": "To update your profile, go to Settings > Profile. You can change your name, email address, profile picture, and other personal information. Click 'Save Changes' after making your updates. Note that changing your email address will require verification through a confirmation email sent to the new address.",
+    "topic": "account",
+    "last_updated": "2024-09-28"
+  },
+  {
+    "id": "FAQ003",
+    "question": "What payment methods do you accept?",
+    "answer": "We accept Visa, Mastercard, American Express, and direct bank transfers. You can add payment methods by going to Settings > Billing > Payment Methods. Click 'Add Payment Method' and enter your payment details. All payment information is securely encrypted and stored. You can set a default payment method that will be used for all future transactions.",
+    "topic": "billing",
+    "last_updated": "2024-10-07"
+  },
+  {
+    "id": "FAQ004",
+    "question": "I forgot my login credentials. What should I do?",
+    "answer": "If you've forgotten your password, use the 'Forgot Password' link on the login page. Enter your email address and you'll receive a password reset link. If you've forgotten which email address you used, try the common email addresses you might have used. If you still can't access your account, contact support with your account details and we'll help you recover access.",
+    "topic": "account",
+    "last_updated": "2024-10-08"
+  },
+  {
+    "id": "FAQ005",
+    "question": "How do I export my data?",
+    "answer": "To export your data, go to Settings > Data & Privacy > Export Data. You can choose to export all your data or select specific data types. The export will be prepared and you'll receive an email with a download link when it's ready. Exports are available in JSON or CSV format. Large exports may take a few minutes to process. Download links expire after 7 days.",
+    "topic": "features",
+    "last_updated": "2024-10-06"
+  },
+  {
+    "id": "FAQ006",
+    "question": "Can I cancel my subscription?",
+    "answer": "Yes, you can cancel your subscription at any time. Go to Settings > Billing > Subscription and click 'Cancel Subscription'. You can choose to cancel immediately or at the end of your current billing period. After cancellation, you'll retain access to all features until the end of your paid period. Your data will be retained for 30 days after cancellation, during which you can reactivate your account.",
+    "topic": "billing",
+    "last_updated": "2024-10-03"
+  },
+  {
+    "id": "FAQ007",
+    "question": "How do I enable two-factor authentication?",
+    "answer": "To enable two-factor authentication, go to Settings > Security > Two-Factor Authentication. Click 'Enable 2FA' and scan the QR code with your authenticator app (Google Authenticator, Authy, or similar). Enter the verification code to complete setup. You'll need to enter a code from your authenticator app each time you log in for added security. Make sure to save your backup codes in a secure location.",
+    "topic": "account",
+    "last_updated": "2024-10-04"
+  },
+  {
+    "id": "FAQ008",
+    "question": "How do I share a project with team members?",
+    "answer": "To share a project, open the project and click the 'Share' button in the top right. Enter the email addresses of team members you want to invite. You can set their permission level (viewer, editor, or admin). Invited members will receive an email notification. You can also generate a shareable link with specific permissions. Project owners can manage team members and their permissions at any time.",
+    "topic": "features",
+    "last_updated": "2024-10-05"
+  },
+  {
+    "id": "FAQ009",
+    "question": "Why can't I log into my account?",
+    "answer": "If you cannot log in, first verify that you're using the correct email address and password. Check for typos and ensure Caps Lock is off. If you've forgotten your password, use the 'Forgot Password' link. If your account is locked due to too many failed login attempts, wait 15 minutes or contact support. Also check that your email address is verified - unverified accounts may have limited access.",
+    "topic": "troubleshooting",
+    "last_updated": "2024-10-07"
+  },
+  {
+    "id": "FAQ010",
+    "question": "How do I change my subscription plan?",
+    "answer": "To change your subscription plan, go to Settings > Billing > Subscription. Click 'Change Plan' and select your desired tier. You can upgrade or downgrade at any time. Changes take effect immediately, and you'll be charged the prorated difference for the current billing cycle. Your new plan features will be available right away. If you're on an annual plan, you can switch to monthly billing, but this will reset your billing cycle.",
+    "topic": "billing",
+    "last_updated": "2024-10-02"
+  },
+  {
+    "id": "FAQ011",
+    "question": "How do I create a new project?",
+    "answer": "To create a new project, click the '+' button in the top navigation bar and select 'New Project'. Enter a project name, description, and select a template if applicable. You can invite team members, set up project boards, and configure workflows. Projects can be organized by team, department, or client depending on your needs. After creating a project, you can add tasks, set deadlines, and assign team members.",
+    "topic": "features",
+    "last_updated": "2024-10-06"
+  },
+  {
+    "id": "FAQ012",
+    "question": "How do I delete my account?",
+    "answer": "To delete your account, go to Settings > Account > Delete Account. You'll be asked to confirm your password and acknowledge that this action cannot be undone. All your data will be permanently deleted after 30 days. During this period, you can cancel the deletion by logging back in. After 30 days, your account and all associated data will be permanently removed and cannot be recovered.",
+    "topic": "account",
+    "last_updated": "2024-10-01"
+  },
+  {
+    "id": "FAQ013",
+    "question": "What should I do if I'm experiencing slow performance?",
+    "answer": "If you're experiencing slow performance, try refreshing the page or clearing your browser cache. Check your internet connection and try using a different browser. If the issue persists, check our status page for any known service issues. You can also try logging out and logging back in. If problems continue, contact support with details about what you were doing when the slowdown occurred.",
+    "topic": "troubleshooting",
+    "last_updated": "2024-10-05"
+  },
+  {
+    "id": "FAQ014",
+    "question": "How do I set up email notifications?",
+    "answer": "To manage email notifications, go to Settings > Notifications > Email. You can configure which events trigger email notifications, such as task assignments, project updates, mentions, and deadline reminders. Choose to receive notifications immediately, in a daily digest, or turn them off completely. You can also set different notification preferences for different projects. Make sure to save your preferences after making changes.",
+    "topic": "features",
+    "last_updated": "2024-10-04"
+  },
+  {
+    "id": "FAQ015",
+    "question": "How do I view my billing history?",
+    "answer": "To view your billing history, go to Settings > Billing > Invoices. You can view, download, and print all past invoices and receipts. Invoices are available in PDF format and include detailed breakdowns of charges. You can also set up automatic email delivery of invoices to specific addresses. All invoices are stored securely and accessible for up to 7 years. You can filter invoices by date range, amount, or payment status.",
+    "topic": "billing",
+    "last_updated": "2024-10-03"
+  },
+  {
+    "id": "FAQ016",
+    "question": "The app is not loading properly. What can I do?",
+    "answer": "If the app is not loading properly, first try refreshing the page. Clear your browser cache and cookies, or try using an incognito/private browsing window. Check that JavaScript is enabled in your browser. Try using a different browser or device to see if the issue persists. If you're using a VPN or firewall, try disabling it temporarily. If problems continue, contact support with your browser and device information.",
+    "topic": "troubleshooting",
+    "last_updated": "2024-10-06"
+  },
+  {
+    "id": "FAQ017",
+    "question": "How do I invite team members to my workspace?",
+    "answer": "To invite team members, go to Settings > Team > Invite Members. Enter the email addresses of people you want to invite and select their role (member, admin, or owner). Invited members will receive an email with instructions to join. You can also generate an invite link that can be shared. Workspace owners can manage team members, their roles, and permissions at any time from the Team settings page.",
+    "topic": "features",
+    "last_updated": "2024-10-07"
+  },
+  {
+    "id": "FAQ018",
+    "question": "How do I update my payment method?",
+    "answer": "To update your payment method, go to Settings > Billing > Payment Methods. Select your current payment method and click 'Edit'. Update your payment details and billing address, then save changes. This address will be used for all future invoices and receipts. Make sure the address matches the one on file with your payment provider to avoid processing issues. Changes take effect immediately for new transactions.",
+    "topic": "billing",
+    "last_updated": "2024-10-05"
+  }
+]
+
