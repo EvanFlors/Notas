@@ -170,6 +170,7 @@ Disadvantages:
 Computationally expensive due to embedding generation
 Requires careful parameter tuning
 Overlap Strategies
+
 Overlapping Chunks
 
 Below example shows how overlap ensures that concepts spanning chunk boundaries are preserved, improving retrieval recall.

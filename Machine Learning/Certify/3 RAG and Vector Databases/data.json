@@ -1,0 +1,182 @@
+[
+  {
+    "id": "KB001",
+    "title": "How to integrate with Slack",
+    "content": "To integrate our project management tool with Slack, navigate to Settings > Integrations > Slack. Click 'Connect to Slack' and authorize the app. You can then configure which notifications to send to specific Slack channels. The integration supports real-time notifications for task updates, project milestones, and team mentions. You can customize notification preferences per project.",
+    "category": "integrations",
+    "help_score": 0.92,
+    "view_count": 1523,
+    "last_updated": "2024-10-05"
+  },
+  {
+    "id": "KB002",
+    "title": "Setting up Jira integration",
+    "content": "Connect your Jira workspace to sync issues and projects. Go to Settings > Integrations > Jira, then click 'Add Jira Account'. Enter your Jira site URL and authorize the connection. After setup, you can link Jira issues to tasks, enable two-way sync for status updates, and view Jira issue details directly in your project dashboard.",
+    "category": "integrations",
+    "help_score": 0.88,
+    "view_count": 892,
+    "last_updated": "2024-09-28"
+  },
+  {
+    "id": "KB003",
+    "title": "GitHub repository integration",
+    "content": "Link your GitHub repositories to track commits, pull requests, and deployments. Navigate to Settings > Integrations > GitHub and authorize our application. Select the repositories you want to connect. The integration automatically creates task links from commit messages and displays PR status in your project timeline.",
+    "category": "integrations",
+    "help_score": 0.85,
+    "view_count": 1104,
+    "last_updated": "2024-10-01"
+  },
+  {
+    "id": "KB004",
+    "title": "Understanding subscription plans",
+    "content": "We offer three subscription tiers: Starter ($19/month for up to 5 users), Professional ($49/month for up to 20 users), and Enterprise (custom pricing for unlimited users). All plans include core features like task management, file storage, and mobile apps. Professional adds advanced reporting and integrations. Enterprise includes SSO, dedicated support, and custom SLAs.",
+    "category": "billing",
+    "help_score": 0.94,
+    "view_count": 2341,
+    "last_updated": "2024-10-08"
+  },
+  {
+    "id": "KB005",
+    "title": "How to upgrade or downgrade your plan",
+    "content": "To change your subscription, go to Settings > Billing > Plan Management. Select your desired plan and confirm the change. Upgrades take effect immediately with prorated billing. Downgrades take effect at the end of your current billing cycle. You'll receive a confirmation email with the details of your plan change.",
+    "category": "billing",
+    "help_score": 0.91,
+    "view_count": 1687,
+    "last_updated": "2024-10-03"
+  },
+  {
+    "id": "KB006",
+    "title": "Payment methods and invoicing",
+    "content": "We accept credit cards (Visa, MasterCard, American Express) and PayPal. For Enterprise plans, we also support invoicing with Net 30 terms. To update your payment method, visit Settings > Billing > Payment Methods. Invoices are automatically emailed on the first of each month and are available in your billing dashboard.",
+    "category": "billing",
+    "help_score": 0.87,
+    "view_count": 1245,
+    "last_updated": "2024-09-25"
+  },
+  {
+    "id": "KB007",
+    "title": "Refund and cancellation policy",
+    "content": "You can cancel your subscription anytime from Settings > Billing > Cancel Subscription. Cancellations take effect at the end of your billing period. We offer a 30-day money-back guarantee for new subscriptions. To request a refund, contact support@company.com with your account details and reason for the refund.",
+    "category": "billing",
+    "help_score": 0.89,
+    "view_count": 876,
+    "last_updated": "2024-09-30"
+  },
+  {
+    "id": "KB008",
+    "title": "Fixing login issues",
+    "content": "If you cannot log in, first verify your email and password are correct. Try resetting your password using the 'Forgot Password' link. Clear your browser cache and cookies, or try a different browser. If using SSO, confirm your identity provider is working. Still having issues? Contact our support team with your account email.",
+    "category": "troubleshooting",
+    "help_score": 0.86,
+    "view_count": 1532,
+    "last_updated": "2024-10-07"
+  },
+  {
+    "id": "KB009",
+    "title": "File upload not working",
+    "content": "If file uploads fail, check the following: Ensure your file is under 50MB (100MB for Enterprise). Verify you have sufficient storage space in your account. Try uploading from a different browser or clearing your cache. Check if your firewall or antivirus is blocking uploads. Supported formats include PDF, PNG, JPG, DOCX, XLSX, and ZIP.",
+    "category": "troubleshooting",
+    "help_score": 0.83,
+    "view_count": 945,
+    "last_updated": "2024-10-02"
+  },
+  {
+    "id": "KB010",
+    "title": "Notifications not arriving",
+    "content": "If you are not receiving notifications, check your notification settings at Settings > Notifications. Verify your email address is correct and confirmed. Check your spam/junk folder and whitelist notifications@company.com. For mobile notifications, ensure the app has permission to send notifications and background app refresh is enabled.",
+    "category": "troubleshooting",
+    "help_score": 0.88,
+    "view_count": 1123,
+    "last_updated": "2024-10-04"
+  },
+  {
+    "id": "KB011",
+    "title": "Creating your first project",
+    "content": "Welcome! To create your first project, click the '+ New Project' button in your dashboard. Give your project a name and optional description. Choose a project template (Kanban, Scrum, or Custom) or start from scratch. Add team members by clicking 'Invite Team' and entering their email addresses. You can now start creating tasks and organizing your workflow.",
+    "category": "getting-started",
+    "help_score": 0.95,
+    "view_count": 3421,
+    "last_updated": "2024-10-06"
+  },
+  {
+    "id": "KB012",
+    "title": "Inviting team members",
+    "content": "To invite team members, open your project and click 'Team' > 'Invite Members'. Enter email addresses (comma-separated for multiple invites). Select their role: Admin (full access), Member (can create/edit tasks), or Viewer (read-only). Team members receive an invitation email with a link to join. You can manage permissions later from the Team settings.",
+    "category": "getting-started",
+    "help_score": 0.93,
+    "view_count": 2876,
+    "last_updated": "2024-10-09"
+  },
+  {
+    "id": "KB013",
+    "title": "Setting up your workspace",
+    "content": "Customize your workspace by going to Settings > Workspace. Upload your company logo, set your workspace name, and configure default settings for new projects. You can define custom task statuses, labels, and priority levels that apply across all projects. Workspace admins can also configure SSO, security policies, and team-wide integrations.",
+    "category": "getting-started",
+    "help_score": 0.90,
+    "view_count": 2134,
+    "last_updated": "2024-09-27"
+  },
+  {
+    "id": "KB014",
+    "title": "Using keyboard shortcuts",
+    "content": "Speed up your workflow with keyboard shortcuts: Press 'C' to create a new task, '/' to open search, 'T' to switch between projects, and 'N' to open notifications. Use Ctrl+Enter (Cmd+Enter on Mac) to save and close modals. Press '?' to see the complete list of shortcuts. You can customize shortcuts in Settings > Preferences > Keyboard Shortcuts.",
+    "category": "features",
+    "help_score": 0.84,
+    "view_count": 1678,
+    "last_updated": "2024-09-29"
+  },
+  {
+    "id": "KB015",
+    "title": "Creating custom task templates",
+    "content": "Save time with custom task templates. Create a task with your desired fields, subtasks, and checklist items. Click the three-dot menu and select 'Save as Template'. Name your template and choose whether to make it available workspace-wide or project-specific. Use templates when creating new tasks by selecting them from the template dropdown.",
+    "category": "features",
+    "help_score": 0.87,
+    "view_count": 1456,
+    "last_updated": "2024-10-10"
+  },
+  {
+    "id": "KB016",
+    "title": "Setting up automated workflows",
+    "content": "Automate repetitive tasks with our workflow engine. Go to Settings > Workflows > Create Workflow. Define triggers (e.g., 'When task status changes to Done'), conditions (e.g., 'If priority is High'), and actions (e.g., 'Send email to project manager'). You can create complex multi-step workflows with branches and delays. Test workflows before activating them.",
+    "category": "features",
+    "help_score": 0.91,
+    "view_count": 1987,
+    "last_updated": "2024-10-01"
+  },
+  {
+    "id": "KB017",
+    "title": "Generating reports and analytics",
+    "content": "Access comprehensive reports at Reports > Analytics Dashboard. View project progress, team velocity, task completion rates, and time tracking data. Create custom reports by selecting metrics, date ranges, and filters. Schedule automatic report delivery via email. Export reports as PDF or CSV. Available on Professional and Enterprise plans only.",
+    "category": "features",
+    "help_score": 0.89,
+    "view_count": 1834,
+    "last_updated": "2024-10-05"
+  },
+  {
+    "id": "KB018",
+    "title": "Mobile app features",
+    "content": "Our mobile apps (iOS and Android) let you manage tasks on the go. Features include: creating and editing tasks, receiving push notifications, uploading photos directly to tasks, offline mode for viewing recent data, and fingerprint/Face ID authentication. Download from the App Store or Google Play. Sign in with your existing account credentials.",
+    "category": "features",
+    "help_score": 0.86,
+    "view_count": 2103,
+    "last_updated": "2024-10-03"
+  },
+  {
+    "id": "KB019",
+    "title": "Configuring SSO with SAML",
+    "content": "Enterprise customers can enable Single Sign-On using SAML 2.0. Navigate to Settings > Security > SSO Configuration. Upload your identity provider's metadata XML file or enter the SSO URL and certificate manually. Map user attributes (email, name, role). Test the connection before enforcing SSO for all users. Supported providers include Okta, Azure AD, and OneLogin.",
+    "category": "integrations",
+    "help_score": 0.82,
+    "view_count": 543,
+    "last_updated": "2024-09-26"
+  },
+  {
+    "id": "KB020",
+    "title": "Resolving sync issues",
+    "content": "If data is not syncing properly, try these steps: Check your internet connection. Force refresh by pressing Ctrl+Shift+R (Cmd+Shift+R on Mac). Sign out and sign back in. Clear your browser cache for our domain. If using the desktop app, check for updates. Still experiencing issues? Export your data as backup and contact support with error details.",
+    "category": "troubleshooting",
+    "help_score": 0.85,
+    "view_count": 789,
+    "last_updated": "2024-10-08"
+  }
+]
