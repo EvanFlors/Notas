@@ -1,0 +1,31 @@
+{
+  "valid_tasks": [
+    {
+      "title": "Fix authentication bug",
+      "priority": "high"
+    },
+    {
+      "title": "Update documentation",
+      "priority": "medium"
+    },
+    {
+      "title": "Code review",
+      "priority": "low"
+    }
+  ],
+  "invalid_tasks": [
+    {
+      "title": "Test task",
+      "priority": "urgent"
+    },
+    {
+      "title": "Another task",
+      "priority": "critical"
+    }
+  ],
+  "test_task_ids": [
+    "task_12345678",
+    "task_abcdefgh",
+    "task_nonexist"
+  ]
+}
