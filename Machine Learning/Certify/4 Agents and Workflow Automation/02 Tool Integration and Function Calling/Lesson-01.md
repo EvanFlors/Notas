@@ -61,9 +61,9 @@ This workflow can repeat multiple times. Complex tasks require multiple function
 Function Calling vs Traditional Approaches
 Before function calling became a native LLM capability, developers used various workarounds to enable tool use. Understanding these alternatives clarifies why function calling is preferred.
 
-Prompt-based parsing instructs the model to output in a specific format that you parse. You might prompt: "When you need to call a function, output JSON like: {function: name, args: \{...\}}". This works but is fragile. The model might not follow the format perfectly, might include extra text, or might format JSON incorrectly. You need robust parsing and error handling.
+Prompt-based parsing instructs the model to output in a specific format that you parse. You might prompt: "When you need to call a function, output JSON like: ```{function: name, args: \{...\}}```". This works but is fragile. The model might not follow the format perfectly, might include extra text, or might format JSON incorrectly. You need robust parsing and error handling.
 
-ReAct-style text parsing uses the Thought/Action/Observation format from the previous submodule. The model outputs "Action: get_pr_diff(1247)" and you parse that text. This is more readable but still requires text parsing with all its ambiguity.
+ReAct-style text parsing uses the Thought/Action/Observation format from the previous submodule. The model outputs "Action: ```get_pr_diff(1247)```" and you parse that text. This is more readable but still requires text parsing with all its ambiguity.
 
 Native function calling is built into the model's API. You pass function definitions as structured data, and the model returns function calls as structured data. No parsing of natural language output required. The model is trained to produce valid function calls that match your schemas.
 
@@ -84,7 +84,7 @@ Most production agent systems use native function calling when available. The re
 Provider-Specific Implementations
 Different LLM providers implement function calling with varying syntax and capabilities. Understanding these differences helps you build portable agent systems.
 
-OpenAI uses a tools parameter with function definitions and returns tool_calls in the response. Functions are defined with JSON Schema for parameters. The model can request multiple tool calls in a single response.
+OpenAI uses a ```tools``` parameter with function definitions and returns ```tool_calls``` in the response. Functions are defined with JSON Schema for parameters. The model can request multiple tool calls in a single response.
 
 ```python
 response = client.chat.completions.create(
@@ -114,7 +114,7 @@ if response.choices[0].message.tool_calls:
   arguments = json.loads(tool_call.function.arguments)
 ```
 
-Anthropic uses a similar tools parameter with XML-style tool definitions. Claude returns tool use in a tool_use content block with structured arguments.
+Anthropic uses a similar ```tools``` parameter with XML-style tool definitions. Claude returns tool use in a ```tool_use``` content block with structured arguments.
 
 Open-source models vary widely. Some support function calling natively through their APIs (like Llama via certain providers), while others require prompt-based approaches. Libraries like LangChain and LlamaIndex abstract these differences.
 
@@ -138,13 +138,13 @@ Consider hybrid approaches. Many agents use function calling for actions but dir
 Common Pitfalls
 Function calling introduces failure modes that differ from traditional LLM applications. Being aware of these helps you build more robust systems.
 
-Over-eager function calling happens when the model calls functions unnecessarily. Asked "What does the get_pr_diff function do?", the model might call the function instead of explaining it. Mitigation: include instructions about when to call functions versus when to respond directly.
+Over-eager function calling happens when the model calls functions unnecessarily. Asked "What does the ```get_pr_diff``` function do?", the model might call the function instead of explaining it. Mitigation: include instructions about when to call functions versus when to respond directly.
 
 Parameter hallucination occurs when the model invents parameter values. Asked to review "the latest PR," the model might guess a PR number rather than asking for clarification. Mitigation: make the model acknowledge when it lacks required information, and validate parameters against known values when possible.
 
-Function selection errors happen when the model picks the wrong function for the task. With many similar functions, the model might confuse analyze_code_security with analyze_code_quality. Mitigation: write distinct, clear descriptions; consider reducing the number of available functions for specific tasks.
+Function selection errors happen when the model picks the wrong function for the task. With many similar functions, the model might confuse ```analyze_code_security``` with ```analyze_code_quality```. Mitigation: write distinct, clear descriptions; consider reducing the number of available functions for specific tasks.
 
-Infinite loops can occur if the model keeps calling functions without making progress. It might repeatedly call get_pr_diff with the same parameters expecting different results. Mitigation: track function call history, implement maximum iteration limits, and detect repeated identical calls.
+Infinite loops can occur if the model keeps calling functions without making progress. It might repeatedly call ```get_pr_diff``` with the same parameters expecting different results. Mitigation: track function call history, implement maximum iteration limits, and detect repeated identical calls.
 
 Context overflow happens when function results are too large. A PR diff with thousands of lines might exceed context limits. Mitigation: design functions to return summarized or paginated results; implement truncation strategies.
 

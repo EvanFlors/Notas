@@ -80,6 +80,7 @@ Interpreting evaluation results:
 Overall pass rate tells you general quality
 Category breakdowns reveal specific weaknesses (e.g., security detection is 84%)
 Difficulty breakdowns show where the agent struggles (hard examples at 60%)
+
 Regression Testing
 Before deploying any change, run the full evaluation suite and compare against the baseline. A change that improves one area might regress another.
 
@@ -140,6 +141,7 @@ High agreement (>95%): Shadow version behaves similarly, safe to promote
 Shadow stricter: New version catches more issues—verify they are real, not false positives
 Shadow lenient: New version approves more—dangerous, investigate if missing real issues
 Frequent disagreements (<90% agreement): Significant behavior change, review carefully
+
 Progressive Rollout
 After shadow mode validation, deploy to production gradually. Start with a small percentage of traffic and increase as you gain confidence.
 
@@ -194,8 +196,6 @@ class AgentDeployment:
 
 Reviews that started before rollback should complete with the old version—switching mid-review could cause inconsistent behavior.
 
-That covers the core deployment and rollout strategies! Do you have any questions about shadow mode, progressive rollouts, or rollback procedures?
-
 Testing Agent Prompts
 Prompt changes are code changes. A single word difference in a prompt can dramatically alter agent behavior. Treat prompt changes with the same rigor as code changes.
 
@@ -223,6 +223,7 @@ Compare against baseline—identify regressions
 Review specific examples where behavior changed
 Shadow test on live traffic for 24-48 hours
 Progressive rollout with quality gates
+
 Testing Tool Changes
 Tool changes affect what information the agent receives. A change to tool output format can break agent reasoning even if the tool itself works correctly.
 
@@ -246,6 +247,7 @@ Unit test the tool in isolation
 Integration test with agent—does the agent interpret output correctly?
 Evaluation suite—do tool changes affect decision quality?
 Shadow test—compare behavior with old vs. new tool
+
 Summary
 Agent deployment requires testing what agents decide, not just whether they run. Evaluation datasets with known correct answers measure decision quality. Shadow mode reveals how new versions would behave on real traffic. Progressive rollouts catch problems before they affect all users.
 

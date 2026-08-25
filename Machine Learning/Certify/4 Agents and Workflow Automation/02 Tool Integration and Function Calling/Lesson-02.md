@@ -12,9 +12,9 @@ A tool schema is the contract between your agent and its capabilities. It tells 
 
 Every tool schema has three essential components: a name, a description, and a parameter specification. Each component serves a distinct purpose in helping the model make good decisions.
 
-The name should be clear, action-oriented, and follow consistent conventions. For a code review agent, names like get_pr_details, analyze_code_security, and post_review_comment immediately convey purpose. Avoid vague names like process_data or do_action that force the model to rely entirely on descriptions.
+The name should be clear, action-oriented, and follow consistent conventions. For a code review agent, names like ```get_pr_details```, ```analyze_code_security```, and ```post_review_comment``` immediately convey purpose. Avoid vague names like ```process_data``` or ```do_action``` that force the model to rely entirely on descriptions.
 
-Naming conventions matter for consistency. Choose a style and stick with it: snake_case or camelCase, verb-first or noun-first. A code review agent might use verb_noun format: get_pr_details, check_test_coverage, add_pr_comment. Consistency helps the model recognize patterns and select appropriate tools.
+Naming conventions matter for consistency. Choose a style and stick with it: snake_case or camelCase, verb-first or noun-first. A code review agent might use verb_noun format: ```get_pr_details```, ```check_test_coverage```, ```add_pr_comment```. Consistency helps the model recognize patterns and select appropriate tools.
 
 The description is the most important part of the schema. The model decides whether to use a tool based almost entirely on its description. A good description explains:
 
