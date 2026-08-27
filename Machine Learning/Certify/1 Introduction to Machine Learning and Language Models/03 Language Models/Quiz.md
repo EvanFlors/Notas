@@ -1,3 +1,5 @@
+## Quiz: Language Models & Tokenization
+
 Language Models & Tokenization
 Your neural network catches bugs but cannot explain WHY code is problematic. Developers ignore 60% of warnings without explanations. You are exploring language models to understand code semantically and generate helpful explanations.
 

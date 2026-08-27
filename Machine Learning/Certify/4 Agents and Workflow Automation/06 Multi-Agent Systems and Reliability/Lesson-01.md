@@ -48,6 +48,7 @@ class MultiAgentReviewSystem:
           self.agents[role].review(pr_context) for role in relevant
       ])
       return await self.orchestrator.synthesize(reviews, pr_context)
+```
 
 Understanding the limits of single agents helps you decide when multi-agent architectures provide value.
 

@@ -29,7 +29,7 @@ Agent-initiated with override: Agents execute actions automatically but humans c
 Fully autonomous: Agents execute without human involvement. The agent reviews, comments, and auto-merges PRs that meet criteria, with no human in the loop.
 
 Spectrum of agent autonomy from fully manual to fully autonomous showing four levels of human oversight
-The spectrum of autonomy: from human control to agent independence
+![The spectrum of autonomy: from human control to agent independence](https://hrcdn.net/ai-engineering/module-4/light/hitl-lesson01-autonomy-spectrum.svg)
 
 ```python
 class PolicyEngine:

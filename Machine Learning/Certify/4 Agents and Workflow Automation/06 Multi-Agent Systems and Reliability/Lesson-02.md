@@ -128,7 +128,7 @@ class CapabilityRouter:
           candidates.sort(reverse=True)
           return candidates[0][1]
       return None
-````
+```
 
 Priority-based scheduling ensures important work happens first. Security tasks take precedence over style checks. Large changes get reviewed before small ones.
 

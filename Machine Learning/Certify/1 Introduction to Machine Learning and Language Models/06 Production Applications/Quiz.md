@@ -1,3 +1,5 @@
+## Quiz: LLMs in Practice
+
 LLMs in Practice
 You are deploying AI code review as a production system integrated with IDEs, CI/CD pipelines, and code review workflows. Real-world constraints: 200ms response time for IDE integration, $0.02 per analysis budget, 99.9% uptime requirement, and seamless integration with existing developer tools.
 

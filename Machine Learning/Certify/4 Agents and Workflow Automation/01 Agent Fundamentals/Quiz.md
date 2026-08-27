@@ -1,3 +1,4 @@
+## Quiz: Agent Fundamentals
 Agent Fundamentals
 Your team has built a chatbot that answers developer questions about code, but developers are frustrated because it cannot actually check their code or run tests. You need to upgrade it to an agent that can analyze pull requests, run security scans, check test coverage, and provide actionable feedback. The system must handle multi-step workflows, remember what it has already checked, and explain its reasoning for debugging.
 

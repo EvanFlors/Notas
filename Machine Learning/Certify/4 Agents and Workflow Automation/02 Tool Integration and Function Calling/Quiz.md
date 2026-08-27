@@ -1,4 +1,4 @@
-Quiz: Tool Integration and Function Calling
+## Quiz: Tool Integration and Function Calling
 Tool Integration and Function Calling
 Your code review agent needs to interact with GitHub APIs, security scanners, and CI systems. The agent understands what needs to be done but cannot execute actions. You must implement function calling so the agent can actually fetch PR details, run security scans, check test coverage, and post comments. The system must handle API rate limits, validate parameters, and provide clear error messages when tools fail.
 
