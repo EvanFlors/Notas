@@ -226,7 +226,6 @@ class MultiModalAgent:
       raise ValueError(f"Unknown action: {action.action_type}")
 ```
 
-SkillUp | Hackerrank
 
 Adding Multi-Modal Tools
 Agents become more capable with tools that operate on different modalities:

@@ -1,18 +1,5 @@
-SkillUp
-Home
-Learn
-Certify
+## Understanding Video Analysis
 
-EF
-Lesson: Introduction to Video Understanding
-AI Tutor
-Hi ESTEBAN!
-
-Welcome to the "Introduction to Video Understanding" concept. Take a look at the lesson on the right, and feel free to ask me any questions as you explore.
-
-Ask me any question
-
-Understanding Video Analysis
 You need to analyze video content for your application—customer support videos, training materials, or user-generated content. Videos contain rich information combining visual, audio, and temporal elements. How do you extract insights from video content using AI?
 
 Video understanding combines vision, audio, and temporal analysis to understand video content. By the end of this lesson, you will understand what video understanding involves, how it differs from image analysis, and why it matters for production applications.
@@ -70,7 +57,7 @@ Audio Processing: Process audio track separately for speech, music, and sound an
 
 Integration: Combine visual, temporal, and audio understanding to form comprehensive video understanding.
 
-python
+```python
 # Conceptual video understanding flow
 def understand_video(video_path):
   """
@@ -99,6 +86,8 @@ def understand_video(video_path):
   )
 
   return video_understanding
+```
+
 Frame Extraction Strategies
 Extracting frames effectively is crucial for video understanding:
 
@@ -106,11 +95,13 @@ Comparison of uniform sampling, keyframe detection, and adaptive sampling on a t
 
 ![Frame sampling strategies trade off simplicity, coverage, and cost](https://hrcdn.net/ai-engineering/module-5/light/video-lesson01-frame-sampling-strategies.svg)
 
-Strategy	How It Works	Pros	Cons	Best For
-Uniform Sampling	Extract frames at regular intervals (e.g., 1 fps)	Simple, predictable cost	May miss important moments	General analysis, static content
-Key Frame Detection	Extract frames at scene changes	More efficient, captures transitions	Requires detection algorithms	Scene-based analysis, summaries
-Adaptive Sampling	More frames during action, fewer during static	Optimal coverage vs. cost	Complex implementation	Action videos, variable content
-python
+| Strategy | How It Works | Pros | Cons | Best For |
+|----------|--------------|------|------|----------|
+| Uniform Sampling | Extract frames at regular intervals (e.g., 1 fps) | Simple, predictable cost | May miss important moments | General analysis, static content |
+| Key Frame Detection | Extract frames at scene changes | More efficient, captures transitions | Requires detection algorithms | Scene-based analysis, summaries |
+| Adaptive Sampling | More frames during action, fewer during static | Optimal coverage vs. cost | Complex implementation | Action videos, variable content |
+
+```python
 import cv2
 
 def extract_frames_uniform(video_path, interval=1.0):
@@ -158,6 +149,8 @@ def extract_key_frames(video_path, threshold=0.3):
 
   cap.release()
   return frames
+```
+
 Temporal Understanding
 Understanding temporal relationships is key to video understanding:
 
@@ -168,22 +161,6 @@ Object Tracking: Track objects as they move across frames.
 Scene Transitions: Detect when scenes change or transition.
 
 Temporal Patterns: Identify patterns that occur over time (repetitive actions, sequences).
-
-SkillUp | Hackerrank
-
-SkillUp
-Home
-Learn
-Certify
-
-EF
-Lesson: Introduction to Video Understanding
-AI Tutor
-Hi ESTEBAN!
-
-Welcome to the "Introduction to Video Understanding" concept. Take a look at the lesson on the right, and feel free to ask me any questions as you explore.
-
-Ask me any question
 
 Production Considerations
 Video understanding has unique production considerations:
@@ -218,22 +195,6 @@ Video + Text: Generate text descriptions, summaries, or searchable content from 
 
 Video + Language Models: Use language models to understand video content, answer questions, or generate insights.
 
-SkillUp | Hackerrank
-
-SkillUp
-Home
-Learn
-Certify
-
-EF
-Lesson: Introduction to Video Understanding
-AI Tutor
-Hi ESTEBAN!
-
-Welcome to the "Introduction to Video Understanding" concept. Take a look at the lesson on the right, and feel free to ask me any questions as you explore.
-
-Ask me any question
-
 Summary
 Video understanding combines visual, temporal, and audio analysis to understand video content comprehensively. Understanding frame extraction strategies, temporal analysis, and production considerations enables you to build effective video understanding applications.
 
@@ -245,18 +206,3 @@ Frame extraction is crucial - Choose appropriate sampling strategies
 Temporal understanding enables action recognition - Understand how content changes over time
 Production requires careful planning - Consider processing time, storage, and costs
 Integrate with other capabilities - Combine video understanding with language models and other AI
-Further learning resources
-Book icon
-OpenAI Vision Guide - Foundation for frame-by-frame video analysis using vision models.
-
-OpenAI Audio API Reference - For processing video audio tracks alongside visual content.
-
-In the next lesson, you will learn practical techniques for processing video content, including frame extraction, API integration, and building production video understanding applications.
-
-Rate this lesson
-
-
-
-
-
-SkillUp | Hackerrank

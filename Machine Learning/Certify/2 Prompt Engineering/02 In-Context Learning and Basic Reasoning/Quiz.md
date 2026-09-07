@@ -73,5 +73,3 @@ Add 4-5 few-shot examples focusing specifically on sarcastic and mixed sentiment
 Implement self-consistency with 5 attempts to improve accuracy on difficult cases
 Correct Answer!
 With 75% accuracy but specific weaknesses, few-shot targeting exact gaps (sarcasm, mixed sentiment) efficiently improves performance with just 4-5 examples.
-
-SkillUp | Hackerrank

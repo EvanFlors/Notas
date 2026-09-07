@@ -73,5 +73,3 @@ Switch to XML format with attributes for parameter metadata and nested elements 
 Enhance markdown generation with tables for parameters and nested code blocks for structure
 Correct Answer!
 Tables for parameters and nested code blocks for structure leverage markdown's readability while solving hierarchy representation.
-
-SkillUp | Hackerrank

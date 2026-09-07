@@ -58,5 +58,3 @@ The context window is too small for the LLM.
 The vector database needs reindexing.
 Correct Answer!
 Scores below 0.5 suggest weak matches. Poor retrieval provides irrelevant context, causing generic responses.
-
-SkillUp | Hackerrank

@@ -97,5 +97,3 @@ Insufficient examples demonstrating how to handle missing data
 Missing success criteria defining what constitutes valid data sources
 Correct Answer!
 Without explicit criteria like "only use provided data" and "indicate unavailable data," the AI may invent statistics. Success criteria make expectations measurable.
-
-SkillUp | Hackerrank

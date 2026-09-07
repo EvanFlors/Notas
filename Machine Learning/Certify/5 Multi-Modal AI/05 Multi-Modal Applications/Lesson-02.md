@@ -7,7 +7,9 @@ Deployment Architecture
 Design deployment architecture for multi-modal applications:
 
 Production deployment diagram with API gateway, orchestration service, separate modality services, caching, queues, storage, and monitoring
-A production deployment pattern: gateway + orchestrator + modality services, with caching, queues, and observability
+
+![A production deployment pattern: gateway + orchestrator + modality services, with caching, queues, and observability](https://hrcdn.net/ai-engineering/module-5/light/multimodal-lesson02-production-architecture.svg)
+
 Microservices Architecture:
 
 Deploy modalities as separate services:

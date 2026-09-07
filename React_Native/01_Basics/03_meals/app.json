@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "03_meals",
+    "slug": "03_meals",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "backgroundColor": "#24180f",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#24180f"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.03-meals"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#24180f"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.anonymous.x03meals"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

@@ -58,5 +58,3 @@ Approximate search provides better semantic understanding.
 Exact search cannot handle high-dimensional vectors.
 Correct Answer!
 Brute force search is O(n) complexity. With 1M vectors, exact search is too slow for production. Approximate indexes trade 3% accuracy for 100x speed.
-
-SkillUp | Hackerrank

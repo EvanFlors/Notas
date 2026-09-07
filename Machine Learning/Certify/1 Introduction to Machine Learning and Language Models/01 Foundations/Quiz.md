@@ -66,5 +66,3 @@ The model has overfit to specific coding styles and patterns in the training dat
 The test codebase has fundamentally different types of bugs.
 Correct Answer!
 Performance drop on new codebases = learned specific patterns, not general bug indicators.
-
-SkillUp | Hackerrank

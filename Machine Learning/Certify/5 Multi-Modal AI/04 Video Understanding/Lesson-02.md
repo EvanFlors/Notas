@@ -1,18 +1,5 @@
-SkillUp
-Home
-Learn
-Certify
+## Processing Video Content
 
-EF
-Lesson: Processing Video Content
-AI Tutor
-Hi ESTEBAN!
-
-Welcome to the "Processing Video Content" concept. Take a look at the lesson on the right, and feel free to ask me any questions as you explore.
-
-Ask me any question
-
-Processing Video Content
 You understand video understanding concepts, but you need to implement video processing in your application. How do you extract frames efficiently? How do you process frames with vision APIs? How do you combine frame analyses into video understanding?
 
 Processing video content requires efficient frame extraction, vision API integration, and temporal analysis. By the end of this lesson, you will understand practical techniques for processing videos, integrating with vision APIs, and building production video understanding applications.
@@ -20,7 +7,7 @@ Processing video content requires efficient frame extraction, vision API integra
 Frame Extraction Implementation
 Extract frames efficiently for processing:
 
-python
+```python
 import cv2
 import numpy as np
 from pathlib import Path
@@ -58,11 +45,13 @@ class VideoProcessor:
 
       cap.release()
       return frames
+```
+
 Key Frame Detection:
 
 Extract frames at important moments:
 
-python
+```python
 def extract_key_frames(self, video_path, output_dir, threshold=0.3):
       """Extract frames at scene changes."""
       cap = cv2.VideoCapture(video_path)
@@ -103,10 +92,12 @@ def extract_key_frames(self, video_path, output_dir, threshold=0.3):
 
       cap.release()
       return frames
+```
+
 Processing Frames with Vision API
 Process extracted frames using vision APIs:
 
-python
+```python
 from openai import OpenAI
 import base64
 
@@ -157,6 +148,8 @@ class VideoAnalyzer:
               'analysis': analysis
           })
       return analyses
+```
+
 Temporal Analysis
 Combine frame analyses to understand temporal relationships:
 
@@ -164,7 +157,7 @@ Timeline view showing frame analyses grouped over time into scenes and detected 
 
 ![Temporal analysis turns per-frame insights into a timeline of scenes and events](https://hrcdn.net/ai-engineering/module-5/light/video-lesson02-temporal-analysis-timeline.svg)
 
-python
+```python
 class TemporalAnalyzer:
   """Analyze temporal relationships in video."""
 
@@ -220,26 +213,12 @@ class TemporalAnalyzer:
       actions = []
       # Analyze sequences of frames for actions
       return actions
-SkillUp | Hackerrank
-
-SkillUp
-Home
-Learn
-Certify
-
-EF
-Lesson: Processing Video Content
-AI Tutor
-Hi ESTEBAN!
-
-Welcome to the "Processing Video Content" concept. Take a look at the lesson on the right, and feel free to ask me any questions as you explore.
-
-Ask me any question
+```
 
 Video Summarization
 Generate summaries of video content:
 
-python
+```python
 class VideoSummarizer:
   """Generate summaries of video content."""
 
@@ -292,26 +271,12 @@ class VideoSummarizer:
       )
 
       return response.choices[0].message.content
-SkillUp | Hackerrank
-
-SkillUp
-Home
-Learn
-Certify
-
-EF
-Lesson: Processing Video Content
-AI Tutor
-Hi ESTEBAN!
-
-Welcome to the "Processing Video Content" concept. Take a look at the lesson on the right, and feel free to ask me any questions as you explore.
-
-Ask me any question
+```
 
 Production Implementation
 Build production video processing applications:
 
-python
+```python
 class ProductionVideoProcessor:
   """Production video processing system."""
 
@@ -363,6 +328,8 @@ class ProductionVideoProcessor:
       import hashlib
       with open(video_path, "rb") as f:
           return hashlib.sha256(f.read()).hexdigest()
+```
+
 Summary
 Processing video content requires efficient frame extraction, vision API integration, and temporal analysis. Understanding these techniques enables you to build production video understanding applications.
 
@@ -374,18 +341,3 @@ Process frames with vision APIs - Analyze frames using vision-language models
 Analyze temporal relationships - Understand how content changes over time
 Generate summaries - Combine frame analyses into video summaries
 Implement caching - Cache results to avoid redundant processing
-Further learning resources
-Book icon
-OpenAI Vision API Reference - Complete API documentation for vision-enabled chat completions used in frame analysis.
-
-OpenAI Audio Transcription API - For extracting and transcribing audio tracks from videos.
-
-In the next submodule, you will learn about building comprehensive multi-modal applications that combine vision, audio, text, and video capabilities.
-
-Rate this lesson
-
-
-
-
-
-SkillUp | Hackerrank

@@ -97,5 +97,3 @@ Use fast BLEU scores for initial screening, route cases with low scores or high 
 Alternate between BLEU and LLM judges randomly to get representative sampling
 Correct Answer!
 Fast metrics screen initially, expensive evaluation for flagged cases. Dramatically reduces costs while maintaining quality where it matters.
-
-SkillUp | Hackerrank

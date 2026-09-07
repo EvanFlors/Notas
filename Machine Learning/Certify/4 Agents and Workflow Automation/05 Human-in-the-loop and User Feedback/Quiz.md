@@ -87,5 +87,3 @@ Confidence estimation is not useful for determining escalation
 Agents should only escalate based on action type, not confidence
 Correct Answer!
 Confidence-based escalation enables autonomy for routine decisions while ensuring human oversight for uncertain or risky actions.
-
-SkillUp | Hackerrank

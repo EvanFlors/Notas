@@ -159,7 +159,6 @@ Latency: Real-time vs. batch processing capabilities
 Features: Speaker diarization, custom models, emotion control
 Cost: Per-minute, per-character, or subscription pricing
 Languages: Support varies significantly across providers
-SkillUp | Hackerrank
 
 Production Considerations
 Using speech processing in production requires understanding several factors:

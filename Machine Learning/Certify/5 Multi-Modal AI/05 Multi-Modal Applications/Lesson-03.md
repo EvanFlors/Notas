@@ -16,7 +16,7 @@ Multi-Modal Generation: The LLM receives retrieved content from multiple modalit
 
 ![Multi-modal RAG architecture showing text, image, and audio content being embedded into a unified vector store for retrieval and generation](https://hrcdn.net/ai-engineering/module-5/light/multimodal-lesson03-rag-architecture.svg)
 
-Multi-modal RAG: embed all content types into a unified vector space for cross-modal retrieval
+![Multi-modal RAG: embed all content types into a unified vector space for cross-modal retrieval](https://hrcdn.net/ai-engineering/module-5/light/multimodal-lesson03-rag-architecture.svg)
 
 ```python
 # Conceptual multi-modal RAG flow:
@@ -332,7 +332,6 @@ Convert all content to text descriptions and use standard text search
 Embed all content (text, image descriptions, video summaries) into a unified vector space and search semantically
 
 Maintain separate indexes and search each modality with different queries
-SkillUp | Hackerrank
 
 Advanced Multi-Modal Retrieval Strategies
 Different strategies optimize retrieval for different use cases:

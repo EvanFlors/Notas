@@ -25,7 +25,7 @@ with open("audio.mp3", "rb") as audio_file:
   )
 
 print(transcript)
-````
+```
 
 Response Formats:
 

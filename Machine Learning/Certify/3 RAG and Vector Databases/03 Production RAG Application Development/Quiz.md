@@ -58,5 +58,3 @@ Have the LLM filter responses based on user permissions.
 Encrypt documents and only provide decryption keys to authorized users.
 Correct Answer!
 Access control metadata enables permission-based filtering at query time, ensuring users see only authorized documents.
-
-SkillUp | Hackerrank

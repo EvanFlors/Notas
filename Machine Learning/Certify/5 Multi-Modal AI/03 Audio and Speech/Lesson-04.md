@@ -191,7 +191,6 @@ Pre-cache common responses and stream TTS output as it generates
 Use a higher quality TTS model for more natural-sounding responses
 
 Run all three stages in parallel instead of sequentially
-SkillUp | Hackerrank
 
 Real-Time Audio Streaming
 For the lowest latency voice experiences, process audio in real-time rather than waiting for complete recordings. This involves streaming both STT and TTS.

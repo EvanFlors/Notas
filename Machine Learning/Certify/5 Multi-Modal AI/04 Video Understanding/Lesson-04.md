@@ -382,7 +382,7 @@ def generate_video_summary(
         Summarize this video in {length_instructions[length]}.
 
         Video duration: {video_info['duration_seconds']:.0f} seconds
-        """
+      """
 
       if transcript:
           prompt += f"\nTranscript: {transcript[:2000]}..."
