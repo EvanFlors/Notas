@@ -210,8 +210,9 @@ Add data augmentation
 Reduce training epochs
 Increase regularization
 
-```python
 Fixing Overfitting
+
+```python
 # Fixing Overfitting in Customer Support Chatbot
 # Detect overfitting from metrics and automatically adjust configuration
 
