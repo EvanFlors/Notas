@@ -3,15 +3,28 @@
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
+    "@babel/core": "^7.29.0",
+    "@expo/vector-icons": "^15.0.2",
+    "@react-navigation/native": "^7.4.1",
+    "@react-navigation/native-stack": "^7.19.2",
+    "babel-preset-expo": "~57.0.0",
     "expo": "~57.0.23",
+    "expo-asset": "~57.0.18",
+    "expo-dev-client": "~57.0.19",
+    "expo-file-system": "~57.0.7",
+    "expo-image-picker": "~57.0.20",
+    "expo-location": "~57.0.20",
+    "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-native": "0.86.3",
+    "react-native-dotenv": "^5.0.0",
+    "react-native-maps": "1.27.2"
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web"
   },
   "private": true

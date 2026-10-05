@@ -7,9 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.efloresp06.nativefeatures"
     },
     "android": {
+      "package": "com.efloresp06.nativefeatures",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -19,6 +21,17 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "The app needs access to your camera in order to take photos of your favorite places.",
+          "photosPermission": "The app needs access to your photos in order to let you pick a picture of your favorite places."
+        }
+      ],
+      "expo-asset",
+      "expo-sqlite"
+    ]
   }
 }
