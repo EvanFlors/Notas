@@ -1,185 +1,323 @@
-## Evolution of Network Architectures
-Picture this: It is the early 2000s, and the internet is drowning in spam. Email inboxes are flooded with unwanted messages, search engines return irrelevant results, and computers can not tell the difference between "Free the prisoners" (a legitimate news headline) and "Get free money now!" (obvious spam).
+# Evolución de las Arquitecturas: de MLP a Transformers
 
-The fundamental problem? Computers treated language like a bag of random words, completely missing the meaning and context that humans understand intuitively.
+## ¿Qué es?
 
-Word Counting with Feedforward Networks
-An email company faces a crisis. Thousands of spam emails flood their servers daily, and manual filtering is impossible. They need an automated solution that can distinguish between legitimate emails and spam.
+Una **arquitectura de red neuronal** es el patrón estructural que define cómo se conectan las neuronas: cuántas capas tiene, de qué tipo (densa, convolucional, recurrente, atencional), cómo fluye la información y qué operaciones específicas realiza cada capa. La elección de arquitectura **codifica una hipótesis** (*inductive bias*) sobre la estructura de los datos:
 
-The initial approach was simple: create a network that counts word patterns and learns what combinations indicate spam.
+- **MLP (feedforward)**: asume features independientes; buena para datos tabulares.
+- **CNN**: asume **localidad e invarianza a traslación**; perfecta para imágenes.
+- **RNN / LSTM**: asume **secuencialidad temporal**; buena para series y lenguaje corto.
+- **Transformer**: asume que **cualquier par de posiciones** puede interactuar; domina lenguaje y, cada vez más, visión.
 
-```python
-# The spam detection approach - counting word occurrences
-email_features = [
-  count_of_word("free"),      # 5 occurrences
-  count_of_word("urgent"),    # 3 occurrences
-  count_of_word("money"),     # 2 occurrences
-  email_length,               # 200 words total
-  sender_reputation           # 0.2 (suspicious)
-]
-# Decision: High "free" + "money" counts = probably spam
+Cada arquitectura surgió para **superar un cuello de botella concreto** de la anterior. Entender esa cadena de limitaciones y soluciones es la mejor forma de intuir por qué hoy los Transformers dominan el panorama de los LLMs.
+
+## ¿Por qué importa?
+
+Elegir la arquitectura correcta puede ser la diferencia entre un modelo que entrena en minutos y uno que no converge en días. Además:
+
+- Sesgos inductivos **mal elegidos** desperdician datos: usar un MLP para imágenes de 1024×1024 requiere ~1M parámetros solo en la primera capa, mientras que una CNN reutiliza filtros con <1K.
+- La arquitectura determina qué **tipos de dependencias** el modelo puede capturar: una RNN olvida contexto a 100 tokens, un Transformer no.
+- El **costo de inferencia en producción** depende directamente de la arquitectura (CNNs y Transformers son paralelizables; RNNs no).
+- Las arquitecturas modernas (Transformer, Mixture-of-Experts) son el fundamento de ChatGPT, Claude, Gemini, Stable Diffusion y Whisper.
+
+## ¿Cómo funciona?
+
+### Cronología
+
+| Año | Arquitectura | Problema que resolvió |
+|---|---|---|
+| 1958 | Perceptrón | Clasificación lineal |
+| 1986 | MLP + backprop | No linealidad vía capas ocultas |
+| 1989 | CNN (LeNet) | Imágenes con invarianza a traslación |
+| 1997 | LSTM | Dependencias de largo plazo en secuencias |
+| 2014 | Seq2Seq + attention | Traducción neuronal |
+| 2015 | ResNet | Entrenar redes de >100 capas (skip connections) |
+| 2017 | **Transformer** | Paralelización + dependencias globales |
+| 2018 | BERT, GPT | Pre-entrenamiento masivo + fine-tuning |
+| 2020 | GPT-3, ViT | Escalado 100B+ parámetros; Transformers en visión |
+| 2022 | ChatGPT, Stable Diffusion | GenAI masiva |
+| 2023+ | Mixture-of-Experts, Mamba (SSMs) | Escalar sin cuadratizar atención |
+
+### 1. Feedforward / MLP
+
+Es la red "clásica": cada capa es densa, totalmente conectada.
+
+```
+h⁽ˡ⁾ = φ(W⁽ˡ⁾·h⁽ˡ⁻¹⁾ + b⁽ˡ⁾)
 ```
 
-This word-counting approach worked remarkably well. The system caught 85% of spam emails by recognizing that certain word combinations were strong spam indicators.
+**Problema con texto:** representa un correo como un **bag-of-words** (`"free money" = {free:1, money:1}`), perdiendo orden. `"Free the prisoners"` y `"get free money"` activan la misma neurona de "free". Logró ~85% en detección de spam pero **no entiende contexto**.
 
-But the system was embarrassingly naive. It flagged a news article titled "Free the prisoners demand justice" as spam because it contained the word "free." The network could not understand that word order and context completely changed meaning.
+**Problema con imágenes:** una imagen 224×224×3 = 150,528 entradas. Una primera capa oculta de 1000 neuronas = **150M parámetros** sin siquiera empezar. Insostenible.
 
-Pattern Recognition Revolution with CNNs
-Meanwhile, a medical imaging team faced a different challenge: they needed to automatically detect tumors in thousands of X-ray images. Radiologists were overwhelmed, and manual analysis was slow and expensive.
+### 2. Convolutional Neural Networks (CNN)
 
-Convolutional Neural Networks emerged with a revolutionary approach: automatically learn to detect patterns by building from simple features to complex objects.
+**Idea clave:** en imágenes, los patrones son **locales** (un ojo ocupa ~20×20 pixels) y **invariantes a traslación** (un gato sigue siendo un gato esté arriba o abajo). Esto se codifica con **filtros convolucionales** compartidos:
 
-```python
-# CNN analyzing an X-ray image - building understanding layer by layer
-
-# Layer 1: Basic edge detection
-- Detects vertical lines, horizontal lines, diagonal edges
-- Finds basic shapes and boundaries
-
-# Layer 2: Shape combination
-- Combines edges to detect curves, circles, irregular shapes
-- Identifies tissue densities and bone structures
-
-# Layer 3: Medical pattern recognition
-- Recognizes normal vs abnormal tissue patterns
-- Detects potential tumor shapes and characteristics
-
-# Layer 4: Final diagnosis
-- Combines all patterns: "Suspicious mass detected in upper right lung"
+```
+(I * K)(i, j) = Σ_m Σ_n I(i+m, j+n) · K(m, n)
 ```
 
-CNNs revolutionized medical imaging, achieving 95% accuracy in tumor detection often outperforming human radiologists in speed and consistency.
+Un filtro 3×3 tiene 9 parámetros y se desliza por toda la imagen. Jerarquía de representaciones aprendida automáticamente:
 
-Excited by this success, teams tried applying CNNs to language problems like sentiment analysis and document classification.
+| Capa | Qué detecta |
+|---|---|
+| 1 | Bordes orientados, cambios de color |
+| 2 | Texturas, esquinas, patrones repetidos |
+| 3 | Partes de objetos (ruedas, ojos) |
+| 4+ | Objetos completos |
 
-```python
-# CNN processing text: "This movie was not very good"
-# Layer 1: Detects word combinations
-- Filter 1 finds "not very" pattern (negative indicator)
-- Filter 2 finds "very good" pattern (positive indicator)
-- Filter 3 finds "movie was" pattern (neutral)
+**Operaciones típicas de una CNN:**
 
-# Layer 2: Combines patterns for final sentiment
-- Weighs "not very" (negative) against "very good" (positive)
-- Result: Slightly negative sentiment
+```
+Conv2D → BatchNorm → ReLU → MaxPool  ← bloque básico
+...repetir varias veces, reduciendo spatial, aumentando canales
+Flatten → Dense → Softmax             ← cabeza clasificadora
 ```
 
-CNNs worked well for detecting local language patterns like "not good" or "very excellent." They could classify short texts and detect specific phrases effectively.
+**Hitos:** LeNet-5 (1998, dígitos), **AlexNet (2012)** que ganó ImageNet y detonó la revolución moderna, VGG (2014), GoogLeNet/Inception (2014), **ResNet (2015)** con skip connections que permiten entrenar >100 capas, EfficientNet (2019).
 
-But CNNs struggled with longer texts where meaning depended on distant word relationships. They could see "bank" and "loan" in a document but couldn't reliably connect them if they were separated by many words.
+**Limitación con texto:** las CNNs capturan n-gramas locales (`"not good"`, `"very bad"`) pero no relacionan palabras distantes. "El **banco** cerca del río... pidió un préstamo al **banco** central" las trata como dos ocurrencias independientes.
 
-The pattern recognition breakthrough had solved images brilliantly, but language needed a different approach.
+### 3. Recurrent Neural Networks (RNN)
 
-Memory Revolution with RNNs
-A translation service faced a critical challenge: existing systems could translate individual words but completely mangled sentence meaning. "The bank by the river" became "River financial institution the" - technically correct words, completely wrong meaning.
+**Idea clave:** procesar la secuencia **paso a paso**, manteniendo un **estado oculto** `h_t` que resume lo visto hasta el instante `t`:
 
-Recurrent Neural Networks introduced a breakthrough insight: process language sequentially like humans read, maintaining memory of what came before.
-
-```python
-# RNN translating
-
-"The bank by the river is muddy"
-
-Processing word by word, building understanding
-
-- Step 1: Process "The"
-Memory state: [Something is starting, article detected]
-
-- Step 2: Process "bank" + previous memory
-Memory state: [Could be financial or geographical, need more context]
-
-- Step 3: Process "by" + previous memory
-Memory state: [Preposition suggests location, probably geographical]
-
-- Step 4: Process "the river" + previous memory
-Memory state: [Confirmed! This is a riverbank, not a financial institution]
-
-- Step 5: Process "is muddy" + complete context
-Translation: "La orilla del río está lodosa" (Spanish - correct context!)
+```
+h_t = tanh(W_hh·h_{t−1} + W_xh·x_t + b)
+y_t = W_hy·h_t + b_y
 ```
 
-For the first time, AI could understand that the same word meant different things in different contexts. Translation quality improved dramatically, and early chatbots could maintain short conversations.
+Por primera vez, la red entendía que `"bank"` significa cosa distinta en `"river bank"` vs `"bank loan"` gracias al **contexto previo**. Revolucionó traducción automática, chatbots y predicción de series.
 
-But teams discovered a frustrating limitation. When processing long documents, the RNN would forget the beginning by the time it reached the end. It was like reading a book while having short-term memory loss.
+**Problema fundamental:** gradientes que se **desvanecen o explotan** al retropropagar por secuencias largas. En la práctica, una RNN "olvida" información más allá de ~10-20 tokens.
 
-Sequential understanding was crucial, but the memory wasn't strong enough.
+### 4. Long Short-Term Memory (LSTM)
 
-Memory Management Solution with LSTMs
-A customer service AI system faced a critical issue: customers would explain their problem in detail, but by the end of their message, the system had forgotten the crucial details mentioned at the beginning. This led to irrelevant responses and frustrated customers.
+**Idea clave:** añadir **compuertas** (gates) que deciden qué recordar, qué olvidar y qué sacar, con una celda de memoria `c_t` que fluye casi sin modificar entre pasos:
 
-Long Short-Term Memory networks solved this with a sophisticated memory management system - like having an intelligent librarian who decides what information to keep, forget, or use.
-
-```python
-# LSTM processing a customer service inquiry:
-
-"I have been a loyal customer for 15 years, recently moved to Texas, having trouble with my account access, tried calling support twice, really need this resolved before my business trip tomorrow"
-
-- Forget Gate Decision: "Should I forget about '15 years loyalty'?"
-Decision: "Keep it - shows customer value"
-
-- Input Gate Decision: "New info: 'moved to Texas' - remember this?"
-Decision: "Yes! Likely cause of account issues"
-
-# Processing continues through the entire message...
-
-- Output Gate Decision: "Customer needs urgent help with access"
-Memory retained: [Loyal customer + moved + urgent timeline + tried calling]
-Response: "I understand you are a valued long-term customer who recently moved to Texas and needs urgent account access help..."
+```
+f_t = σ(W_f·[h_{t−1}, x_t] + b_f)   ← forget gate
+i_t = σ(W_i·[h_{t−1}, x_t] + b_i)   ← input gate
+o_t = σ(W_o·[h_{t−1}, x_t] + b_o)   ← output gate
+c̃_t = tanh(W_c·[h_{t−1}, x_t] + b_c)
+c_t = f_t ⊙ c_{t−1} + i_t ⊙ c̃_t    ← celda de memoria
+h_t = o_t ⊙ tanh(c_t)
 ```
 
-LSTMs could maintain context across hundreds of words, revolutionizing applications like:
+LSTMs mantienen contexto por cientos de tokens. Potenciaron Google Translate (2016), autocompletado de email, Siri/Alexa primera generación. **GRU** (2014) es una variante más simple con sólo 2 compuertas.
 
-Google Translate (handling full paragraphs with consistent context)
-Email auto-completion (remembering the entire conversation thread)
-Stock market prediction (considering long-term trends)
-Early virtual assistants (maintaining conversation context)
-But as AI ambitions grew larger; processing entire documents, understanding complex reasoning, generating human-like text - a fundamental bottleneck emerged. LSTMs had to read everything sequentially, one word at a time. This made training incredibly slow and limited their ability to understand very long contexts.
+**Problema persistente:** siguen siendo **secuenciales por diseño**. Para procesar el token `t` necesitas el `t−1`. Esto imposibilita paralelizar en GPU y limita el tamaño de los modelos que es económicamente viable entrenar.
 
-The memory problem was solved, but the sequential bottleneck remained.
+### 5. Transformers (2017)
 
-Parallel Processing Revolution with Transformers
-A legal document analysis system faced an impossible challenge: understanding 50-page contracts where critical clauses might reference each other across the entire document. An LSTM would take hours to process such documents and might miss crucial connections between distant sections.
+**Paper fundacional:** *Attention Is All You Need* (Vaswani et al., 2017). **Idea radical:** eliminar completamente la recurrencia. En lugar de procesar palabra por palabra, cada palabra "mira" **todas las demás simultáneamente** vía un mecanismo llamado **self-attention**.
 
-In 2017, researchers had a radical insight: what if instead of reading sequentially, we could let every word in a document directly communicate with every other word simultaneously?
+#### Self-attention en una fórmula
 
-```python
-# Transformer processing a contract clause:
-
-"The bank guarantees that the loan conditions specified in Section 12 will remain valid until the maturity date mentioned in Appendix C"
-
-- Simultaneous analysis of ALL word relationships:
-- "bank" ↔ "guarantees" (Strong: banks make guarantees)
-- "bank" ↔ "loan" (Strong: financial relationship confirmed)
-- "loan" ↔ "Section 12" (Critical: specific reference link)
-- "conditions" ↔ "maturity date" (Important: timing relationship)
-- "Section 12" ↔ "Appendix C" (Document structure connection)
-- "The" ↔ "bank" (Weak: grammatical article relationship)
-- "that" ↔ "conditions" (Weak: distant grammatical connection)
-- "guarantees" ↔ "Appendix C" (Weak: indirect document relationship)
-- "will" ↔ "remain" (Weak: auxiliary verb connection)
-- "valid" ↔ "mentioned" (Weak: both describe document states)
-
-Result: Complete understanding of all relationships instantly - strong connections drive meaning, weak connections provide context
-
-The system can now answer: "What guarantees does the bank provide?"
-Answer: "Loan conditions in Section 12 valid until Appendix C date"
+```
+Attention(Q, K, V) = softmax(Q·Kᵀ / √d_k) · V
 ```
 
-Transformers could:
+Donde para cada token se calculan tres vectores:
 
-Process entire documents simultaneously (no sequential bottleneck)
-Understand relationships between any two parts of the text
-Scale to massive datasets with parallel training
-Maintain perfect memory across thousands of words
-The impossible dream of machines that truly understand language had become reality.
+- `Q` (query): "qué estoy buscando"
+- `K` (key):   "qué ofrezco"
+- `V` (value): "mi contenido real"
 
-Summary
-The evolution from simple word counting to transformers represents one of the most remarkable progressions in computer science. Each architecture solved critical limitations of its predecessors while enabling entirely new capabilities.
+El producto `Q·Kᵀ` da una matriz `N×N` con la "afinidad" entre cada par de tokens. El softmax la convierte en pesos, y multiplicando por `V` se obtiene, para cada token, una suma ponderada de los demás.
 
-Key concepts to remember
-BERT: Revolutionized text understanding by reading entire sentences bidirectionally
-GPT-2: Generated coherent multi-paragraph text that amazed researchers
-GPT-3: Achieved human-like conversation and reasoning
-ChatGPT: Brought sophisticated AI to mainstream users
-GPT-4.1 & Claude: Approached human-level performance on complex tasks
+#### Multi-Head Attention
 
+En lugar de un solo set `(Q, K, V)`, se usan **h cabezas en paralelo** (típicamente 8-96), cada una aprendiendo un tipo distinto de relación (sintáctica, semántica, coreferencia…):
+
+```
+MHA(x) = Concat(head_1, ..., head_h) · W_O
+head_i = Attention(x·W_Q^i, x·W_K^i, x·W_V^i)
+```
+
+#### Bloque Transformer completo
+
+```
+x → MultiHeadAttention → Add & Norm → FeedForward → Add & Norm → x'
+          │                   │             │               │
+          └── skip ───────────┘             └── skip ───────┘
+```
+
+Las conexiones residuales (`Add`) y `LayerNorm` son esenciales para que el entrenamiento sea estable con decenas de capas.
+
+#### Positional encoding
+
+Como la atención es permutación-invariante, hay que inyectar la **posición** explícitamente. Esquemas populares:
+
+- **Sinusoidal** (paper original): `PE(pos, 2i) = sin(pos / 10000^(2i/d))`
+- **Learned**: posiciones como parámetros entrenables.
+- **RoPE** (Rotary): rotaciones aplicadas a Q/K; estándar en LLaMA, GPT-NeoX.
+- **ALiBi**: sesgo lineal según distancia; mejora extrapolación a secuencias largas.
+
+### Comparativa de arquitecturas
+
+| Arquitectura | Datos ideales | Paralelizable | Memoria contextual | Costo por token | Modelos famosos |
+|---|---|---|---|---|---|
+| **MLP** | Tabulares | Sí | Ninguna (no secuencial) | O(1) | XGBoost+MLP híbridos |
+| **CNN** | Imágenes, audio | Sí | Local (receptive field) | O(1) por posición | ResNet, EfficientNet, YOLO |
+| **RNN / LSTM / GRU** | Secuencias cortas | **No** | ~100-500 tokens | O(1) secuencial | ELMo, DeepSpeech |
+| **Transformer** | Lenguaje, imágenes, código | Sí | Hasta 1M+ tokens (modelos modernos) | **O(N²)** en secuencia | GPT, BERT, Claude, LLaMA, ViT |
+| **SSM (Mamba, S4)** | Secuencias muy largas | Sí | Prácticamente ilimitada | **O(N)** | Mamba, Jamba |
+| **MoE** | Escala masiva | Sí (sparse) | Depende del backbone | O(k·d), k expertos activos | GPT-4 (rumoreado), Mixtral, DeepSeek |
+
+### Variantes del Transformer
+
+- **Encoder-only (BERT, 2018):** bidireccional, pre-entrenado con *masked language modeling*. Rey en clasificación, NER, embeddings.
+- **Decoder-only (GPT, 2018+):** autoregresivo, predice el siguiente token. Rey en generación de texto. GPT-2 → GPT-3 → GPT-4 → GPT-4.1, Claude 1-4.x.
+- **Encoder-decoder (T5, BART):** entrada se codifica, salida se genera. Bueno para traducción, resumen.
+- **Vision Transformer (ViT, 2020):** parte la imagen en parches 16×16 y los trata como "tokens". Supera a las CNNs con suficiente data.
+- **Multimodales (CLIP, Flamingo, GPT-4V, Claude 3+):** combinan tokens de texto e imagen (y audio, video).
+
+## Ejemplo con código
+
+### Self-attention desde cero (NumPy)
+
+```python
+import numpy as np
+
+def softmax(x, axis=-1):
+    x = x - x.max(axis=axis, keepdims=True)
+    e = np.exp(x)
+    return e / e.sum(axis=axis, keepdims=True)
+
+def self_attention(X, W_Q, W_K, W_V):
+    """
+    X   : (N, d_model) — N tokens embebidos
+    W_* : (d_model, d_k) — proyecciones aprendibles
+    """
+    Q = X @ W_Q            # (N, d_k)
+    K = X @ W_K            # (N, d_k)
+    V = X @ W_V            # (N, d_k)
+    d_k = Q.shape[-1]
+    scores  = Q @ K.T / np.sqrt(d_k)         # (N, N)
+    weights = softmax(scores, axis=-1)       # pesos de atención
+    return weights @ V, weights
+
+# Toy: 4 tokens, d_model = 8, d_k = 4
+rng = np.random.default_rng(0)
+X   = rng.normal(size=(4, 8))
+W_Q = rng.normal(size=(8, 4))
+W_K = rng.normal(size=(8, 4))
+W_V = rng.normal(size=(8, 4))
+
+out, attn = self_attention(X, W_Q, W_K, W_V)
+print("Salida:", out.shape)                  # (4, 4)
+print("Matriz de atención (filas = queries):")
+print(attn.round(2))
+```
+
+### Mini-transformer con PyTorch
+
+```python
+import torch
+import torch.nn as nn
+
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model=128, n_heads=4, d_ff=512, p=0.1):
+        super().__init__()
+        self.attn = nn.MultiheadAttention(d_model, n_heads,
+                                          dropout=p, batch_first=True)
+        self.ln1  = nn.LayerNorm(d_model)
+        self.ff   = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.GELU(),
+            nn.Linear(d_ff, d_model),
+        )
+        self.ln2  = nn.LayerNorm(d_model)
+        self.drop = nn.Dropout(p)
+
+    def forward(self, x, mask=None):
+        # Pre-norm (más estable que post-norm original)
+        h = self.ln1(x)
+        a, _ = self.attn(h, h, h, attn_mask=mask, need_weights=False)
+        x = x + self.drop(a)
+        h = self.ln2(x)
+        x = x + self.drop(self.ff(h))
+        return x
+
+class MiniGPT(nn.Module):
+    def __init__(self, vocab=50257, d_model=128, n_heads=4,
+                 n_layers=4, max_len=1024):
+        super().__init__()
+        self.tok_emb = nn.Embedding(vocab, d_model)
+        self.pos_emb = nn.Embedding(max_len, d_model)
+        self.blocks  = nn.ModuleList(
+            [TransformerBlock(d_model, n_heads) for _ in range(n_layers)]
+        )
+        self.ln_f    = nn.LayerNorm(d_model)
+        self.head    = nn.Linear(d_model, vocab, bias=False)
+
+    def forward(self, idx):
+        B, T = idx.shape
+        pos  = torch.arange(T, device=idx.device)
+        x    = self.tok_emb(idx) + self.pos_emb(pos)
+        # Máscara causal: cada posición solo ve el pasado
+        mask = torch.triu(torch.ones(T, T, device=idx.device), diagonal=1).bool()
+        for blk in self.blocks:
+            x = blk(x, mask=mask)
+        return self.head(self.ln_f(x))
+
+model = MiniGPT()
+idx   = torch.randint(0, 50257, (2, 32))     # batch 2, 32 tokens
+logits = model(idx)
+print("logits:", logits.shape)               # (2, 32, 50257)
+print("params:", sum(p.numel() for p in model.parameters()))
+```
+
+### LSTM comparativo (PyTorch)
+
+```python
+import torch.nn as nn
+
+lstm = nn.LSTM(input_size=64, hidden_size=128,
+               num_layers=2, batch_first=True, dropout=0.1)
+x = torch.randn(16, 50, 64)                  # batch, seq, feat
+out, (h, c) = lstm(x)
+# out:(16,50,128)  h:(2,16,128)  c:(2,16,128)
+```
+
+## Errores comunes
+
+- **Usar una RNN cuando necesitas contexto largo**. Para >500 tokens, un Transformer casi siempre gana. LSTMs sobreviven en edge devices por su bajo footprint.
+- **Olvidar la máscara causal en un decoder**. Sin ella, GPT "ve el futuro" durante el entrenamiento y luego falla miserablemente en inferencia.
+- **Olvidar positional encoding**. Sin él, un Transformer trata la secuencia como un conjunto desordenado: `"perro muerde hombre"` = `"hombre muerde perro"`.
+- **Confundir encoder-only con decoder-only**. BERT no genera texto fluido; GPT no es la mejor opción para embeddings de clasificación. Elige según la tarea.
+- **Asumir que atención O(N²) escala gratis**. Doblar el contexto cuadruplica memoria y cómputo. Para contextos muy largos: **FlashAttention**, **sliding window**, **Mamba**, **sparse attention**.
+- **Pre-norm vs. post-norm**. El paper original usa post-norm (`LN(x + sublayer(x))`), pero post-norm es inestable a gran escala. Los LLMs modernos usan **pre-norm** (`x + sublayer(LN(x))`).
+- **Fine-tunear capas convolucionales con learning rate alto**. Las primeras capas de una CNN pre-entrenada ya aprendieron bordes universales; destruirlas con un LR fuerte empeora el resultado. Usa **LR diferenciados** por capa.
+- **Vanishing gradients en redes profundas sin skip connections**. Resnet lo resolvió para CNNs; los Transformers lo heredan vía las conexiones residuales de cada bloque. Nunca las elimines.
+- **No tokenizar correctamente**. Un Transformer no procesa texto crudo: necesita un tokenizer (BPE, WordPiece, SentencePiece). El tokenizer **debe ser el mismo** en entrenamiento e inferencia.
+- **Elegir arquitectura por moda, no por datos**. Para 10,000 filas tabulares, un XGBoost suele ganarle a cualquier red neuronal. Mide, no asumas.
+
+## Modelos emblemáticos que verás en producción
+
+| Modelo | Año | Arquitectura | Parámetros | Nota |
+|---|---|---|---|---|
+| LeNet-5 | 1998 | CNN | 60K | Lectura de cheques |
+| AlexNet | 2012 | CNN | 60M | Ganó ImageNet |
+| ResNet-50 | 2015 | CNN + skip | 25M | Backbone estándar |
+| BERT-base | 2018 | Transformer encoder | 110M | NLP de propósito general |
+| GPT-2 | 2019 | Transformer decoder | 1.5B | Generación coherente |
+| GPT-3 | 2020 | Transformer decoder | 175B | Few-shot learning |
+| ViT-L | 2020 | Transformer en imágenes | 300M | Compite con CNN |
+| Stable Diffusion | 2022 | U-Net + Transformer (latent) | ~1B | Generación de imágenes |
+| LLaMA 3 / Claude / GPT-4+ | 2023-26 | Decoder + MoE | 70B–1T+ | Estado del arte en texto |
+| Mamba | 2023 | SSM | 1-7B | Alternativa O(N) a atención |
+
+## Resumen
+
+- La historia del DL es una **cadena de arquitecturas** que superan el cuello de botella de la anterior: MLP → CNN → RNN → LSTM → **Transformer** → SSMs/MoE.
+- **MLP**: universal pero sin sesgo útil para datos estructurados.
+- **CNN**: localidad + invarianza a traslación → rey en visión.
+- **RNN/LSTM**: secuencialidad + memoria → rey histórico en lenguaje, pero no paraleliza.
+- **Transformer**: atención global + paralelización masiva → base de todos los LLMs modernos (GPT, Claude, LLaMA, Gemini).
+- **Self-attention** `softmax(QKᵀ/√d_k)·V` es la operación central; **multi-head** permite múltiples tipos de relaciones; **positional encoding** reintroduce el orden.
+- **Variantes**: encoder-only (BERT, embeddings), decoder-only (GPT, generación), encoder-decoder (T5, traducción), ViT (visión), multimodales (CLIP, GPT-4V).
+- La elección de arquitectura **codifica un sesgo inductivo**: elige la que mejor case con la estructura de tus datos, no la de moda.
+- El futuro cercano: contextos de millones de tokens (FlashAttention, Ring Attention), eficiencia O(N) (**Mamba**, SSMs) y **Mixture-of-Experts** para escalar sin cuadratizar costos.

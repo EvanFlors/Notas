@@ -1,209 +1,327 @@
-## Traditional Evaluation Methods
-When you deploy an AI system to production, how do you know if it is actually working well? Imagine shipping a customer support chatbot without any way to measure whether it provides helpful responses, or launching a content generation system without knowing if the outputs meet quality standards. Traditional evaluation methods provide the systematic measurement techniques that transform AI development from guesswork into engineering discipline.
+# Métodos Tradicionales de Evaluación
 
-This lesson will teach you the foundational evaluation approaches that every AI engineer needs to master. You will learn how to build golden datasets that serve as quality benchmarks, implement similarity-based metrics that measure semantic alignment, deploy automated assessment tools that scale with your system, and combine multiple evaluation methods for comprehensive quality assurance. These techniques form the backbone of production AI systems, providing the measurement infrastructure that enables continuous improvement and reliable performance.
+## ¿Qué es?
 
-Building Golden Datasets for Quality Benchmarks
-Golden datasets represent your ground truth for AI system performance. Think of them as the reference standard against which all system outputs are measured, similar to how manufacturing uses quality control samples to verify production line accuracy. A well-constructed golden dataset becomes the foundation for consistent, objective evaluation across your entire AI system lifecycle.
+La **evaluación tradicional** es el conjunto de técnicas que miden la calidad de las salidas de un sistema de IA usando métricas deterministas o estadísticas: comparaciones de texto (BLEU, ROUGE), similitud semántica con embeddings (cosine similarity), métricas de legibilidad (Flesch-Kincaid) y conjuntos de referencia (*golden datasets*). Son el equivalente a los *unit tests* del software clásico aplicados a modelos generativos.
 
-The creation process begins with expert curation, where domain specialists carefully select and verify example inputs and their corresponding ideal outputs. For a customer service chatbot, this might include hundreds of real customer inquiries paired with exemplary responses that demonstrate the tone, accuracy, and helpfulness you expect. Importantly, golden datasets can also include both good and bad samples collected from real users interacting with the feature, not just handpicked ideal cases. Each example must represent realistic scenarios your system will encounter in production, avoiding artificial test cases that do not reflect actual usage patterns.
+A diferencia de la evaluación humana o del LLM-as-a-Judge (que veremos en lecciones posteriores), estos métodos:
 
-Diversity coverage ensures your golden dataset captures the full range of scenarios your AI system will face. This includes edge cases, common queries, different user types, and varying complexity levels. A legal document analysis system, for example, needs golden dataset examples spanning different document types, legal domains, and complexity levels from simple contracts to multi-party merger agreements.
+- Producen **números reproducibles** dado el mismo input y la misma referencia.
+- Se ejecutan en **milisegundos** y se integran en CI/CD.
+- No requieren API calls a modelos caros.
+- Pero **miden superficie, no significado profundo** (una respuesta correcta con palabras distintas puede recibir BLEU=0).
 
-Regular maintenance keeps golden datasets relevant as your system evolves and new use cases emerge. Plan for quarterly reviews where domain experts evaluate whether existing examples still represent current quality standards and identify gaps that require new examples. Production logs often reveal scenarios not covered in your original dataset, providing valuable inputs for expansion.
+> **Regla general:** si tu tarea tiene *una sola respuesta correcta* o un espacio pequeño de respuestas aceptables (traducción, extracción, clasificación), las métricas tradicionales son suficientes. Si el espacio de respuestas correctas es grande (chatbot, generación creativa, resumen abierto), necesitas complementarlas con LLM judges o humanos.
 
-Measuring Semantic Similarity
-Similarity-based evaluation addresses the fundamental challenge that multiple correct responses can exist for any given input. Traditional exact matching fails when your AI generates "The weather is sunny today" instead of the reference "Today is sunny" - both responses are correct despite different phrasing. Semantic similarity metrics capture meaning preservation across different expressions.
+### Taxonomía rápida
 
-Cosine similarity provides the mathematical foundation for comparing text representations. Modern implementations convert text into high-dimensional vectors using pre-trained embeddings like BERT or sentence transformers, then calculate the cosine of the angle between vectors. Values closer to 1.0 indicate higher semantic similarity, while values near 0.0 suggest different meanings entirely.
+| Categoría | Qué mide | Métricas típicas |
+|---|---|---|
+| Deterministas | Coincidencia exacta de forma | Exact match, regex, string containment |
+| Estadísticas de n-gramas | Solapamiento léxico | BLEU, ROUGE-N, METEOR, chrF |
+| Semánticas | Similitud de significado | Cosine similarity sobre embeddings, BERTScore |
+| Lingüísticas | Legibilidad, sentimiento, toxicidad | Flesch-Kincaid, VADER, Detoxify |
+| Agregadas | Combinación ponderada | Weighted scoring, composite indices |
 
-```python
-# Cosine Similarity
-def cosine_similarity(vec1, vec2):
-  dot_product = np.dot(vec1, vec2)
-  norm_a = np.linalg.norm(vec1)
-  norm_b = np.linalg.norm(vec2)
-  return dot_product / (norm_a * norm_b)
+## ¿Por qué importa?
+
+Sin evaluación sistemática, "mejorar el prompt" es superstición. Cambias una palabra, el output te gusta más en 3 ejemplos, y despliegas sin saber si rompiste 300 casos distintos. Las métricas tradicionales dan la **línea base cuantitativa** que convierte el desarrollo de IA en ingeniería:
+
+- **Detección de regresiones:** un cambio en el prompt baja ROUGE-L de 0.52 a 0.41 → algo se rompió, lo ves antes de desplegar.
+- **Comparación objetiva de modelos:** GPT-4 vs Claude vs Llama en la misma tarea con el mismo dataset.
+- **Costo despreciable:** calcular BLEU sobre 10,000 ejemplos cuesta centavos de CPU, no dólares de inferencia.
+- **Base de contratos SLA:** "nuestro sistema mantiene cosine similarity ≥ 0.80 contra el golden set en el 95% de los casos".
+
+### Benchmarks públicos influyentes
+
+| Benchmark | Qué evalúa | Métrica dominante |
+|---|---|---|
+| **HELM** (Stanford) | Capacidades generales de LLMs en 42 escenarios | Accuracy, calibración, robustez, bias |
+| **MT-Bench** | Chatbots multi-turno | LLM-as-judge (GPT-4) + ratings 1-10 |
+| **AlpacaEval 2.0** | Seguimiento de instrucciones | Win-rate vs GPT-4 (LLM judge) |
+| **LMSYS Chatbot Arena** | Preferencias humanas pareadas | Elo rating con millones de votos |
+| **MMLU** | Conocimiento multidisciplinar | Accuracy en opción múltiple |
+| **HumanEval** | Generación de código Python | pass@k (ejecuta tests) |
+
+Los primeros tres combinan métricas tradicionales con LLM judges; los dos últimos son puramente deterministas (opción correcta / test que pasa).
+
+## ¿Cómo funciona?
+
+### Golden datasets (conjuntos de referencia)
+
+Un **golden set** es una colección curada de pares `(input, output_ideal)` que define qué significa "bueno" en tu dominio. Es la fuente de verdad contra la que mides todo lo demás.
+
+**Principios de construcción:**
+
+1. **Cobertura:** incluir casos felices, edge cases, inputs adversariales, variantes lingüísticas, longitudes extremas.
+2. **Realismo:** sacar ejemplos de **logs reales de producción**, no inventarlos. Un golden set hecho a mano por el equipo tiende a parecerse al equipo, no a los usuarios.
+3. **Etiquetado múltiple:** cada ejemplo debería ser revisado por al menos 2 personas; medir *inter-annotator agreement* con **Cohen's kappa**:
+
+```
+κ = (p_o − p_e) / (1 − p_e)
 ```
 
-BLEU scores measure n-gram overlap between generated and reference text, originally developed for machine translation evaluation. The metric calculates precision for unigrams, bigrams, trigrams, and four-grams, then combines them with a brevity penalty to prevent artificially high scores from very short outputs. BLEU scores work well for tasks where word choice and phrasing matter significantly, such as creative writing or marketing copy generation.
+Donde `p_o` es acuerdo observado y `p_e` acuerdo esperado por azar. Valores de referencia:
+
+| κ | Interpretación |
+|---|---|
+| < 0.00 | Peor que azar |
+| 0.01 – 0.20 | Acuerdo pobre |
+| 0.21 – 0.40 | Débil |
+| 0.41 – 0.60 | Moderado |
+| 0.61 – 0.80 | Sustancial |
+| 0.81 – 1.00 | Casi perfecto |
+
+Si tus anotadores humanos sacan κ < 0.6, el problema no es tu modelo: tu *definición* de calidad es ambigua. Vuelve a escribir la rúbrica antes de evaluar nada.
+
+4. **Versionado:** `golden_v1.jsonl`, `golden_v2.jsonl`, con changelog. Nunca sobrescribas en silencio.
+5. **Tamaño mínimo:** para detectar diferencias estadísticamente significativas entre dos modelos, apunta a **≥ 300 ejemplos** por categoría crítica. Golden sets de 20 ejemplos son teatro, no ingeniería.
+
+### Evaluaciones deterministas (regex, exact match)
+
+Las más baratas y las más rotas. Útiles cuando el formato de salida es contractual.
 
 ```python
-# BLEU Score
-def bleu_score(reference, candidate, max_n=4):
-  def get_ngrams(text, n):
-      words = text.lower().split()
-      return [tuple(words[i:i+n]) for i in range(len(words)-n+1)]
+import re
 
-  precisions = []
-  for n in range(1, max_n + 1):
-      ref_ngrams = Counter(get_ngrams(reference, n))
-      cand_ngrams = Counter(get_ngrams(candidate, n))
+def eval_json_valid(output: str) -> bool:
+    """¿El modelo devolvió JSON parseable?"""
+    import json
+    try:
+        json.loads(output)
+        return True
+    except json.JSONDecodeError:
+        return False
 
-      matches = sum(min(ref_ngrams[ng], cand_ngrams[ng]) for ng in cand_ngrams)
-      precision = matches / len(cand_ngrams) if cand_ngrams else 0
-      precisions.append(precision)
+def eval_contiene_citas(output: str, min_citas: int = 1) -> bool:
+    """¿Hay al menos N citas con formato [n]?"""
+    return len(re.findall(r"\[\d+\]", output)) >= min_citas
 
-  if any(p == 0 for p in precisions):
-      return 0.0
-
-  geometric_mean = math.exp(sum(math.log(p) for p in precisions) / len(precisions))
-
-  # Brevity penalty
-  ref_len, cand_len = len(reference.split()), len(candidate.split())
-  bp = 1.0 if cand_len > ref_len else math.exp(1 - ref_len / cand_len)
-
-  return bp * geometric_mean
+def eval_sin_pii(output: str) -> bool:
+    """¿La salida está libre de emails y teléfonos?"""
+    email = r"[\w.+-]+@[\w-]+\.[\w.-]+"
+    tel = r"\+?\d[\d\s\-()]{7,}\d"
+    return not (re.search(email, output) or re.search(tel, output))
 ```
 
-ROUGE metrics focus on recall-oriented evaluation, measuring how much of the reference content appears in the generated output. ROUGE-L uses longest common subsequence matching, making it particularly effective for summarization tasks where key information preservation matters more than exact phrasing. Different ROUGE variants (ROUGE-1, ROUGE-2, ROUGE-L) capture different aspects of content overlap.
+Ventajas: instantáneas, 100% reproducibles, sin alucinación. Limitaciones: no entienden paráfrasis ni semántica.
 
-```python
-def rouge_l(reference, candidate):
-  def lcs_length(s1, s2):
-      words1, words2 = s1.lower().split(), s2.lower().split()
-      m, n = len(words1), len(words2)
-      dp = [[0] * (n + 1) for _ in range(m + 1)]
+### BLEU (Bilingual Evaluation Understudy)
 
-      for i in range(1, m + 1):
-          for j in range(1, n + 1):
-              if words1[i-1] == words2[j-1]:
-                  dp[i][j] = dp[i-1][j-1] + 1
-              else:
-                  dp[i][j] = max(dp[i-1][j], dp[i][j-1])
-      return dp[m][n]
+Mide **precisión de n-gramas** del candidato contra una o más referencias, con penalización por brevedad (BP) para evitar inflar scores con outputs truncados:
 
-  ref_words = reference.lower().split()
-  cand_words = candidate.lower().split()
-
-  lcs_len = lcs_length(reference, candidate)
-  precision = lcs_len / len(cand_words) if cand_words else 0
-  recall = lcs_len / len(ref_words) if ref_words else 0
-
-  return 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+```
+BLEU = BP · exp( Σ wₙ · log(pₙ) )
+BP   = 1                 si c > r
+BP   = exp(1 − r/c)      si c ≤ r
 ```
 
-Here is a complete example:
+Donde `pₙ` es la precisión de n-gramas, `c` longitud del candidato y `r` longitud de la referencia. Típicamente `n ∈ {1,2,3,4}` con pesos uniformes.
+
+**Cuándo usar:** traducción automática (tarea para la que fue diseñado en 2002), tareas con outputs cortos y vocabulario restringido.
+
+**Cuándo NO usar:** chatbot abierto (paráfrasis legítimas obtienen BLEU bajo), tareas creativas, resúmenes abstractivos.
+
+### ROUGE (Recall-Oriented Understudy for Gisting Evaluation)
+
+Dual de BLEU centrado en **recall**. Variantes:
+
+- **ROUGE-N:** solapamiento de n-gramas.
+- **ROUGE-L:** longest common subsequence (LCS), captura orden sin exigir contigüidad.
+- **ROUGE-S:** skip-bigrams.
+
+Estándar en evaluación de resúmenes.
+
+### Similitud semántica con embeddings
+
+Convertimos ambos textos en vectores con un modelo pre-entrenado (sentence-transformers, OpenAI `text-embedding-3-small`, Cohere embed) y calculamos **cosine similarity**:
+
+```
+cos(u, v) = (u · v) / (‖u‖ · ‖v‖)
+```
+
+Rango `[-1, 1]`; para embeddings de texto en la práctica cae en `[0, 1]`. Umbrales típicos:
+
+| Cosine | Interpretación cualitativa |
+|---|---|
+| > 0.85 | Casi equivalentes |
+| 0.70 – 0.85 | Mismo tema, mismo mensaje |
+| 0.50 – 0.70 | Mismo tema, mensaje distinto |
+| < 0.50 | Temas diferentes |
+
+Captura paráfrasis que BLEU/ROUGE ignoran, pero sigue siendo ciego a **factualidad** (dos textos con cosine 0.92 pueden contradecirse en los hechos).
+
+### Métricas de legibilidad y tono
+
+- **Flesch-Kincaid Grade Level:** nivel educativo necesario para leer el texto.
+- **Flesch Reading Ease:** 0 (muy difícil) a 100 (muy fácil).
+- **VADER / Detoxify:** sentimiento y toxicidad.
+
+Útiles para auditar que el output *suena* como esperas (tono profesional, nivel escolar apropiado, no tóxico).
+
+### Comparación de enfoques
+
+| Dimensión | Deterministas | Estadísticas (BLEU/ROUGE) | Semánticas (cosine) | LLM-as-judge | Humano |
+|---|---|---|---|---|---|
+| Costo por eval | ~0 | ~0 | ~$0.0001 | ~$0.01 | ~$1-5 |
+| Latencia | ms | ms | ms | segundos | horas-días |
+| Reproducibilidad | 100% | 100% | 100% | ~85% | ~70% |
+| Entiende paráfrasis | No | No | Sí | Sí | Sí |
+| Juzga factualidad | No | No | No | Parcial | Sí |
+| Juzga tono/empatía | No | No | Parcial | Sí | Sí |
+| Escala a 10M evals | Sí | Sí | Sí | Caro | No |
+
+## Ejemplo con código
+
+### Pipeline multi-métrica con pytest
 
 ```python
+# tests/test_eval_summarizer.py
+import json
+import math
+import pytest
+from collections import Counter
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-from nltk.translate.bleu_score import sentence_bleu
-from rouge_score import rouge_scorer
 
-# Initialize evaluation tools
-encoder = SentenceTransformer('all-MiniLM-L6-v2', local_files_only=True)
-rouge_scorer_tool = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
+ENCODER = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Sample responses
-reference = "I understand you're having trouble with your account login. Let me help you reset your password. Please check your email for a reset link."
-generated = "I can help with your login issue. I'll send a password reset email to your account. Please check your inbox."
+with open("data/golden_summaries_v3.jsonl") as f:
+    GOLDEN = [json.loads(line) for line in f]
 
-# Calculate multiple metrics
-# 1. Cosine similarity (semantic)
-ref_embedding = encoder.encode([reference])
-gen_embedding = encoder.encode([generated])
-cosine_score = cosine_similarity(ref_embedding, gen_embedding)[0][0]
 
-# 2. BLEU score (n-gram overlap)
-bleu_score = sentence_bleu([reference.split()], generated.split())
+def generar_resumen(texto: str) -> str:
+    """Función bajo test: llama a tu modelo real."""
+    from mi_app.summarizer import summarize
+    return summarize(texto)
 
-# 3. ROUGE-L score (recall-oriented)
-rouge_score = rouge_scorer_tool.score(reference, generated)['rougeL'].fmeasure
 
-# Display results
-print("=== MULTI-METRIC EVALUATION ===")
-print(f"Cosine Similarity: {cosine_score:.3f}")
-print(f"BLEU Score: {bleu_score:.3f}")
-print(f"ROUGE-L F1: {rouge_score:.3f}")
-print(f"Overall Score: {(cosine_score * 0.4 + bleu_score * 0.3 + rouge_score * 0.3):.3f}")
+def cosine(a: str, b: str) -> float:
+    emb = ENCODER.encode([a, b])
+    return float(cosine_similarity([emb[0]], [emb[1]])[0][0])
+
+
+def rouge_l_f1(ref: str, cand: str) -> float:
+    r, c = ref.lower().split(), cand.lower().split()
+    m, n = len(r), len(c)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            dp[i][j] = dp[i-1][j-1] + 1 if r[i-1] == c[j-1] else max(dp[i-1][j], dp[i][j-1])
+    lcs = dp[m][n]
+    p = lcs / len(c) if c else 0
+    rec = lcs / len(r) if r else 0
+    return 2 * p * rec / (p + rec) if (p + rec) else 0.0
+
+
+@pytest.mark.parametrize("caso", GOLDEN, ids=lambda c: c["id"])
+def test_calidad_resumen(caso):
+    salida = generar_resumen(caso["input"])
+    cos = cosine(caso["output_ideal"], salida)
+    rouge = rouge_l_f1(caso["output_ideal"], salida)
+
+    # Umbrales acordados con el producto en un contrato explícito
+    assert cos >= 0.75, f"[{caso['id']}] cosine={cos:.2f} < 0.75"
+    assert rouge >= 0.30, f"[{caso['id']}] rougeL={rouge:.2f} < 0.30"
+    assert 50 <= len(salida.split()) <= 200, "Longitud fuera de rango"
 ```
 
-This implementation showcases production-ready semantic similarity evaluation. The system handles multiple reference texts, automatically selects the best match, and categorizes results into actionable quality tiers that development teams can use for decision-making.
+Correlo en CI: cada PR que modifique el prompt o el modelo rompe el test si degrada la calidad agregada.
 
-Implementing Automated Assessment Metrics
-Automated metrics provide scalable evaluation that runs continuously alongside your production systems. These metrics complement human evaluation by offering consistent, objective measurements that can process thousands of outputs per minute. While automated metrics may miss nuanced quality aspects, they excel at detecting systematic issues and tracking performance trends over time.
-
-Perplexity scores measure how "surprised" a language model is by a given text sequence. Lower perplexity indicates higher confidence, suggesting the generated text follows natural language patterns the model recognizes. This metric proves particularly valuable for detecting gibberish outputs or content that deviates significantly from expected language patterns.
-
-Readability metrics assess text complexity and accessibility using established formulas like Flesch-Kincaid grade level, SMOG index, or automated readability index. These measurements ensure your AI-generated content matches your target audience's reading level, whether you need elementary school simplicity for consumer-facing content or technical precision for professional documentation.
-
-Sentiment analysis provides automated tone detection, ensuring generated content maintains appropriate emotional alignment with your brand and context. A customer service system should maintain professional, helpful sentiment even when addressing complaints, while marketing content might target more enthusiastic, positive emotional tones.
+### Agregación por batches y reporting
 
 ```python
-import nltk
-from textstat import flesch_reading_ease, flesch_kincaid_grade
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import statistics
+from dataclasses import dataclass
 
-# Download required NLTK data
-try:
-  nltk.data.find('tokenizers/punkt_tab')
-except LookupError:
-  nltk.download('punkt_tab')
+@dataclass
+class ResultadoEval:
+    caso_id: str
+    cosine: float
+    rouge_l: float
+    tokens_salida: int
+    passed: bool
 
-# Initialize sentiment analyzer
-sentiment_analyzer = SentimentIntensityAnalyzer()
+def correr_suite(golden: list[dict]) -> dict:
+    resultados = []
+    for caso in golden:
+        salida = generar_resumen(caso["input"])
+        cos = cosine(caso["output_ideal"], salida)
+        rouge = rouge_l_f1(caso["output_ideal"], salida)
+        r = ResultadoEval(
+            caso_id=caso["id"],
+            cosine=cos,
+            rouge_l=rouge,
+            tokens_salida=len(salida.split()),
+            passed=(cos >= 0.75 and rouge >= 0.30),
+        )
+        resultados.append(r)
 
-# Sample text to evaluate
-sample_text = """
-Our new AI-powered customer service platform delivers exceptional user experiences through intelligent automation.
-The system processes inquiries efficiently while maintaining high accuracy rates.
-Users report improved satisfaction and faster response times across all service channels.
-"""
+    return {
+        "n": len(resultados),
+        "pass_rate": sum(r.passed for r in resultados) / len(resultados),
+        "cosine_media": statistics.mean(r.cosine for r in resultados),
+        "cosine_p10": statistics.quantiles([r.cosine for r in resultados], n=10)[0],
+        "rouge_media": statistics.mean(r.rouge_l for r in resultados),
+        "fallos_por_id": [r.caso_id for r in resultados if not r.passed],
+    }
 
-# Calculate automated metrics
-word_count = len(sample_text.split())
-sentence_count = len(nltk.sent_tokenize(sample_text))
-reading_ease = flesch_reading_ease(sample_text)
-grade_level = flesch_kincaid_grade(sample_text)
-sentiment_scores = sentiment_analyzer.polarity_scores(sample_text)
-
-# Assess quality flags
-quality_flags = []
-if word_count < 10:
-  quality_flags.append('too_short')
-elif word_count > 200:
-  quality_flags.append('too_long')
-if reading_ease < 40:
-  quality_flags.append('too_complex')
-if grade_level > 12:
-  quality_flags.append('grade_level_too_high')
-
-# Display results
-print("=== AUTOMATED CONTENT EVALUATION ===")
-print(f"Word Count: {word_count}")
-print(f"Sentences: {sentence_count}")
-print(f"Reading Ease: {reading_ease:.1f}")
-print(f"Grade Level: {grade_level:.1f}")
-print(f"Sentiment: {sentiment_scores['compound']:.2f} (positive: {sentiment_scores['pos']:.2f})")
-print(f"Quality Status: {', '.join(quality_flags) if quality_flags else 'All checks passed'}")
+reporte = correr_suite(GOLDEN)
+print(json.dumps(reporte, indent=2, ensure_ascii=False))
 ```
 
-Combining Methods for Comprehensive Assessment
-Hybrid evaluation systems combine multiple traditional methods to create robust, multi-dimensional quality assessment. No single metric captures all aspects of AI output quality, but strategic combinations provide comprehensive coverage that addresses different stakeholders' concerns and catches issues that individual metrics might miss.
+Fíjate en el **p10 de cosine**: la media esconde la cola. Un sistema con media 0.82 pero p10 = 0.40 tiene un 10% de casos horribles que la media no revela.
 
-Weighted scoring systems allow you to prioritize different quality aspects based on your specific application requirements. A legal document generator might weight accuracy and completeness heavily while giving less importance to readability, whereas a consumer-facing content system might prioritize readability and engagement over technical precision.
+### Config declarativa con Promptfoo
 
-Multi-dimensional assessment matrices track different quality aspects independently, providing detailed diagnostic information that helps teams understand specific improvement areas. Rather than a single quality score, these systems generate dashboards showing performance across accuracy, relevance, readability, sentiment, and consistency dimensions.
+Si prefieres no escribir pytest a mano, [Promptfoo](https://promptfoo.dev) te permite declarar la suite en YAML:
 
-Statistical validation ensures your automated metrics correlate with human judgment and business outcomes. Regular calibration studies compare automated scores with human evaluators' assessments, adjusting weights and thresholds to maintain alignment between automated measurements and real-world quality perceptions.
+```yaml
+# promptfooconfig.yaml
+prompts:
+  - "Resume en 3 frases: {{texto}}"
 
-Common Pitfalls and Solutions
+providers:
+  - openai:gpt-4o-mini
+  - anthropic:claude-3-5-haiku-20241022
 
-Traditional evaluation methods can mislead teams when applied incorrectly. Metric fixation occurs when teams optimize for specific metrics rather than overall quality, leading to systems that game the measurements while failing to deliver real value. Combat this by using diverse metric portfolios and regularly validating against human judgment and business outcomes.
+tests:
+  - vars:
+      texto: file://data/articulo_01.txt
+    assert:
+      - type: contains
+        value: "conclusion"
+      - type: similar
+        value: file://data/resumen_ideal_01.txt
+        threshold: 0.80
+      - type: rouge-n
+        value: file://data/resumen_ideal_01.txt
+        threshold: 0.3
+        n: 2
+      - type: javascript
+        value: "output.split(' ').length < 60"
+```
 
-Reference data staleness creates evaluation systems that measure against outdated standards. Language evolves, business requirements change, and user expectations shift over time. Schedule regular golden dataset reviews and maintain feedback loops that capture evolving quality requirements from actual system usage.
+Ejecutas `promptfoo eval` y obtienes una matriz comparando ambos modelos sobre todos los casos.
 
-Over-automation tempts teams to rely entirely on automated metrics without human oversight. While automation provides scalability, human evaluation remains essential for catching subtle quality issues, cultural appropriateness concerns, and contextual correctness that automated systems miss. Design evaluation pipelines that combine automated screening with targeted human review.
+## Errores comunes
 
-Summary
-Traditional evaluation methods provide the measurement foundation for production AI systems through systematic approaches that transform quality assessment from subjective judgment into objective engineering practice. Golden datasets establish quality benchmarks through expert curation, diverse coverage, and regular maintenance cycles that keep evaluation standards current and comprehensive.
+- **Leakage del golden set en los datos de entrenamiento/fine-tuning.** Si tus ejemplos de evaluación aparecen (incluso parafraseados) en el corpus con el que afinaste el modelo, tus métricas son fantasía. Audita con búsqueda exacta y por embeddings antes de confiar en un número.
+- **Usar accuracy en tareas generativas abiertas.** Una pregunta como "resume este artículo" no tiene *una* respuesta correcta. Reportar "accuracy 0.42" es engañoso; usa cosine/ROUGE/LLM judge.
+- **Golden sets de 10-30 ejemplos.** El intervalo de confianza es tan ancho que cualquier mejora cae dentro del ruido. Mínimo 100 por sub-categoría, idealmente 300+.
+- **Rúbrica vaga.** "Evalúa la calidad del 1 al 5" sin definir niveles produce κ bajo entre anotadores y evaluaciones no reproducibles. Define cada nivel con 2-3 frases de criterio operacional.
+- **No versionar evals.** Comparar métricas calculadas con `golden_v1` contra `golden_v3` no significa nada. Cada reporte debe citar la versión exacta del dataset, el prompt, el modelo y los hiperparámetros.
+- **Optimizar sólo la media.** Un modelo que mejora la media bajando la mediana (más consistente pero menos picos) puede ser peor en percepción de usuario. Mira distribución completa: p10, mediana, p90.
+- **Métrica única.** BLEU alto + cosine bajo + usuarios enojados es un escenario clásico. Siempre combina 2-3 métricas de familias distintas (léxica + semántica + estilo) para triangulación.
+- **Confundir evaluación con test unitario del modelo.** Las métricas evalúan el **sistema** (prompt + modelo + post-procesado), no "el modelo". Un cambio de prompt sin cambiar modelo puede mover BLEU 10 puntos.
+- **Golden sets sin casos adversariales.** Si todo tu set son inputs limpios y bien formados, no sabrás nada de robustez ante typos, prompt injection, inputs ambiguos o lenguaje tóxico.
 
-Similarity-based evaluation captures semantic alignment through cosine similarity, BLEU scores, ROUGE metrics, and other techniques that measure meaning preservation across different phrasings. Automated metrics enable scalable assessment through perplexity, readability, sentiment analysis, and other measurements that provide continuous quality monitoring without human intervention.
+## Resumen
 
-Key concepts to remember
-Golden Datasets Need Curation - Golden datasets require expert curation, comprehensive coverage, and regular updates to maintain effectiveness as quality benchmarks
-Semantic Similarity Over Exact Matching - Semantic similarity metrics capture meaning preservation better than exact matching, enabling evaluation of semantically correct but differently phrased outputs
-Automated Metrics Need Calibration - Automated metrics provide scalable, consistent evaluation but require calibration against human judgment and business outcomes
-Hybrid Systems for Comprehensive Assessment - Hybrid evaluation systems combine multiple methods to create comprehensive quality assessment that addresses different stakeholder concerns
-Regular Validation is Essential - Regular validation ensures evaluation systems remain aligned with evolving quality requirements and business objectives
+- Las **métricas tradicionales** (deterministas, BLEU/ROUGE, cosine similarity, legibilidad) son el piso de la evaluación: baratas, rápidas, reproducibles.
+- **BLEU** mide precisión de n-gramas (traducción); **ROUGE** mide recall (resumen); **cosine similarity** sobre embeddings captura paráfrasis.
+- Un **golden set** bien construido (cobertura, realismo, etiquetado múltiple con Cohen's κ ≥ 0.6, versionado) es más valioso que la elección de métrica.
+- Combina siempre **varias familias** de métricas y reporta **distribución**, no sólo media.
+- Las métricas tradicionales **no entienden factualidad, tono ni empatía** → complementar con LLM judges (siguiente lección) o humanos.
+- Integra la suite en **pytest / Promptfoo** para que cada PR dispare la evaluación en CI.
+- Benchmarks públicos como **HELM, MT-Bench, AlpacaEval, LMSYS Arena** te dan referencia externa, pero **tu golden set privado** es lo que te diferencia.

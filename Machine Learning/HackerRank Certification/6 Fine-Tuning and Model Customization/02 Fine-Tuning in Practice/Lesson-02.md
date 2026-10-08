@@ -1,788 +1,428 @@
-## Dataset Preparation and Expansion
-A well-prepared dataset is the foundation of effective fine-tuning. For your customer support chatbot, you need data that covers classification, response generation, and information extraction tasks. Many teams collect data without clear preparation principles, leading to datasets that are too small, contain quality issues, or lack diversity in critical areas.
+# Preparación y Expansión del Dataset
 
-You start with 2,000 customer support interactions collected from your ticketing system. Some examples are high quality, but many have issues: duplicates, format inconsistencies, missing fields, and imbalanced categories. You need to clean this data, validate its quality, and expand it to ensure your chatbot handles all production scenarios.
+## ¿Qué es?
 
-In this hands-on lesson, you will learn practical techniques to clean your customer support dataset, assess data quality, validate readiness for training, and generate synthetic examples to fill coverage gaps.
+La **preparación de dataset** es el conjunto de pasos que transforma datos crudos en un corpus listo para fine-tuning: limpieza, validación de calidad, análisis de diversidad, generación sintética para rellenar huecos y validación final previa al entrenamiento. En la práctica, esto consume **60-80% del tiempo** de un proyecto de fine-tuning serio y determina más del resultado que la elección del algoritmo.
 
-Why Dataset Quality Matters
-Poor quality data directly impacts model performance in production. Models trained on low-quality datasets learn incorrect patterns, fail on edge cases, and require extensive prompt engineering to work correctly. Understanding data quality dimensions helps you identify and fix issues before they become production problems.
+Para el **chatbot de soporte al cliente** del submódulo partes con 2,000 interacciones extraídas del sistema de tickets. Algunas son excelentes; otras tienen duplicados, campos faltantes, formatos inconsistentes y categorías desbalanceadas. Tu trabajo es dejarlo listo para que el modelo aprenda patrones **generalizables**, no ruido.
 
-Five Dimensions of Data Quality
+### Las cinco dimensiones de calidad
 
-Data quality assessment requires evaluating multiple dimensions:
+| Dimensión | Qué significa | Impacto si falla |
+|---|---|---|
+| **Completeness** | Todos los campos requeridos están presentes y no vacíos | Ejemplos descartados o patrones incompletos |
+| **Accuracy** | Las etiquetas/outputs son correctos | Modelo aprende comportamientos equivocados |
+| **Consistency** | Formato uniforme (mismo casing, misma estructura) | Modelo aprende múltiples formas de la misma cosa |
+| **Relevance** | Los ejemplos pertenecen a la tarea objetivo | Dilución de señal, pérdida de compute |
+| **Diversity** | Cubre el rango completo de escenarios de producción | Modelo frágil ante edge cases |
 
-Completeness: All required fields are present and non-empty. Missing fields prevent models from learning complete patterns.
+## ¿Por qué importa?
 
-Accuracy: Examples demonstrate correct behavior. Incorrect labels or outputs teach models wrong patterns.
+Datos malos entrenan modelos malos. Es tan directo como eso. Un dataset con 80% de calidad produce un modelo que falla en 20% de los inputs reales, lo que a escala significa miles de clientes mal atendidos. Peor aún: en instruction tuning, los errores no son uniformes — los ejemplos defectuosos enseñan **comportamientos específicos equivocados** (ej. clasificar siempre como "Shipping" porque esa clase está sobrerrepresentada).
 
-Consistency: Format and style are uniform across examples. Inconsistent formatting confuses models during training.
+La preparación bien hecha paga tres dividendos:
 
-Relevance: Examples are relevant to your target task. Irrelevant examples waste training compute and reduce model focus.
+1. **Menos compute desperdiciado:** detectas problemas antes de un training run de 3 horas.
+2. **Mejor convergencia:** menos ruido = menos épocas necesarias.
+3. **Mejor generalización:** diversidad y balance evitan overfitting a patrones espurios.
 
-Diversity: Dataset covers the full range of production scenarios. Homogeneous datasets produce models that fail on edge cases.
+### Cuándo correr la validación
 
-Real-World Impact of Poor Quality
+- **Tras la recolección inicial:** detectar problemas sistémicos pronto.
+- **Tras cada paso de limpieza:** confirmar que las correcciones funcionaron.
+- **Antes del training:** check final, no negociable.
+- **En producción (data que llega nueva):** automatiza con alertas si la calidad cae.
 
-In production, poor data quality manifests as models that misclassify tickets, generate inappropriate responses, or fail on common scenarios. A dataset with 80% quality might seem acceptable, but it means 20% of training examples teach incorrect behaviors. This translates to models that make mistakes on 20% of production inputs, requiring constant monitoring and manual intervention.
+## ¿Cómo funciona?
 
-When to Use Quality Assessment
+### Paso 1: Inspección estructural
 
-Run quality assessment at three stages: after initial data collection (identify issues early), after cleaning (verify fixes worked), and before training (final validation). Early assessment saves compute by catching issues before expensive training runs.
-
-Dataset Cleaning Fundamentals
-Dataset cleaning removes issues that prevent effective learning. The cleaning process involves identifying problems, applying fixes, and verifying improvements.
-
-Common Data Issues
-
-Real-world datasets contain several common issues:
-
-Duplicates: Identical or near-identical examples waste training compute and can cause overfitting. Models memorize duplicate patterns instead of learning generalizable behaviors.
-
-Missing Fields: Examples with missing required fields cannot be used for training. Instruction tuning requires instruction, input, and output fields; missing any field breaks the training pipeline.
-
-Format Inconsistencies: Inconsistent formatting confuses models. If some examples use "Category: X" and others use "X category", the model learns inconsistent patterns.
-
-Outliers: Examples that deviate significantly from the norm can skew training. Extremely long inputs or unusual formats may represent edge cases or data collection errors.
-
-Cleaning Strategy
-
-Start with the most impactful issues first. Duplicates are easy to identify and remove, providing immediate dataset improvement. Missing fields require either fixing (if data is available) or removing examples. Format inconsistencies need standardization across all examples.
-
-Use this code to load and examine your dataset structure. Run this first to understand what data you are working with:
+Antes de limpiar, entiende qué tienes. Revisa estructura, tipos, longitudes y campos faltantes.
 
 ```python
-# Step 1: Load and examine dataset structure
-# Use this to understand your data format and identify issues
-
 import json
 from collections import Counter
 
-def examine_dataset(file_path):
-  """Load dataset and examine basic structure"""
+def examinar_dataset(ruta):
+    with open(ruta, "r", encoding="utf-8") as f:
+        data = json.load(f)
 
-  with open(file_path, "r") as f:
-      data = json.load(f)
+    print(f"Total de ejemplos: {len(data)}")
+    sample = data[0]
+    print("\nEstructura del primer ejemplo:")
+    for k, v in sample.items():
+        tipo = type(v).__name__
+        largo = len(str(v)) if isinstance(v, str) else "N/A"
+        print(f"  {k}: {tipo} (len={largo})")
 
-  print(f"Total examples: {len(data)}")
+    requeridos = ["instruction", "input", "output"]
+    faltantes = {f: 0 for f in requeridos}
+    for ex in data:
+        for f in requeridos:
+            if f not in ex or not ex[f]:
+                faltantes[f] += 1
+    print("\nCampos faltantes:", faltantes)
+    return data
 
-  # Check structure of first example
-  if data:
-      sample = data[0]
-      print(f"\nExample structure:")
-      for key, value in sample.items():
-          print(f"  {key}: {type(value).__name__} (length: {len(str(value)) if isinstance(value, str) else 'N/A'})")
-
-  # Check for missing required fields
-  required_fields = ["instruction", "input", "output"]
-  missing_counts = {field: 0 for field in required_fields}
-
-  for example in data:
-      for field in required_fields:
-          if field not in example or not example[field]:
-              missing_counts[field] += 1
-
-  print(f"\nMissing fields:")
-  for field, count in missing_counts.items():
-      if count > 0:
-          print(f"  {field}: {count} examples missing")
-
-  return data
-
-# Examine your dataset
-raw_data = examine_dataset("data/customer_support_raw.json")
+raw_data = examinar_dataset("data/soporte_raw.json")
 ```
 
-Removing Duplicates
+### Paso 2: Eliminación de duplicados
 
-Duplicates waste training compute and can cause overfitting. Use this function to identify and remove duplicate examples. This works for any instruction-tuning dataset where duplicates are defined by identical instruction and input pairs:
+Los duplicados desperdician compute y provocan overfitting silencioso. Elimínalos por hash de los campos clave (`instruction` + `input`).
 
 ```python
-# Step 2: Remove duplicate examples
-# Use this when you suspect duplicate examples in your dataset
-# Duplicates waste training compute and can cause overfitting
+def eliminar_duplicados(dataset, key_fields=("instruction", "input")):
+    seen = set()
+    unicos = []
+    dups = 0
+    for ex in dataset:
+        key = tuple(str(ex.get(f, "")) for f in key_fields)
+        if key in seen:
+            dups += 1
+        else:
+            seen.add(key)
+            unicos.append(ex)
+    print(f"Eliminados: {dups} ({dups/len(dataset)*100:.1f}%)")
+    return unicos
 
-def remove_duplicates(dataset, key_fields=None):
-  """
-  Remove duplicate examples from dataset.
-
-  Args:
-      dataset: List of example dictionaries
-      key_fields: Fields to use for duplicate detection (default: ["instruction", "input"])
-
-  Returns:
-      Tuple of (unique_examples, duplicate_count)
-  """
-  if key_fields is None:
-      key_fields = ["instruction", "input"]
-
-  seen = set()
-  unique_examples = []
-  duplicate_count = 0
-
-  for example in dataset:
-      # Create unique key from specified fields
-      key_parts = [str(example.get(field, "")) for field in key_fields]
-      content_key = tuple(key_parts)
-
-      if content_key in seen:
-          duplicate_count += 1
-      else:
-          seen.add(content_key)
-          unique_examples.append(example)
-
-  print(f"Removed {duplicate_count} duplicates ({duplicate_count/len(dataset)*100:.1f}%)")
-  print(f"Dataset size: {len(dataset)} -> {len(unique_examples)}")
-
-  return unique_examples, duplicate_count
-
-# Remove duplicates from your dataset
-cleaned_data, dup_count = remove_duplicates(raw_data)
-print(f"✅ Cleaned dataset ready with {len(cleaned_data)} unique examples")
+clean = eliminar_duplicados(raw_data)
 ```
 
-Data Quality Assessment
-Quality assessment evaluates your dataset across multiple dimensions to identify issues before training. This process helps you understand dataset health and prioritize fixes.
-
-Quality Dimensions Explained
-
-Each quality dimension serves a specific purpose:
-
-Completeness ensures models receive complete information. Missing fields create incomplete training examples that confuse models.
-
-Accuracy ensures models learn correct patterns. Incorrect labels teach wrong behaviors that require extensive prompt engineering to override.
-
-Consistency ensures models learn uniform patterns. Inconsistent formats force models to learn multiple ways to express the same concept, reducing efficiency.
-
-Relevance ensures models focus on target tasks. Irrelevant examples dilute learning signal and waste training compute.
-
-When to Use Quality Assessment
-
-Run quality assessment after cleaning to verify fixes worked, and before training to ensure readiness. Use automated assessment for large datasets (1000+ examples) where manual review is impractical. For smaller datasets, combine automated checks with manual sample review.
-
-Use this function to assess dataset quality. Customize the validation functions for your specific task requirements:
+Para duplicados **semánticos** (texto distinto, mismo significado), usa embeddings y un umbral de similitud coseno:
 
 ```python
-# Step 3: Assess data quality across multiple dimensions
-# Use this to identify quality issues before training
-# Customize validation functions for your specific task
+from sentence_transformers import SentenceTransformer, util
+import torch
 
-def assess_data_quality(dataset, validation_functions=None):
-  """
-  Assess dataset quality across multiple dimensions.
+model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+textos = [ex["input"] for ex in clean]
+emb = model.encode(textos, convert_to_tensor=True, show_progress_bar=True)
 
-  Args:
-      dataset: List of example dictionaries
-      validation_functions: Dict of custom validation functions
-          Format: {"dimension_name": lambda ex: True/False}
+sim = util.cos_sim(emb, emb)
+mask = torch.triu(torch.ones_like(sim), diagonal=1).bool()
+dup_idx = (sim.masked_fill(~mask, 0) > 0.95).any(dim=0)
+clean = [ex for i, ex in enumerate(clean) if not dup_idx[i]]
+```
 
-  Returns:
-      Dictionary with quality scores and issue reports
-  """
-  if validation_functions is None:
-      # Default validations for instruction-tuning datasets
-      validation_functions = {
-          "completeness": lambda ex: all(
-              field in ex and ex[field]
-              for field in ["instruction", "input", "output"]
-          ),
-          "format": lambda ex: len(ex.get("instruction", "")) >= 10,
-          "relevance": lambda ex: len(ex.get("input", "")) > 0
-      }
+### Paso 3: Evaluación de calidad multidimensional
 
-  issues = {dimension: [] for dimension in validation_functions.keys()}
+```python
+def evaluar_calidad(dataset, validaciones=None):
+    if validaciones is None:
+        validaciones = {
+            "completeness": lambda e: all(f in e and e[f] for f in ["instruction", "input", "output"]),
+            "format":       lambda e: len(e.get("instruction", "")) >= 10,
+            "relevance":    lambda e: len(e.get("input", "")) > 0,
+        }
 
-  for idx, example in enumerate(dataset):
-      for dimension, validate_func in validation_functions.items():
-          if not validate_func(example):
-              issues[dimension].append(idx)
+    issues = {k: [] for k in validaciones}
+    for i, ex in enumerate(dataset):
+        for dim, fn in validaciones.items():
+            if not fn(ex):
+                issues[dim].append(i)
 
-  # Calculate quality scores
-  total = len(dataset)
-  quality_scores = {
-      dimension: 1 - (len(issue_list) / total)
-      for dimension, issue_list in issues.items()
-  }
+    total = len(dataset)
+    scores = {k: 1 - len(v) / total for k, v in issues.items()}
+    overall = sum(scores.values()) / len(scores)
+    return {"scores": scores, "overall": overall, "issues": issues, "total": total}
 
-  overall_quality = sum(quality_scores.values()) / len(quality_scores)
+def es_soporte(ex):
+    txt = ex.get("input", "").lower()
+    kws = ["pedido", "envio", "devolucion", "reembolso", "producto", "cuenta", "pago", "orden"]
+    return any(k in txt for k in kws)
 
-  return {
-      "quality_scores": quality_scores,
-      "overall_quality": overall_quality,
-      "issues": issues,
-      "total_examples": total
-  }
-
-# Example: Assess quality with custom validations for customer support
-def is_support_related(example):
-  """Check if example is relevant to customer support"""
-  input_text = example.get("input", "").lower()
-  support_keywords = ["order", "ship", "return", "refund", "product", "account", "payment"]
-  return any(keyword in input_text for keyword in support_keywords)
-
-custom_validations = {
-  "completeness": lambda ex: all(f in ex and ex[f] for f in ["instruction", "input", "output"]),
-  "format": lambda ex: len(ex.get("instruction", "")) >= 10,
-  "relevance": is_support_related
+custom = {
+    "completeness": lambda e: all(f in e and e[f] for f in ["instruction", "input", "output"]),
+    "format": lambda e: len(e.get("instruction", "")) >= 10,
+    "relevance": es_soporte,
 }
 
-quality_report = assess_data_quality(cleaned_data, custom_validations)
-print(f"Overall quality: {quality_report['overall_quality']:.2%}")
-print(f"Quality breakdown:")
-for dimension, score in quality_report["quality_scores"].items():
-  print(f"  {dimension}: {score:.2%}")
+reporte = evaluar_calidad(clean, custom)
+print(f"Calidad general: {reporte['overall']:.2%}")
+for dim, s in reporte["scores"].items():
+    print(f"  {dim}: {s:.2%}")
 
-if quality_report["overall_quality"] < 0.90:
-  print("\n⚠️ Quality below 90% threshold. Review and fix issues before training.")
+if reporte["overall"] < 0.90:
+    print("\n⚠️ Calidad bajo 90%. Revisa y corrige antes de entrenar.")
 ```
 
-Diversity and Balance Analysis
-Dataset diversity ensures models generalize to unseen inputs. A diverse dataset includes various input lengths, different phrasing styles, edge cases, and representative distribution of task variations.
+### Paso 4: Análisis de diversidad y balance
 
-Why Diversity Matters
-
-Homogeneous datasets produce models that overfit to specific patterns. If all your examples are short, low-urgency shipping issues, your chatbot will fail on complex, high-urgency scenarios. Diversity ensures models learn robust patterns that work across production scenarios.
-
-Balance for Classification Tasks
-
-For classification tasks, imbalanced datasets lead to models favoring majority classes. If 70% of your examples are shipping issues, your model will struggle with billing or technical support. Balance ensures models learn all categories equally.
-
-When to Analyze Diversity
-
-Analyze diversity after cleaning to identify gaps, and before training to ensure coverage. Use diversity analysis to guide synthetic data generation by identifying underrepresented categories or scenarios.
-
-Use this function to analyze dataset diversity. Adapt the category extraction logic for your specific classification schema:
+Dataset homogéneo = modelo frágil. Si el 70% de tus tickets son "problemas de envío", tu chatbot fallará en facturación o soporte técnico.
 
 ```python
-# Step 4: Analyze dataset diversity and balance
-# Use this to identify gaps in coverage before generating synthetic data
-# Adapt category extraction for your specific classification schema
-
 import numpy as np
 from collections import Counter
 
-def analyze_diversity(dataset, extract_categories_func=None):
-  """
-  Analyze dataset diversity across multiple dimensions.
+def analizar_diversidad(dataset, extraer_cats=None):
+    largos = [len(str(ex.get("input", ""))) for ex in dataset]
+    long_stats = {
+        "media": float(np.mean(largos)),
+        "std": float(np.std(largos)),
+        "min": int(np.min(largos)),
+        "max": int(np.max(largos)),
+        "cv": float(np.std(largos) / np.mean(largos)) if np.mean(largos) > 0 else 0,
+    }
 
-  Args:
-      dataset: List of example dictionaries
-      extract_categories_func: Function to extract categories from examples
-          Should return list of category strings or None
+    balance = None
+    balanced = True
+    if extraer_cats:
+        cats = []
+        for ex in dataset:
+            c = extraer_cats(ex)
+            if c:
+                cats.extend(c if isinstance(c, list) else [c])
+        if cats:
+            cnt = Counter(cats)
+            total = sum(cnt.values())
+            balance = {k: v / total for k, v in cnt.items()}
+            balanced = all(0.05 <= r <= 0.60 for r in balance.values())
 
-  Returns:
-      Dictionary with diversity metrics and balance analysis
-  """
-  # Length diversity
-  input_lengths = [len(str(ex.get("input", ""))) for ex in dataset]
-  length_stats = {
-      "mean": float(np.mean(input_lengths)),
-      "std": float(np.std(input_lengths)),
-      "min": int(np.min(input_lengths)),
-      "max": int(np.max(input_lengths)),
-      "diversity_score": float(np.std(input_lengths) / np.mean(input_lengths)) if np.mean(input_lengths) > 0 else 0
-  }
+    tareas = []
+    for ex in dataset:
+        instr = ex.get("instruction", "").lower()
+        if "clasifica" in instr:
+            tareas.append("clasificacion")
+        elif "genera" in instr or "respuesta" in instr:
+            tareas.append("generacion")
+        elif "extrae" in instr:
+            tareas.append("extraccion")
 
-  # Category balance (if extraction function provided)
-  category_balance = None
-  is_balanced = True
+    return {
+        "longitud": long_stats,
+        "balance": balance,
+        "balanceado": balanced,
+        "tareas": dict(Counter(tareas)),
+    }
 
-  if extract_categories_func:
-      categories = []
-      for ex in dataset:
-          cats = extract_categories_func(ex)
-          if cats:
-              categories.extend(cats if isinstance(cats, list) else [cats])
+def extraer_cat_soporte(ex):
+    if "clasifica" not in ex.get("instruction", "").lower():
+        return None
+    out = ex.get("output", "")
+    cats = []
+    for cat in ["Envío", "Facturación", "Producto", "Devolución", "Técnico"]:
+        if cat in out:
+            cats.append(cat)
+    return cats or None
 
-      if categories:
-          category_counts = Counter(categories)
-          total = len(categories)
-          category_balance = {
-              cat: count / total
-              for cat, count in category_counts.items()
-          }
-          # Check for imbalance (any category > 60% or < 5%)
-          is_balanced = all(0.05 <= ratio <= 0.60 for ratio in category_balance.values())
-
-  # Task type distribution
-  task_types = []
-  for ex in dataset:
-      instruction = ex.get("instruction", "").lower()
-      if "classify" in instruction:
-          task_types.append("classification")
-      elif "generate" in instruction or "response" in instruction:
-          task_types.append("generation")
-      elif "extract" in instruction:
-          task_types.append("extraction")
-
-  task_distribution = dict(Counter(task_types))
-
-  return {
-      "length_diversity": length_stats,
-      "category_balance": category_balance,
-      "is_balanced": is_balanced,
-      "task_distribution": task_distribution
-  }
-
-# Example: Extract categories for customer support classification
-def extract_support_categories(example):
-  """Extract category from customer support example"""
-  if "classify" not in example.get("instruction", "").lower():
-      return None
-
-  output = example.get("output", "")
-  categories = []
-  if "Shipping Issue" in output:
-      categories.append("Shipping")
-  if "Billing Issue" in output:
-      categories.append("Billing")
-  if "Product Question" in output:
-      categories.append("Product")
-  if "Return Request" in output:
-      categories.append("Return")
-  if "Technical Support" in output:
-      categories.append("Technical")
-
-  return categories if categories else None
-
-# Analyze diversity
-diversity_report = analyze_diversity(cleaned_data, extract_support_categories)
-print(f"Length diversity score: {diversity_report['length_diversity']['diversity_score']:.2f}")
-print(f"Category balance: {diversity_report['category_balance']}")
-print(f"Is balanced: {diversity_report['is_balanced']}")
-print(f"Task distribution: {diversity_report['task_distribution']}")
-
-if not diversity_report["is_balanced"]:
-  print("\n⚠️ Dataset is imbalanced. Generate synthetic data for minority categories.")
+div = analizar_diversidad(clean, extraer_cat_soporte)
+print("Balance:", div["balance"])
+print("¿Balanceado?", div["balanceado"])
+print("Tareas:", div["tareas"])
 ```
 
-Synthetic Data Generation Strategies
-After cleaning and analyzing your dataset, you identify gaps: insufficient examples for return requests, limited high-urgency cases, and few examples with complex multi-issue scenarios. Synthetic data generation helps fill these gaps without manual collection.
+### Paso 5: Generación sintética
 
-When to Use Synthetic Data
+Si identificas categorías infrarepresentadas (ej. pocas devoluciones), generarás ejemplos adicionales. Dos estrategias:
 
-Use synthetic data when you have identified specific gaps in coverage, need to balance imbalanced categories, or want to expand dataset size without manual collection. Synthetic data is most effective when you have high-quality seed examples and clear generation requirements.
-
-Synthetic Data Trade-offs
-
-Synthetic data provides coverage but introduces risks. Low-quality synthetic examples teach incorrect patterns. Over-reliance on synthetic data (more than 40% of dataset) can degrade performance. Always validate synthetic examples before integration and monitor model performance when using synthetic data.
-
-Generation Strategies
-
-Two main strategies work for different scenarios:
-
-Template-Based Generation: Works well for structured tasks with clear patterns. Use when you can define templates that capture the variation you need.
-
-LLM-Guided Generation: Works well for complex scenarios that are hard to template. Use when you need diverse examples that follow natural patterns but are difficult to template.
-
-Template-Based Generation
-
-Template-based generation uses structured templates to create diverse examples. This approach works well when your task has clear patterns that can be captured in templates. Use this when you need to generate many examples quickly for specific categories or scenarios.
-
-Use this template-based approach when you have clear patterns to replicate. Customize templates and variation lists for your specific task:
+**A) Template-based (rápido, barato, estructurado):**
 
 ```python
-# Template-based synthetic data generation
-# Use this when you have clear patterns that can be templated
-# Works well for structured tasks like classification or format conversion
-
 import random
 
-def generate_from_templates(templates, variation_pools, num_examples_per_template):
-  """
-  Generate synthetic examples using templates and variation pools.
+def generar_desde_templates(templates, pools, n_por_template):
+    sinteticos = []
+    for tpl in templates:
+        for _ in range(n_por_template):
+            inp = tpl["input_template"]
+            out = tpl["output_template"]
+            for var, valores in pools.items():
+                v = random.choice(valores)
+                inp = inp.replace(f"{{{var}}}", str(v))
+                out = out.replace(f"{{{var}}}", str(v))
+            sinteticos.append({"instruction": tpl["instruction"], "input": inp, "output": out})
+    return sinteticos
 
-  Args:
-      templates: List of template dicts with "instruction", "input_template", "output_template"
-      variation_pools: Dict mapping template variable names to lists of possible values
-      num_examples_per_template: Number of examples to generate per template
+templates_devolucion = [{
+    "instruction": "Clasifica este ticket por urgencia y categoría.",
+    "input_template": "Quiero devolver {item} de la orden #{num}. {razon}",
+    "output_template": "Urgencia: {urg}\nCategoría: Devolución",
+}]
 
-  Returns:
-      List of generated example dictionaries
-  """
-  synthetic_examples = []
-
-  for template in templates:
-      for _ in range(num_examples_per_template):
-          # Fill template with random variations
-          filled_input = template["input_template"]
-          filled_output = template["output_template"]
-
-          # Replace variables in templates with random values
-          for var_name, values in variation_pools.items():
-              value = random.choice(values)
-              filled_input = filled_input.replace(f"{{{var_name}}}", str(value))
-              filled_output = filled_output.replace(f"{{{var_name}}}", str(value))
-
-          example = {
-              "instruction": template["instruction"],
-              "input": filled_input,
-              "output": filled_output
-          }
-          synthetic_examples.append(example)
-
-  return synthetic_examples
-
-# Example: Generate return request examples
-return_templates = [
-  {
-      "instruction": "Classify this support ticket by urgency and category.",
-      "input_template": "I want to return {item} from order #{order_num}. {reason}",
-      "output_template": "Urgency: {urgency}\nCategory: Return Request"
-  }
-]
-
-variation_pools = {
-  "item": ["a jacket", "shoes", "electronics", "books"],
-  "order_num": [f"{random.randint(10000, 99999)}" for _ in range(50)],
-  "reason": ["it doesn't fit", "wrong size", "defective item", "changed my mind"],
-  "urgency": ["Low", "Medium", "High"]
+pools = {
+    "item": ["una chaqueta", "los zapatos", "el electrónico", "los libros"],
+    "num": [str(random.randint(10000, 99999)) for _ in range(50)],
+    "razon": ["no me queda", "talla equivocada", "defectuoso", "cambié de opinión"],
+    "urg": ["Baja", "Media", "Alta"],
 }
 
-synthetic_examples = generate_from_templates(
-  return_templates,
-  variation_pools,
-  num_examples_per_template=50
-)
-
-print(f"Generated {len(synthetic_examples)} synthetic examples")
+sinteticos = generar_desde_templates(templates_devolucion, pools, 50)
+print(f"Generados: {len(sinteticos)}")
 ```
 
-LLM-Guided Generation
-
-LLM-guided generation uses a base LLM to generate diverse examples based on seed examples. This approach works well for complex scenarios where templates are insufficient. Use this when you need natural, diverse examples that are difficult to template.
-
-Use this LLM-guided approach when templates are insufficient. This requires API access and incurs costs, but produces more natural examples:
+**B) LLM-guided (más natural, costoso):**
 
 ```python
-# LLM-guided synthetic data generation
-# Use this when templates are insufficient for complex scenarios
-# Requires API access and incurs costs, but produces natural examples
+from openai import OpenAI
+import json
 
-def generate_with_llm(seed_examples, num_examples, task_description, api_client):
-  """
-  Generate synthetic examples using LLM based on seed examples.
+client = OpenAI()
 
-  Args:
-      seed_examples: List of example dictionaries to use as seeds
-      num_examples: Number of examples to generate
-      task_description: Description of the task and requirements
-      api_client: Initialized API client (OpenAI, Anthropic, etc.)
+def generar_con_llm(seeds, n, descripcion):
+    seed_txt = "\n\n".join(
+        f"Instruction: {s['instruction']}\nInput: {s['input']}\nOutput: {s['output']}"
+        for s in seeds[:5]
+    )
+    prompt = f"""Tarea: {descripcion}
 
-  Returns:
-      List of generated example dictionaries
-  """
-  # Format seed examples for prompt
-  seed_text = "\n\n".join([
-      f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}"
-      for ex in seed_examples[:5]  # Use first 5 as examples
-  ])
+Genera {n} ejemplos diversos siguiendo este formato (JSON array):
 
-  prompt = f"""Task: {task_description}
+{seed_txt}
 
-Generate {num_examples} diverse training examples similar to these seed examples:
-
-{seed_text}
-
-Requirements:
-- Examples should be diverse in style, length, and complexity
-- Follow the same instruction/input/output format
-- Cover different scenarios and edge cases
-- Output as JSON array of objects with 'instruction', 'input', 'output' fields
+Requisitos:
+- Diversos en estilo, longitud, complejidad.
+- Mismo formato instruction/input/output.
+- Cubrir distintos escenarios y edge cases.
+- Responde SOLO un objeto JSON {{"examples": [...]}}
 """
-
-  # Call LLM API (example using OpenAI format)
-  response = api_client.chat.completions.create(
-      model="gpt-4",
-      messages=[{"role": "user", "content": prompt}],
-      temperature=0.8,  # Higher temperature for diversity
-      response_format={"type": "json_object"}  # Request JSON format
-  )
-
-  # Parse response (implementation depends on API)
-  generated_text = response.choices[0].message.content
-  # Parse JSON and extract examples
-  # synthetic_examples = parse_json_response(generated_text)
-
-  return []  # Return parsed examples
-
-# Example usage (requires API setup)
-# from openai import OpenAI
-# client = OpenAI()
-#
-# seed_examples = [{"instruction": "...", "input": "...", "output": "..."}]
-# synthetic = generate_with_llm(
-#     seed_examples=seed_examples,
-#     num_examples=100,
-#     task_description="Customer support ticket classification",
-#     api_client=client
-# )
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.8,
+        response_format={"type": "json_object"},
+    )
+    return json.loads(resp.choices[0].message.content).get("examples", [])
 ```
 
-Validating Synthetic Data
+### Paso 6: Validación de datos sintéticos
 
-Synthetic data must meet quality standards to be useful. Validate synthetic examples against the same quality dimensions as real data: format compliance, task relevance, correctness, diversity, and naturalness.
-
-Use this validation function before integrating synthetic data. Customize validation rules for your specific task:
+**Nunca** integres sintéticos sin validar: duplicados contra el dataset real, longitud mínima, formato correcto.
 
 ```python
-# Validate synthetic data before integration
-# Use this to filter out low-quality synthetic examples
-# Customize validation rules for your specific task
+def validar_sinteticos(sinteticos, existentes, reglas=None):
+    if reglas is None:
+        reglas = {
+            "campos": lambda e: all(f in e for f in ["instruction", "input", "output"]),
+            "no_dup": lambda e: not any(
+                e.get("instruction") == x.get("instruction") and e.get("input") == x.get("input")
+                for x in existentes
+            ),
+            "longitud": lambda e: len(e.get("input", "")) >= 20,
+        }
+    ok, rechazados = [], []
+    for ex in sinteticos:
+        fallas = [n for n, fn in reglas.items() if not fn(ex)]
+        (rechazados if fallas else ok).append((ex, fallas) if fallas else ex)
+    return {"ok": ok, "rechazados": rechazados, "tasa": len(ok) / len(sinteticos) if sinteticos else 0}
 
-def validate_synthetic_data(synthetic_examples, existing_dataset, validation_rules=None):
-  """
-  Validate synthetic examples against quality criteria.
-
-  Args:
-      synthetic_examples: List of synthetic example dictionaries
-      existing_dataset: List of existing examples to check for duplicates
-      validation_rules: Dict of validation functions
-          Format: {"rule_name": lambda ex: True/False}
-
-  Returns:
-      Dict with validated examples and rejection reasons
-  """
-  if validation_rules is None:
-      # Default validation rules
-      validation_rules = {
-          "has_required_fields": lambda ex: all(
-              f in ex for f in ["instruction", "input", "output"]
-          ),
-          "not_duplicate": lambda ex: not any(
-              ex.get("instruction") == existing.get("instruction") and
-              ex.get("input") == existing.get("input")
-              for existing in existing_dataset
-          ),
-          "sufficient_length": lambda ex: len(ex.get("input", "")) >= 20
-      }
-
-  validated = []
-  rejected = []
-
-  for example in synthetic_examples:
-      issues = []
-      for rule_name, validate_func in validation_rules.items():
-          if not validate_func(example):
-              issues.append(rule_name)
-
-      if issues:
-          rejected.append({"example": example, "issues": issues})
-      else:
-          validated.append(example)
-
-  validation_rate = len(validated) / len(synthetic_examples) if synthetic_examples else 0
-
-  return {
-      "validated": validated,
-      "rejected": rejected,
-      "validation_rate": validation_rate
-  }
-
-# Validate synthetic examples
-validation_result = validate_synthetic_data(
-  synthetic_examples=synthetic_examples,
-  existing_dataset=cleaned_data
-)
-
-print(f"Validation rate: {validation_result['validation_rate']:.2%}")
-print(f"Validated: {len(validation_result['validated'])}")
-print(f"Rejected: {len(validation_result['rejected'])}")
-
-# Use only validated examples
-validated_synthetic = validation_result["validated"]
+v = validar_sinteticos(sinteticos, clean)
+print(f"Tasa de validación: {v['tasa']:.2%}")
+validados = v["ok"]
 ```
 
-Integrating Synthetic Data
+### Paso 7: Train/val split y mezcla
 
-Mix validated synthetic data with real data carefully. Start with a conservative ratio (20-30% synthetic) and monitor performance. Higher ratios can degrade performance if synthetic data quality is lower than real data.
-
-Use this function to create a balanced training set. Adjust the synthetic ratio based on your validation results:
+Mezcla real + sintético con ratio conservador (20-30% sintético). Nunca más del 40%.
 
 ```python
-# Integrate synthetic data with real data
-# Use this to create final training dataset with controlled synthetic ratio
-# Start with 20-30% synthetic and monitor performance
-
 import random
 
-def create_mixed_dataset(real_data, synthetic_data, synthetic_ratio=0.25):
-  """
-  Create training dataset mixing real and synthetic data.
+def crear_dataset_mixto(real, sinteticos, ratio_sint=0.25, seed=42):
+    random.seed(seed)
+    total = len(real) / (1 - ratio_sint)
+    n_sint = int(total * ratio_sint)
+    mix = real.copy() + sinteticos[:min(n_sint, len(sinteticos))]
+    random.shuffle(mix)
+    return mix
 
-  Args:
-      real_data: List of real example dictionaries
-      synthetic_data: List of validated synthetic examples
-      synthetic_ratio: Target ratio of synthetic data (0.0 to 1.0)
+def split_train_val(dataset, val_ratio=0.1, seed=42):
+    random.seed(seed)
+    data = dataset.copy()
+    random.shuffle(data)
+    n_val = int(len(data) * val_ratio)
+    return data[n_val:], data[:n_val]
 
-  Returns:
-      Mixed dataset with specified ratio
-  """
-  # Calculate target sizes
-  total_target = len(real_data) / (1 - synthetic_ratio)
-  synthetic_target = int(total_target * synthetic_ratio)
-
-  # Use all real data
-  mixed_dataset = real_data.copy()
-
-  # Add synthetic data up to target ratio
-  synthetic_to_add = min(synthetic_target, len(synthetic_data))
-  mixed_dataset.extend(synthetic_data[:synthetic_to_add])
-
-  # Shuffle to mix real and synthetic
-  random.shuffle(mixed_dataset)
-
-  return mixed_dataset
-
-# Create final training dataset
-final_dataset = create_mixed_dataset(
-  real_data=cleaned_data,
-  synthetic_data=validated_synthetic,
-  synthetic_ratio=0.25  # 25% synthetic, 75% real
-)
-
-print(f"Final dataset: {len(final_dataset)} examples")
-print(f"  Real: {len(cleaned_data)} ({len(cleaned_data)/len(final_dataset)*100:.1f}%)")
-print(f"  Synthetic: {len(final_dataset) - len(cleaned_data)} ({(len(final_dataset) - len(cleaned_data))/len(final_dataset)*100:.1f}%)")
+final = crear_dataset_mixto(clean, validados, 0.25)
+train, val = split_train_val(final, val_ratio=0.1)
+print(f"Train: {len(train)} | Val: {len(val)}")
 ```
 
-Dataset Validation Workflow
-Before training, validate that your prepared dataset meets all requirements. A systematic validation workflow ensures readiness and catches issues before expensive training runs.
-
-Validation Principles
-
-Validation checks four critical dimensions:
-
-Size: Dataset meets minimum size requirements for your task complexity. Too few examples lead to underfitting.
-
-Quality: Overall quality score meets threshold (typically 90%+). Low quality teaches incorrect patterns.
-
-Diversity: Dataset is balanced and diverse enough for generalization. Imbalanced or homogeneous datasets produce poor models.
-
-Format: All examples follow expected structure. Format errors break training pipelines.
-
-When to Run Validation
-
-Run validation after each major preparation step: after cleaning (verify fixes), after synthetic data integration (verify quality maintained), and before training (final check). Early validation saves compute by catching issues before training.
-
-Production Considerations
-
-In production, validation becomes part of your data pipeline. Automate validation checks to catch issues in new data before retraining. Set up alerts when quality scores drop below thresholds to prevent training on degraded data.
-
-Use this complete validation workflow before training. This combines all previous checks into a single validation process:
+### Paso 8: Validación completa pre-training
 
 ```python
-# Complete dataset validation workflow
-# Use this before training to ensure dataset readiness
-# Combines size, quality, diversity, and format checks
+def validar_para_training(dataset, min_size=2000, threshold=0.90):
+    res = {}
+    res["tamano"] = {"n": len(dataset), "ok": len(dataset) >= min_size}
+    q = evaluar_calidad(dataset, custom)
+    res["calidad"] = {"overall": q["overall"], "ok": q["overall"] >= threshold}
+    d = analizar_diversidad(dataset, extraer_cat_soporte)
+    res["diversidad"] = {"balanced": d["balanceado"], "cv": d["longitud"]["cv"],
+                         "ok": d["balanceado"] and d["longitud"]["cv"] > 0.3}
+    errores_fmt = sum(1 for e in dataset if not all(f in e for f in ["instruction", "input", "output"]))
+    res["formato"] = {"errores": errores_fmt, "ok": errores_fmt == 0}
+    res["listo"] = all(v["ok"] for v in res.values() if isinstance(v, dict))
+    return res
 
-def validate_dataset_for_training(dataset, min_size=2000, quality_threshold=0.90):
-  """
-  Complete validation workflow before training.
-
-  Args:
-      dataset: List of example dictionaries
-      min_size: Minimum dataset size for task complexity
-      quality_threshold: Minimum quality score (0.0 to 1.0)
-
-  Returns:
-      Dict with validation results and readiness status
-  """
-  results = {
-      "size_check": None,
-      "quality_check": None,
-      "diversity_check": None,
-      "format_check": None,
-      "ready_for_training": False
-  }
-
-  # 1. Size validation
-  size = len(dataset)
-  results["size_check"] = {
-      "size": size,
-      "meets_minimum": size >= min_size,
-      "passed": size >= min_size
-  }
-
-  # 2. Quality validation (reuse previous function)
-  quality_report = assess_data_quality(dataset)
-  results["quality_check"] = {
-      "overall_quality": quality_report["overall_quality"],
-      "passed": quality_report["overall_quality"] >= quality_threshold
-  }
-
-  # 3. Diversity validation (reuse previous function)
-  diversity_report = analyze_diversity(dataset, extract_support_categories)
-  results["diversity_check"] = {
-      "is_balanced": diversity_report["is_balanced"],
-      "length_diversity": diversity_report["length_diversity"]["diversity_score"],
-      "passed": diversity_report["is_balanced"] and diversity_report["length_diversity"]["diversity_score"] > 0.3
-  }
-
-  # 4. Format validation
-  format_errors = sum(
-      1 for ex in dataset
-      if not all(field in ex for field in ["instruction", "input", "output"])
-  )
-  results["format_check"] = {
-      "format_errors": format_errors,
-      "error_rate": format_errors / size if size > 0 else 0,
-      "passed": format_errors == 0
-  }
-
-  # Overall readiness
-  all_passed = all([
-      results["size_check"]["passed"],
-      results["quality_check"]["passed"],
-      results["diversity_check"]["passed"],
-      results["format_check"]["passed"]
-  ])
-  results["ready_for_training"] = all_passed
-
-  return results
-
-# Run complete validation
-validation = validate_dataset_for_training(final_dataset)
-
-print("Dataset Validation Results:")
-print(f"  Size: {'✅' if validation['size_check']['passed'] else '❌'} "
-    f"({validation['size_check']['size']} examples)")
-print(f"  Quality: {'✅' if validation['quality_check']['passed'] else '❌'} "
-    f"({validation['quality_check']['overall_quality']:.2%})")
-print(f"  Diversity: {'✅' if validation['diversity_check']['passed'] else '❌'}")
-print(f"  Format: {'✅' if validation['format_check']['passed'] else '❌'}")
-
-if validation["ready_for_training"]:
-  print("\n✅ Dataset is ready for fine-tuning!")
-else:
-  print("\n⚠️ Validation failed. Fix issues before training.")
+v = validar_para_training(final)
+print("Resultados:")
+for k in ("tamano", "calidad", "diversidad", "formato"):
+    print(f"  {k}: {'✅' if v[k]['ok'] else '❌'}")
+print("\nListo para entrenar." if v["listo"] else "\n⚠️ Corrige antes de entrenar.")
 ```
 
-Common Pitfalls
-Insufficient Dataset Size: Training with too few examples leads to underfitting. Your customer support chatbot needs at least 2,000 examples for moderate complexity tasks. If you have fewer, generate synthetic data to reach the minimum. In production, monitor model performance to determine if you need more data.
+### Guardar en JSONL para el trainer
 
-Poor Data Quality: Low-quality examples teach incorrect behaviors. A dataset with 80% quality will produce a poor model. Always assess and fix quality issues before training. In production, set up automated quality checks to catch issues in new data.
+```python
+import json
 
-Lack of Diversity: Homogeneous datasets produce models that overfit. If all your examples are short, low-urgency shipping issues, your chatbot will fail on complex, high-urgency scenarios. Ensure diversity across categories, urgency levels, and message styles. Use diversity analysis to identify gaps.
+def guardar_jsonl(dataset, ruta):
+    with open(ruta, "w", encoding="utf-8") as f:
+        for ex in dataset:
+            f.write(json.dumps(ex, ensure_ascii=False) + "\n")
 
-Imbalanced Categories: For classification tasks, imbalanced datasets lead to models favoring majority classes. If 70% of your examples are shipping issues, your model will struggle with billing or technical support. Balance categories or use techniques like oversampling. Generate synthetic data for minority categories.
+guardar_jsonl(train, "data/soporte_train.jsonl")
+guardar_jsonl(val, "data/soporte_val.jsonl")
+```
 
-Synthetic Data Without Validation: Adding unvalidated synthetic data can degrade performance. Always validate synthetic examples for format, relevance, correctness, and diversity before integration. Monitor model performance when using synthetic data to ensure it improves rather than degrades results.
+## Ejemplo con código
 
-Over-Reliance on Synthetic Data: Using too much synthetic data (more than 40%) relative to real data can degrade performance. Start with 20-30% synthetic and monitor performance. If performance degrades, reduce synthetic ratio or improve synthetic data quality.
+Pipeline end-to-end integrado:
 
-Summary
-Preparing your customer support dataset involves cleaning raw data, assessing quality, analyzing diversity, generating synthetic examples to fill gaps, and validating readiness for training. You learned to remove duplicates, assess quality across multiple dimensions, analyze diversity to identify gaps, generate synthetic examples using templates or LLMs, validate synthetic data, and run a complete validation workflow.
+```python
+# pipeline completo
+raw = json.load(open("data/soporte_raw.json"))
+clean = eliminar_duplicados(raw)
+reporte = evaluar_calidad(clean, custom)
+div = analizar_diversidad(clean, extraer_cat_soporte)
 
-Your final dataset contains 2,500+ examples (2,000 real + 500 synthetic) with 90%+ quality, balanced categories, and diverse scenarios covering all production use cases. This dataset is ready for fine-tuning your customer support chatbot.
+# Si hay categorías con menos del 10%, generamos sintéticos
+if not div["balanceado"]:
+    sinteticos = generar_desde_templates(templates_devolucion, pools, 50)
+    val_sint = validar_sinteticos(sinteticos, clean)
+    final = crear_dataset_mixto(clean, val_sint["ok"], ratio_sint=0.25)
+else:
+    final = clean
 
-The techniques you learned apply to any fine-tuning task. Adapt the validation functions, category extraction logic, and generation templates for your specific use case. In production, automate these checks to maintain dataset quality as you collect new data.
+train, val = split_train_val(final, 0.1)
+chk = validar_para_training(final)
+assert chk["listo"], "Dataset no está listo"
 
-Key concepts to remember
-Data Quality Dimensions - Assess completeness, accuracy, consistency, relevance, and diversity
-Cleaning Strategy - Remove duplicates first, then fix missing fields and format inconsistencies
-Quality Assessment - Use automated checks for large datasets, combine with manual review for small datasets
-Diversity Analysis - Identify gaps in coverage to guide synthetic data generation
-Synthetic Data - Use templates for structured tasks, LLMs for complex scenarios; validate before integration
-Validation Workflow - Check size, quality, diversity, and format before training
-Production Practices - Automate validation checks and monitor quality scores for new data
+guardar_jsonl(train, "data/soporte_train.jsonl")
+guardar_jsonl(val, "data/soporte_val.jsonl")
+print(f"✅ {len(train)} train / {len(val)} val listos para fine-tuning.")
+```
+
+## Errores comunes
+
+- **Dataset demasiado pequeño.** Menos de 500-2,000 ejemplos lleva a underfitting en tareas moderadas. Genera sintéticos si no puedes recolectar más.
+- **Calidad baja no detectada.** Un dataset con 80% de calidad enseña 20% de patrones incorrectos. Pon un threshold estricto (≥90%).
+- **Falta de diversidad.** Todos los ejemplos cortos y de baja urgencia → modelo falla ante casos complejos.
+- **Clases desbalanceadas.** 70% envíos y 5% facturación → modelo favorece envíos sistemáticamente. Rebalancea con sintéticos o oversampling.
+- **Sintéticos sin validar.** Añadir texto generado sin verificar formato, longitud o duplicados degrada el modelo.
+- **Más del 40% de datos sintéticos.** El modelo aprende el estilo del generador (ej. GPT-4) en lugar de tus datos reales.
+- **No separar validación.** Sin val set no detectas overfitting. Mínimo 10% para val.
+- **Val set contaminado.** Si un ejemplo (o uno casi idéntico) está en train y val, la métrica miente. Deduplica antes de hacer split.
+- **No guardar en JSONL.** JSON monolítico es incómodo para streaming y shuffling.
+- **No fijar `seed`.** Cada ejecución produce splits distintos → resultados no reproducibles.
+
+## Resumen
+
+- La preparación de dataset es **el 60-80% del trabajo real** de fine-tuning.
+- Evalúa en 5 dimensiones: **completeness, accuracy, consistency, relevance, diversity**.
+- Pipeline estándar: inspección → deduplicación → calidad → diversidad → sintéticos → validación → split train/val → guardar JSONL.
+- Genera sintéticos cuando falte cobertura; usa **templates** para patrones estructurados y **LLM-guided** para casos complejos.
+- Mantén el ratio sintético **entre 20-30%** y nunca por encima del 40%.
+- Automatiza la validación: si la calidad cae debajo de un threshold, no entrenes.
+- Para el chatbot de soporte, 2,000 reales + 500 sintéticos (25%) con calidad ≥90% y categorías balanceadas es un dataset sólido.
+- Fija semillas, versiona los datasets (DVC, Git LFS) y guarda el reporte de validación junto con el modelo.

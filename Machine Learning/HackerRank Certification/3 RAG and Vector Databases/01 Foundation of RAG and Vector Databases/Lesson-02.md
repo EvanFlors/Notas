@@ -1,159 +1,290 @@
-## Embedding
+# Embeddings y similitud semántica
 
-Introduction
-In the previous lesson, we saw how RAG solves hallucination by retrieving relevant information. But how does a computer actually find "relevant" information? How does it know that a query about "refund policies" should retrieve documents about "returns and exchanges"?
+## ¿Qué es?
 
-The answer lies in embeddings - mathematical representations that capture the meaning of text. Think of embeddings as coordinates in "meaning space" - just as GPS coordinates tell you exactly where you are in physical space, embeddings tell you where words and sentences exist in a multidimensional space of meaning.
+Un **embedding** es la representación de un objeto (palabra, frase, documento, imagen, audio) como un **vector denso** de números reales en un espacio de alta dimensión `ℝᵈ`. La propiedad clave es que **la geometría del espacio refleja la semántica**: objetos con significado parecido quedan **cerca**, y objetos no relacionados quedan **lejos**.
 
-In this lesson, you'll understand what embeddings are, why they're crucial for RAG systems, and see how computers can mathematically compare the meanings of different texts.
+Formalmente, un modelo de embeddings es una función:
 
-The Challenge: Teaching Computers About Meaning
-When you search for "refund policy," you expect to find documents about "returns," "money back," or "cancellations" - even though they use different words. Humans understand these are related concepts, but computers only see different letter combinations.
+```
+E : Texto → ℝᵈ
+```
 
-Traditional Computer Approach:
+Donde `d` (la **dimensionalidad**) es típicamente 384, 768, 1024, 1536 o 3072 según el modelo. El vector resultante **no es interpretable componente por componente** (no hay una dimensión que signifique "animal" o "comida"); el significado emerge de la **geometría global** del espacio.
 
-"refund" ≠ "return" (different letters = different things)
-No matches found, even for identical concepts
-What We Need: A way for computers to understand that words with similar meanings should be treated as similar, regardless of the exact letters used.
+### Analogía: GPS del significado
 
-What Embeddings Are & Why They Matter
-Embeddings solve this by converting words into numbers that capture their meaning. Think of it like giving each word a set of coordinates that describe what it means.
+Si las coordenadas GPS `(lat, lon)` ubican lugares en el espacio físico, los embeddings ubican conceptos en un "espacio del significado". Dos ciudades cercanas en lat/lon están físicamente cerca; dos frases cercanas en el espacio de embeddings tienen **significado cercano**. "Cancelar suscripción" y "dar de baja la cuenta" apuntan casi al mismo lugar, aunque no comparten ni una palabra.
 
-![Embeddings Visualization](https://hrcdn.net/ai-engineering/module-3/light/cat-dog-3d.svg)
+### Breve historia
 
-The Key Insight: Similar meanings = similar coordinates
+| Año | Hito |
+|---|---|
+| 2003 | Bengio: Neural Language Model (primera idea de embeddings densos) |
+| 2013 | Mikolov: **Word2Vec** (CBOW, Skip-gram) — hito popular |
+| 2014 | Pennington: **GloVe** |
+| 2018 | Devlin: **BERT** — embeddings contextuales |
+| 2019 | Reimers: **Sentence-BERT** — frases enteras eficientes |
+| 2022 | OpenAI: `text-embedding-ada-002` democratiza embeddings vía API |
+| 2023-24 | **BGE**, **E5**, **Cohere embed-v3**, `text-embedding-3-*` |
+| 2024-25 | MTEB leaderboard, Matryoshka embeddings, embeddings multimodales |
 
-This means computers can now mathematically compare meanings by comparing these numbers.
+## ¿Por qué importa?
 
-Select two phrases to see their semantic similarity score. "Cancel subscription" and "terminate account" score 0.98 (nearly identical), while "cancel subscription" and "chocolate recipe" score near 0.0 (unrelated). Each phrase becomes a vector of numbers, and cosine similarity measures alignment.
+Sin embeddings no habría RAG. Las bases de datos tradicionales buscan por **coincidencia exacta** (`WHERE title LIKE '%refund%'`), lo cual falla cuando el usuario escribe "money back" y el documento dice "reembolso". Los embeddings transforman la búsqueda en **comparación de vectores**, capturando sinónimos, paráfrasis, errores ortográficos y hasta traducciones (con modelos multilingües) sin reglas explícitas.
 
-Experiment: Compare related phrases like "password reset" and "forgot password" versus unrelated ones like "play music" and "stock market" to see how embeddings capture meaning.
+Casos donde los embeddings dominan:
 
-How Embeddings Power RAG Systems
-Now you can see how RAG finds relevant information:
+- **Semantic search:** búsqueda por significado.
+- **RAG:** recuperar contexto para LLMs.
+- **Clustering:** agrupar tickets de soporte por tema.
+- **Clasificación zero-shot:** comparar un texto contra "etiquetas candidato".
+- **Deduplicación semántica:** encontrar documentos casi iguales.
+- **Recomendación:** "artículos similares a este".
+- **Detección de anomalías:** texto fuera de la distribución habitual.
+- **Multimodalidad:** CLIP mapea imágenes y texto al mismo espacio.
 
-![RAG Process](https://hrcdn.net/ai-engineering/module-3/light/03-embedding-pipeline.svg)
+### Dimensionalidad y la "maldición"
 
-Step 1: Query Conversion The user's natural language query gets converted into an embedding vector using the same model that processed your documents. This ensures both query and documents exist in the same "meaning space."
+A mayor `d`, mayor **capacidad expresiva** pero también más costo (memoria, compute, bandwidth) y aparece la **curse of dimensionality**: en espacios muy altos, las distancias entre puntos tienden a concentrarse (todo se vuelve "equidistante") y la noción de "vecino más cercano" pierde discriminación. Por eso embeddings densos (384-3072 dims) funcionan mejor que vectores sparse de millones de dims (TF-IDF, bag-of-words).
 
-Step 2: Database Comparison Your knowledge base contains pre-computed embeddings for all documents. The system mathematically compares the query vector against every document vector using cosine similarity.
+Tendencia reciente: **Matryoshka Representation Learning (MRL)** entrena un embedding de 3072 dims cuyos prefijos (512, 1024, 2048) **también son embeddings válidos**. Permite ajustar calidad vs. costo en runtime truncando el vector.
 
-Step 3: Similarity Matching Documents are ranked by similarity scores. High scores (95%, 87%) indicate strong semantic matches, while low scores (15%) show unrelated content. The system typically returns the top 3-5 most relevant documents.
+## ¿Cómo funciona?
 
-Step 4: Document Retrieval The most similar documents become context for the LLM, which then generates an accurate, grounded response based on your actual documentation rather than potentially hallucinated information.
+### Entrenamiento (vista rápida)
 
-This works because embeddings capture intent, not just keywords. The system understands that "cancel" and "terminate" mean similar things, even though they're different words.
+Los modelos modernos se entrenan con **contrastive learning**: dado un par positivo `(a, b)` (dos frases con el mismo significado) y pares negativos `(a, c)`, el modelo aprende a **acercar** `a` y `b` y **alejar** `a` y `c` en el espacio. La función de pérdida típica es **InfoNCE / contrastive loss**:
 
-See Semantic Search in Action
-Let's explore a simple example to see how embeddings find similar meanings even with different words:
+```
+L = -log(  exp(sim(a, b⁺) / τ)  /  Σ_c exp(sim(a, c) / τ)  )
+```
+
+Donde `τ` es la temperatura. Datasets usados: MS MARCO, Natural Questions, StackExchange, Reddit, S2ORC. Modelos como **E5** y **BGE** usan además **fine-tuning asymétrico**: distintos prefijos para query y documento (`"query: ..."` vs `"passage: ..."`).
+
+### Métricas de similitud
+
+Dadas dos vectores `A, B ∈ ℝᵈ`:
+
+#### Cosine similarity
+
+```
+cosine_sim(A, B) = (A · B) / (||A|| · ||B||)
+                 = Σᵢ Aᵢ·Bᵢ  /  (√Σᵢ Aᵢ²  ·  √Σᵢ Bᵢ²)
+```
+
+- **Rango:** `[-1, 1]` (texto suele dar `[0, 1]`).
+- **Interpretación:** `1` = misma dirección (idéntico significado), `0` = perpendicular (no relacionados), `-1` = opuestos.
+- **Ignora magnitud:** solo importa la dirección. Es el estándar de facto para texto.
+
+#### Dot product (producto punto)
+
+```
+dot(A, B) = A · B = Σᵢ Aᵢ · Bᵢ
+```
+
+- **Equivalente a cosine si los vectores están normalizados** (`||A|| = ||B|| = 1`).
+- Más rápido de computar (una suma menos).
+- Si no están normalizados, favorece vectores de mayor magnitud (usado en algunos modelos como DPR).
+
+#### Euclidean distance (L2)
+
+```
+euclidean(A, B) = ||A - B|| = √Σᵢ (Aᵢ - Bᵢ)²
+```
+
+- **Rango:** `[0, ∞)`. Más pequeño = más similar.
+- Para vectores normalizados: `||A - B||² = 2 - 2·cosine(A, B)` → equivalente al cosine.
+- Útil cuando la magnitud sí es informativa (ej. embeddings de imágenes de ciertas redes).
+
+#### Relación clave
+
+```
+Si ||A|| = ||B|| = 1 (normalizados):
+   cosine_sim(A, B) = dot(A, B) = 1 - ||A - B||² / 2
+```
+
+Por eso **normalizar siempre que puedas**: cosine, dot y euclidean dan rankings idénticos pero dot es el más rápido.
+
+### Comparación de modelos de embeddings
+
+| Modelo | Dims | Max tokens | Precio (per 1M tok) | MTEB score | Notas |
+|---|---|---|---|---|---|
+| `text-embedding-3-small` (OpenAI) | 1536 (reducible, MRL) | 8191 | $0.02 | ~62.3 | Default económico |
+| `text-embedding-3-large` (OpenAI) | 3072 (reducible) | 8191 | $0.13 | ~64.6 | Mejor OpenAI |
+| `embed-english-v3.0` (Cohere) | 1024 | 512 | $0.10 | ~64.5 | Asymmetric (`search_query` / `search_document`) |
+| `embed-multilingual-v3.0` (Cohere) | 1024 | 512 | $0.10 | ~64.0 | 100+ idiomas |
+| `BAAI/bge-large-en-v1.5` | 1024 | 512 | gratis (local) | ~64.2 | Open-source, excelente |
+| `BAAI/bge-m3` | 1024 | 8192 | gratis | ~65 | Multilingüe + long context |
+| `intfloat/e5-large-v2` | 1024 | 512 | gratis | ~62.3 | Prefijos `query:` / `passage:` |
+| `intfloat/multilingual-e5-large` | 1024 | 512 | gratis | ~63 | 100 idiomas |
+| `sentence-transformers/all-MiniLM-L6-v2` | 384 | 256 | gratis | ~56.3 | Rapidísimo, el "hello world" |
+| `sentence-transformers/all-mpnet-base-v2` | 768 | 384 | gratis | ~57.8 | Baseline sólido |
+| `voyage-3` (Voyage AI) | 1024 | 32k | $0.06 | ~65+ | Fuerte en dominios técnicos |
+| `jina-embeddings-v3` | 1024 | 8192 | $0.02 | ~65 | Task-specific LoRAs |
+
+El **MTEB leaderboard** (Massive Text Embedding Benchmark, HuggingFace) es la referencia: 56+ tareas en 112 idiomas.
+
+### Elegir modelo: framework de decisión
+
+1. **¿Dominio general o especializado?**
+   - General → `text-embedding-3-small`, BGE, E5.
+   - Legal/médico/código → modelos especializados (SPECTER, CodeBERT, Voyage-code).
+2. **¿Un idioma o varios?**
+   - Monolingüe → modelos EN-only (mejor calidad).
+   - Multilingüe → `multilingual-e5`, `bge-m3`, Cohere multilingual.
+3. **¿Latencia crítica?**
+   - Sí → MiniLM (384d, ~2 ms).
+   - No → bge-large / mpnet (768-1024d, ~10-20 ms).
+4. **¿On-premise o cloud?**
+   - On-premise → sentence-transformers (BGE, E5, MiniLM).
+   - Cloud → OpenAI / Cohere / Voyage.
+5. **¿Documentos largos (>512 tokens)?**
+   - Sí → `bge-m3` (8K), `text-embedding-3` (8K), `jina-v3` (8K), o chunk-ear.
+
+### Asymmetric embeddings
+
+Modelos como **E5** y **Cohere embed-v3** son **asimétricos**: usan prefijos distintos para query y documento.
 
 ```python
+# E5
+query_input    = "query: ¿cómo cancelo mi suscripción?"
+document_input = "passage: Para cancelar tu suscripción ve a Configuración > Cuenta..."
+
+# Cohere embed-v3
+co.embed(texts=[...], input_type="search_query")
+co.embed(texts=[...], input_type="search_document")
+```
+
+Esto refleja la **asimetría real** del task: una query corta busca un passage largo, y el modelo aprende dos "proyecciones" ligeramente distintas al mismo espacio. **No mezclar los tipos** o la similitud se degrada.
+
+## Ejemplo con código
+
+### 1. Embeddings local con sentence-transformers + comparación de métricas
+
+```python
+# pip install sentence-transformers numpy
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-# Load a pre-trained embedding model
-model = SentenceTransformer('all-MiniLM-L6-v2', local_files_only=True)
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Three sentences with varying similarity
-sentences = [
-  "I need to cancel my subscription",
-  "How do I terminate my account",  # Similar meaning
-  "What's the weather like today"   # Different meaning
+frases = [
+    "Quiero cancelar mi suscripción",
+    "¿Cómo doy de baja mi cuenta?",
+    "Terminate my account please",
+    "¿Qué hora es?",
+    "Receta de chocolate con nueces",
 ]
 
-# Generate embeddings
-embeddings = model.encode(sentences)
+# normalize_embeddings=True → vectores unitarios (||v|| = 1)
+V = model.encode(frases, normalize_embeddings=True)
+print("Shape:", V.shape)   # (5, 384)
 
-# Calculate cosine similarity between first sentence and others
-def cosine_similarity(a, b):
-  return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+def cosine(a, b):
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
-similarity_1_to_2 = cosine_similarity(embeddings[0], embeddings[1])
-similarity_1_to_3 = cosine_similarity(embeddings[0], embeddings[2])
+def dot(a, b):
+    return float(np.dot(a, b))
 
-print(f"'{sentences[0]}'")
-print(f"vs '{sentences[1]}'")
-print(f"Similarity: {similarity_1_to_2:.3f}\n")
+def euclid(a, b):
+    return float(np.linalg.norm(a - b))
 
-print(f"'{sentences[0]}'")
-print(f"vs '{sentences[2]}'")
-print(f"Similarity: {similarity_1_to_3:.3f}")
+anchor = V[0]  # "Quiero cancelar mi suscripción"
+print(f"\n{'Frase':<45} {'cos':>6} {'dot':>6} {'L2':>6}")
+for frase, v in zip(frases[1:], V[1:]):
+    print(f"{frase:<45} {cosine(anchor, v):>6.3f} {dot(anchor, v):>6.3f} {euclid(anchor, v):>6.3f}")
 
-# Expected: First pair has high similarity (~0.7-0.8)
-# Expected: Second pair has low similarity (~0.1-0.3)
+# Observa:
+# - "doy de baja mi cuenta" y "terminate my account" dan cosine alto (~0.6-0.8)
+# - "qué hora es" y "receta de chocolate" dan cosine bajo (~0.0-0.2)
+# - Con vectores normalizados: cos == dot y L2² = 2 - 2·cos
 ```
 
-Key Learning Points:
+### 2. Embeddings con OpenAI y búsqueda top-k
 
-Embeddings convert text into numerical vectors that can be mathematically compared
-Cosine similarity measures how "aligned" two vectors are in meaning space (we'll explore this math in later lessons)
-Similar meanings produce high similarity scores (close to 1.0)
-Different meanings produce low similarity scores (close to 0.0)
-This mathematical comparison enables semantic search in RAG systems
+```python
+# pip install openai numpy
+from openai import OpenAI
+import numpy as np
 
-Try It: Replace the sentences with customer support queries. Try "cancel subscription" vs "terminate account" vs "weather update" to see how business-related queries cluster together.
+client = OpenAI()
 
-Choosing Embedding Models for Your Project
-An embedding model is a trained neural network that converts text into numerical vectors, capturing semantic meaning in the process. Different models are trained on different datasets and optimized for different tasks, affecting how well they understand and represent various types of content.
+def embed(texts: list[str], model: str = "text-embedding-3-small") -> np.ndarray:
+    resp = client.embeddings.create(model=model, input=texts)
+    vecs = np.array([d.embedding for d in resp.data], dtype=np.float32)
+    # normalizar para usar dot product como cosine
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    return vecs
 
-Selecting the right embedding model is crucial for RAG performance. The wrong choice can lead to poor retrieval accuracy, high costs, or slow response times.
+docs = [
+    "Los reembolsos tardan de 5 a 7 días hábiles.",
+    "Para cambios de talla usa el portal de devoluciones.",
+    "El soporte atiende de lunes a viernes 9-18 CST.",
+    "Los productos digitales no se reembolsan.",
+    "Las entregas internacionales toman 10-15 días.",
+]
+D = embed(docs)
 
-Popular Models and Their Trade-offs
-General Purpose Models:
+query = "¿Cuánto tarda mi devolución de dinero?"
+q = embed([query])[0]
 
-all-MiniLM-L6-v2 (384 dimensions)
-Speed: Fast inference (~2ms per query)
-Quality: Good for most use cases
-Best for: Prototyping, general Q&A, cost-sensitive applications
-all-mpnet-base-v2 (768 dimensions)
-Speed: Slower inference (~5ms per query)
-Quality: Higher accuracy, better semantic understanding
-Best for: Production systems where quality matters more than speed
+# top-k por producto punto (equivale a cosine por estar normalizados)
+scores = D @ q
+top_k = np.argsort(-scores)[:3]
+for i in top_k:
+    print(f"[{scores[i]:.3f}] {docs[i]}")
+```
 
-Domain-Specific Models:
+### 3. Matryoshka: reducir dimensiones gratis
 
-sentence-transformers/allenai-specter - Scientific papers and research
-sentence-transformers/multi-qa-MiniLM-L6-cos-v1 - Optimized for Q&A tasks
-Custom fine-tuned models - For highly specialized domains (legal, medical, finance)
+```python
+# text-embedding-3-* permite truncar
+vec_3072 = embed(["hola"])[0]       # (3072,) con 3-large
+vec_1024 = vec_3072[:1024]
+vec_1024 /= np.linalg.norm(vec_1024)  # re-normalizar tras truncar
+# Trade-off: ~2% peor en MTEB, 3x menos almacenamiento y compute
+```
 
-Decision Framework
+### 4. Visualizar embeddings con UMAP
 
-1. Start with your use case:
-Customer support/FAQ: Use general models like all-MiniLM-L6-v2
-Technical documentation: Consider all-mpnet-base-v2 for better accuracy
-Scientific content: Use domain-specific models like allenai-specter
-Multiple languages: Use multilingual models (sacrifice some quality for language coverage)
+```python
+# pip install umap-learn matplotlib
+import umap
+import matplotlib.pyplot as plt
 
-2. Consider your constraints:
-Budget limited: Smaller models (384 dimensions) cost less in storage and compute
-Quality critical: Larger models (768+ dimensions) provide better results
-Latency sensitive: Choose faster models even if quality suffers slightly
+reducer = umap.UMAP(n_components=2, metric="cosine", random_state=42)
+V2 = reducer.fit_transform(V)
 
-3. Test with your actual data:
-Different models perform differently on various content types
-Always validate performance with your specific documents and queries
+plt.figure(figsize=(8, 6))
+plt.scatter(V2[:, 0], V2[:, 1])
+for i, txt in enumerate(frases):
+    plt.annotate(txt, (V2[i, 0], V2[i, 1]), fontsize=8)
+plt.title("Embeddings proyectados a 2D (UMAP)")
+plt.show()
+```
 
-Critical Rules
-Never mix embedding models: Each model creates its own "meaning space." Mixing embeddings from different models is like trying to use GPS coordinates from different planets - they're incompatible.
+## Errores comunes
 
-Re-embed everything when switching models: If you change models, you must re-process all documents in your knowledge base. This can be expensive but is absolutely necessary.
+- **Mezclar modelos de embeddings.** Vectores de `MiniLM` y `text-embedding-3-small` viven en **espacios distintos**; compararlos no tiene sentido. Si cambias de modelo, **re-indexa todo**.
+- **No normalizar.** Si usas cosine la normalización es irrelevante, pero si usas dot product sin normalizar, favoreces vectores de mayor magnitud y rompes el ranking. Regla segura: **normaliza siempre** (`normalize_embeddings=True`).
+- **Ignorar los prefijos asimétricos.** E5 sin `query:`/`passage:` pierde ~5-10 puntos de MTEB. Cohere embed-v3 sin `input_type` idem.
+- **Texto demasiado largo.** La mayoría de modelos truncan silenciosamente a 512 tokens. Un chunk de 2000 tokens pierde el 75% del contenido. Verifica `max_seq_length` y chunk-ea.
+- **Elegir solo por MTEB score.** El benchmark no incluye tu dominio. Siempre **evalúa en tu corpus** con queries reales.
+- **Sobre-dimensionar.** 3072 dims pueden ser overkill. Con MRL o modelos pequeños (384-768) se consume 4-8x menos storage y compute, con pérdida mínima.
+- **Confundir similitud alta con relevancia.** Un cosine de 0.9 entre "cómo cancelo" y "política de cancelación" no significa que ese chunk responda la pregunta; mide **relevancia** con una métrica aparte (nDCG, LLM-judge).
+- **Olvidar re-ranking.** Los embeddings densos capturan tema pero no siempre precisión fina. Añade un **cross-encoder re-ranker** (bge-reranker-v2, Cohere Rerank) sobre los top-50 para elegir top-5.
+- **No cachear.** Embeber el mismo texto dos veces es tirar dinero. Cachea por hash del input.
+- **Mezclar idiomas con modelo monolingüe.** Un modelo EN-only coloca el español en un rincón del espacio y la similitud se degrada. Usa multilingual.
 
-Common Pitfalls
-Mixing Models: Each embedding model creates its own "meaning space" - do not mix embeddings from different models in the same system.
+## Resumen
 
-Wrong Similarity Metric: Use cosine similarity for text embeddings (most libraries default to this).
-
-Too Long Text: Most models handle ~500 words max - longer documents need to be split into chunks.
-
-Summary
-Embeddings are the mathematical foundation that makes semantic search possible in RAG systems. By converting text into numerical vectors that capture meaning, embeddings enable computers to understand that "refund" and "money back" are related concepts, even when the exact words don't match.
-
-The key insight is that similar meanings cluster together in vector space, allowing mathematical operations like cosine similarity to measure semantic relatedness. This transforms keyword-based search into meaning-based search.
-
-Next, we'll explore vector databases - specialized systems designed to store billions of embedding vectors and perform lightning-fast similarity searches at scale.
-
-Key concepts to remember
-Embeddings convert text into numerical vectors that capture semantic meaning
-Vector spaces act as "meaning maps" where similar concepts cluster together
-Cosine similarity enables mathematical comparison of semantic relatedness
-Choosing the right embedding model affects RAG system performance and accuracy
+- Un **embedding** mapea texto a un vector `ℝᵈ` donde cercanía geométrica = cercanía semántica.
+- Dimensionalidades típicas: 384, 768, 1024, 1536, 3072. **MRL (Matryoshka)** permite truncar sin reentrenar.
+- Métricas: **cosine** `(A·B)/(||A||·||B||)` es el estándar para texto; **dot** es equivalente si están normalizados; **L2** también para vectores unitarios.
+- Modelos clave: `text-embedding-3-*` (OpenAI), `embed-v3` (Cohere), **BGE**, **E5**, `all-MiniLM-L6-v2`, `all-mpnet-base-v2`. Compara en **MTEB**.
+- **Asymmetric embeddings** (E5, Cohere): distintos prefijos para query y documento; respétalos.
+- Decisiones: dominio, idioma, latencia, hosting, longitud → eligen el modelo.
+- **Siempre normaliza**, **nunca mezcles modelos**, **re-indexa al cambiar**, **evalúa en tu corpus**.
+- Para alta precisión final: embeddings densos para recall + **re-ranker** cross-encoder para precision.
+- Sin embeddings no hay semantic search; sin semantic search no hay RAG. Es la pieza más fundacional del stack.

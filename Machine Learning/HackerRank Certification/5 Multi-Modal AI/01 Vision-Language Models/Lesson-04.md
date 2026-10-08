@@ -1,584 +1,307 @@
-## Building Vision-Enabled Applications
+# Casos de Uso Aplicados: UI Testing, Document Extraction, Visual QA y Accessibility
 
-You have learned how to use OpenAI Vision API and understand vision-language model architectures. Now you need to build a production application that processes user-uploaded images reliably, handles errors gracefully, optimizes costs, and scales to handle thousands of requests per day. How do you structure your application architecture? What patterns should you follow? How do you ensure reliability and performance?
+## ¿Qué es?
 
-Building production vision-enabled applications requires careful consideration of architecture, error handling, cost optimization, and scalability. By the end of this lesson, you will understand how to structure vision-enabled applications, implement robust error handling, optimize for cost and performance, and deploy systems that reliably process visual content at scale.
+Este lesson aterriza los VLMs en **cuatro casos de uso prácticos** que un ingeniero AI se encuentra repetidamente en producción:
 
-Application Architecture Patterns
-Vision-enabled applications require architectural patterns that differ from text-only applications. Understanding these patterns helps you build scalable, maintainable systems.
+1. **UI testing automation:** validar automáticamente que un screenshot cumple con lo esperado (regresiones visuales, flujos end-to-end dirigidos por un VLM).
+2. **Document extraction:** completar lo visto en Lesson-03 con pipelines reales (multi-página, batch, con fallback).
+3. **Visual QA (Question Answering):** responder preguntas específicas sobre imágenes para apps de usuario final.
+4. **Accessibility:** generación automática de **alt text** descriptivo para imágenes dinámicas (CMS, redes sociales, e-commerce).
 
-Production architecture showing validation, preprocessing, vision API client, caching, monitoring, and business logic
+![Arquitectura de producción: validación, preprocesado, cliente VLM, caché, monitoreo y lógica de negocio](https://hrcdn.net/ai-engineering/module-5/light/vision-language-lesson04-production-architecture.svg)
 
-![A production pattern for vision apps: separate preprocessing, API calls, caching, and business logic](https://hrcdn.net/ai-engineering/module-5/light/vision-language-lesson04-production-architecture.svg)
+## ¿Por qué importa?
 
-Layered Architecture:
+Estos cuatro patrones cubren probablemente el 70% de las aplicaciones de visión en producción fuera de dominios muy especializados (médico, satelital, autónomo). Dominarlos reduce el time-to-market de features nuevas de semanas a días:
 
-Structure your application in layers that separate concerns:
+- **UI testing con VLM** detecta regresiones que Playwright / Cypress ignoran (texto cortado, íconos mal alineados, contraste roto).
+- **Document extraction** automatiza back-office en seguros, banca, logística: lo que antes requería 50 personas revisando papeles.
+- **Visual QA** habilita UX conversacional: "¿qué talla me queda mejor según mi foto?" o "¿este error de código es un typo?".
+- **Alt text automático** cumple requisitos legales (WCAG 2.1, ADA en EEUU, EN 301 549 en UE) sin equipos editoriales dedicados.
 
-```python
-# Layer 1: Image Processing Layer
-class ImageProcessor:
-  """Handles image validation, preprocessing, and encoding."""
+## ¿Cómo funciona?
 
-  def validate_image(self, image_path):
-      """Validate image format, size, and content."""
-      pass
+### Patrones de prompting para visión
 
-  def preprocess_image(self, image_path):
-      """Resize, compress, and optimize image."""
-      pass
+Hay cuatro patrones de prompt que se repiten:
 
-  def encode_image(self, image_path):
-      """Convert image to API-compatible format."""
-      pass
+| Patrón | Cuándo | Ejemplo |
+|---|---|---|
+| **Instrucción directa** | Tarea simple | "¿Qué color de camiseta lleva la persona?" |
+| **Rol + instrucción** | Dominio especializado | "Eres un reviewer de UX; evalúa jerarquía visual." |
+| **Schema structured** | Necesitas JSON | "Devuelve JSON con `componentes[]`, `issues[]`." |
+| **Few-shot con imágenes** | Tareas visuales ambiguas | 2–3 pares (imagen, respuesta) antes del caso real |
 
-# Layer 2: Vision API Layer
-class VisionAPIClient:
-  """Handles communication with vision API."""
+### Few-shot visual
 
-  def analyze_image(self, image_data, prompt):
-      """Send image and prompt to vision API."""
-      pass
+El few-shot con imágenes mejora drásticamente la consistencia en tareas subjetivas (clasificar sentimiento de un meme, calificar calidad de una foto de producto). Estructura:
 
-  def handle_response(self, response):
-      """Process and validate API response."""
-      pass
-
-# Layer 3: Business Logic Layer
-class VisionApplication:
-  """Implements business logic using vision capabilities."""
-
-  def __init__(self):
-      self.image_processor = ImageProcessor()
-      self.api_client = VisionAPIClient()
-
-  def process_user_request(self, image_path, user_query):
-      """Process user request end-to-end."""
-      # Validate and preprocess
-      processed_image = self.image_processor.preprocess_image(image_path)
-
-      # Call API
-      result = self.api_client.analyze_image(processed_image, user_query)
-
-      # Process result
-      return self.format_response(result)
+```
+user: [imagen_ej1] "Clasifica: aprobada / rechazada"
+assistant: "aprobada"
+user: [imagen_ej2] "Clasifica: aprobada / rechazada"
+assistant: "rechazada - fondo sucio"
+user: [imagen_real] "Clasifica: aprobada / rechazada"
 ```
 
-Service-Oriented Architecture:
+### Flujo de UI testing dirigido por VLM
 
-For larger applications, separate vision processing into its own service:
-
-```python
-# Vision Service (separate microservice)
-class VisionService:
-  """Dedicated service for vision processing."""
-
-  def process_image(self, image_data, task_type, context):
-      """Process image based on task type."""
-      if task_type == "error_analysis":
-          return self.analyze_error_screenshot(image_data, context)
-      elif task_type == "document_extraction":
-          return self.extract_document_data(image_data, context)
-      elif task_type == "content_moderation":
-          return self.moderate_content(image_data, context)
-      else:
-          raise ValueError(f"Unknown task type: {task_type}")
-
-# Main Application Service
-class MainApplication:
-  """Main application that calls vision service."""
-
-  def __init__(self):
-      self.vision_service = VisionService()
-
-  def handle_user_request(self, request):
-      """Handle user request, delegating vision tasks."""
-      if request.needs_vision_processing():
-          result = self.vision_service.process_image(
-              request.image_data,
-              request.task_type,
-              request.context
-          )
-          return self.combine_results(request, result)
-      else:
-          return self.handle_text_only(request)
+```
+1. Playwright/Puppeteer navega a la página
+2. Toma screenshot
+3. Envía screenshot + checklist al VLM
+4. VLM devuelve JSON: {aprobado: bool, issues: [...]}
+5. Si falla, se adjunta screenshot al reporte y se marca el test
 ```
 
-Error Handling and Resilience
-Vision processing can fail in many ways. Implementing comprehensive error handling ensures your application remains reliable.
+### Flujo de accessibility (alt text)
 
-Decision flow showing validation, retries, and fallbacks when vision processing fails
-A simple fallback flow: validate early, retry transient failures, and degrade gracefully when vision is unavailable
-Image Validation Errors:
-
-Validate images before processing to catch errors early:
-
-```python
-from PIL import Image
-import os
-from pathlib import Path
-
-class ImageValidator:
-  """Validates images before processing."""
-
-  MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
-  SUPPORTED_FORMATS = {'JPEG', 'PNG', 'GIF', 'WebP'}
-  MAX_DIMENSIONS = (2048, 2048)  # Maximum width/height (matches Vision API recommendations)
-
-  def validate(self, image_path):
-      """Validate image and return errors if any."""
-      errors = []
-
-      # Check file exists
-      if not Path(image_path).exists():
-          return ["Image file not found"]
-
-      # Check file size
-      file_size = os.path.getsize(image_path)
-      if file_size > self.MAX_FILE_SIZE:
-          errors.append(f"Image too large: {file_size} bytes (max: {self.MAX_FILE_SIZE})")
-
-      # Check image format and validity
-      try:
-          with Image.open(image_path) as img:
-              # Check format
-              if img.format not in self.SUPPORTED_FORMATS:
-                  errors.append(f"Unsupported format: {img.format}")
-
-              # Check dimensions
-              width, height = img.size
-              if width > self.MAX_DIMENSIONS[0] or height > self.MAX_DIMENSIONS[1]:
-                  errors.append(f"Image too large: {width}x{height}")
-
-              # Verify image is not corrupted
-              img.verify()
-      except Exception as e:
-          errors.append(f"Invalid image file: {str(e)}")
-
-      return errors if errors else None
+```
+Imagen subida al CMS → VLM genera alt text (<125 chars, sin "imagen de") →
+Validación de longitud y lenguaje → se guarda como atributo alt=""
 ```
 
-API Error Handling:
+## Ejemplo con código
 
-Handle API errors with retries and fallbacks:
-
-```python
-from openai import OpenAI, APIError, RateLimitError
-import time
-import logging
-
-logger = logging.getLogger(__name__)
-
-class ResilientVisionClient:
-  """Vision API client with error handling and retries."""
-
-  def __init__(self, max_retries=3, retry_delay=1):
-      self.client = OpenAI(
-          api_key="API_KEY",
-          base_url="BASE_URL",
-      )
-      self.max_retries = max_retries
-      self.retry_delay = retry_delay
-
-  def analyze_with_retry(self, image_data, prompt):
-      """Analyze image with automatic retries."""
-      last_error = None
-
-      for attempt in range(self.max_retries):
-          try:
-              response = self.client.chat.completions.create(
-                  model="gpt-4.1-mini",
-                  messages=[
-                      {
-                          "role": "user",
-                          "content": [
-                              {"type": "text", "text": prompt},
-                              {
-                                  "type": "image_url",
-                                  "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}
-                              }
-                          ]
-                      }
-                  ],
-                  max_tokens=300
-              )
-              return {"success": True, "result": response.choices[0].message.content}
-
-          except RateLimitError as e:
-              last_error = e
-              wait_time = self.retry_delay * (2 ** attempt)  # Exponential backoff
-              logger.warning(f"Rate limit hit, retrying in {wait_time}s (attempt {attempt + 1}/{self.max_retries})")
-              time.sleep(wait_time)
-
-          except APIError as e:
-              # Don't retry on certain errors
-              if e.status_code in [400, 401, 403]:
-                  return {"success": False, "error": f"API error: {e.message}"}
-              last_error = e
-              wait_time = self.retry_delay * (2 ** attempt)
-              logger.warning(f"API error, retrying in {wait_time}s (attempt {attempt + 1}/{self.max_retries})")
-              time.sleep(wait_time)
-
-          except Exception as e:
-              return {"success": False, "error": f"Unexpected error: {str(e)}"}
-
-      return {"success": False, "error": f"Failed after {self.max_retries} attempts: {str(last_error)}"}
-```
-
-Fallback Strategies:
-
-Implement fallbacks when vision processing fails:
+### 1) UI testing: validar un screenshot contra un checklist
 
 ```python
-class VisionApplicationWithFallback:
-  """Application with fallback strategies."""
+# pip install anthropic playwright pydantic
+import anthropic, base64, json
+from playwright.sync_api import sync_playwright
+from pydantic import BaseModel
 
-  def process_with_fallback(self, image_path, user_query):
-      """Process image with fallback to text-only if vision fails."""
-      try:
-          # Try vision processing
-          result = self.vision_analysis(image_path, user_query)
-          return result
+client = anthropic.Anthropic()
 
-      except Exception as e:
-          logger.error(f"Vision processing failed: {e}")
+class ResultadoUI(BaseModel):
+    aprobado: bool
+    issues: list[str]
+    severidad: str  # "ninguna" | "menor" | "mayor" | "critica"
 
-          # Fallback 1: Ask user for text description
-          if self.can_request_user_input():
-              return {
-                  "fallback": "text_description",
-                  "message": "Unable to process image. Please describe what you see."
-              }
+CHECKLIST_LOGIN = """Verifica que esta pantalla de login cumpla:
+1. Campo de email visible y etiquetado.
+2. Campo de contraseña visible y etiquetado.
+3. Botón primario de "Iniciar sesión" presente.
+4. Enlace "¿Olvidaste tu contraseña?" visible.
+5. Logo de la marca en la esquina superior izquierda.
+6. Contraste de texto adecuado (texto oscuro sobre fondo claro, o viceversa).
 
-          # Fallback 2: Use text-only model with metadata
-          elif self.has_image_metadata(image_path):
-              metadata = self.extract_metadata(image_path)
-              return self.text_only_analysis(metadata, user_query)
+Devuelve JSON:
+{"aprobado": bool, "issues": [string], "severidad": "ninguna|menor|mayor|critica"}
+Solo JSON, sin texto adicional."""
 
-          # Fallback 3: Return error with guidance
-          else:
-              return {
-                  "error": "Image processing unavailable",
-                  "guidance": "Please try again or contact support"
-              }
+def tomar_screenshot(url: str, path: str = "shot.png") -> str:
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1280, "height": 800})
+        page.goto(url, wait_until="networkidle")
+        page.screenshot(path=path, full_page=False)
+        browser.close()
+    return path
+
+def validar_pantalla(url: str, checklist: str) -> ResultadoUI:
+    path = tomar_screenshot(url)
+    data = base64.standard_b64encode(open(path, "rb").read()).decode()
+    msg = client.messages.create(
+        model="claude-3-5-sonnet-20240620",
+        max_tokens=1024,
+        system="Eres un QA engineer. Responde solo JSON válido.",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image",
+                 "source": {"type": "base64", "media_type": "image/png", "data": data}},
+                {"type": "text", "text": checklist},
+            ],
+        }],
+    )
+    return ResultadoUI.model_validate(json.loads(msg.content[0].text.strip()))
+
+resultado = validar_pantalla("https://app.ejemplo.com/login", CHECKLIST_LOGIN)
+assert resultado.aprobado, f"UI falló: {resultado.issues}"
 ```
 
-Cost Optimization Strategies
-Vision API calls are more expensive than text-only calls. Implementing cost optimization strategies helps you manage expenses while maintaining quality.
-
-Image Optimization:
-
-Optimize images before sending to reduce costs:
+### 2) Comparación visual (regresión) entre dos builds
 
 ```python
-from PIL import Image
-import io
+def comparar_builds(url_stable: str, url_pr: str) -> dict:
+    s1, s2 = tomar_screenshot(url_stable, "stable.png"), tomar_screenshot(url_pr, "pr.png")
+    img1 = base64.b64encode(open(s1, "rb").read()).decode()
+    img2 = base64.b64encode(open(s2, "rb").read()).decode()
 
-class ImageOptimizer:
-  """Optimize images for vision API to reduce costs."""
-
-  def optimize(self, image_path, target_size=(1024, 1024), quality=85):
-      """Resize and compress image while maintaining quality."""
-      with Image.open(image_path) as img:
-          # Resize maintaining aspect ratio
-          img.thumbnail(target_size, Image.Resampling.LANCZOS)
-
-          # Convert to RGB if necessary (removes alpha channel)
-          if img.mode in ('RGBA', 'LA', 'P'):
-              background = Image.new('RGB', img.size, (255, 255, 255))
-              if img.mode == 'P':
-                  img = img.convert('RGBA')
-              background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
-              img = background
-
-          # Save optimized image
-          buffer = io.BytesIO()
-          img.save(buffer, format='JPEG', quality=quality, optimize=True)
-          buffer.seek(0)
-
-          return buffer.read()
+    msg = client.messages.create(
+        model="claude-3-5-sonnet-20240620",
+        max_tokens=1024,
+        system="Eres un reviewer de regresión visual. Responde solo JSON.",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "La primera imagen es la versión estable. La segunda es un PR candidato."},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": img1}},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": img2}},
+                {"type": "text",
+                 "text": """Lista diferencias relevantes (ignora anti-aliasing).
+Devuelve JSON: {"regresion_detectada": bool, "diferencias": [{"tipo": "layout|texto|color|otro",
+"descripcion": str, "severidad": "menor|mayor|critica"}]}"""},
+            ],
+        }],
+    )
+    return json.loads(msg.content[0].text.strip())
 ```
 
-Caching:
-
-Cache results to avoid redundant API calls:
+### 3) Generación de alt text para accessibility (WCAG 2.1)
 
 ```python
-import hashlib
-import json
-from functools import lru_cache
+from pydantic import Field
 
-class VisionCache:
-  """Cache vision API responses."""
+class AltText(BaseModel):
+    alt: str = Field(max_length=125)
+    long_description: str | None = None  # para imágenes complejas
+    es_decorativa: bool = False
 
-  def __init__(self, cache_backend=None):
-      self.cache_backend = cache_backend or {}
+ALT_PROMPT = """Genera texto alternativo (alt text) para accessibility según WCAG 2.1.
 
-  def get_cache_key(self, image_data, prompt):
-      """Generate cache key from image and prompt."""
-      image_hash = hashlib.sha256(image_data).hexdigest()
-      prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
-      return f"vision:{image_hash}:{prompt_hash}"
+Reglas:
+- Máximo 125 caracteres.
+- Describe qué muestra la imagen y su función, no digas "imagen de" ni "foto de".
+- Si contiene texto esencial, inclúyelo.
+- Si la imagen es puramente decorativa (sin aportar información), es_decorativa=true y alt="".
+- Si la imagen es compleja (gráfica, mapa, diagrama), añade `long_description` detallada.
+- Responde en español neutro.
 
-  def get(self, image_data, prompt):
-      """Get cached result if available."""
-      key = self.get_cache_key(image_data, prompt)
-      return self.cache_backend.get(key)
+Devuelve JSON: {"alt": string, "long_description": string|null, "es_decorativa": bool}"""
 
-  def set(self, image_data, prompt, result):
-      """Cache result."""
-      key = self.get_cache_key(image_data, prompt)
-      self.cache_backend[key] = result
+def generar_alt_text(path_img: str) -> AltText:
+    data = base64.b64encode(open(path_img, "rb").read()).decode()
+    msg = client.messages.create(
+        model="claude-3-5-sonnet-20240620",
+        max_tokens=512,
+        system="Responde solo JSON válido.",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image",
+                 "source": {"type": "base64", "media_type": "image/jpeg", "data": data}},
+                {"type": "text", "text": ALT_PROMPT},
+            ],
+        }],
+    )
+    return AltText.model_validate(json.loads(msg.content[0].text.strip()))
 
-  def analyze_with_cache(self, image_data, prompt, api_client):
-      """Analyze image with caching."""
-      # Check cache
-      cached = self.get(image_data, prompt)
-      if cached:
-          return cached
-
-      # Call API
-      result = api_client.analyze(image_data, prompt)
-
-      # Cache result
-      self.set(image_data, prompt, result)
-
-      return result
+alt = generar_alt_text("producto.jpg")
+print(f'<img src="producto.jpg" alt="{alt.alt}">')
+if alt.long_description:
+    print(f"<p id='desc'>{alt.long_description}</p>")
 ```
 
-Batch Processing:
-
-Process multiple images efficiently:
+### 4) Visual QA conversacional
 
 ```python
-import asyncio
-from typing import List
+class SesionVisualQA:
+    def __init__(self, path_img: str, modelo: str = "claude-3-5-sonnet-20240620"):
+        self.modelo = modelo
+        data = base64.b64encode(open(path_img, "rb").read()).decode()
+        self.img_block = {"type": "image",
+                          "source": {"type": "base64", "media_type": "image/jpeg", "data": data}}
+        self.historia: list[dict] = []
 
-class BatchVisionProcessor:
-  """Process multiple images efficiently."""
+    def preguntar(self, pregunta: str) -> str:
+        user_content = [self.img_block, {"type": "text", "text": pregunta}] \
+                       if not self.historia else [{"type": "text", "text": pregunta}]
+        self.historia.append({"role": "user", "content": user_content})
+        msg = client.messages.create(
+            model=self.modelo, max_tokens=600, messages=self.historia
+        )
+        respuesta = msg.content[0].text
+        self.historia.append({"role": "assistant", "content": respuesta})
+        return respuesta
 
-  async def process_batch(self, image_prompts: List[tuple]):
-      """Process multiple image-prompt pairs concurrently."""
-      tasks = [
-          self.process_single(image_data, prompt)
-          for image_data, prompt in image_prompts
-      ]
-      results = await asyncio.gather(*tasks, return_exceptions=True)
-      return results
-
-  async def process_single(self, image_data, prompt):
-      """Process a single image-prompt pair."""
-      # Implementation here
-      pass
+sesion = SesionVisualQA("habitacion.jpg")
+print(sesion.preguntar("¿Cuántas sillas hay?"))
+print(sesion.preguntar("¿De qué color es la pared del fondo?"))
+print(sesion.preguntar("¿Qué estilo de decoración describirías?"))
 ```
 
-Performance Optimization
-Optimize application performance to handle high loads:
-
-Async Processing:
-
-Use async processing for non-blocking operations:
+### 5) Document extraction en batch con control de concurrencia
 
 ```python
-import asyncio
-from openai import AsyncOpenAI
+import asyncio, anthropic
+aclient = anthropic.AsyncAnthropic()
 
-class AsyncVisionClient:
-  """Async vision API client for better performance."""
+async def extraer_uno(path: str, sem: asyncio.Semaphore) -> dict:
+    async with sem:
+        data = base64.b64encode(open(path, "rb").read()).decode()
+        msg = await aclient.messages.create(
+            model="claude-3-5-sonnet-20240620",
+            max_tokens=1500,
+            system="Responde solo JSON.",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image",
+                     "source": {"type": "base64", "media_type": "image/jpeg", "data": data}},
+                    {"type": "text",
+                     "text": "Extrae emisor, fecha (YYYY-MM-DD), total y moneda. JSON."},
+                ],
+            }],
+        )
+        return {"path": path, "data": json.loads(msg.content[0].text.strip())}
 
-  def __init__(self):
-      self.client = AsyncOpenAI(
-          api_key="API_KEY",
-          base_url="BASE_URL",
-      )
+async def procesar_lote(paths: list[str], concurrencia: int = 5):
+    sem = asyncio.Semaphore(concurrencia)
+    return await asyncio.gather(*[extraer_uno(p, sem) for p in paths],
+                                return_exceptions=True)
 
-  async def analyze_async(self, image_data, prompt):
-      """Analyze image asynchronously."""
-      response = await self.client.chat.completions.create(
-          model="gpt-4.1-mini",
-          messages=[
-              {
-                  "role": "user",
-                  "content": [
-                      {"type": "text", "text": prompt},
-                      {
-                          "type": "image_url",
-                          "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}
-                      }
-                  ]
-              }
-          ],
-          max_tokens=300
-      )
-      return response.choices[0].message.content
+# resultados = asyncio.run(procesar_lote(["f1.jpg", "f2.jpg", ...], concurrencia=5))
 ```
 
-Connection Pooling:
-
-Reuse connections for better performance:
+### 6) Few-shot visual para clasificación de calidad de fotos de producto
 
 ```python
-from openai import OpenAI
+def _img_block(path: str) -> dict:
+    data = base64.b64encode(open(path, "rb").read()).decode()
+    return {"type": "image",
+            "source": {"type": "base64", "media_type": "image/jpeg", "data": data}}
 
-class VisionClientPool:
-  """Pool of vision API clients for connection reuse."""
-
-  def __init__(self, pool_size=5):
-      self.clients = [OpenAI(api_key="API_KEY", base_url="BASE_URL") for _ in range(pool_size)]
-      self.current = 0
-
-  def get_client(self):
-      """Get a client from the pool (round-robin)."""
-      client = self.clients[self.current]
-      self.current = (self.current + 1) % len(self.clients)
-      return client
+msg = client.messages.create(
+    model="claude-3-5-sonnet-20240620",
+    max_tokens=200,
+    messages=[
+        {"role": "user", "content": [_img_block("ok1.jpg"),
+         {"type": "text", "text": "Clasifica: 'aprobada' o 'rechazada: <razón>'"}]},
+        {"role": "assistant", "content": "aprobada"},
+        {"role": "user", "content": [_img_block("bad1.jpg"),
+         {"type": "text", "text": "Clasifica: 'aprobada' o 'rechazada: <razón>'"}]},
+        {"role": "assistant", "content": "rechazada: fondo con desorden"},
+        {"role": "user", "content": [_img_block("nueva.jpg"),
+         {"type": "text", "text": "Clasifica: 'aprobada' o 'rechazada: <razón>'"}]},
+    ],
+)
+print(msg.content[0].text)
 ```
 
-Real-World Application Examples
-Understanding real-world patterns helps you build effective applications.
+## Errores comunes
 
-Customer Support Screenshot Analysis:
+- **Usar VLM para pixel-diff.** Para comparación bit-a-bit usa `pixelmatch`, `odiff` o Percy; el VLM es para diferencias **semánticas** (texto cortado, botón movido, color cambiado).
+- **Flaky tests con VLM.** Pedir "¿esta UI está bien?" en lenguaje libre produce respuestas inconsistentes. Siempre pide **JSON con checklist cerrado** y valida con Pydantic.
+- **Enviar screenshots full-page gigantes.** Un `fullPage=True` de una landing puede ser 1280x5000 → caro y pierde detalle. Recorta por sección (hero, nav, footer) y procesa por bloques.
+- **Alt text redundante o muy largo.** "Imagen de un gato naranja sentado en un sofá rojo" rompe WCAG. Pide máximo 125 caracteres y prohíbe "imagen de" / "foto de".
+- **No marcar imágenes decorativas.** Logos y separadores decorativos deben tener `alt=""`, no una descripción. El prompt debe permitirlo.
+- **Olvidar el idioma del alt text.** Si tu sitio es en español, pedir alt text sin especificar idioma devuelve inglés inconsistente.
+- **Visual QA sin reintentos ni validación.** Si el usuario pregunta "¿cuántos hay?" y el modelo falla al contar, no hay feedback loop. Añade verificación cruzada o advierte de incertidumbre.
+- **Batch sin límite de concurrencia.** Lanzar 1000 requests en paralelo tira contra rate limits inmediatamente. Usa `asyncio.Semaphore` y backoff exponencial.
+- **No considerar PII en screenshots.** Capturas de dashboards reales pueden contener datos de clientes. Enmascara antes de enviar al VLM (bluring, cropping).
+- **Hardcodear prompts en producción.** Los prompts deben vivir en un archivo versionado (prompts/) junto a tests golden, no incrustados en el código.
 
-Build a system that analyzes error screenshots:
+## Resumen
 
-```python
-class SupportScreenshotAnalyzer:
-  """Analyze customer support screenshots."""
-
-  def __init__(self):
-      self.validator = ImageValidator()
-      self.optimizer = ImageOptimizer()
-      self.api_client = ResilientVisionClient()
-
-  def analyze_error_screenshot(self, screenshot_path, user_description, context):
-      """Analyze error screenshot and provide guidance."""
-      # Validate
-      errors = self.validator.validate(screenshot_path)
-      if errors:
-          return {"error": "Invalid image", "details": errors}
-
-      # Optimize
-      optimized_image = self.optimizer.optimize(screenshot_path)
-
-      # Build prompt
-      prompt = f"""
-      Analyze this error screenshot.
-
-      User reports: {user_description}
-      Context: {context}
-
-      Provide:
-      1. Error identification
-      2. Likely causes
-      3. Step-by-step resolution
-      4. When to escalate
-      """
-
-      # Analyze
-      result = self.api_client.analyze_with_retry(
-          optimized_image,
-          prompt
-      )
-
-      return result
-```
-
-Document Processing Pipeline:
-
-Process documents with visual elements:
-
-```python
-class DocumentProcessor:
-  """Process documents with visual elements."""
-
-  def process_document(self, document_path, extraction_schema):
-      """Extract structured data from document."""
-      # Extract pages/images from document
-      pages = self.extract_pages(document_path)
-
-      results = []
-      for page in pages:
-          # Process each page
-          result = self.extract_page_data(page, extraction_schema)
-          results.append(result)
-
-      # Combine results
-      return self.combine_results(results)
-
-  def extract_page_data(self, page_image, schema):
-      """Extract data from a single page."""
-      prompt = f"""
-      Extract data from this document page according to this schema:
-      {schema}
-
-      Return JSON with all fields.
-      """
-
-      # Process with vision API
-      result = self.vision_client.analyze(page_image, prompt)
-      return json.loads(result)
-```
-
-Monitoring and Observability
-Monitor vision applications to ensure reliability:
-
-Key Metrics:
-
-Request Rate: Number of vision API calls per time period
-Success Rate: Percentage of successful API calls
-Latency: Time taken for vision processing
-Cost: Token usage and API costs
-Error Rate: Frequency of different error types
-Logging:
-
-Implement comprehensive logging:
-
-```python
-import logging
-import time
-
-logger = logging.getLogger(__name__)
-
-class MonitoredVisionClient:
-  """Vision client with monitoring."""
-
-  def analyze_with_monitoring(self, image_data, prompt):
-      """Analyze with logging and metrics."""
-      start_time = time.time()
-
-      try:
-          result = self.analyze(image_data, prompt)
-
-          latency = time.time() - start_time
-          logger.info(f"Vision analysis successful: {latency:.2f}s")
-
-          # Record metrics
-          self.record_metric("success", 1)
-          self.record_metric("latency", latency)
-
-          return result
-
-      except Exception as e:
-          latency = time.time() - start_time
-          logger.error(f"Vision analysis failed: {e} ({latency:.2f}s)")
-
-          # Record metrics
-          self.record_metric("error", 1)
-          self.record_metric("error_type", type(e).__name__)
-
-          raise
-```
-
-Summary
-Building production vision-enabled applications requires careful architecture, comprehensive error handling, cost optimization, and performance considerations. By structuring applications in layers, implementing robust error handling with retries and fallbacks, optimizing images and caching results, and monitoring system behavior, you can build reliable, scalable vision-enabled systems.
-
-Understanding real-world patterns and best practices helps you avoid common pitfalls and build applications that leverage vision capabilities effectively in production environments.
-
-Key concepts to remember
-
-Layered architecture - Separate image processing, API communication, and business logic
-Comprehensive error handling - Validate images, handle API errors with retries, implement fallbacks
-Cost optimization - Optimize images, cache results, batch process when possible
-Performance optimization - Use async processing, connection pooling, and efficient image handling
-Monitoring - Track metrics, log comprehensively, monitor costs and performance
-Further learning resources
+- **UI testing con VLM** detecta regresiones semánticas que diff de pixeles no ve: usa checklist cerrado + JSON + Pydantic.
+- **Document extraction** se escala con `asyncio.Semaphore`, reintentos y validación cruzada (suma líneas == total).
+- **Visual QA** funciona bien conversacional: la primera imagen se envía una vez y las preguntas siguientes reutilizan el contexto.
+- **Alt text automático** debe respetar WCAG: máximo 125 chars, sin "imagen de", flag para decorativas, long_description para gráficas complejas.
+- **Few-shot con imágenes** mejora consistencia en tareas subjetivas (calidad, sentimiento, aprobación).
+- Para **pixel-diff** usa `pixelmatch`/`odiff`/Percy; VLM es para diferencias semánticas.
+- Recorta screenshots full-page en secciones; nunca envíes imágenes gigantes.
+- Versiona los prompts junto a un dataset golden; mide precision/recall antes de desplegar.
+- Enmascara PII en screenshots antes de enviar a cualquier VLM.

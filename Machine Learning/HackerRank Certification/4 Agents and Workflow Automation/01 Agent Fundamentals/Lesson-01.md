@@ -1,148 +1,266 @@
-## From Chatbots to Agents
+# De Chatbots a Agentes
 
-Imagine you have built an LLM-powered code assistant that answers developer questions beautifully. It explains design patterns, suggests refactoring strategies, and provides helpful code snippets. Then a developer asks: "Review my pull request for security issues." Your assistant describes what a good security review looks like—but it cannot actually check the code. It talks about work but cannot do work.
+## ¿Qué es?
 
-This is the fundamental limitation of chatbots. They generate text about actions but cannot take actions. This limitation led to the development of AI agents—systems that do not just respond but actively accomplish goals.
+Un **agente de IA** es un sistema que combina un **LLM como motor de razonamiento**, un conjunto de **herramientas (tools)** que puede invocar, un **loop de ejecución** que decide qué hacer en cada paso, y algún tipo de **memoria** para mantener contexto entre iteraciones. A diferencia de un chatbot —que solo genera texto en respuesta a un prompt— un agente **percibe su entorno, decide, actúa y observa el resultado**, repitiendo el ciclo hasta cumplir un objetivo o determinar que no puede continuar.
 
-In this lesson, you will understand what makes an AI system an agent rather than a chatbot, learn the core agent loop that powers autonomous decision-making, and explore the components that production agents require.
+La definición operativa que popularizó Anthropic en su guía *Building Effective Agents* (diciembre 2024) distingue tres niveles:
 
-By the end, you will have a clear mental model for agent architecture that guides your decisions when building systems that do not just answer questions but actively solve problems.
+| Sistema | Qué hace | Control del flujo |
+|---|---|---|
+| **Chatbot** | Genera una respuesta a un prompt | Nulo: una entrada, una salida |
+| **Workflow** | Encadena LLMs y tools por **caminos predefinidos** en código | **Determinístico**: lo decide el ingeniero |
+| **Agente** | El LLM decide dinámicamente qué tools llamar y cuándo detenerse | **No determinístico**: lo decide el modelo |
 
-What Makes an Agent Different
-You have built LLM applications before. A user sends a prompt, your code calls an API, and the model returns a response. This works well for question answering, content generation, and conversational interfaces. But what happens when you need your application to actually do something—to check a database, update a ticket, send an email, or make decisions over multiple steps?
+> **Definición de Anthropic (2024):** *"Los agentes son sistemas donde los LLMs dirigen dinámicamente sus propios procesos y uso de herramientas, manteniendo el control sobre cómo realizan las tareas."*
 
-This is where agents come in. An agent is not just a model that responds to prompts. It is a system that can perceive its environment, make decisions, and take actions to achieve specific goals. Think of the difference like asking someone for directions versus hiring a driver. The chatbot tells you where to go; the agent takes you there.
+### Agente vs Workflow vs Chatbot
 
-Consider a code review scenario. A chatbot might answer "What should I look for in a code review?" with a list of best practices. An agent, however, can analyze your pull request, identify potential bugs and security vulnerabilities, check for style guide violations, verify test coverage, suggest specific improvements with code snippets, and even run the test suite to confirm nothing breaks—all from a single request like "Review my pull request."
+La diferencia no es cosmética: define quién tiene el control del flujo.
 
-The distinction matters in production. Chatbots excel at single-turn interactions where the model generates text and you are done. Agents excel at multi-step workflows where decisions depend on external data and actions produce real-world effects. The architecture you choose determines what your application can accomplish.
-
-![Chatbot vs Agent](https://hrcdn.net/ai-engineering/module-4/light/agent-fundamentals-lesson01-chatbot-vs-agent.svg)
-
-The Agent Loop
-Every agent operates through a decision-making loop that repeats until it achieves its goal or determines it cannot proceed. This loop has four key phases: perception, reasoning, action, and observation.
-
-Perception is how the agent understands its current situation. This includes the user's request, the conversation history, available tools, and any context from previous actions. In a deployment automation agent, perception might include the current deployment status, server health metrics, and recent error logs.
-
-Reasoning is where the agent decides what to do next. Given what it perceives, what action brings it closer to the goal? Should it gather more information, execute a tool, or provide a final response? This is where the language model's capabilities shine—it can analyze complex situations and plan multi-step solutions.
-
-Action is the agent executing its decision. This might be calling an API, querying a database, running a script, or generating a response for the user. Actions change the state of the system or gather new information.
-
-Observation is receiving feedback from the action. What did the API return? Did the database query succeed? What error occurred? This observation becomes part of the agent's perception in the next loop iteration.
-
-Here is what this looks like in practice. A deployment agent receives the goal "Deploy version 2.1.0 to production." It perceives that deployment requires checking prerequisites, backing up the current version, and executing deployment scripts. It reasons that it should first verify prerequisites. It acts by checking server capacity and dependencies. It observes that one dependency is outdated. This observation feeds back into perception, and the reasoning phase now knows it must update dependencies before proceeding with deployment.
-
-![Agent Loop](https://hrcdn.net/ai-engineering/module-4/light/agent-fundamentals-lesson01-agent-loop.svg)
-
-The loop continues until the agent either completes the goal successfully or determines it cannot proceed (perhaps due to insufficient permissions or an unrecoverable error). This iterative approach allows agents to handle complex, dynamic situations that would require extensive hardcoded logic in traditional systems.
-
-Agent Components and Architecture
-Building an agent requires more than just prompting a language model in a loop. Production agents need several interconnected components working together.
-
-The reasoning engine is typically a large language model that drives decision-making. You prompt it with the current state, available actions, and the goal. It returns structured decisions about what to do next. GPT-5.1, Claude, or open-source models like Llama can serve this role. The key is prompt engineering: you must clearly describe available tools, the current situation, and the decision format you expect.
-
-The tool registry defines what actions the agent can take. Each tool has a name, description, and parameters. When you give an agent a "send_email" tool, you specify what parameters it requires (recipient, subject, body) and what it returns (success confirmation or error). The reasoning engine selects tools based on these descriptions, so clarity is critical.
-
-The execution layer actually runs the tools. When the reasoning engine decides to call "query_database," the execution layer handles the actual database connection, query execution, error handling, and result formatting. This layer isolates the agent's logic from implementation details. You can change how you query the database without modifying the agent's reasoning process.
-
-State management tracks what has happened across loop iterations. The agent needs to remember what tools it has called, what results it received, and what decisions it made. Without state management, the agent might repeat failed actions or forget crucial context. In production, state management also enables resumability—if an agent crashes mid-task, you can restore its state and continue from where it left off.
-
-Safety controls prevent the agent from taking harmful or unintended actions. This includes permission systems (can this agent delete data?), rate limiting (prevent infinite loops), cost controls (stop if LLM API costs exceed thresholds), and validation (check that tool parameters are sensible before execution). Safety controls are not optional in production systems.
-
-![Production agent architecture components](https://hrcdn.net/ai-engineering/module-4/dark/agent-fundamentals-lesson01-architecture.svg)
-
-Consider a code review agent. The reasoning engine analyzes pull requests and decides what checks to run. The tool registry includes "run_linter," "check_tests," "analyze_complexity," and "post_comment." The execution layer runs these tools against the actual codebase. State management tracks which checks have completed and their results. Safety controls ensure the agent cannot merge code without human approval or post abusive comments.
-
-The architecture looks like this: the user provides a goal → the reasoning engine perceives the current state and available tools → it decides on an action → the execution layer runs that action → the result updates the state → the loop repeats. Each component has a clear responsibility, making the system testable and maintainable.
-
-Agent vs Traditional Automation
-You might wonder: how is this different from a script or workflow automation tool? Both can check databases, send emails, and make decisions. The difference lies in adaptability and decision-making flexibility.
-
-Traditional automation follows predetermined paths. An automation script might say: "If order status is 'shipped' and delivery date passed, send refund email and update database." This works perfectly for predictable scenarios. But what if the customer asks "My package says delivered but I did not receive it—can I get a refund?" The script has no path for this situation. You must anticipate every scenario and code explicit rules.
-
-Agents use general reasoning to handle novel situations. The agent has tools like "check_order_status," "verify_delivery," "process_refund," and "send_email." When faced with the delivery issue, it reasons through the problem: check the order status, see that it shows delivered, recognize this conflicts with the customer's claim, decide to offer a refund due to delivery problems, execute the refund, and send confirmation. You did not hard-code this specific sequence—the agent figured it out.
-
-This adaptability comes with trade-offs. Agents are slower than scripts because LLM inference takes time. Agents are less predictable because the reasoning engine might make different decisions in similar situations. Agents are more expensive due to API costs for each reasoning step. And agents can make mistakes because language models are not perfect reasoners.
-
-Use agents when you need flexibility: customer support handling diverse requests, deployment systems dealing with varying infrastructure states, or data processing pipelines that adapt to different data formats. Use traditional automation when the workflow is fixed: nightly backup scripts, scheduled report generation, or form validation. Many production systems use both—agents for adaptive decision-making, scripts for reliable execution of known processes.
-
-Building Your First Agent
-Let us walk through a minimal agent implementation to see how these concepts come together. We will build an agent that helps developers debug failed CI/CD builds.
-
-The user's goal: "Why did build #1247 fail?" The agent has three tools: get_build_logs, search_error_patterns, and suggest_fix. Here is how the loop works:
-
-Iteration 1: The reasoning engine perceives the user's question and available tools. It reasons that it needs the build logs first. It acts by calling get_build_logs(build_id="1247"). It observes the logs, which show a Python import error.
-
-Iteration 2: Now the agent perceives it has logs with an import error. It reasons that searching for similar errors might provide context. It acts by calling search_error_patterns(error="ImportError: cannot import name 'deprecated'"). It observes that this error commonly occurs when dependency versions are mismatched.
-
-Iteration 3: The agent perceives it has identified the issue. It reasons that it should provide a fix suggestion. It acts by calling suggest_fix(issue="dependency_mismatch"). It observes the suggestion: "Update requirements.txt to pin 'library-name==2.1.0'."
-
-Iteration 4: The agent perceives it has gathered all necessary information. It reasons that it can now respond to the user. It acts by generating a final response: "Build #1247 failed due to a dependency version mismatch. The ImportError occurs because the CI environment has an incompatible version of 'library-name'. Update your requirements.txt to pin version 2.1.0."
-
-The agent stops because it has achieved the goal of explaining the failure and suggesting a fix.
-
-In code, this might look like:
-
-```python
-def agent_loop(goal, max_iterations=10):
-  state = {"goal": goal, "history": [], "completed": False}
-
-  for i in range(max_iterations):
-      # Reasoning: decide what to do next
-      decision = reasoning_engine.decide(state)
-
-      if decision["action"] == "respond":
-          return decision["response"]
-
-      # Action: execute the tool
-      tool_result = execute_tool(
-          decision["tool_name"],
-          decision["tool_params"]
-      )
-
-      # Observation: update state
-      state["history"].append({
-          "tool": decision["tool_name"],
-          "result": tool_result
-      })
-
-  return "Agent reached max iterations without completing goal"
+```
+Chatbot:    prompt ──► LLM ──► respuesta
+Workflow:   prompt ──► LLM₁ ──► tool_A ──► LLM₂ ──► tool_B ──► respuesta
+                      (los pasos están cableados en código)
+Agent:      prompt ──► ┌──► LLM decide ──► tool ──► observa ──┐
+                       └────────────── loop ──────────────────┘
+                                     (el LLM decide cuándo parar)
 ```
 
-This is simplified, but it captures the essence. The reasoning engine looks at the current state and decides what to do. The execution layer runs the tool. The state updates with the result. The loop continues until the agent generates a final response.
+Un chatbot pierde el control después de responder. Un workflow sigue un grafo escrito por el ingeniero (ej. `LangGraph` con nodos conectados a mano). Un agente **recibe un objetivo y herramientas, y el modelo elige la ruta**.
 
-Common Pitfalls
-Agents introduce failure modes that do not exist in traditional applications. The reasoning engine might select the wrong tool, call a tool with invalid parameters, or get stuck in loops where it repeats the same failed action. These are not bugs in your code—they are limitations of language model reasoning.
+### Los cuatro componentes mínimos de un agente
 
-Infinite loops happen when the agent does not recognize that an action failed or is not making progress. You tried to read a file that does not exist, the agent observes "file not found," but then tries to read it again. Mitigation: implement loop detection (if the same action fails three times, stop and ask for help) and maximum iteration limits.
+1. **LLM (reasoning engine):** cerebro que decide qué hacer. Hoy: Claude 3.5/4, GPT-4/5, Llama 3+, Gemini.
+2. **Tools (herramientas):** funciones externas con nombre, descripción y schema de parámetros. El modelo las "llama" devolviendo JSON estructurado.
+3. **Loop (bucle de control):** código que ejecuta la tool pedida, inyecta el resultado al modelo y vuelve a preguntar "¿qué sigue?".
+4. **Memory (memoria):** historial de la conversación actual (short-term) y, opcionalmente, conocimiento persistente entre sesiones (long-term).
 
-Tool selection errors occur when the agent chooses the wrong tool for the situation. You want to update a database record, but the agent calls a read-only query tool instead. Mitigation: write clear tool descriptions, include examples of when to use each tool, and implement validation that checks tool calls make sense given the current state.
+Falta cualquiera de los cuatro y deja de ser un agente completo. Un LLM con tools pero sin loop es *function calling* clásico. Un loop sin memoria olvida lo que acaba de hacer en la iteración anterior.
 
-State explosion happens when the conversation history grows too large to fit in the model's context window. After 50 tool calls, you have megabytes of state data. Mitigation: summarize old history, keep only recent actions in full detail, and design agents to complete tasks in fewer steps.
+## ¿Por qué importa?
 
-Non-deterministic behavior frustrates debugging. You test the agent with a scenario, it works perfectly. You test again with the same inputs, and it makes different decisions. This is inherent to LLM-based agents. Mitigation: use lower temperature settings for more consistent behavior, log all reasoning decisions for debugging, and implement comprehensive testing that covers edge cases.
+Los chatbots alcanzan su techo rápido: hablan sobre acciones pero no las ejecutan. Un asistente que explica cómo revisar un PR no sirve si no puede abrir el diff, correr el linter y comentar la línea 45. El salto de "describir" a "hacer" es lo que convirtió a los LLMs de **demos impresionantes** en **herramientas de trabajo**.
 
-Understanding these pitfalls helps you design more robust agents. You build in safeguards from the start rather than discovering problems in production.
+Los agentes son la respuesta correcta cuando:
 
-Summary
-AI agents are systems that autonomously decide what actions to take to achieve goals. They differ from chatbots in their ability to execute multi-step workflows, interact with external tools, and adapt to dynamic situations without hardcoded logic.
+- El flujo **no se puede enumerar de antemano** (soporte al cliente con tickets heterogéneos).
+- El número de pasos depende del **estado del mundo** (debugging: ¿cuántos logs hay que leer?).
+- Hace falta **combinar varias APIs** y la combinación cambia según el caso.
+- El valor viene de **adaptarse** a entradas que el diseñador no vio.
 
-The agent loop—perception, reasoning, action, observation—is the core pattern that enables this autonomy. The reasoning engine (typically an LLM) analyzes the current state and decides what to do next. Tools provide the agent's capabilities. State management tracks progress across iterations. Safety controls prevent harmful actions.
+Para flujos fijos y predecibles (backup nocturno, validar un formulario, generar un reporte cada lunes) un **workflow determinístico sigue siendo mejor**: más rápido, más barato, más fácil de testear. La regla de oro de Anthropic: *"use the simplest solution possible, and only increase complexity when needed."* Agentes solo cuando ganan algo real.
 
-Agents excel at adaptive workflows where you cannot predict every scenario in advance. They introduce trade-offs: slower execution, higher costs, and potential for reasoning errors. Production systems often combine agents for flexible decision-making with traditional automation for reliable execution.
+### Contexto histórico
 
-Key Takeaways:
+| Año | Hito |
+|---|---|
+| 2022 | ReAct paper (Yao et al., Princeton + Google): *"Synergizing Reasoning and Acting in LLMs"* |
+| 2023 | AutoGPT, BabyAGI: primeros agentes "autónomos" virales, caóticos pero prueba de concepto |
+| 2023 | OpenAI function calling en GPT-4; LangChain populariza el patrón `AgentExecutor` |
+| 2024 | LangGraph (grafos de agentes), CrewAI (multi-agente), Anthropic Computer Use |
+| 2024 | Anthropic publica *Building Effective Agents* y recomienda **empezar con workflows**, no con agentes |
+| 2025 | OpenAI Assistants API, Anthropic MCP (Model Context Protocol), agentes en producción masiva |
 
-Agents autonomously decide and execute actions to achieve goals, unlike chatbots that only respond to prompts
-The agent loop (perceive → reason → act → observe) is the fundamental pattern for agent decision-making
-Production agents require a reasoning engine, tool registry, execution layer, state management, and safety controls
-Use agents for adaptive workflows and traditional automation for fixed, predictable processes
-Common pitfalls include infinite loops, tool selection errors, state explosion, and non-deterministic behavior
+## ¿Cómo funciona?
 
+### El loop clásico: observe → think → act → observe
 
+Todo agente ejecuta variantes de este bucle:
 
-```python
+```
+┌─────────────────────────────────────────────────┐
+│  1. PERCEPCIÓN:  leer estado (goal + historial) │
+│  2. RAZONAMIENTO: LLM decide siguiente acción   │
+│  3. ACCIÓN:      ejecutar tool (o responder)    │
+│  4. OBSERVACIÓN: capturar resultado             │
+│                                                 │
+│  ¿objetivo cumplido? ──NO──► volver al paso 1   │
+│                      ──SÍ──► entregar respuesta │
+└─────────────────────────────────────────────────┘
 ```
 
+**Perception:** el agente lee la petición del usuario, el historial de pasos previos, los tools disponibles y cualquier contexto cargado (memoria, documentos).
+
+**Reasoning:** el LLM analiza qué sabe y qué le falta. Decide: "¿llamo un tool para obtener más datos, o ya puedo responder?".
+
+**Action:** se ejecuta la decisión. Si es un tool call, el loop invoca la función real (API, DB, script). Si es `respond`, el agente termina.
+
+**Observation:** el resultado del tool (JSON, texto, error) se guarda en el historial y se le re-inyecta al modelo en la siguiente iteración.
+
+### Componentes de arquitectura en producción
+
+| Componente | Responsabilidad | Ejemplo |
+|---|---|---|
+| **Reasoning engine** | LLM que decide la próxima acción | Claude 3.5 Sonnet, GPT-4o |
+| **Tool registry** | Catálogo de funciones con nombre + descripción + schema | Lista de `tools=[...]` que se le pasa al modelo |
+| **Execution layer** | Ejecuta el tool real, maneja errores, formatea el output | Dispatcher que mapea `tool_name → función Python` |
+| **State / memory** | Historial de thoughts, actions, observations | Lista en RAM, Redis, o DB persistente |
+| **Safety controls** | Permisos, rate limiting, cost caps, validación | `if calls > 10: stop`, allowlist de tools |
+
+### Agente vs automatización tradicional
+
+| Dimensión | Script tradicional | Agente LLM |
+|---|---|---|
+| Flujo | Fijo, codificado en `if/else` | Decidido por el LLM en runtime |
+| Adaptabilidad | Solo casos previstos | Generaliza a situaciones nuevas |
+| Latencia | Milisegundos | Segundos (cada iteración = llamada LLM) |
+| Costo por ejecución | Casi cero | $$ (tokens por iteración) |
+| Predictibilidad | Alta | Baja (no determinístico) |
+| Debuggabilidad | Logs claros, stack traces | Requiere trazas de reasoning |
+| Mejor para | Backup, validación, cálculos | Soporte, triage, investigación |
+
+## Ejemplo con código
+
+### Agent loop desde cero con Anthropic SDK
+
 ```python
+from anthropic import Anthropic
+import json
+
+client = Anthropic()
+
+# 1) Tool registry: funciones reales que el agente puede llamar
+def get_build_logs(build_id: str) -> str:
+    return f"[build {build_id}] ImportError: cannot import name 'deprecated' from 'library-name'"
+
+def search_error_patterns(error: str) -> str:
+    if "ImportError" in error:
+        return "Patrón común: versión incompatible de dependencia. Fijar en requirements.txt."
+    return "Sin patrón conocido."
+
+def suggest_fix(issue: str) -> str:
+    return "Fijar 'library-name==2.1.0' en requirements.txt y re-ejecutar CI."
+
+TOOLS_IMPL = {
+    "get_build_logs": get_build_logs,
+    "search_error_patterns": search_error_patterns,
+    "suggest_fix": suggest_fix,
+}
+
+# 2) Schema que el modelo necesita para elegir tools
+TOOLS_SCHEMA = [
+    {
+        "name": "get_build_logs",
+        "description": "Obtiene los logs de un build de CI por ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"build_id": {"type": "string"}},
+            "required": ["build_id"],
+        },
+    },
+    {
+        "name": "search_error_patterns",
+        "description": "Busca el patrón de un error en una base de errores conocidos.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"error": {"type": "string"}},
+            "required": ["error"],
+        },
+    },
+    {
+        "name": "suggest_fix",
+        "description": "Sugiere una solución para un tipo de problema identificado.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"issue": {"type": "string"}},
+            "required": ["issue"],
+        },
+    },
+]
+
+# 3) El loop: observe → think → act → observe
+def agent_loop(goal: str, max_iterations: int = 10) -> str:
+    messages = [{"role": "user", "content": goal}]
+
+    for i in range(max_iterations):
+        response = client.messages.create(
+            model="claude-3-5-sonnet-latest",
+            max_tokens=1024,
+            tools=TOOLS_SCHEMA,
+            messages=messages,
+        )
+
+        # Caso 1: el modelo responde texto final (no pide tools) → terminar
+        if response.stop_reason == "end_turn":
+            return "".join(b.text for b in response.content if b.type == "text")
+
+        # Caso 2: el modelo pide uno o más tool_use
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_results = []
+        for block in response.content:
+            if block.type == "tool_use":
+                fn = TOOLS_IMPL[block.name]
+                result = fn(**block.input)   # ejecutamos la tool real
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": str(result),
+                })
+
+        messages.append({"role": "user", "content": tool_results})
+
+    return "Se alcanzó el máximo de iteraciones sin completar el objetivo."
+
+
+print(agent_loop("¿Por qué falló el build #1247?"))
 ```
+
+Qué está pasando:
+
+1. El modelo recibe el goal y el catálogo de tools.
+2. Decide llamar `get_build_logs(build_id="1247")` → recibe el log.
+3. Observa un `ImportError` → decide llamar `search_error_patterns`.
+4. Observa el patrón → llama `suggest_fix`.
+5. Con todo el contexto, genera la respuesta final (`stop_reason="end_turn"`).
+
+### Mismo agente con LangGraph (grafo explícito)
+
+LangGraph es la forma recomendada hoy para agentes en producción: convierte el loop en un **grafo de estados** auditable.
+
+```python
+from langgraph.prebuilt import create_react_agent
+from langchain_anthropic import ChatAnthropic
+from langchain_core.tools import tool
+
+@tool
+def get_build_logs(build_id: str) -> str:
+    """Obtiene logs de un build de CI."""
+    return f"[build {build_id}] ImportError: cannot import name 'deprecated'"
+
+@tool
+def suggest_fix(issue: str) -> str:
+    """Sugiere una solución para un issue."""
+    return "Fijar 'library-name==2.1.0' en requirements.txt."
+
+llm = ChatAnthropic(model="claude-3-5-sonnet-latest")
+agent = create_react_agent(llm, tools=[get_build_logs, suggest_fix])
+
+result = agent.invoke({"messages": [("user", "¿Por qué falló el build #1247?")]})
+print(result["messages"][-1].content)
+```
+
+En 10 líneas tienes el mismo bucle, pero con streaming, checkpointing, resumabilidad y trazas listos para producción.
+
+## Errores comunes
+
+- **Infinite loops.** El agente pide la misma tool con los mismos parámetros, falla, y vuelve a pedirla. Mitigación: detección de loops (3 fallos iguales → stop) y `max_iterations` **siempre** definido.
+- **No límites de iteraciones.** Un `while True` sin tope convierte un bug en una factura de miles de dólares. Define `max_iterations` y un `max_cost_usd` por ejecución.
+- **No manejar errores de tools.** Si una tool lanza una excepción, el loop crashea. Captura el error y devuélveselo al modelo como `observation` para que **razone sobre el fallo** y pruebe otra cosa.
+- **Context explosion.** Después de 30 iteraciones el historial satura el context window y el costo por llamada se dispara. Mitigación: resumir historial viejo, retener solo pasos "high importance", limitar herramientas por fase.
+- **Agentes sin memoria entre runs.** Cada sesión parte de cero, el agente repite trabajo ya hecho ayer. Mitigación: persistir conversaciones en DB (ej. `langgraph.checkpoint.sqlite`) y recuperarlas por `thread_id`.
+- **Descripciones de tools vagas.** "Reviews code" es inútil; el modelo no sabe cuándo llamarla. Escribe descripciones ricas con *qué hace, cuándo usarla, qué devuelve*.
+- **Usar un agente cuando bastaba un workflow.** Si siempre haces `A → B → C`, cablealo. No le pagues al LLM por "decidir" lo evidente.
+- **Confiar en el `stop_reason` del modelo.** El modelo puede alucinar que terminó. Valida tú mismo que el goal se cumplió (criterios de aceptación medibles).
+
+## Resumen
+
+- Un **agente** = LLM + tools + loop + memoria. Sin cualquiera de los cuatro, es otra cosa.
+- **Chatbot** responde, **workflow** sigue un grafo fijo, **agente** elige dinámicamente qué tool llamar.
+- El **loop clásico** es *perceive → reason → act → observe*, repetido hasta cumplir el goal o toparse con un límite.
+- Producción exige **cinco componentes**: reasoning engine, tool registry, execution layer, state management y safety controls.
+- Anthropic (dic 2024) recomienda **empezar con la solución más simple** y escalar a agentes solo cuando el flujo no se puede predecir.
+- Agentes son **flexibles pero lentos, caros y no determinísticos**: úsalos donde la flexibilidad justifique el costo.
+- Los errores clásicos son **loops infinitos, context explosion, fallos de tools sin manejar y falta de límites**: diseña defensas desde el día uno.
+- Hoy el stack típico es **Anthropic/OpenAI SDK + LangGraph** (o LlamaIndex / CrewAI para multi-agente); evita montarlo todo a mano salvo para aprender.

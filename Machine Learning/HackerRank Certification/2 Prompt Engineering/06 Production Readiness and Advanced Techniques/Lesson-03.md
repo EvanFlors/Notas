@@ -1,330 +1,393 @@
-## Advanced Techniques Overview
-Imagine building an AI system that can not only answer questions but also critique its own responses, explore multiple solution paths simultaneously, and adapt its behavior based on performance feedback. This is the realm of advanced prompt engineering—where we move beyond simple input-output patterns to create AI systems that exhibit sophisticated reasoning, self-awareness, and specialized domain expertise.
+# Técnicas Avanzadas: Meta-Prompting, Chaining, Optimización y Grounding
 
-Advanced prompt engineering techniques represent the frontier of AI application development, enabling systems that approach human-level performance in specialized domains. These techniques transform AI from reactive question-answering into proactive problem-solving platforms capable of handling enterprise-level requirements and complex professional workflows.
+## ¿Qué es?
 
-In this lesson, you will explore the landscape of advanced prompt engineering techniques that extend far beyond basic patterns. You will understand how meta prompting creates self-reflective AI systems, how recursive architectures enable continuous improvement, and how specialized reasoning frameworks tackle complex problem-solving. By the end of this lesson, you will have a comprehensive roadmap for implementing sophisticated AI applications that meet production requirements and deliver professional-grade performance.
+Las **técnicas avanzadas de prompt engineering** van más allá del par input-output. Permiten construir sistemas que:
 
-Meta Prompting Creates Self-Aware AI Systems
-Meta prompting represents a fundamental shift from traditional AI interactions to systems that can think about their own thinking. This technique creates AI applications that can evaluate their own outputs, identify potential weaknesses, and suggest improvements—mimicking the self-reflective processes that make human experts so effective.
+- Se **evalúan a sí mismos** (meta-prompting, constitutional AI).
+- **Encadenan múltiples llamadas** para descomponer problemas complejos (prompt chaining).
+- **Exploran múltiples trayectorias** de razonamiento en paralelo (Tree-of-Thoughts, Graph-of-Thoughts).
+- Se **auto-optimizan** midiendo contra ejemplos (DSPy, APE, OPRO).
+- **Mitigan alucinaciones** anclando respuestas en fuentes (grounding + citation).
 
-At its core, meta prompting works by embedding self-evaluation frameworks directly into the prompt structure. Instead of simply generating an answer, the AI system generates an answer and then critiques that answer using predefined quality criteria. This creates a feedback loop that significantly improves output quality and reliability.
+Esta lección reúne el núcleo técnico que convierte un prompt simple en un sistema de razonamiento auditable y mantenible.
 
-Consider a real-world application where you are building a legal document review system. A basic prompt might ask the AI to "review this contract for potential issues." A meta approach would extend this to: "Review this contract for potential issues, then evaluate the completeness of your review by checking if you addressed all major contract elements: terms, conditions, liability, intellectual property, and termination clauses. If any areas were missed, provide additional analysis."
+### Panorama de técnicas
+
+| Técnica | Qué resuelve | Costo típico |
+|---|---|---|
+| Meta-prompting / self-critique | Calidad y auto-evaluación | 2x calls |
+| Recursive refinement | Tareas que mejoran con iteración | k calls (k=2-5) |
+| Tree-of-Thoughts | Problemas con múltiples rutas | 5-20x calls |
+| Graph-of-Thoughts | Problemas con dependencias cruzadas | 10-50x calls |
+| Prompt chaining | Descomposición y pipelines | n calls (n=pasos) |
+| DSPy / APE / OPRO | Optimización automática del prompt | Offline, miles de calls |
+| Guardrails + grounding | Seguridad, precisión factual | +20-50% latencia |
+
+## ¿Por qué importa?
+
+Un modelo frontier (GPT-4o, Claude 3.7, Gemini 2.5) es poderoso pero sigue:
+
+- **Alucinando** cuando no tiene el dato: inventa citas, números, APIs.
+- **Comprometiendo** instrucciones contradictorias en el mismo prompt.
+- **Fallando en tareas largas** que requieren varios pasos encadenados sin perder contexto.
+- **Rindiendo peor que su potencial** porque el prompt fue "lo primero que funcionó" y nunca se optimizó sistemáticamente.
+
+Las técnicas avanzadas atacan estos problemas con ingeniería, no con "más modelo". DSPy, por ejemplo, suele cerrar el gap entre un modelo pequeño con pipeline optimizado y un modelo grande con prompt artesanal, a 10x menos costo.
+
+## ¿Cómo funciona?
+
+### Meta-prompting (self-reflection, constitutional AI)
+
+El modelo genera una respuesta, luego la critica contra una **rúbrica explícita**, luego sintetiza una versión mejorada. Variantes:
+
+- **Self-Refine** (Madaan et al., 2023): generar → feedback → refinar.
+- **Reflexion** (Shinn et al., 2023): mantener memoria de errores previos.
+- **Constitutional AI** (Anthropic, 2022): la rúbrica incluye principios éticos/políticas organizacionales; el modelo reescribe para alinearse con ellos.
+
+### Prompt chaining: patrones
+
+| Patrón | Topología | Cuándo |
+|---|---|---|
+| **Sequential** | A → B → C | Pipeline con dependencias (extraer → clasificar → responder) |
+| **Parallel** | A, B, C en paralelo → agregar | Mismas entradas, perspectivas distintas (crítica legal, financiera, UX) |
+| **Map-Reduce** | split → map(f) → reduce | Documento largo → resumen por chunk → síntesis |
+| **Router** | clasificar → despachar a sub-prompt | Multi-intent (billing vs. tech vs. sales) |
+| **Reflection loop** | generate → critique → refine (hasta criterio) | Calidad > latencia |
+| **Branch & synthesize** (ToT) | expandir N ramas → evaluar → elegir/combinar | Problemas con múltiples enfoques |
+
+### Optimización automática del prompt
+
+| Framework | Idea central | Cuándo |
+|---|---|---|
+| **DSPy** (Stanford) | Programas declarativos (Signatures, Modules) + optimizadores (BootstrapFewShot, MIPROv2) que compilan prompts contra métricas | Pipelines multi-step con dataset etiquetado |
+| **APE** (Automatic Prompt Engineer, Zhou et al. 2022) | Modelo genera candidatos de prompt; evalúa; selecciona el mejor | Un solo prompt, baseline rápido |
+| **OPRO** (Google, Yang et al. 2023) | LLM como optimizador itera prompts guiado por histórico de scores | Benchmarks con métrica clara |
+| **TextGrad** (Stanford, 2024) | "Backprop" de feedback natural a prompts | Pipelines complejos |
+
+### Hallucination mitigation y grounding
+
+| Técnica | Qué hace |
+|---|---|
+| **RAG** | Inyecta fuentes recuperadas en el contexto |
+| **Citation forzada** | Prompt exige `[fuente_id]` tras cada afirmación; valida que exista |
+| **Faithfulness scoring** | Métrica (RAGAS, DeepEval) que mide % de afirmaciones soportadas por fuentes |
+| **Self-consistency** | Muestrea N respuestas, elige la mayoritaria |
+| **Chain-of-Verification** (CoVe, Dhuliawala 2023) | Modelo genera preguntas de verificación sobre su propia respuesta, las responde, corrige |
+| **Abstention** | Prompt instruye *"responde 'no sé' si no está en las fuentes"* y se refuerza con validador |
+
+## Ejemplo con código
+
+### 1. Meta-prompting con criterio de parada
 
 ```python
 from openai import OpenAI
-import re
+client = OpenAI()
 
-def meta_cognitive_review(document, document_type, focus_areas, quality_checklist):
-  print("Starting initial analysis...")
+def self_refine(task: str, rubric: str, max_iters=3, min_gain=0.05):
+    answer = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": task}]
+    ).choices[0].message.content
 
-  # Initial analysis
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-  )
-
-  initial_response = client.chat.completions.create(
-      model="gpt-5-mini",
-      messages=[{"role": "user", "content": f"""
-      Analyze this {document_type} document for potential issues:
-      {document}
-
-      Focus on: {focus_areas}
-      """}]
-  )
-  initial_review = initial_response.choices[0].message.content
-
-  print("Performing self-evaluation...")
-
-  # Self-evaluation layer
-  meta_response = client.chat.completions.create(
-      model="gpt-5-mini",
-      messages=[{"role": "user", "content": f"""
-      Review this analysis: {initial_review}
-
-      Evaluate completeness using these criteria:
-      {quality_checklist}
-
-      Rate confidence (1-10) for each major point.
-      Identify any gaps or areas needing deeper analysis.
-      Suggest improvements to the analysis.
-      """}]
-  )
-  meta_evaluation = meta_response.choices[0].message.content
-
-  print("Synthesizing final analysis...")
-
-  # Synthesis with improvements
-  final_response = client.chat.completions.create(
-      model="gpt-5-mini",
-      messages=[{"role": "user", "content": f"""
-      Based on the initial analysis: {initial_review}
-      And the self-evaluation: {meta_evaluation}
-
-      Provide the final, improved analysis incorporating identified improvements.
-      """}]
-  )
-  final_output = final_response.choices[0].message.content
-
-  # Extract confidence scores using simple regex
-  confidence_scores = re.findall(r'confidence.*?(\d+)', meta_evaluation.lower())
-  avg_confidence = sum(int(score) for score in confidence_scores) / len(confidence_scores) if confidence_scores else 7
-
-  return {
-      'analysis': final_output,
-      'average_confidence': avg_confidence,
-      'meta_evaluation': meta_evaluation
-  }
-
-# Example usage - technical document review
-document = """
-Our API handles user authentication through JWT tokens. Users login with username/password,
-receive a token valid for 24 hours. The token contains user ID and role information.
-All protected endpoints verify the token before processing requests.
-"""
-
-result = meta_cognitive_review(
-  document=document,
-  document_type="technical specification",
-  focus_areas="Security vulnerabilities, implementation gaps, scalability concerns",
-  quality_checklist="Token security, password handling, session management, error handling, rate limiting"
-)
-
-print("=== META DOCUMENT REVIEW ===")
-print(f"\nOriginal Document: {document}")
-print(f"\nFinal Analysis: {result['analysis']}")
-print(f"\nAverage Confidence: {result['average_confidence']:.1f}/10")
-print(f"\nSelf-Evaluation Insights: {result['meta_evaluation']}")
+    history, last_score = [], 0.0
+    for i in range(max_iters):
+        crit = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content":
+                f"Evalúa esta respuesta contra la rúbrica.\n"
+                f"RÚBRICA:\n{rubric}\n\nRESPUESTA:\n{answer}\n\n"
+                f"Devuelve JSON: {{\"score\":0..1,\"gaps\":[...],\"suggestions\":[...]}}."
+            }],
+            response_format={"type": "json_object"},
+        ).choices[0].message.content
+        import json; data = json.loads(crit)
+        score, gaps = data["score"], data["gaps"]
+        history.append({"iter": i, "score": score, "answer": answer})
+        if score - last_score < min_gain and i > 0:
+            break                        # ganancia marginal, parar
+        last_score = score
+        answer = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content":
+                f"Mejora la siguiente respuesta atendiendo los gaps.\n"
+                f"GAPS:\n{gaps}\n\nRESPUESTA ACTUAL:\n{answer}"}]
+        ).choices[0].message.content
+    return answer, history
 ```
 
-Meta patterns prove especially valuable in production environments where output quality directly impacts business outcomes. A financial analysis AI that can identify when its market predictions lack sufficient data, or a medical AI that recognizes when symptoms do not fit standard diagnostic patterns, provides crucial reliability signals that basic prompting cannot achieve.
-
-The constitutional AI pattern extends meta prompting by embedding explicit ethical and behavioral principles into the self-evaluation process. Instead of evaluating only for accuracy or completeness, the system also checks alignment with predefined values and guidelines. This approach proves essential for AI systems deployed in sensitive domains where adherence to organizational policies and ethical standards is critical.
-
-Recursive Prompting For Continuous Improvement
-Recursive prompting creates AI systems that improve through iterative refinement, where each output becomes input for further enhancement. This technique mirrors how human experts approach complex problems—making an initial attempt, reviewing the result, identifying improvements, and iterating until reaching satisfactory quality.
-
-The power of recursive prompting lies in its ability to handle tasks that are too complex for single-pass processing. Rather than overwhelming the AI with enormous prompts containing every possible consideration, recursive approaches break complex tasks into manageable iterations, each building on previous work.
-
-Consider developing a comprehensive market research report. A recursive approach might start with broad market overview generation, then iteratively refine by adding competitive analysis, then customer segmentation insights, then risk assessment, with each iteration building on and improving the previous version.
+### 2. Prompt chaining map-reduce para documentos largos
 
 ```python
-from openai import OpenAI
+from concurrent.futures import ThreadPoolExecutor
 
-def recursive_improvement(initial_content, improvement_criteria, max_iterations=3):
-  current_version = initial_content
-  iteration_history = []
+def chunk(text, size=4000, overlap=200):
+    for i in range(0, len(text), size - overlap):
+        yield text[i:i + size]
 
-  for iteration in range(max_iterations):
-      # Critique current version
-      client = OpenAI(
-          api_key="API_KEY",
-          base_url="BASE_URL",
-      )
-      critique_response = client.chat.completions.create(
-          model="gpt-5-mini",
-          messages=[{"role": "user", "content": f"""
-          Evaluate this content: {current_version}
+def map_summarize(chunk_text):
+    return client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content":
+            f"Resume en 5 bullets factuales. Si falta contexto, "
+            f"escribe '[contexto insuficiente]'.\n\n{chunk_text}"}],
+        temperature=0,
+    ).choices[0].message.content
 
-          Quality criteria: {improvement_criteria}
+def reduce_merge(partials):
+    joined = "\n\n---\n\n".join(partials)
+    return client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content":
+            f"Sintetiza estos resúmenes parciales en uno coherente, "
+            f"eliminando repeticiones y conservando toda cifra concreta.\n\n{joined}"}],
+        temperature=0,
+    ).choices[0].message.content
 
-          Identify specific areas for improvement:
-          1. Content gaps or missing information
-          2. Logical inconsistencies or weak arguments
-          3. Unclear explanations or confusing sections
-          4. Opportunities for better structure or flow
-
-          Provide specific, actionable improvement suggestions.
-          """}]
-      )
-      critique = critique_response.choices[0].message.content
-
-      # Generate improved version
-      improvement_response = client.chat.completions.create(
-          model="gpt-5-mini",
-          messages=[{"role": "user", "content": f"""
-          Improve this content based on the critique:
-
-          Original: {current_version}
-          Critique: {critique}
-
-          Generate an enhanced version that addresses the identified issues
-          while maintaining all valuable content from the original.
-          """}]
-      )
-      improved_version = improvement_response.choices[0].message.content
-
-      iteration_history.append({
-          'version': iteration + 1,
-          'critique': critique,
-          'improvements': improved_version
-      })
-
-      current_version = improved_version
-
-      # Simple stopping condition - just run all iterations
-      print(f"Iteration {iteration + 1} completed")
-
-  return {
-      'final_version': current_version,
-      'iteration_history': iteration_history
-  }
-
-# Example usage
-initial_content = "Our product helps businesses manage their data more efficiently."
-criteria = "Technical accuracy, clarity for business audiences, compelling value proposition"
-
-result = recursive_improvement(initial_content, criteria, max_iterations=2)
-
-print("=== RECURSIVE CONTENT IMPROVEMENT ===")
-print(f"\nOriginal: {initial_content}")
-print(f"\nFinal Version: {result['final_version']}")
-
-for i, iteration in enumerate(result['iteration_history']):
-  print(f"\n--- Iteration {iteration['version']} ---")
-  print(f"Critique: {iteration['critique'][:150]}...")
-  print(f"Improvement: {iteration['improvements'][:150]}...")
+def summarize_long(doc):
+    chunks = list(chunk(doc))
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        partials = list(ex.map(map_summarize, chunks))
+    return reduce_merge(partials)
 ```
 
-Recursive prompting particularly excels in creative and analytical domains where initial outputs serve as starting points rather than final answers. Software architecture design, strategic planning, creative writing, and research synthesis all benefit from iterative refinement that recursive prompting enables.
-
-The technique requires careful design to avoid infinite loops or degrading quality through excessive iteration. Effective implementations include clear termination criteria, quality tracking across iterations, and safeguards against circular reasoning or repetitive improvements.
-
-Advanced Reasoning Architectures
-Traditional chain-of-thought reasoning works linearly, moving step-by-step toward a solution. Advanced reasoning architectures like Tree-of-Thoughts and Graph-of-Thoughts enable AI systems to explore multiple solution paths simultaneously, backtrack when approaches prove unsuccessful, and synthesize insights from different reasoning branches.
-
-Tree-of-Thoughts reasoning creates branching exploration of solution spaces, allowing AI systems to consider multiple approaches before committing to a final answer. This technique proves invaluable for problems with multiple valid solutions or where the optimal approach is not immediately obvious.
-
-Graph-of-Thoughts extends this concept by recognizing that complex problems often involve interconnected considerations that influence each other. Rather than exploring isolated reasoning branches, Graph-of-Thoughts maintains awareness of relationships between different aspects of the problem.
-
-Consider using these techniques for strategic business decision-making. A Tree-of-Thoughts approach might explore different market entry strategies (direct competition, niche focus, partnership approach), evaluating each path's requirements, risks, and potential outcomes before recommending the most promising direction.
-
-A Graph-of-Thoughts approach would recognize that market entry strategy interacts with pricing strategy, which influences competitive positioning, which affects resource requirements, which impacts timeline feasibility—maintaining awareness of these interconnections throughout the analysis.
+### 3. Router + chaining con LangChain-style composición manual
 
 ```python
-from openai import OpenAI
-import re
+def classify(query: str) -> str:
+    r = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content":
+            f"Clasifica la intención en una de: billing, tech, sales, other. "
+            f"Devuelve solo la etiqueta.\n\nQuery: {query}"}],
+        temperature=0,
+    )
+    return r.choices[0].message.content.strip().lower()
 
-client = OpenAI(
-  api_key="API_KEY",
-  base_url="BASE_URL",
-)
-
-def tree_of_thoughts_analysis(problem, solution_branches):
-  explored_paths = {}
-
-  for branch_name, branch_approach in solution_branches.items():
-      print(f"Exploring {branch_name} approach...")
-
-      # Explore this reasoning branch
-      branch_response = client.chat.completions.create(
-          model="gpt-5-mini",
-          messages=[{"role": "user", "content": f"""
-          Analyze this problem using the {branch_name} approach:
-          Problem: {problem}
-          Approach: {branch_approach}
-
-          Develop complete reasoning following this approach.
-          Consider assumptions, requirements, risks, and outcomes.
-          Rate feasibility and potential effectiveness (1-10).
-          """}]
-      )
-      branch_analysis = branch_response.choices[0].message.content
-
-      # Extract feasibility score using simple regex
-      feasibility_match = re.search(r'feasibility.*?(\d+)', branch_analysis.lower())
-      feasibility_score = int(feasibility_match.group(1)) if feasibility_match else 5
-
-      explored_paths[branch_name] = {
-          'analysis': branch_analysis,
-          'feasibility_score': feasibility_score
-      }
-
-  # Format branches for comparison
-  comparison_text = ""
-  for name, data in explored_paths.items():
-      comparison_text += f"\n{name}: {data['analysis'][:200]}...\n"
-
-  # Synthesize insights across branches
-  synthesis_response = client.chat.completions.create(
-      model="gpt-5-mini",
-      messages=[{"role": "user", "content": f"""
-      Compare these different approaches:
-      {comparison_text}
-
-      Identify:
-      1. Strengths and weaknesses of each approach
-      2. Complementary insights that could be combined
-      3. Most promising overall direction with rationale
-      4. Hybrid approaches that leverage multiple strategies
-      """}]
-  )
-  synthesis = synthesis_response.choices[0].message.content
-
-  return {
-      'individual_analyses': explored_paths,
-      'comparative_synthesis': synthesis
-  }
-
-# Example usage - software architecture decision
-problem = "Design a real-time chat system for 10,000 concurrent users"
-
-solution_branches = {
-  "microservices": "Break into small, independent services for chat, users, notifications",
-  "monolithic": "Single application with optimized database connections and caching",
-  "serverless": "Event-driven functions with managed messaging services",
-  "hybrid": "Core services as containers with serverless for peak load handling"
+HANDLERS = {
+    "billing": "Eres experto en facturación. Pide número de factura.",
+    "tech":    "Eres soporte técnico. Pide error exacto y pasos.",
+    "sales":   "Eres consultor comercial. Pregunta por caso de uso.",
+    "other":   "Deriva amablemente a soporte general.",
 }
 
-result = tree_of_thoughts_analysis(problem, solution_branches)
-
-print("=== TREE OF THOUGHTS ANALYSIS ===")
-print(f"\nProblem: {problem}")
-
-print("\n--- Individual Analyses ---")
-for approach, data in result['individual_analyses'].items():
-  print(f"\n{approach.upper()} (Feasibility: {data['feasibility_score']}/10):")
-  print(f"{data['analysis'][:300]}...")
-
-print(f"\n--- Synthesis ---")
-print(result['comparative_synthesis'])
+def route_and_respond(query):
+    intent = classify(query)
+    system = HANDLERS.get(intent, HANDLERS["other"])
+    return client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "system", "content": system},
+                  {"role": "user", "content": query}],
+    ).choices[0].message.content
 ```
 
-These advanced reasoning architectures require significantly more computational resources than linear approaches but provide correspondingly sophisticated analysis capabilities. They excel in strategic planning, complex diagnosis, creative problem-solving, and any domain where multiple perspectives provide valuable insights.
+### 4. DSPy: Chain-of-Thought compilado contra una métrica
 
-Domain-Specific Mastery Enables Professional-Grade Performance
-Advanced prompt engineering techniques reach their full potential when specialized for specific professional domains. Generic prompting patterns provide broad capabilities, but domain-specific techniques leverage the unique patterns, terminology, and quality standards of professional fields to achieve expert-level performance.
+```python
+import dspy
 
-Code generation represents one of the most mature domain-specific applications. Advanced code generation techniques go far beyond basic function writing to encompass architecture design, testing strategy, documentation generation, and performance optimization. These systems understand not just syntax but also software engineering best practices, security considerations, and maintainability requirements.
+lm = dspy.LM("openai/gpt-4o-mini")
+dspy.configure(lm=lm)
 
-A production-ready code generation system might analyze requirements, generate initial implementation, create comprehensive test coverage, identify potential security vulnerabilities, suggest performance optimizations, and generate documentation—all while adhering to team coding standards and architectural patterns.
+class ClassifyIntent(dspy.Signature):
+    """Clasifica la intención de un ticket de soporte."""
+    ticket: str = dspy.InputField()
+    intent: str = dspy.OutputField(desc="billing | tech | sales | other")
 
-Research and analysis frameworks represent another sophisticated domain application. These systems understand research methodologies, source evaluation criteria, citation standards, and the logical flow required for persuasive academic or business analysis. They can systematically investigate complex topics, synthesize findings from multiple sources, identify knowledge gaps, and present conclusions with appropriate confidence levels.
+class Pipeline(dspy.Module):
+    def __init__(self):
+        self.cot = dspy.ChainOfThought(ClassifyIntent)
 
-Creative control systems manage the unique challenges of AI-generated creative content, balancing originality with brand requirements, maintaining tonal consistency across long-form content, and providing creators with fine-grained control over style, themes, and creative direction.
+    def forward(self, ticket):
+        return self.cot(ticket=ticket)
 
-Business intelligence prompting specializes in data-driven analysis, understanding financial metrics, market dynamics, competitive intelligence frameworks, and strategic planning methodologies. These systems can transform raw business data into actionable insights with appropriate executive-level communication.
+# Dataset etiquetado
+train = [dspy.Example(ticket="no me llegó la factura de marzo",   intent="billing").with_inputs("ticket"),
+         dspy.Example(ticket="la API devuelve 500 al llamar /x",  intent="tech").with_inputs("ticket"),
+         dspy.Example(ticket="quiero una demo del plan Pro",       intent="sales").with_inputs("ticket")]
 
-Common Pitfalls and Solutions
-Advanced prompt engineering techniques introduce sophisticated capabilities but also new categories of potential failures. Understanding these pitfalls enables robust production implementation.
+def accuracy(ex, pred, trace=None):
+    return ex.intent.lower() == pred.intent.lower()
 
-Recursive improvement loops can degrade quality if termination criteria are poorly designed. Solutions include implementing quality tracking across iterations, setting maximum iteration limits, and using confidence thresholds to determine when further improvement becomes counterproductive.
+optimizer = dspy.BootstrapFewShotWithRandomSearch(
+    metric=accuracy, max_bootstrapped_demos=4, num_candidate_programs=8
+)
+compiled = optimizer.compile(Pipeline(), trainset=train)
+print(compiled(ticket="no puedo entrar a mi cuenta").intent)
+```
 
-Meta evaluation can become circular or overly critical, leading to analysis paralysis rather than improved outputs. Effective implementations focus evaluation on specific, actionable criteria and maintain balance between critical analysis and practical utility.
+DSPy **genera y optimiza el prompt automáticamente** incluyendo demos few-shot que maximizan la métrica. Cambiar `BootstrapFewShotWithRandomSearch` por `MIPROv2` usa un optimizador bayesiano más potente.
 
-Advanced reasoning architectures can become computationally expensive without proportional quality improvements. Production implementations require cost-benefit analysis to determine when sophisticated reasoning approaches justify their resource requirements versus simpler alternatives.
+### 5. Tree-of-Thoughts simplificado
 
-Domain-specific techniques risk over-specialization that reduces flexibility. Successful implementations maintain core reasoning capabilities while adding domain expertise, enabling systems to handle edge cases and novel situations that fall outside specialized training.
+```python
+def tot(problem, branches: dict, k_best=1):
+    scores = {}
+    for name, strategy in branches.items():
+        r = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content":
+                f"Problema: {problem}\nEstrategia: {strategy}\n"
+                f"Desarrolla la solución y auto-asigna un score 0-10. "
+                f"Devuelve JSON {{\"solution\":...,\"score\":...}}."}],
+            response_format={"type": "json_object"},
+            temperature=0.7,
+        )
+        import json; d = json.loads(r.choices[0].message.content)
+        scores[name] = d
+    best = sorted(scores.items(), key=lambda kv: -kv[1]["score"])[:k_best]
+    return best, scores
+```
 
-Summary
-Advanced prompt engineering techniques transform AI applications from simple question-answering systems into sophisticated reasoning platforms capable of professional-grade performance. These techniques enable self-reflective systems that improve their own outputs, recursive architectures that refine solutions through iteration, and specialized domain applications that meet expert-level standards.
+### 6. Hallucination detection con faithfulness (RAGAS)
 
-Key concepts to remember
-Meta Prompting for Self-Awareness - Meta prompting creates self-aware AI systems that evaluate and improve their own outputs through structured reflection frameworks
-Recursive Prompting for Refinement - Recursive prompting enables continuous improvement through iterative refinement, particularly valuable for complex creative and analytical tasks
-Advanced Reasoning Architectures - Advanced reasoning architectures like Tree-of-Thoughts and Graph-of-Thoughts explore multiple solution paths and maintain awareness of interconnected problem aspects
-Domain-Specific Mastery - Domain-specific techniques achieve professional-grade performance by leveraging specialized knowledge, terminology, and quality standards
-Production Implementation Considerations - Production implementation requires careful consideration of computational costs, quality metrics, and failure modes specific to each advanced technique
-Balance Sophistication with Reliability - Successful advanced systems balance sophistication with reliability, providing enterprise-level capabilities while maintaining robust error handling and performance monitoring
+```python
+# pip install ragas datasets
+from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy, context_precision
+from datasets import Dataset
+
+sample = Dataset.from_dict({
+    "question":      ["¿Cuántos empleados tiene Acme en 2024?"],
+    "answer":        ["Acme tiene 1,250 empleados a cierre de 2024."],
+    "contexts":      [["Al 31 dic 2024, Acme reportó 1,250 empleados totales."]],
+    "ground_truth":  ["1,250 empleados"],
+})
+report = evaluate(sample, metrics=[faithfulness, answer_relevancy, context_precision])
+print(report)
+```
+
+`faithfulness` baja si la respuesta contiene afirmaciones no soportadas por `contexts`. Úsalo como gate en CI y como monitor en producción (sampleando respuestas).
+
+### 7. Chain-of-Verification para reducir alucinación
+
+```python
+def cove(question):
+    draft = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": question}]
+    ).choices[0].message.content
+
+    # 1) El modelo propone preguntas de verificación sobre su propia respuesta
+    verify_qs = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content":
+            f"Dada esta respuesta:\n{draft}\n\n"
+            f"Lista 5 preguntas de verificación atómicas y falsables."}],
+    ).choices[0].message.content
+
+    # 2) Las responde independientemente
+    answers = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content":
+            f"Responde cada pregunta de forma breve y conservadora. "
+            f"Si no estás seguro, di 'no sé'.\n\n{verify_qs}"}],
+    ).choices[0].message.content
+
+    # 3) Revisa la respuesta inicial a la luz de las verificaciones
+    final = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content":
+            f"Pregunta original: {question}\n"
+            f"Borrador: {draft}\n"
+            f"Verificaciones: {answers}\n\n"
+            f"Reescribe el borrador eliminando toda afirmación no verificada."}]
+    ).choices[0].message.content
+    return final
+```
+
+### 8. Grounding con citas forzadas y validación
+
+```python
+import re
+
+SYSTEM = """Responde ÚNICAMENTE con información de las fuentes.
+Cada afirmación factual debe terminar con [S<id>]. Si no hay fuente
+que respalde una afirmación, no la incluyas. Si no puedes responder,
+di literalmente: 'No tengo información suficiente'."""
+
+def answer_with_citations(question, sources):
+    ctx = "\n".join(f"[S{i}] {s}" for i, s in enumerate(sources))
+    r = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "system", "content": SYSTEM},
+                  {"role": "user", "content": f"Fuentes:\n{ctx}\n\nPregunta: {question}"}],
+        temperature=0,
+    ).choices[0].message.content
+
+    # Validar que toda cita referencie una fuente existente
+    used = set(int(x) for x in re.findall(r"\[S(\d+)\]", r))
+    if any(i >= len(sources) for i in used):
+        raise ValueError("El modelo citó una fuente inexistente")
+    return r
+```
+
+## Errores comunes
+
+### Meta-prompting sin criterio de parada ⇒ loops infinitos
+
+El bucle "crítica → refina → crítica" puede oscilar sin converger o incluso degradar. Mitigaciones:
+
+- `max_iters` duro (3-5).
+- Tracking de score con parada por **ganancia marginal < umbral**.
+- Validación de que la versión N no sea peor que N-1 (si lo es, quédate con N-1).
+
+### Chains sin manejo de errores por paso
+
+Un chain de 5 pasos tiene 5 puntos de fallo. Sin try/retry/fallback por paso, un timeout rompe todo. Usa:
+
+- Retry exponencial por llamada.
+- Fallback a modelo más barato o respuesta por defecto.
+- Logging estructurado del output intermedio para debuggear.
+
+### Prompt chaining cuando bastaba un solo prompt
+
+Partir un prompt en 5 llamadas multiplica latencia y costo. Antes de encadenar, prueba que un prompt bien estructurado no resuelva el problema. Encadena solo cuando:
+
+- Hay descomposición natural con dependencias.
+- Los pasos intermedios necesitan tools distintos.
+- Necesitas control fino de un paso (p.ej. clasificación con alta precisión).
+
+### DSPy sin dataset de calidad
+
+DSPy optimiza contra la **métrica que le des**. Si tu dataset es ruidoso o la métrica es `exact_match` cuando el problema es generativo, el optimizado será basura con confianza. Invierte en 50-200 ejemplos limpios antes de compilar.
+
+### Tree-of-Thoughts aplicado a problemas simples
+
+ToT multiplica el costo por 5-20x. Para clasificación o Q&A directo, es desperdicio. Reserva ToT para planeación, diseño, debugging de problemas donde "la primera idea" históricamente falla.
+
+### No separar razonamiento de respuesta en citation
+
+Si el modelo responde libre y luego "le pides citas", inventa. La citation efectiva **exige** que cada afirmación nazca con su `[fuente_id]` y valida programáticamente que las fuentes existen.
+
+### Confiar en self-consistency sin diversidad
+
+Muestrear 10 respuestas con `temperature=0` da 10 respuestas idénticas. Self-consistency requiere `temperature >= 0.7` y suficiente varianza para que el voto mayoritario tenga sentido.
+
+### No medir faithfulness en producción
+
+Un sistema RAG puede verse bien en demos y alucinar en 15% de queries reales. Muestrea 1-5% del tráfico, pásalo por `faithfulness` (RAGAS, DeepEval, Ragas) y alerta si baja de un umbral.
+
+### Grounding sin control de abstención
+
+Prompts que dicen *"responde con las fuentes"* pero no refuerzan *"di 'no sé' si no están"* producen respuestas inventadas cuando el retrieval falla. La abstención debe ser:
+
+- Instruida en el prompt.
+- Validada post-hoc (si no hay citas, rechazar o devolver "no sé").
+- Medida como KPI (tasa de abstención sana ~5-15% en RAG real).
+
+### Compilar DSPy una vez y nunca más
+
+Datos y modelos cambian. Recompila periódicamente contra un conjunto de evaluación actualizado, con la misma disciplina que reentrenas un modelo ML tradicional.
+
+## Resumen
+
+- **Meta-prompting / self-refine** mejora calidad vía auto-crítica; limita iteraciones y mide ganancia marginal para evitar loops.
+- **Prompt chaining** descompone problemas: patrones sequential, parallel, map-reduce, router, reflection, branch-and-synthesize.
+- **Tree/Graph-of-Thoughts** explora múltiples trayectorias cuando el problema lo justifica (costo 5-50x).
+- **DSPy** convierte prompts en programas declarativos (Signatures, Modules) y **compila** contra una métrica con optimizadores (BootstrapFewShot, MIPROv2).
+- **APE / OPRO / TextGrad** son alternativas de optimización automática del prompt mismo.
+- **Alucinación** se mitiga con: grounding (RAG), citas forzadas y validadas, Chain-of-Verification, self-consistency, abstención instruida, faithfulness scoring (RAGAS/DeepEval).
+- **Constitutional AI** (Anthropic) extiende meta-prompting embebiendo principios de valor en la auto-evaluación.
+- Técnicas avanzadas no son gratis: miden en latencia, dólares y complejidad. Úsalas solo cuando el costo se justifica contra el valor.
+- Combinadas con las defensas de la Lección 2 (guardrails, PII, injection) y la rigor estadístico de la Lección 1 (A/B tests), forman la base de un sistema de LLM listo para producción.

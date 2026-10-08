@@ -1,132 +1,333 @@
-## Introduction
-Imagine deploying a customer support chatbot that confidently tells users your product has features that do not exist. This scenario illustrates one of the most critical challenges in modern AI development: Large Language Models (LLMs) "hallucinate" - generating plausible-sounding but factually incorrect information.
+# ¿Qué es RAG (Retrieval-Augmented Generation)?
 
-As developers building AI applications, we need models that are both helpful and truthful. This is where Retrieval-Augmented Generation (RAG) becomes essential. RAG transforms LLMs from confident guessers into informed responders by giving them access to reliable, up-to-date information sources.
+## ¿Qué es?
 
-In this lesson, you'll understand why RAG exists as a solution to LLM limitations and when to choose RAG over fine-tuning.
+**RAG (Retrieval-Augmented Generation)** es una arquitectura que combina un **sistema de recuperación de información** con un **modelo generativo** (típicamente un LLM). En vez de pedirle al modelo que responda únicamente desde los pesos aprendidos durante su entrenamiento, primero se **buscan documentos relevantes** en una base de conocimiento externa y se **inyectan como contexto** en el prompt. El LLM entonces genera la respuesta **anclada** (grounded) en esos documentos.
 
-Problem with LLM Hallucinations
-LLMs have inherent limitations that directly impact production applications:
+Formalmente, un sistema RAG descompone la generación `P(y | x)` en:
 
-Knowledge Cutoffs: Every LLM has a training cutoff date. GPT-4 does not know about events after its training ended, creating gaps between what the model "knows" and current reality.
+```
+P(y | x) ≈ Σ_z P(y | x, z) · P(z | x)
+            └─ generador ─┘   └ recuperador ┘
+```
 
-Training Data Limitations: LLMs learn patterns but do not have perfect recall of specific facts. They confidently provide plausible-sounding information that's actually incorrect, especially for niche topics or precise details.
+- `x` es la consulta (query) del usuario.
+- `z` son los documentos candidatos recuperados.
+- `P(z | x)` es la probabilidad de relevancia (modelada por el **retriever**, típicamente con embeddings y búsqueda de similitud).
+- `P(y | x, z)` es la generación condicionada en query + contexto (el **generator**, un LLM).
 
-No Built-in Uncertainty: LLMs generate responses with consistent confidence regardless of whether they actually "know" the answer. Unlike humans who say "I'm not sure," LLMs provide confident responses even when making things up.
+Esta formulación proviene del paper fundacional de **Lewis et al., 2020** ("Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks", Facebook AI), que acuñó el término y mostró que separar "qué sé" de "cómo lo digo" mejora drásticamente la precisión en tareas de QA.
 
-Examples: Common Hallucination Scenarios
+### Analogía: examen con libro abierto
 
-Customer Support Bot
+Un LLM puro es como un estudiante contestando un examen **de memoria**: puede equivocarse, inventar o quedarse desactualizado. Un sistema RAG es ese mismo estudiante pero con **el libro de texto abierto**: antes de contestar, busca la página relevante y escribe su respuesta citando lo que leyó.
 
-Query: "How do I handle refund requests in our company's system?"
+### Componentes mínimos
 
-LLM Response: "Access the admin panel, navigate to Orders > Refunds, select the order ID, and click 'Process Full Refund'."
+```
+                 ┌──────────────────────────────────────────┐
+Usuario ──query──▶  1. Embedder (query → vector)            │
+                 │  2. Vector DB (búsqueda top-k)           │
+                 │  3. Context assembly (chunks + query)    │
+                 │  4. LLM (prompt → respuesta)             │
+                 └──────────────────────────────────────────┘
+                                   │
+                                   ▼
+                           Respuesta con citas
+```
 
-❌ Reality: The LLM has no knowledge of your specific system, creating fictional procedures that could mislead staff.
+Y en paralelo, el **pipeline de ingesta** (offline):
 
-Legal Document Assistant
+```
+Docs crudos → Loader → Chunker → Embedder → Vector DB
+```
 
-Query: "What's the GDPR data retention requirement for healthcare apps?"
+## ¿Por qué importa?
 
-LLM Response: "GDPR requires healthcare applications to retain patient data for a maximum of 7 years with automatic deletion."
+Los LLMs "puros" (sin recuperación) tienen tres limitaciones estructurales que RAG resuelve.
 
-❌ Reality: GDPR compliance varies by jurisdiction and the model might mix general rules with incorrect healthcare-specific requirements.
+### 1. Knowledge cutoff
 
-Financial Advisory Chatbot
+Todo LLM se entrena hasta una fecha de corte. GPT-4 Turbo tiene cutoff en abril 2023, Claude 3.5 Sonnet en abril 2024, etc. Preguntarle "¿quién ganó el Mundial 2026?" devuelve una **negativa o una invención**. RAG permite inyectar datos **frescos** (noticias, reportes financieros publicados ayer) sin reentrenar el modelo.
 
-Query: "Should I invest in cryptocurrency given current 2024 market conditions?"
+### 2. Hallucinations (alucinaciones)
 
-LLM Response: "Bitcoin has shown 15% growth this quarter. Consider allocating 20% of your portfolio to crypto assets."
+Los LLMs están entrenados para **sonar plausibles**, no para ser verídicos. Cuando no "saben" algo, siguen generando: inventan APIs, citas, autores, fechas, incluso DOIs falsos de papers. RAG mitiga esto porque:
 
-❌ Reality: The model has no access to real-time market data and is providing potentially fabricated financial advice.
+- La respuesta se construye desde documentos reales.
+- Se pueden mostrar **citas** y permitir al usuario verificar.
+- Si no hay documentos relevantes, un buen sistema RAG responde *"no tengo información suficiente"* en vez de improvisar.
 
-RAG vs. Fine-tuning
-When building AI applications, you have two main approaches to enhance LLM capabilities. Understanding when to use each is crucial for project success:
+### 3. Conocimiento privado / específico de dominio
 
-RAG: Adding Knowledge
-What it does: Gives LLMs access to external information without changing the model itself.
+El LLM nunca vio tu **wiki interna**, los contratos de tu empresa, la documentación de tu API privada, los tickets de soporte de los últimos 2 años. RAG es la forma estándar de darle al modelo acceso a ese corpus **sin fine-tuning**.
 
-Best for:
+### RAG vs. Fine-tuning
 
-Current information (news, documentation, databases)
-Large knowledge bases that change frequently
-When you need to cite sources
-Quick prototyping and fast time-to-market
-Costs: Low setup cost, updates are free, but each query requires multiple API calls (embedding + retrieval + generation)
+| Dimensión | RAG | Fine-tuning |
+|---|---|---|
+| **Qué cambia** | El contexto en runtime | Los pesos del modelo |
+| **Latencia por query** | +100-500 ms (retrieval) | Igual que modelo base |
+| **Costo de setup** | Bajo (indexar docs) | Alto (GPUs + data labeling) |
+| **Costo de actualizar** | Casi cero (re-indexar) | Alto (reentrenar) |
+| **Mejor para** | Conocimiento factual, cambiante, citado | Estilo, formato, razonamiento especializado |
+| **Transparencia** | Alta (hay fuentes) | Baja (caja negra) |
+| **Riesgo de alucinación** | Reducido si retrieval es bueno | No se reduce |
 
-Fine-tuning: Changing Behavior
-What it does: Retrains the model to think or respond in specific ways.
+En la práctica son **complementarios**: se puede hacer fine-tuning para el *tono* y usar RAG para los *hechos*.
 
-Best for:
+### Contexto histórico
 
-Custom reasoning patterns for your domain
-Consistent brand voice and style
-Specialized tasks requiring domain expertise
-High-volume applications (millions of queries) where per-request cost matters
-Costs: High setup cost, cheap per-request cost (only one API call), but expensive to update
+- **2020:** Lewis et al. publican el paper original de RAG en NeurIPS.
+- **2022:** aparece **LangChain** (octubre) y popular una abstracción "chain" sobre RAG.
+- **2023:** boom tras GPT-4 (marzo). Pinecone, Weaviate, Qdrant escalan masivamente. **LlamaIndex** emerge como framework dedicado a RAG.
+- **2024:** context windows crecen (GPT-4 Turbo 128K, Claude 3 200K, Gemini 1.5 1M-2M). Surge el debate "¿RAG o long-context?". Respuesta pragmática: **RAG sigue ganando** por costo, latencia, precisión y actualización incremental.
+- **2025:** auge de **agentic RAG** (el agente decide cuándo/qué buscar), **GraphRAG** (Microsoft), re-rankers híbridos.
 
-Making the Right Choice
+## ¿Cómo funciona?
 
-Choose RAG when:
-You need access to current, changing information
-You want to cite sources for responses
-You have budget constraints or need fast deployment
+### Pipeline detallado
 
-Choose Fine-tuning when:
-You need specialized reasoning or domain expertise
-You want consistent style and formatting
-You have stable requirements and high query volume
-Consider Hybrid when:
+```
+┌─────────────────────── OFFLINE (ingesta) ───────────────────────┐
+│                                                                  │
+│  Documentos (PDF, HTML, MD, Notion, Confluence, SQL, APIs)      │
+│          │                                                       │
+│          ▼                                                       │
+│   Loaders (PyPDF, Unstructured, BeautifulSoup)                  │
+│          │                                                       │
+│          ▼                                                       │
+│   Chunking (fixed-size, recursive, semantic, markdown-aware)    │
+│          │                                                       │
+│          ▼                                                       │
+│   Embedding model (OpenAI, Cohere, BGE, E5, sentence-trans)     │
+│          │                                                       │
+│          ▼                                                       │
+│   Vector DB (Chroma, Pinecone, Qdrant, Weaviate, Milvus, pgv)   │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 
-You need both updated knowledge AND specialized behavior
-How RAG Works
-RAG addresses hallucination by fundamentally changing how LLMs access information:
+┌─────────────────────── ONLINE (query) ──────────────────────────┐
+│                                                                  │
+│  Query del usuario                                              │
+│          │                                                       │
+│          ▼                                                       │
+│   (Opcional) Query rewriting / HyDE / multi-query               │
+│          │                                                       │
+│          ▼                                                       │
+│   Embedding de la query (MISMO modelo que ingesta)              │
+│          │                                                       │
+│          ▼                                                       │
+│   Vector search (top-k por cosine / dot product)                │
+│          │                                                       │
+│          ▼                                                       │
+│   (Opcional) Re-ranker (Cohere Rerank, bge-reranker, LLM-judge) │
+│          │                                                       │
+│          ▼                                                       │
+│   Prompt assembly: system + context (chunks) + query            │
+│          │                                                       │
+│          ▼                                                       │
+│   LLM (GPT-4o, Claude, Llama, Mistral) → respuesta + citas      │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-The RAG Process:
-![RAG Process](https://hrcdn.net/ai-engineering/module-3/light/rag_pipeline.svg)
+### Prompt típico de RAG
 
-Pre-Process (Data Preparation):
-Document Ingestion: Raw documents are collected and preprocessed
-Text Chunking: Documents are split into smaller, manageable chunks
-Embedding Generation: Each chunk is converted to vector representation using embedding model
-Vector Storage: Embeddings are stored in vector database with metadata
+```
+Eres un asistente que responde únicamente con base en el CONTEXTO
+proporcionado. Si la respuesta no está en el contexto, di
+"No tengo información suficiente".
 
-Query Process (Real-time):
-User Query: User submits a question or request
-Query Embedding: Query is converted to vector representation using embedding model
-Vector Search: Similar vectors retrieved from knowledge base using similarity search
-Context Retrieval: Relevant documents/chunks retrieved based on vector similarity
-Prompt Construction: Retrieved context combined with original query to create enhanced prompt
-LLM Generation: Language model generates response using both training knowledge and retrieved context
-Response Delivery: Final answer provided to user with source references
+CONTEXTO:
+[chunk 1 — fuente: policies/refunds.md]
+...
+[chunk 2 — fuente: faq/returns.md]
+...
 
-The effectiveness of RAG depends heavily on embeddings that capture semantic meaning and vector databases that enable fast similarity search - both covered in upcoming lessons.
+PREGUNTA: {query_del_usuario}
 
-When NOT to Use RAG
+RESPUESTA (cita las fuentes entre corchetes):
+```
 
-Skip RAG for:
-Creative tasks: Writing, brainstorming, poetry (benefits from "hallucination")
-General chat: Casual conversation, common knowledge Q&A (adds unnecessary latency)
-Real-time apps: Gaming, voice assistants (retrieval adds 100-500ms delay)
-Subjective tasks: Personal recommendations, opinions (external docs do not help)
-Simple domains: Basic math, common programming (LLMs already handle well)
+### Métricas clave
 
-Simple test: Does this need specific, current, or specialized information the LLM could not know? If no, skip RAG.
+| Métrica | Qué mide | Cómo se evalúa |
+|---|---|---|
+| **Recall@k** | ¿Está el documento correcto en los top-k? | Dataset etiquetado (query → doc_id correcto) |
+| **MRR (Mean Reciprocal Rank)** | Posición promedio del primer resultado correcto | 1/rank |
+| **nDCG@k** | Calidad del ranking considerando posición | Ground truth graduado |
+| **Faithfulness** | ¿La respuesta está respaldada por el contexto? | Ragas, LLM-as-judge |
+| **Answer relevance** | ¿La respuesta contesta la pregunta? | Ragas, humanos |
+| **Context precision** | ¿Los chunks recuperados son relevantes? | Ragas |
 
-Common Pitfalls
-Over-relying on RAG: Not every query needs retrieval. Simple conversations or creative tasks work fine with pure LLMs.
+Frameworks de evaluación: **Ragas**, **TruLens**, **DeepEval**, **ARES**.
 
-Poor Retrieval Quality: RAG is only as good as retrieved information. Irrelevant context can harm response quality.
+### Cuándo usar RAG
 
-Context Limitations: Retrieved information must fit within LLM context windows alongside queries and responses.
+Elige RAG cuando:
 
-Summary
-RAG exists to solve LLM hallucination by providing access to verified, current information. It's essential when you need accurate, up-to-date responses rather than creative generation.
+- El conocimiento necesita **actualizarse** con frecuencia (docs internos, news, catálogo).
+- Debes **citar fuentes** (compliance, legal, salud).
+- El corpus es **grande** (no cabe en el context window).
+- Quieres **evitar reentrenamientos** costosos.
+- Necesitas **control de acceso** por documento (multi-tenancy).
 
-Next, we'll explore embeddings - the mathematical foundation that makes RAG retrieval possible - and vector databases that enable fast similarity search across knowledge bases.
+### Cuándo NO usar RAG
 
-Key concepts to remember
-RAG grounds LLM responses in verified, current information
-Choose RAG for knowledge needs, fine-tuning for behavioral changes
-RAG effectiveness depends on embeddings and vector databases (upcoming lessons)
-Quality retrieval is crucial for reliable RAG systems
+- **Tareas creativas puras:** poesía, brainstorming, ficción.
+- **Conversación casual:** small talk, charla general.
+- **Cálculo matemático / lógica pura:** mejor tool-calling (Python interpreter).
+- **Latencia ultra-baja (<50 ms):** retrieval añade overhead.
+- **Dominio ya cubierto:** el LLM base ya responde bien (ej. sintaxis básica de Python).
+
+## Ejemplo con código
+
+Ejemplo mínimo end-to-end usando **sentence-transformers** (embeddings local) y **ChromaDB** (vector DB in-process). Después, variante con **OpenAI** + **Qdrant**.
+
+```python
+# ============================================================
+# RAG mínimo: sentence-transformers + ChromaDB
+# ============================================================
+# pip install sentence-transformers chromadb
+
+from sentence_transformers import SentenceTransformer
+import chromadb
+
+# 1. Corpus de ejemplo (política de reembolsos de una empresa ficticia)
+docs = [
+    "Los reembolsos se procesan en 5-7 días hábiles tras aprobación.",
+    "Para solicitar un reembolso, el pedido debe tener menos de 30 días.",
+    "Los productos digitales no son reembolsables una vez descargados.",
+    "El horario de atención al cliente es de lunes a viernes 9-18 CST.",
+    "Para cambios de talla, usa el portal de devoluciones sin costo extra.",
+]
+ids = [f"doc_{i}" for i in range(len(docs))]
+
+# 2. Embedder (384 dims, rápido, open-source)
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
+embeddings = embedder.encode(docs, normalize_embeddings=True).tolist()
+
+# 3. Vector DB
+client = chromadb.Client()
+collection = client.create_collection(
+    name="policies",
+    metadata={"hnsw:space": "cosine"},  # métrica
+)
+collection.add(ids=ids, documents=docs, embeddings=embeddings)
+
+# 4. Query
+query = "¿Cuánto tardan en devolverme el dinero?"
+q_emb = embedder.encode([query], normalize_embeddings=True).tolist()
+results = collection.query(query_embeddings=q_emb, n_results=3)
+
+print("Chunks recuperados:")
+for doc, dist in zip(results["documents"][0], results["distances"][0]):
+    print(f"  [{1 - dist:.3f}] {doc}")
+
+# 5. Ensamblar prompt y llamar al LLM (pseudocódigo)
+context = "\n".join(f"- {d}" for d in results["documents"][0])
+prompt = f"""Responde únicamente con base en el CONTEXTO.
+Si no está la respuesta, di "no tengo información suficiente".
+
+CONTEXTO:
+{context}
+
+PREGUNTA: {query}
+RESPUESTA:"""
+
+# respuesta = openai_client.chat.completions.create(
+#     model="gpt-4o-mini",
+#     messages=[{"role": "user", "content": prompt}],
+# )
+# print(respuesta.choices[0].message.content)
+```
+
+### Variante producción: OpenAI + Qdrant
+
+```python
+# pip install openai qdrant-client
+from openai import OpenAI
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
+
+oai = OpenAI()
+qd = QdrantClient(url="http://localhost:6333")
+
+# Crear colección (text-embedding-3-small → 1536 dims)
+qd.recreate_collection(
+    collection_name="kb",
+    vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
+)
+
+def embed(texts: list[str]) -> list[list[float]]:
+    resp = oai.embeddings.create(model="text-embedding-3-small", input=texts)
+    return [d.embedding for d in resp.data]
+
+# Ingesta
+docs = ["...", "...", "..."]  # tu corpus
+vectors = embed(docs)
+qd.upsert(
+    collection_name="kb",
+    points=[
+        PointStruct(id=i, vector=v, payload={"text": t})
+        for i, (v, t) in enumerate(zip(vectors, docs))
+    ],
+)
+
+# Consulta
+query = "¿Política de reembolso para productos digitales?"
+q_vec = embed([query])[0]
+hits = qd.search(collection_name="kb", query_vector=q_vec, limit=4)
+
+context = "\n\n".join(h.payload["text"] for h in hits)
+chat = oai.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "system", "content": "Responde solo con base en el contexto."},
+        {"role": "user", "content": f"CONTEXTO:\n{context}\n\nPREGUNTA: {query}"},
+    ],
+)
+print(chat.choices[0].message.content)
+```
+
+### Con LangChain (abstracción de alto nivel)
+
+```python
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_community.vectorstores import Chroma
+from langchain.chains import RetrievalQA
+
+emb = OpenAIEmbeddings(model="text-embedding-3-small")
+vs = Chroma.from_texts(texts=docs, embedding=emb, collection_name="kb")
+qa = RetrievalQA.from_chain_type(
+    llm=ChatOpenAI(model="gpt-4o-mini"),
+    retriever=vs.as_retriever(search_kwargs={"k": 4}),
+    return_source_documents=True,
+)
+print(qa.invoke({"query": "¿Cuánto tarda el reembolso?"}))
+```
+
+## Errores comunes
+
+- **Usar RAG donde no hace falta.** Preguntas conversacionales ("hola, ¿cómo estás?") no necesitan retrieval. Añaden latencia y costo. Añade un **router** que decida si invocar el pipeline.
+- **Confundir RAG con fine-tuning.** RAG añade *conocimiento*; fine-tuning cambia *comportamiento*. Para "quiero que el bot hable como pirata" fine-tunea; para "quiero que conozca mis docs" usa RAG.
+- **Mezclar embedders.** Si indexas con `all-MiniLM-L6-v2` y consultas con `text-embedding-3-small`, los vectores viven en **espacios distintos** y la similitud no tiene sentido. Reglas de oro: **mismo modelo para ingesta y query** y **re-indexar todo** al cambiar de modelo.
+- **No evaluar el retriever de forma aislada.** Si la respuesta es mala, puede ser por el LLM o por recuperación pobre. Mide **Recall@k** antes de culpar al generador.
+- **Context stuffing sin límite.** Meter 50 chunks porque "cabe" degrada la calidad (**lost-in-the-middle**: Liu et al. 2023 mostraron que los LLMs ignoran contenido en el medio del prompt). Usa top-k pequeño (3-6) + re-ranker.
+- **Olvidar las citas.** Sin referencias el usuario no puede verificar; se pierde el principal beneficio de RAG. Siempre devuelve `source_id` o URL.
+- **No filtrar por metadata.** Si tu DB tiene docs de 2015 y de 2026, sin filtro temporal el modelo puede contestar con info obsoleta. Usa `filter={"year": {"$gte": 2024}}`.
+- **Chunking ingenuo.** Partir a mitad de una oración o tabla rompe el significado. Prefiere chunking recursivo o semántico (ver Lesson-03).
+- **No manejar el caso "sin resultados".** Si ningún chunk supera un umbral de similitud, el LLM debe decir "no sé", no inventar. Implementa `threshold` + fallback.
+
+## Resumen
+
+- **RAG** = recuperación + generación: busca documentos relevantes y los inyecta como contexto antes de que el LLM responda.
+- Resuelve tres problemas estructurales de los LLMs: **knowledge cutoff**, **alucinaciones** y **falta de conocimiento privado**.
+- Formulación matemática (Lewis et al. 2020): `P(y|x) ≈ Σ_z P(y|x,z) · P(z|x)`.
+- **RAG vs. fine-tuning:** RAG añade conocimiento (barato, actualizable, citable); fine-tuning cambia comportamiento (caro, estable). Son complementarios.
+- Pipeline estándar: **loader → chunker → embedder → vector DB** (offline) y **query → embed → search → re-rank → LLM** (online).
+- Mide con **Recall@k, MRR, nDCG, faithfulness, answer relevance** usando frameworks como **Ragas**.
+- Las decisiones críticas son: **qué embedder** (Lesson-02), **qué vector DB** (Lesson-03) y **cómo chunk-ear** (Lesson-03).
+- No uses RAG para tareas creativas, matemáticas puras o cuando la latencia debe ser extrema.
+- Siempre: mismo modelo de embeddings para ingesta y query; top-k pequeño; citas en la respuesta; fallback cuando no hay match.

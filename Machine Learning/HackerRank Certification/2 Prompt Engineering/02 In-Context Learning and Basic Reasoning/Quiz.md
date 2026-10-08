@@ -1,75 +1,95 @@
-In-Context Learning and Basic Reasoning
-This quiz evaluates your understanding of different prompting strategies including zero-shot, few-shot, chain-of-thought, and self-consistency approaches. You'll need to identify the most appropriate strategy for various real-world scenarios based on resource constraints, accuracy requirements, and task complexity.
+# Quiz: In-Context Learning y Razonamiento Básico
 
+Este quiz evalúa tu capacidad para elegir la estrategia de prompting adecuada (zero-shot, few-shot, chain-of-thought, self-consistency) según restricciones reales: costo, latencia, accuracy, auditabilidad y complejidad de la tarea.
 
-Your e-commerce platform needs to generate product descriptions for 50,000 items across diverse categories. The descriptions must highlight features and appeal to target audiences, but you have no budget for maintaining example sets. Response time is critical due to high traffic. Which prompting approach best fits these requirements?
+---
 
-Zero-shot prompting with clear instructions specifying features and target audience
+### Pregunta 1
 
-Few-shot prompting with 5-7 examples covering major product categories
+Tu plataforma de e-commerce necesita generar descripciones para 50,000 productos en categorías diversas. Las descripciones deben destacar características y hablarle a la audiencia objetivo, pero **no tienes presupuesto para mantener sets de ejemplos** y el tiempo de respuesta es crítico por el tráfico alto. ¿Qué enfoque de prompting elegirías?
 
-Chain-of-thought prompting to reason through feature prioritization
+- **Zero-shot prompting con instrucciones claras que especifiquen características y audiencia objetivo** ← Correcto
+- Few-shot prompting con 5-7 ejemplos por categoría principal
+- Chain-of-thought para razonar sobre priorización de features
+- Self-consistency con múltiples generaciones para asegurar calidad
 
-Self-consistency with multiple generation attempts for quality assurance
-Correct Answer!
-Zero-shot excels for high-volume, well-defined tasks where maintaining examples is impractical and response time matters. The task is straightforward and scales efficiently.
+**Explicación:** Zero-shot es la elección correcta cuando la tarea es **común y bien definida** (generación de descripciones), el **volumen es alto** (50K ítems), y **mantener bancos de ejemplos** por categoría es inviable. Minimiza tokens → menor costo y latencia. Few-shot añadiría coste proporcional sin mejorar significativamente una tarea que GPT-class resuelve nativamente. CoT y self-consistency son overkill: no hay razonamiento multi-paso ni decisión crítica que auditar.
 
-You are building a customer support ticket classifier that must distinguish between "Technical Issue," "Billing Question," "Feature Request," and "Account Management." Initial zero-shot attempts work well for obvious cases but struggle with ambiguous tickets like "I can't access my premium features after payment." What should you do first?
+---
 
-Switch to chain-of-thought prompting to show reasoning for classifications
+### Pregunta 2
 
-Add 3-5 examples demonstrating boundary cases and overlapping categories
+Estás construyendo un clasificador de tickets de soporte entre "Problema técnico", "Facturación", "Solicitud de función" y "Gestión de cuenta". Zero-shot funciona bien para casos obvios pero **falla en ambiguos** como *"no puedo acceder a mis funciones premium después del pago"*. ¿Cuál es el primer paso?
 
-Increase temperature to generate more diverse classification attempts
+- Cambiar a chain-of-thought para mostrar razonamiento en cada clasificación
+- **Añadir 3-5 ejemplos few-shot cubriendo casos frontera y categorías con overlap** ← Correcto
+- Subir la temperatura para generar clasificaciones más diversas
+- Implementar self-consistency con voto mayoritario
 
-Implement self-consistency by generating multiple classifications and using majority vote
-Correct Answer!
-Few-shot with strategic edge case examples (like billing-technical overlaps) directly addresses boundary ambiguity and classification confusion.
+**Explicación:** El síntoma —fallo específico en **casos borde con overlap entre clases**— es el escenario clásico para **few-shot con ejemplos estratégicos de frontera**: un ticket "no accedo tras pagar" ilustra el límite entre facturación y problema técnico. Few-shot ataca directamente la ambigüedad enseñando ejemplos de desambiguación. CoT no ayuda (no es problema de razonamiento sino de categorización). Subir temperatura empeora clasificación (introduce ruido). Self-consistency es caro y no soluciona la causa raíz.
 
-Your financial risk assessment AI must evaluate investment opportunities by analyzing market conditions, company financials, industry risks, and economic indicators before assigning risk ratings. Stakeholders need to understand how ratings are determined. Which prompting strategy addresses both accuracy and explainability requirements?
+---
 
-Zero-shot prompting with explicit instructions for each evaluation dimension
+### Pregunta 3
 
-Few-shot prompting with diverse investment examples showing good and bad risks
+Tu asistente de evaluación de riesgo financiero debe analizar **condiciones de mercado, salud financiera de la empresa, riesgos sectoriales e indicadores macro** antes de asignar un rating. Los stakeholders necesitan entender **cómo** se llegó al rating. ¿Qué estrategia atiende accuracy y explicabilidad?
 
-Chain-of-thought prompting requiring step-by-step analysis of each factor
+- Zero-shot con instrucciones explícitas para cada dimensión
+- Few-shot con ejemplos diversos de buenas y malas inversiones
+- **Chain-of-thought exigiendo análisis paso a paso de cada factor** ← Correcto
+- Self-consistency sin chain-of-thought para reducir latencia
 
-Self-consistency without chain-of-thought to reduce response latency
-Correct Answer!
-Chain-of-thought forces systematic reasoning through each factor, providing both improved accuracy and transparent, auditable reasoning for stakeholders.
+**Explicación:** El requisito dual —**accuracy en razonamiento multi-paso** + **auditabilidad para stakeholders**— es el caso canónico de **CoT**. Al forzar al modelo a enumerar sus pasos, obtienes tanto mejor desempeño en razonamiento financiero como un rastro revisable. Zero-shot sería caja negra. Few-shot ayuda con formato pero no con razonamiento. Self-consistency sin CoT es contradictorio: necesitas cadenas para votar, y además la latencia es menos crítica que la explicabilidad en inversiones.
 
-You built a code review system using few-shot prompting with three examples: one showing security issues, one showing performance problems, and one showing a well-written function. The system now flags almost every function as having security issues, even simple utility functions with no security implications. What is the most likely problem?
+---
 
-Temperature setting is too low, causing overfitting to security patterns
+### Pregunta 4
 
-Examples are too similar and lack diversity in the types of issues demonstrated
+Construiste un sistema de code review con few-shot usando **tres ejemplos**: uno de problema de seguridad, uno de performance y uno de código limpio. Ahora el sistema **marca casi todo como "problema de seguridad"**, incluyendo utilidades triviales. ¿Qué está pasando?
 
-The three-example count is below the optimal 5-7 range for complex tasks
+- Temperatura muy baja causa overfitting a patrones de seguridad
+- Los ejemplos son demasiado similares y falta diversidad en tipos de problema
+- Tres ejemplos están por debajo del rango óptimo 5-7 para tareas complejas
+- **La distribución de ejemplos está sesgada hacia el enfoque de seguridad en vez de balancear tipos de issue** ← Correcto
 
-Example distribution is skewed toward security focus rather than balanced issue types
-Correct Answer!
-Skewed distribution (1 security, 1 performance, 1 clean) inadvertently prioritizes security. The model applies security patterns too broadly.
+**Explicación:** El modelo aprende la **distribución a priori** de los ejemplos. Con 1 de 3 etiquetado como seguridad (33%, y el único "problema identificado" por categoría dominante), implícitamente eleva la probabilidad de clasificar cualquier cosa como seguridad. La solución es **balancear**: añadir varios ejemplos limpios, varios de performance, varios de mantenibilidad, de modo que ninguna categoría quede sobrerrepresentada. La temperatura no causa overfitting; k=3 es suficiente para tareas simples; el problema es la **composición**, no la cantidad.
 
-Your medical diagnosis assistant uses chain-of-thought prompting to analyze patient symptoms step by step: checking vital signs, reviewing symptoms, considering differential diagnoses, and recommending tests. Sometimes the reasoning looks thorough but reaches incorrect conclusions based on faulty assumptions made in early steps. How should you improve reliability?
+---
 
-Switch to few-shot prompting with medical case examples instead of reasoning steps
+### Pregunta 5
 
-Implement reasoning validation checkpoints after each major step to verify conclusions
+Tu asistente de diagnóstico médico usa CoT para analizar síntomas: vitales → síntomas → diagnósticos diferenciales → tests recomendados. A veces **el razonamiento parece sólido pero llega a conclusiones incorrectas por supuestos erróneos en pasos tempranos**. ¿Cómo mejoras la confiabilidad?
 
-Use self-consistency to generate multiple reasoning paths and select by consensus
+- Cambiar a few-shot con casos clínicos en vez de pasos de razonamiento
+- Implementar validación en checkpoints tras cada paso principal
+- **Usar self-consistency con múltiples cadenas de razonamiento y elegir por consenso** ← Correcto
+- Reducir la cantidad de pasos de razonamiento para minimizar oportunidades de error lógico
 
-Reduce the number of reasoning steps to minimize opportunities for logical errors
-Correct Answer!
-Multiple independent reasoning paths catch errors that appear in single attempts. Consensus identifies consistently correct answers, catching faulty assumptions—critical for high-stakes medical decisions.
+**Explicación:** **Self-consistency** (Wang et al., 2022) ataca exactamente este fallo: una sola cadena puede partir de un supuesto incorrecto y propagarlo coherentemente. Múltiples cadenas **independientes** tienden a converger en la respuesta correcta, mientras que los errores idiosincráticos se dispersan. El grado de consenso además cuantifica confianza —señal valiosa para enrutar casos de bajo consenso a revisión humana, crítico en medicina. Los checkpoints de validación ayudan, pero no detectan supuestos erróneos tan efectivamente como el consenso cruzado. Reducir pasos degrada el razonamiento. Few-shot sin CoT pierde la auditabilidad clínica.
 
-You need to build a sentiment analysis system for product reviews. Initial testing with zero-shot prompting shows 75% accuracy, which is acceptable for your use case. However, the system struggles specifically with sarcastic reviews and mixed sentiment (e.g., "Great product, terrible customer service"). What is the most efficient improvement approach?
+---
 
-Maintain zero-shot approach but add explicit instructions about handling sarcasm and mixed sentiment
+### Pregunta 6
 
-Switch to chain-of-thought prompting to reason through sentiment indicators
+Tienes un sistema de análisis de sentimiento con zero-shot al **75% de accuracy**, aceptable para tu caso. Pero falla específicamente en **sarcasmo** y **sentimiento mixto** (*"Gran producto, pésimo servicio al cliente"*). ¿Cuál es la mejora más eficiente?
 
-Add 4-5 few-shot examples focusing specifically on sarcastic and mixed sentiment cases
+- Mantener zero-shot y añadir instrucciones explícitas sobre sarcasmo y mezcla
+- Cambiar a chain-of-thought para razonar sobre indicadores de sentimiento
+- **Añadir 4-5 ejemplos few-shot enfocados específicamente en sarcasmo y sentimiento mixto** ← Correcto
+- Implementar self-consistency con 5 intentos para mejorar casos difíciles
 
-Implement self-consistency with 5 attempts to improve accuracy on difficult cases
-Correct Answer!
-With 75% accuracy but specific weaknesses, few-shot targeting exact gaps (sarcasm, mixed sentiment) efficiently improves performance with just 4-5 examples.
+**Explicación:** Con baseline zero-shot funcionando bien (**75%**) y fallos **localizados en patrones específicos**, few-shot dirigido es la intervención de **mayor ROI**: 4-5 ejemplos cubriendo exactamente sarcasmo y mezcla enseñan los patrones que la instrucción no captura, con un coste marginal en tokens. Instrucciones adicionales en zero-shot pueden ayudar poco porque el sarcasmo es inherentemente contextual. CoT es overkill y multiplica latencia/costo para un 25% de fallos. Self-consistency multiplica el costo 5x sin atacar la causa (el modelo falla **consistentemente** en estos patrones, el voto reforzaría el error).
+
+---
+
+## Resumen de criterios
+
+| Síntoma / escenario | Técnica |
+|---|---|
+| Tarea común, alto volumen, costo crítico | **Zero-shot** |
+| Formato específico o fronteras ambiguas | **Few-shot** (3-7 ejemplos balanceados) |
+| Razonamiento multi-paso + necesidad de auditoría | **Chain-of-Thought** |
+| Decisión crítica, errores por supuestos tempranos | **Self-Consistency** sobre CoT |
+| Falla por falta de hechos actualizados | RAG (otro módulo) |
+| Tarea requiere herramientas externas | **ReAct** / tool use |
+| Dificultad alta y hay presupuesto | **Reasoning models** (o3, Claude thinking) |

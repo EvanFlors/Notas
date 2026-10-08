@@ -1,65 +1,274 @@
-## Model Optimization Techniques
+# Optimización de Modelos: Cuantización, Pruning, Distilación y Hardware
 
-Optimizing AI models reduces inference latency and resource requirements while maintaining acceptable accuracy. Several techniques trade small accuracy losses for significant performance gains.
+## ¿Qué es?
 
-Quantization reduces model size and inference time by using lower precision numbers. Standard models use 32-bit floating point (FP32). Quantized models use 16-bit (FP16) or 8-bit integers (INT8). FP16 quantization typically loses less than 1 percent accuracy while reducing model size by half and improving inference speed by 2x on appropriate hardware. INT8 quantization reduces size by 4x and can provide 4x speedup but requires more careful tuning to maintain accuracy.
+**Optimización de modelos** es el conjunto de técnicas que reducen el tamaño, latencia o costo de inferencia de un modelo entrenado, idealmente sin degradar su calidad de forma inaceptable. Se trabaja en tres frentes:
 
-Post-training quantization applies after training completes. Load a trained FP32 model, calibrate on representative data to determine quantization parameters, and convert to INT8. This requires no retraining but might lose 2-5 percent accuracy. Post-training quantization is the quickest path to faster inference.
+1. **Compresión del modelo:** cuantización, pruning, distilación.
+2. **Optimización del grafo de ejecución:** fusión de kernels, Flash Attention, speculative decoding.
+3. **Hardware adecuado:** GPU vs TPU vs Inferentia, memoria vs cómputo.
 
-Quantization-aware training trains models with quantization in mind. During training, simulate quantization operations so the model learns to be robust to reduced precision. This maintains accuracy better than post-training quantization, typically losing under 1 percent accuracy even with INT8. Quantization-aware training requires more effort but provides best results.
+### FLOPs y memoria: las dos restricciones
 
-Pruning removes unnecessary model weights. Neural networks often have redundancy. Pruning identifies weights that contribute minimally to predictions and sets them to zero. Sparse models with 30-50 percent of weights pruned can maintain accuracy while using less memory and computation. Specialized hardware or software is needed to actually achieve speedups from sparse models.
+Para un transformer, el costo de un forward pass es aproximadamente:
 
-Knowledge distillation creates smaller "student" models that mimic larger "teacher" models. Train a large accurate model (teacher), then train a smaller model (student) to match the teacher's predictions. The student learns to approximate the teacher using fewer parameters. Distillation can reduce model size 10x while retaining 95 percent of the teacher's accuracy.
+```
+FLOPs ≈ 2 · P · D       (P = número de parámetros, D = tokens procesados)
+```
 
-Architecture search finds efficient model architectures. MobileNets, EfficientNets, and similar architectures are designed for efficient inference. Using these architectures instead of standard ResNets or VGGNets can provide 5-10x speedups with similar accuracy. When building new models, consider efficient architectures from the start.
+Para Llama-3-8B procesando 1000 tokens: `2 × 8e9 × 1000 = 1.6e13 FLOPs = 16 TFLOPs`. Una A100 entrega ~312 TFLOPs en FP16 → mínimo teórico ~50ms. En la práctica, la restricción real suele ser **memoria**, no cómputo:
 
-Batch size tuning affects throughput and latency. Larger batches improve throughput (requests per second) but increase latency (time per request). Measure throughput at different batch sizes to find the sweet spot. For GPUs, batch sizes should be powers of 2 (16, 32, 64) for optimal memory access patterns.
+```
+Memoria KV-cache = 2 · L · H · d · bytes_por_valor
+```
 
-Inference Optimization Frameworks
-Specialized frameworks optimize model inference beyond what training frameworks provide. Converting models to these frameworks can dramatically improve performance.
+Donde `L` = capas, `H` = heads, `d` = dimensión por head, `bytes_por_valor` = 2 (FP16) ó 1 (INT8). Para Llama-3-70B con contexto de 8K tokens, el KV-cache por secuencia pesa ~2.5 GB. Esta es la razón por la que **batch size** está limitado en LLMs grandes.
 
-ONNX (Open Neural Network Exchange) is a standard format for representing models. Convert TensorFlow or PyTorch models to ONNX, then use ONNX Runtime for inference. ONNX Runtime optimizes models automatically: fusing operations, constant folding, memory planning. ONNX Runtime often provides 2-3x speedup over native frameworks with no accuracy loss.
+## ¿Por qué importa?
 
-TensorRT is NVIDIA's inference optimization framework for GPUs. It applies aggressive optimizations: layer fusion, precision calibration, kernel selection. TensorRT can provide 5-10x speedup compared to unoptimized inference. The tradeoff is complexity and NVIDIA-specific lock-in. TensorRT works best with NVIDIA GPUs and requires careful integration.
+Un modelo FP32 de 70B parámetros ocupa 280 GB de VRAM: no cabe en ninguna GPU individual. Cuantizado a INT4 ocupa ~35 GB y entra en una A100 de 80GB. La diferencia entre "no se puede servir" y "se sirve bien" suele ser cuantización + Flash Attention + continuous batching.
 
-OpenVINO optimizes models for Intel CPUs. It uses hardware-specific optimizations for Intel processors. If you are running inference on CPUs (especially Intel), OpenVINO can provide 3-5x speedup. OpenVINO supports models from multiple frameworks.
+Impactos típicos de optimizaciones apiladas en producción:
 
-TorchScript compiles PyTorch models for faster execution. Standard PyTorch is interpreted and flexible but slow. TorchScript compiles models to optimized representations that execute faster. TorchScript is easier to adopt than ONNX or TensorRT because it stays within PyTorch. Speedups are typically 1.5-2x.
+| Optimización | Latencia | Memoria | Calidad |
+|---|---|---|---|
+| FP16 (desde FP32) | ÷2 | ÷2 | <0.5% |
+| INT8 | ÷3-4 | ÷4 | 0.5-2% |
+| INT4 (GPTQ/AWQ) | ÷5-6 | ÷8 | 1-3% |
+| Flash Attention 2 | ÷2-4 (long ctx) | lineal vs. cuadrática | 0% |
+| Speculative decoding | ÷2-3 | +25% (draft model) | 0% (verificado) |
+| Distilación 70B→8B | ÷10 | ÷10 | 3-10% |
 
-Graph optimization fuses multiple operations into single kernels. A model might have separate batch normalization and ReLU activation layers. Graph optimizers fuse these into one operation, reducing memory transfers and improving speed. Most modern inference frameworks perform graph optimization automatically.
+Multiplicado todo, un stack bien optimizado puede entregar **20-50× más throughput por dólar** que la configuración ingenua.
 
-Dynamic batching groups requests automatically. Inference frameworks like TensorFlow Serving and TorchServe collect concurrent requests, batch them together, run inference, and return individual results. This transparent batching improves GPU utilization without application code changes.
+## ¿Cómo funciona?
 
-Mixed precision uses different precisions for different layers. Compute-intensive layers use FP16 for speed. Precision-sensitive layers use FP32 for accuracy. This balances performance and accuracy better than uniform quantization. Modern frameworks support mixed precision automatically.
+### Cuantización
 
-Hardware Acceleration Strategies
-Choosing and configuring appropriate hardware dramatically affects inference performance. Understanding hardware characteristics enables better optimization.
+Representar pesos y/o activaciones con menos bits. En vez de FP32 (4 bytes), usar FP16 (2), INT8 (1), INT4 (0.5), e incluso INT2.
 
-GPU selection depends on workload characteristics. Training benefits from large memory (A100 with 80GB). Inference needs fast throughput (T4 or A10). Data center GPUs (A100, H100) provide maximum performance but high cost. Consumer GPUs (RTX 4090) provide good performance-per-dollar for development. Cloud instance GPUs (T4, A10) balance cost and performance for production.
+| Precisión | Rango | Bits | Memoria 70B | Speedup típico | Pérdida calidad |
+|---|---|---|---|---|---|
+| **FP32** | ±3.4e38 | 32 | 280 GB | 1× | baseline |
+| **FP16 / BF16** | ±65504 / ±3.4e38 | 16 | 140 GB | 2× | <0.5% |
+| **INT8** | ±127 | 8 | 70 GB | 3-4× | 0.5-2% |
+| **INT4** (GPTQ/AWQ) | ±7 | 4 | 35 GB | 4-6× | 1-3% |
+| **INT2** | ±1 | 2 | 17 GB | 6-8× | 5-15% (experimental) |
 
-CPU inference works for small models and low throughput requirements. Modern CPUs with AVX-512 instructions accelerate ML workloads. For models under 100MB serving under 100 requests per second, CPUs are cost-effective. CPUs cost 10x less than GPUs. If performance is adequate, use CPUs.
+Modos:
 
-Specialized accelerators like Google TPUs, AWS Inferentia, or Apple Neural Engine provide excellent performance-per-watt for supported models. TPUs excel at large matrix multiplications (transformers). Inferentia optimizes for inference workloads. These accelerators offer better cost-performance than GPUs for specific workloads but impose constraints on models and frameworks.
+- **Post-training quantization (PTQ):** cuantizas el modelo ya entrenado con un dataset de calibración pequeño (128-1024 muestras). Rápido, sin reentrenar.
+- **Quantization-aware training (QAT):** simulas cuantización durante entrenamiento. Mejor calidad, más caro.
+- **Métodos modernos:** **GPTQ**, **AWQ**, **SmoothQuant**, **bitsandbytes (NF4)**. GPTQ y AWQ son los estándares para LLMs INT4.
 
-Memory bandwidth affects performance. GPU computation is fast, but transferring data between CPU and GPU is slow. Minimize data transfers. Keep data on GPU when possible. Use pinned memory for faster transfers. Profile to identify if you are memory-bound or compute-bound.
+### Pruning
 
-Batch size affects hardware utilization. Small batches underutilize parallel hardware. Large batches maximize throughput but increase latency. Tune batch size based on hardware capabilities and latency requirements. GPUs with more cores benefit from larger batches.
+Pone a cero los pesos con menor magnitud. Dos variantes:
 
-Multi-GPU scaling enables higher throughput. Use multiple GPUs in parallel for independent inference requests. This scales throughput linearly with number of GPUs. Each GPU processes different requests. Ensure load balancing distributes requests evenly.
+- **Unstructured pruning:** cero los pesos individuales → modelo sparse. Necesita hardware/kernel que explote sparsity (NVIDIA 2:4 sparsity).
+- **Structured pruning:** elimina heads de attention, canales, capas enteras. Siempre speedup, menor flexibilidad.
 
-Hardware-specific optimizations extract maximum performance. CUDA for NVIDIA, ROCm for AMD, oneAPI for Intel. Use hardware-specific libraries and frameworks when available. Generic code is portable but leaves performance on the table.
+Típicamente puedes "podar" 30-50% de los pesos manteniendo >99% de calidad; más allá degrada rápido.
 
-Power efficiency matters for edge deployment and large-scale serving. Inference accelerators provide better inference-per-watt than general GPUs. For battery-powered devices or data centers concerned with power costs, choose efficient hardware even if absolute performance is lower.
+### Knowledge distillation
 
-Summary
-Model optimization techniques including quantization, pruning, and knowledge distillation reduce model size and inference time while maintaining accuracy. Inference optimization frameworks like ONNX Runtime and TensorRT provide substantial performance improvements through automatic optimizations.
+Entrenas un modelo pequeño (**student**) para que imite las logits del modelo grande (**teacher**). El student aprende no solo la respuesta correcta sino la *distribución* del teacher, lo que transfiere más información que simplemente entrenarlo con labels duras.
 
-Hardware acceleration strategies require matching workloads to appropriate hardware. GPUs provide high throughput for large models. CPUs are cost-effective for small models. Specialized accelerators offer best efficiency for specific workloads. Proper hardware selection and configuration dramatically affect inference performance and cost.
+Casos emblemáticos: **DistilBERT** (40% más pequeño, 60% más rápido, 97% de BERT); **TinyLlama**; familias "mini" de modelos propietarios.
 
-Key concepts to remember
-Quantization Benefits - Quantization to FP16 or INT8 can provide 2-4x speedup with minimal accuracy loss when properly calibrated
-Automatic Optimizations - Inference frameworks like ONNX Runtime and TensorRT provide 2-10x speedup without code changes
-GPU Selection - Balance throughput requirements, cost, and memory needs based on model size and request volume
-Batch Size Tuning - GPUs achieve best performance with power-of-2 batch sizes like 32 or 64 for optimal memory access
-Specialized Hardware - TPUs and Inferentia provide better cost-performance for specific workloads but with less flexibility
+### Flash Attention
+
+El attention estándar materializa la matriz `Q·Kᵀ` de tamaño `N×N` en memoria HBM. Para `N=8192` eso son 268 MB solo para una capa. Flash Attention (Dao, 2022) *reordena* el cómputo con tiling en SRAM y recomputa en backward, logrando:
+
+- Memoria lineal en `N` en vez de cuadrática.
+- 2-4× speedup en secuencias largas.
+- Precisión numéricamente idéntica.
+
+Flash Attention 2 y 3 añaden paralelismo mejorado y soporte para FP8 en H100.
+
+### Speculative decoding (Leviathan et al. 2023)
+
+Un modelo **draft** pequeño y rápido (ej. 1B) genera K tokens candidatos; el modelo **target** grande los **verifica en un solo forward pass batched** y acepta un prefijo. Resultado: 2-3× menos pasos del modelo grande sin cambiar la distribución final. Variantes: Medusa, EAGLE, Lookahead decoding.
+
+### Model cascading / routing
+
+No todas las queries requieren el modelo más grande. Un **router** barato (modelo pequeño o clasificador) decide el modelo apropiado:
+
+```
+Query ─► Router (Haiku) ─► ¿complejidad?
+                            ├─ baja  → Haiku responde (1×)
+                            ├─ media → Sonnet (5×)
+                            └─ alta  → Opus (15×)
+```
+
+En promedio, 60-80% de queries son triviales y se resuelven con el modelo barato, bajando el costo medio drásticamente.
+
+### Formatos y runtimes de inferencia
+
+| Formato / runtime | Ideal para | Speedup típico |
+|---|---|---|
+| **ONNX Runtime** | Portabilidad multi-hardware | 2-3× |
+| **TensorRT-LLM** | NVIDIA GPUs, max perf | 5-10× |
+| **vLLM** | Serving LLMs con continuous batching + PagedAttention | 3-10× |
+| **TGI (HuggingFace)** | Serving LLMs OSS | 2-5× |
+| **Triton Inference Server** | Multi-modelo, multi-framework | 2× |
+| **DeepSpeed-Inference** | Modelos muy grandes, tensor parallel | 2-5× |
+| **llama.cpp** | CPU / edge / Metal | varía |
+| **Ollama** | Dev local, Mac | varía |
+| **TorchScript / torch.compile** | PyTorch nativo | 1.5-2× |
+
+Servicios gestionados: **Modal**, **Together AI**, **Groq** (LPU, hasta 500 tok/s), **Fireworks**, **Anyscale**.
+
+## Ejemplo con código
+
+### 4-bit quantization con bitsandbytes (NF4) + QLoRA
+
+```python
+# pip install bitsandbytes transformers accelerate
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+bnb = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",            # Normal Float 4 (QLoRA paper)
+    bnb_4bit_compute_dtype=torch.bfloat16,
+    bnb_4bit_use_double_quant=True,       # cuantiza tambien las constantes
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Meta-Llama-3-8B",
+    quantization_config=bnb,
+    device_map="auto",
+)
+tok = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B")
+
+# Memoria: ~5 GB en vez de ~16 GB (FP16) o ~32 GB (FP32)
+# Calidad: <2% de perdida en MMLU en Llama-3-8B
+```
+
+### Speculative decoding con draft model
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
+target = AutoModelForCausalLM.from_pretrained("meta-llama/Meta-Llama-3-70B", torch_dtype=torch.bfloat16, device_map="auto")
+draft  = AutoModelForCausalLM.from_pretrained("meta-llama/Meta-Llama-3-8B",  torch_dtype=torch.bfloat16, device_map="auto")
+tok    = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-70B")
+
+inputs = tok("Explica el teorema de Bayes:", return_tensors="pt").to("cuda")
+
+# HuggingFace soporta speculative decoding nativo via assistant_model
+output = target.generate(
+    **inputs,
+    assistant_model=draft,
+    max_new_tokens=256,
+    do_sample=False,          # determinista
+    num_assistant_tokens=5,   # K tokens candidatos por iteracion
+)
+print(tok.decode(output[0], skip_special_tokens=True))
+# Throughput tipico: 2-3x mas rapido que target solo, misma distribucion
+```
+
+### Model cascade (routing por confianza)
+
+```python
+import anthropic
+client = anthropic.Anthropic()
+
+MODELS = [
+    ("claude-haiku-4-5",   1.0),   # multiplicador de costo relativo
+    ("claude-sonnet-4-5",  5.0),
+    ("claude-opus-4-5",   15.0),
+]
+
+def ask_with_cascade(query: str, min_confidence: float = 0.85) -> str:
+    """
+    Pide al modelo chico. Si su auto-reporte de confianza es bajo,
+    escala al siguiente nivel. Patron router+cascade.
+    """
+    for model, _cost in MODELS:
+        resp = client.messages.create(
+            model=model,
+            max_tokens=1024,
+            system=(
+                "Responde en JSON: {\"answer\": str, \"confidence\": float 0-1}. "
+                "Pon confidence baja si no estas seguro."
+            ),
+            messages=[{"role": "user", "content": query}],
+        )
+        import json
+        try:
+            parsed = json.loads(resp.content[0].text)
+            if parsed["confidence"] >= min_confidence:
+                return parsed["answer"]
+        except Exception:
+            continue
+    return parsed["answer"]   # fallback al mas grande
+```
+
+### Flash Attention 2 habilitado
+
+```python
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Meta-Llama-3-8B",
+    torch_dtype="bfloat16",
+    attn_implementation="flash_attention_2",   # requiere flash-attn >= 2.0 instalado
+    device_map="auto",
+)
+# Para contextos de 8K+, el speedup es 2-4x y la memoria pasa de O(N^2) a O(N).
+```
+
+### Serving optimizado end-to-end con vLLM
+
+| Optimización | Flag vLLM |
+|---|---|
+| PagedAttention | activo por defecto |
+| Continuous batching | activo por defecto |
+| Prefix caching | `enable_prefix_caching=True` |
+| Tensor parallel | `tensor_parallel_size=N` |
+| Cuantización INT4 (AWQ) | `quantization="awq"` |
+| FP8 KV-cache | `kv_cache_dtype="fp8"` |
+| Speculative decoding | `speculative_model=...` |
+
+```python
+from vllm import LLM, SamplingParams
+
+llm = LLM(
+    model="TheBloke/Llama-3-70B-AWQ",
+    quantization="awq",                  # INT4 pesos
+    kv_cache_dtype="fp8",                # KV-cache en FP8 → 2x menos VRAM
+    tensor_parallel_size=2,
+    enable_prefix_caching=True,
+    max_num_seqs=256,
+    gpu_memory_utilization=0.9,
+    speculative_model="meta-llama/Meta-Llama-3-8B",
+    num_speculative_tokens=5,
+)
+```
+
+## Errores comunes
+
+- **Cuantizar sin eval.** Pasas a INT4 y degradas 15% en tu benchmark de dominio pero nunca lo mediste. Siempre corre eval (MMLU, HumanEval, benchmarks propios) antes y después.
+- **Elegir INT8/INT4 sin considerar el hardware.** Las GPUs pre-Ampere (T4, V100) no tienen Tensor Cores INT4; no verás speedup. H100 añade FP8 nativo.
+- **Pruning sin kernel sparse.** Pones a cero 50% de los pesos pero sigues ejecutando denso: memoria ↓, latencia igual. Necesitas kernels (cuSPARSE, Sparsity 2:4).
+- **Distilar sin dominio.** Un student entrenado solo con general web data pierde conocimiento específico (código, legal, médico). Incluye datos del dominio objetivo.
+- **Flash Attention con tipos no soportados.** FA2 solo soporta FP16/BF16; con FP32 no sirve.
+- **Speculative decoding con draft malo.** Si el acceptance rate <40%, pierdes más tiempo verificando del que ahorras. El draft debe ser ~10× más chico y de la misma familia.
+- **Cascade sin logging.** No sabes qué porcentaje escala a Opus y por qué. Siempre loguea `(query, model_usado, confidence)` para iterar la lógica del router.
+- **TensorRT-LLM lock-in.** Compila el modelo para una arquitectura específica (ej. H100); al desplegar en A100 no funciona. Compila por target.
+- **Fundir frameworks en producción.** PyTorch + ONNX + TensorRT + vLLM en un mismo request = pesadilla de debug. Elige uno y mantenlo.
+
+## Resumen
+
+- Dos restricciones manda: `FLOPs = 2·P·D` (cómputo) y `KV-cache = 2·L·H·d·bytes` (memoria). La memoria suele ser el cuello en LLMs.
+- **Cuantización** (FP16 → INT8 → INT4 con GPTQ/AWQ/bitsandbytes) corta memoria 2-8× con pérdida <3% si evalúas bien.
+- **Pruning** 30-50% suele mantener calidad; requiere kernels sparse para dar speedup real.
+- **Distilación** (DistilBERT, TinyLlama) reduce 10× tamaño reteniendo 90-97% de calidad.
+- **Flash Attention 2/3** vuelve lineal la memoria del attention y acelera 2-4× en contextos largos.
+- **Speculative decoding** usa un draft chico + verificación batched → 2-3× speedup sin cambiar distribución.
+- **Cascading / routing** (Haiku→Sonnet→Opus) abarata costo medio: la mayoría de queries no necesitan el modelo tope.
+- Runtimes: **vLLM** (PagedAttention + continuous batching) es el default actual OSS; **TensorRT-LLM** para max perf en NVIDIA; **Groq**, **Together**, **Modal** si prefieres gestionado.
+- Papers de referencia: Flash Attention (Dao 2022), vLLM/PagedAttention (Kwon 2023), QLoRA (Dettmers 2023), Speculative Decoding (Leviathan 2023).

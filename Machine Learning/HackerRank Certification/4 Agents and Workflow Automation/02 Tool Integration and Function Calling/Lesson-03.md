@@ -1,586 +1,330 @@
-## The Execution Layer
-Your schemas are perfect. The model selects the right tools with accurate parameters. But when ```analyze_code_security(pr_number=1247)``` executes, it returns a 50,000-line JSON blob that overflows the context window. Or it takes 30 seconds because it hits GitHub's rate limit. Or it fails silently and returns null.
+# La Capa de Ejecución
 
-The execution layer is where schemas meet reality. This layer must handle real-world complexity: API quirks, rate limits, error conditions, large responses, and concurrent operations. Getting it right is the difference between a demo that works and a production system that is reliable.
+## ¿Qué es?
 
-In this lesson, you will learn how to build execution layers that integrate with external services, format results for model consumption, and handle the complexity of real-world APIs.
+La **capa de ejecución** (execution layer) es el componente que **convierte las tool calls del modelo en acciones reales**. Cuando el LLM emite `analyze_code_security(pr_number=1247)`, es esta capa la que:
 
-By the end, you will have patterns for building execution layers that bridge LLM reasoning and real-world actions reliably.
+1. **Parsea** la solicitud estructurada.
+2. **Enruta** al implementación correcta.
+3. **Valida** parámetros contra el schema.
+4. **Ejecuta** la función (API call, DB query, subprocess, etc.).
+5. **Formatea** el resultado para que el modelo lo consuma.
+6. **Maneja errores** y devuelve una respuesta estructurada.
 
-Execution Layer Fundamentals
-The execution layer is where function calls become real actions. When the model outputs ```analyze_code_security(pr_number=1247)```, your execution layer must parse that request, invoke actual code, interact with external systems, and return results the model can use. This layer bridges LLM reasoning and real-world effects.
+Es el puente entre el razonamiento del LLM y los efectos en sistemas reales (GitHub, Stripe, PostgreSQL, Slack).
 
-A basic execution layer has three responsibilities: routing function calls to implementations, executing those implementations safely, and formatting results for the model. Here is a minimal implementation for a code review agent:
+![Flujo de ejecución](https://hrcdn.net/ai-engineering/module-4/light/tool-integration-lesson03-execution-flow.svg)
 
-```python
-class ToolExecutor:
-  def __init__(self):
-      self.implementations = {
-          "get_pr_details": self._get_pr_details,
-          "analyze_code_security": self._analyze_code_security,
-          "check_test_coverage": self._check_test_coverage,
-          "post_review_comment": self._post_review_comment
-      }
+## ¿Por qué importa?
 
-  def execute(self, function_name, arguments):
-      if function_name not in self.implementations:
-          return {"error": f"Unknown function: {function_name}"}
+Un schema perfecto no sirve de nada si la capa de ejecución es frágil. Los agentes de producción fallan aquí mucho más que en el prompt:
 
-      implementation = self.implementations[function_name]
-      result = implementation(**arguments)
-      return result
+- **APIs con rate limits** (GitHub: 5000/hora autenticado) que tumban el agente al tercer PR.
+- **Respuestas gigantes** que explotan el context window (un diff de 50k líneas).
+- **Timeouts, errores de red, 500s** que no están contemplados.
+- **Side effects irreversibles** sin confirmación (borrar, pagar, enviar).
+- **Ejecución secuencial** cuando podría ser paralela, con latencia inaceptable.
+- **Logs pobres** que vuelven imposible el debugging.
 
-  def _get_pr_details(self, pr_number):
-      # Call GitHub API
-      response = github_client.get_pull_request(pr_number)
-      return {
-          "title": response.title,
-          "author": response.user.login,
-          "files_changed": [f.filename for f in response.get_files()],
-          "status": response.state,
-          "approvals": len([r for r in response.get_reviews() if r.state == "APPROVED"])
-      }
+Una capa de ejecución bien diseñada es la diferencia entre un **demo que funciona** y un **sistema de producción confiable**.
 
-  def _analyze_code_security(self, pr_number, file_paths=None, severity_threshold="medium"):
-      # Get PR diff and run security scanner
-      diff = github_client.get_pr_diff(pr_number)
-      files_to_scan = file_paths or extract_files_from_diff(diff)
+## ¿Cómo funciona?
 
-      vulnerabilities = security_scanner.scan(files_to_scan, min_severity=severity_threshold)
-      return {
-          "vulnerabilities": vulnerabilities,
-          "files_scanned": len(files_to_scan),
-          "scan_time": security_scanner.last_scan_duration
-      }
+### Estructura básica
+
+```
+Tool call (JSON)
+      ↓
+[Router: name → impl]
+      ↓
+[Validador: args contra schema]
+      ↓
+[Executor: con timeouts + retry]
+      ↓
+[Formatter: resultado para el modelo]
+      ↓
+tool_result (JSON) → vuelve al LLM
 ```
 
-This structure separates concerns: the executor handles routing and formatting while individual implementations contain business logic. This separation makes testing easier and keeps the execution layer maintainable.
+Separa **routing**, **validación**, **ejecución** y **formatting** en responsabilidades distintas; cada una se testea y evoluciona por separado.
 
-![The execution layer: routing calls to real-world actions](https://hrcdn.net/ai-engineering/module-4/light/tool-integration-lesson03-execution-flow.svg)
+### Ejecución paralela con asyncio
 
-Integrating with External APIs
-Code review agents interact with multiple external systems: GitHub for PR data, security scanners for vulnerability detection, CI systems for test results. Each integration requires careful implementation to handle authentication, rate limits, and API quirks.
-
-GitHub API integration is central to code review. You need to fetch PR details, diffs, comments, and CI status. Use the official client libraries when available:
-
-```python
-from github import Github
-
-class GitHubIntegration:
-  def __init__(self, token):
-      self.client = Github(token)
-
-  def get_pr_details(self, repo_name, pr_number):
-      repo = self.client.get_repo(repo_name)
-      pr = repo.get_pull(pr_number)
-
-      return {
-          "number": pr.number,
-          "title": pr.title,
-          "body": pr.body,
-          "author": pr.user.login,
-          "base_branch": pr.base.ref,
-          "head_branch": pr.head.ref,
-          "state": pr.state,
-          "mergeable": pr.mergeable,
-          "changed_files": pr.changed_files,
-          "additions": pr.additions,
-          "deletions": pr.deletions,
-          "files": [
-              {"path": f.filename, "status": f.status, "changes": f.changes}
-              for f in pr.get_files()
-          ],
-          "reviews": [
-              {"user": r.user.login, "state": r.state}
-              for r in pr.get_reviews()
-          ]
-      }
-
-  def get_file_content(self, repo_name, path, ref):
-      repo = self.client.get_repo(repo_name)
-      content = repo.get_contents(path, ref=ref)
-      return content.decoded_content.decode('utf-8')
-
-  def post_review_comment(self, repo_name, pr_number, body, commit_id=None, path=None, line=None):
-      repo = self.client.get_repo(repo_name)
-      pr = repo.get_pull(pr_number)
-
-      if path and line:
-          # Inline comment on specific line
-          pr.create_review_comment(body=body, commit_id=commit_id, path=path, line=line)
-      else:
-          # General PR comment
-          pr.create_issue_comment(body=body)
-
-      return {"success": True, "comment_type": "inline" if path else "general"}
-```
-
-Security scanner integration varies by tool. Some scanners run locally, others are SaaS APIs. Design your integration to abstract these differences:
-
-```python
-class SecurityScanner:
-  def __init__(self, scanner_type="semgrep"):
-      self.scanner_type = scanner_type
-      self.last_scan_duration = 0
-
-  def scan(self, file_paths, min_severity="medium"):
-      start_time = time.time()
-
-      if self.scanner_type == "semgrep":
-          results = self._run_semgrep(file_paths)
-      elif self.scanner_type == "snyk":
-          results = self._call_snyk_api(file_paths)
-      else:
-          raise ValueError(f"Unknown scanner: {self.scanner_type}")
-
-      self.last_scan_duration = time.time() - start_time
-
-      # Filter by severity
-      severity_order = ["low", "medium", "high", "critical"]
-      min_index = severity_order.index(min_severity)
-      filtered = [r for r in results if severity_order.index(r["severity"]) >= min_index]
-
-      return filtered
-
-  def _run_semgrep(self, file_paths):
-      import subprocess
-      result = subprocess.run(
-          ["semgrep", "--json", "--config=auto"] + file_paths,
-          capture_output=True, text=True
-      )
-      findings = json.loads(result.stdout)
-
-      return [
-          {
-              "type": f["check_id"],
-              "severity": self._map_semgrep_severity(f["extra"]["severity"]),
-              "file": f["path"],
-              "line": f["start"]["line"],
-              "message": f["extra"]["message"],
-              "fix": f["extra"].get("fix")
-          }
-          for f in findings.get("results", [])
-      ]
-```
-
-Rate limiting is essential for external API calls. GitHub has rate limits, security scanners have quotas. Implement limiting to prevent failures:
-
-```python
-from ratelimit import limits, sleep_and_retry
-
-class RateLimitedGitHub:
-  def __init__(self, token):
-      self.client = Github(token)
-
-  @sleep_and_retry
-  @limits(calls=30, period=60)  # 30 calls per minute
-  def api_call(self, method, *args, **kwargs):
-      return method(*args, **kwargs)
-
-  def get_pr_details(self, repo_name, pr_number):
-      repo = self.api_call(self.client.get_repo, repo_name)
-      pr = self.api_call(repo.get_pull, pr_number)
-      return self._format_pr(pr)
-```
-
-Result Formatting and Context Management
-Function results must be formatted so the model can understand and use them. Raw API responses are often too verbose, poorly structured, or contain irrelevant data. Your execution layer should transform results into model-friendly formats.
-
-Keep results concise. Models have context limits. A full GitHub PR response might be thousands of tokens, but the model only needs key information:
-
-```python
-def format_pr_for_model(pr_response):
-  # Full response might be 5000+ tokens
-  # Formatted response is ~200 tokens
-  return {
-      "pr_number": pr_response["number"],
-      "title": pr_response["title"],
-      "author": pr_response["author"],
-      "status": pr_response["state"],
-      "files_changed": len(pr_response["files"]),
-      "file_list": [f["path"] for f in pr_response["files"][:20]],  # Limit file list
-      "has_approvals": pr_response["approvals"] > 0,
-      "ci_status": pr_response.get("ci_status", "unknown")
-  }
-```
-
-Structure results consistently. All tool results should follow a predictable format. The model learns patterns from consistent structure:
-
-```python
-def format_tool_result(success, data=None, error=None):
-  result = {"success": success}
-
-  if success:
-      result["data"] = data
-  else:
-      result["error"] = error
-      result["suggested_action"] = suggest_recovery(error)
-
-  return result
-
-# All tools use the same format
-def _analyze_code_security(self, pr_number, **kwargs):
-  try:
-      vulnerabilities = self.scanner.scan(...)
-      return format_tool_result(
-          success=True,
-          data={
-              "vulnerabilities": vulnerabilities,
-              "summary": f"Found {len(vulnerabilities)} issues",
-              "highest_severity": max(v["severity"] for v in vulnerabilities) if vulnerabilities else None
-          }
-      )
-  except ScannerError as e:
-      return format_tool_result(
-          success=False,
-          error=str(e)
-      )
-```
-
-Include actionable summaries. Help the model understand results without processing every detail:
-
-```python
-def format_security_scan_result(vulnerabilities):
-  if not vulnerabilities:
-      return {
-          "success": True,
-          "data": {
-              "vulnerabilities": [],
-              "summary": "No security issues found",
-              "recommendation": "Security scan passed. Proceed with other checks."
-          }
-      }
-
-  severity_counts = Counter(v["severity"] for v in vulnerabilities)
-  critical_files = set(v["file"] for v in vulnerabilities if v["severity"] == "critical")
-
-  return {
-      "success": True,
-      "data": {
-          "vulnerabilities": vulnerabilities,
-          "summary": f"Found {len(vulnerabilities)} issues: {dict(severity_counts)}",
-          "critical_files": list(critical_files),
-          "recommendation": "Critical issues found. Request changes before approving."
-              if severity_counts.get("critical", 0) > 0
-              else "Review medium/high issues with author."
-      }
-  }
-```
-
-Handle large results gracefully. When results exceed reasonable size, summarize or paginate:
-
-```python
-def format_large_diff(diff_content, max_lines=500):
-  lines = diff_content.split('\n')
-
-  if len(lines) <= max_lines:
-      return {"diff": diff_content, "truncated": False}
-
-  # Return summary with option to fetch more
-  return {
-      "diff": '\n'.join(lines[:max_lines]),
-      "truncated": True,
-      "total_lines": len(lines),
-      "summary": f"Diff truncated. Showing first {max_lines} of {len(lines)} lines.",
-      "hint": "Use get_file_diff with specific file_path for detailed view"
-  }
-```
-
-Execution Context and State
-Tool execution often needs context beyond the immediate arguments. Which repository are we reviewing? What is the current user's permission level? What tools have already been called? Managing this context is essential for coherent agent behavior.
-
-Execution context provides ambient information that tools need:
-
-```python
-@dataclass
-class ExecutionContext:
-  repo_name: str
-  user_id: str
-  permissions: List[str]
-  session_id: str
-  tool_call_history: List[dict]
-  token_budget: int
-
-class ContextAwareExecutor:
-  def __init__(self, context: ExecutionContext):
-      self.context = context
-      self.implementations = \{...\}
-
-  def execute(self, function_name, arguments):
-      # Inject context into execution
-      result = self.implementations[function_name](
-          context=self.context,
-          **arguments
-      )
-
-      # Track tool call
-      self.context.tool_call_history.append({
-          "function": function_name,
-          "arguments": arguments,
-          "result_summary": summarize_result(result),
-          "timestamp": datetime.now()
-      })
-
-      return result
-```
-
-Permission checking ensures tools only execute authorized actions:
-
-```python
-def _post_review_comment(self, context, pr_number, body, **kwargs):
-  # Check permission before execution
-  if "write_comments" not in context.permissions:
-      return format_tool_result(
-          success=False,
-          error="Permission denied: cannot post comments",
-          suggested_action="Request comment permission or summarize findings for manual posting"
-      )
-
-  # Execute with context
-  return self.github.post_review_comment(
-      repo_name=context.repo_name,
-      pr_number=pr_number,
-      body=body,
-      **kwargs
-  )
-```
-
-Tool call history prevents redundant calls and enables smarter execution:
-
-```python
-def _get_pr_details(self, context, pr_number):
-  # Check if we already fetched this PR
-  for call in context.tool_call_history:
-      if call["function"] == "get_pr_details" and call["arguments"]["pr_number"] == pr_number:
-          return format_tool_result(
-              success=True,
-              data=call["cached_result"],
-              note="Returned cached result from earlier call"
-          )
-
-  # Fetch fresh data
-  result = self.github.get_pr_details(context.repo_name, pr_number)
-  return format_tool_result(success=True, data=result)
-```
-
-Your code review agent's execution layer calls the GitHub API frequently. The API has rate limits of 5,000 requests per hour. What is the most important consideration when implementing rate limit handling?
-
-Async and Parallel Execution
-Production agents often benefit from async execution. Waiting for one API call to complete before starting the next wastes time. Async execution lets you run independent operations concurrently.
-
-Async tool implementations enable concurrent execution:
+Cuando el modelo emite varias tool calls en una sola respuesta (OpenAI y Anthropic lo soportan nativamente), ejecutarlas **en serie desperdicia latencia**. Usa `asyncio.gather`:
 
 ```python
 import asyncio
-import aiohttp
 
-class AsyncToolExecutor:
-  async def execute(self, function_name, arguments):
-      implementation = self.implementations[function_name]
-      return await implementation(**arguments)
-
-  async def execute_parallel(self, tool_calls):
-      """Execute multiple independent tool calls concurrently."""
-      tasks = [
-          self.execute(call["function"], call["arguments"])
-          for call in tool_calls
-      ]
-      return await asyncio.gather(*tasks, return_exceptions=True)
-
-  async def _analyze_code_security(self, pr_number, **kwargs):
-      async with aiohttp.ClientSession() as session:
-          # Async API calls
-          diff = await self._fetch_diff(session, pr_number)
-          vulnerabilities = await self._run_async_scan(diff, **kwargs)
-          return format_tool_result(success=True, data=vulnerabilities)
+async def execute_all(tool_calls, executor):
+    tasks = [executor.execute(c.name, c.args) for c in tool_calls]
+    return await asyncio.gather(*tasks, return_exceptions=True)
 ```
 
-Parallel tool calling is supported by some LLM providers. When the model returns multiple tool calls, execute them simultaneously:
+Latencia pasa de `sum(ti)` a `max(ti)`.
+
+### Retry y backoff exponencial
+
+Las APIs externas fallan transitoriamente. Reintenta con **backoff exponencial** solo para errores retryables (timeouts, 429, 503):
 
 ```python
-async def handle_model_response(response):
-  tool_calls = response.tool_calls
-
-  if not tool_calls:
-      return response.content
-
-  # Execute all tool calls in parallel
-  results = await executor.execute_parallel([
-      {"function": tc.function.name, "arguments": json.loads(tc.function.arguments)}
-      for tc in tool_calls
-  ])
-
-  # Format results for model
-  tool_results = [
-      {"tool_call_id": tc.id, "result": result}
-      for tc, result in zip(tool_calls, results)
-  ]
-
-  # Continue conversation with results
-  return await call_model_with_results(tool_results)
+async def with_retry(op, max_attempts=3, base=1.0):
+    for i in range(max_attempts):
+        try:
+            return await op()
+        except (TimeoutError, RateLimitError) as e:
+            if i == max_attempts - 1:
+                raise
+            await asyncio.sleep(base * (2 ** i))
 ```
 
-Dependency-aware execution handles cases where some calls depend on others:
+**Nunca** reintentes errores no retryables (400 bad request, 404 not found, 401 unauthorized).
+
+### Circuit breaker
+
+Si una API falla 5 veces en 60s, abre el circuito: siguientes llamadas fallan inmediatamente por N segundos. Protege tanto a tu agente como al servicio en degradación.
+
+### Formatting de resultados
+
+El modelo paga tokens por cada carácter que le devuelves. Reglas:
+
+- **Resumen primero**, detalle después (o paginado).
+- **Trunca listas largas** y adjunta `truncated: true, total: N`.
+- **Formato consistente** entre tools: `{"success", "data", "error", "summary"}`.
+- Incluye **recomendaciones accionables** cuando aplique.
+
+### Safe code execution: sandboxes
+
+Si el modelo escribe código (ej. `run_python(code=...)`), **nunca** lo ejecutes en tu proceso. Opciones:
+
+| Sandbox | Caso de uso |
+|---|---|
+| **Jupyter kernel aislado** (jupyter-client) | Data analysis, interactivo |
+| **Docker/gVisor** | Cualquier código, aislamiento fuerte |
+| **Firecracker microVMs** (E2B, Modal, Daytona) | SaaS listo para agentes |
+| **WebAssembly / Pyodide** | Browser-side, limitado |
+| **restrictedpython / RestrictedPython** | Sandboxing a nivel AST (débil) |
+
+Reglas: timeouts duros, sin red salvo whitelist, sin acceso a filesystem del host, sin credenciales montadas, kill del contenedor al terminar.
+
+### Contexto de ejecución
+
+Las tools suelen necesitar información ambiente: en qué repo estamos, qué usuario, qué permisos tiene, qué llamadas se hicieron antes. Pásalo como `ExecutionContext` inyectado:
 
 ```python
-async def execute_with_dependencies(tool_calls, dependencies):
-  """
-  Execute tool calls respecting dependencies.
-  dependencies: dict mapping tool_call_id to list of prerequisite ids
-  """
-  completed = {}
-  pending = list(tool_calls)
+from dataclasses import dataclass, field
 
-  while pending:
-      # Find calls with satisfied dependencies
-      ready = [
-          call for call in pending
-          if all(dep in completed for dep in dependencies.get(call["id"], []))
-      ]
-
-      if not ready:
-          raise Exception("Circular dependency or missing prerequisite")
-
-      # Execute ready calls in parallel
-      results = await asyncio.gather(*[
-          executor.execute(call["function"], call["arguments"])
-          for call in ready
-      ])
-
-      # Record completions
-      for call, result in zip(ready, results):
-          completed[call["id"]] = result
-          pending.remove(call)
-
-  return completed
+@dataclass
+class ExecutionContext:
+    user_id: str
+    permissions: list[str]
+    session_id: str
+    tool_history: list[dict] = field(default_factory=list)
+    token_budget: int = 50_000
 ```
 
-Testing the Execution Layer
-Thorough testing ensures your execution layer behaves correctly under various conditions. Test both individual tools and the execution infrastructure.
+Esto habilita permisos, caching, deduplicación y auditoría.
 
-Unit test implementations with mocked external services:
+## Ejemplo con código
+
+### Executor con validación, retry y formatting
 
 ```python
-class TestSecurityScanTool:
-  def setup_method(self):
-      self.executor = ToolExecutor()
-      self.mock_scanner = Mock()
-      self.executor.scanner = self.mock_scanner
+import asyncio
+import json
+import jsonschema
+from typing import Any, Callable
 
-  def test_scan_returns_vulnerabilities(self):
-      self.mock_scanner.scan.return_value = [
-          {"severity": "high", "type": "sql_injection", "file": "auth.py", "line": 42}
-      ]
+class ToolExecutor:
+    def __init__(self):
+        self.schemas: dict[str, dict] = {}
+        self.impls: dict[str, Callable] = {}
 
-      result = self.executor.execute("analyze_code_security", {"pr_number": 1247})
+    def register(self, schema: dict, impl: Callable):
+        self.schemas[schema["name"]] = schema
+        self.impls[schema["name"]] = impl
 
-      assert result["success"] == True
-      assert len(result["data"]["vulnerabilities"]) == 1
-      assert result["data"]["vulnerabilities"][0]["type"] == "sql_injection"
+    async def execute(self, name: str, args: dict) -> dict:
+        if name not in self.impls:
+            return self._err("unknown_tool", f"Herramienta '{name}' no registrada")
 
-  def test_scan_handles_empty_results(self):
-      self.mock_scanner.scan.return_value = []
+        # Validación de argumentos
+        try:
+            jsonschema.validate(args, self.schemas[name]["input_schema"])
+        except jsonschema.ValidationError as e:
+            return self._err("validation_error", e.message)
 
-      result = self.executor.execute("analyze_code_security", {"pr_number": 1247})
+        # Ejecución con retry y timeout
+        try:
+            result = await asyncio.wait_for(
+                self._with_retry(lambda: self.impls[name](**args)),
+                timeout=30.0,
+            )
+            return {"success": True, "data": result}
+        except asyncio.TimeoutError:
+            return self._err("timeout", "La herramienta tardó más de 30s", retryable=True)
+        except Exception as e:
+            return self._err(type(e).__name__, str(e))
 
-      assert result["success"] == True
-      assert result["data"]["summary"] == "No security issues found"
+    async def _with_retry(self, op, attempts=3):
+        for i in range(attempts):
+            try:
+                res = op() if not asyncio.iscoroutinefunction(op) else await op()
+                return res
+            except (TimeoutError, ConnectionError) as e:
+                if i == attempts - 1:
+                    raise
+                await asyncio.sleep(2 ** i)
+
+    def _err(self, type_: str, msg: str, retryable: bool = False) -> dict:
+        return {
+            "success": False,
+            "error": {"type": type_, "message": msg, "retryable": retryable},
+        }
 ```
 
-Integration tests verify real external service interaction:
+### Implementaciones: get_weather, search_db, send_email
 
 ```python
-@pytest.mark.integration
-class TestGitHubIntegration:
-  def test_fetch_real_pr(self):
-      # Use a known test repository
-      executor = ToolExecutor(github_token=os.environ["GITHUB_TOKEN"])
+import httpx
 
-      result = executor.execute("get_pr_details", {
-          "pr_number": 1  # Known test PR
-      })
+async def get_weather(city: str, units: str = "celsius") -> dict:
+    async with httpx.AsyncClient(timeout=10) as c:
+        r = await c.get(
+            "https://api.openweathermap.org/data/2.5/weather",
+            params={"q": city, "units": "metric" if units == "celsius" else "imperial"},
+        )
+        r.raise_for_status()
+        data = r.json()
+        return {
+            "temp": data["main"]["temp"],
+            "units": units,
+            "condition": data["weather"][0]["main"],
+        }
 
-      assert result["success"] == True
-      assert "title" in result["data"]
-      assert "files" in result["data"]
+async def search_db(query: str, field: str = "name", limit: int = 10) -> list[dict]:
+    # Pseudo: en producción, async DB driver (asyncpg, motor, etc.)
+    rows = await db.fetch(
+        f"SELECT id, name, email FROM customers WHERE {field} ILIKE $1 LIMIT $2",
+        f"%{query}%", limit,
+    )
+    return [dict(r) for r in rows]
+
+async def send_email(to: str, subject: str, body: str, priority: str = "normal") -> dict:
+    # Human-in-the-loop recomendado para side effects
+    msg_id = await mail_client.send(to=to, subject=subject, body=body, priority=priority)
+    return {"sent": True, "message_id": msg_id}
 ```
 
-Test error scenarios to ensure graceful handling:
+### Ejecución paralela con asyncio.gather
 
 ```python
-def test_api_timeout_handling(self):
-  self.mock_github.get_pr_details.side_effect = TimeoutError("API timeout")
+async def run_parallel(executor: ToolExecutor, calls: list[dict]) -> list[dict]:
+    tasks = [executor.execute(c["name"], c["args"]) for c in calls]
+    return await asyncio.gather(*tasks)
 
-  result = self.executor.execute("get_pr_details", {"pr_number": 1247})
-
-  assert result["success"] == False
-  assert "timeout" in result["error"].lower()
-  assert "suggested_action" in result
-
-def test_rate_limit_handling(self):
-  self.mock_github.get_pr_details.side_effect = RateLimitError("Rate limit exceeded")
-
-  result = self.executor.execute("get_pr_details", {"pr_number": 1247})
-
-  assert result["success"] == False
-  assert "rate limit" in result["error"].lower()
+# Ejemplo: el modelo pidió clima de dos ciudades a la vez
+calls = [
+    {"name": "get_weather", "args": {"city": "Mexico City"}},
+    {"name": "get_weather", "args": {"city": "Buenos Aires"}},
+]
+# asyncio.run(run_parallel(executor, calls))
 ```
 
-Robust Error Handling
-Errors in agent systems are decision points. When a tool fails, the agent must decide what to do next. Agent-oriented error handling provides information the agent can reason about—not just "Connection refused" but structured context about what failed, why, and what alternatives exist.
+### Retry on tool error (loop del agente)
 
-Structured error responses give agents recovery options:
+Cuando una tool falla con `retryable: true`, el agente debe reintentar o pedir ayuda. Devuelve el error al modelo para que decida:
 
 ```python
-def create_error_response(error_type, message, context=None, recovery_options=None):
-  return {
-      "success": False,
-      "error": {
-          "type": error_type,  # rate_limit, timeout, not_found, permission_denied
-          "message": message,
-          "retryable": error_type in ["rate_limit", "timeout", "service_unavailable"],
-          "context": context or {},
-          "recovery_options": recovery_options or []
-      }
-  }
+async def agent_turn(client, messages, tools, executor, max_iters=10):
+    for _ in range(max_iters):
+        resp = await client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=2048,
+            tools=tools,
+            messages=messages,
+        )
+        messages.append({"role": "assistant", "content": resp.content})
+        if resp.stop_reason != "tool_use":
+            return resp
+
+        tool_use_blocks = [b for b in resp.content if b.type == "tool_use"]
+        results = await asyncio.gather(*[
+            executor.execute(b.name, b.input) for b in tool_use_blocks
+        ])
+
+        messages.append({
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": b.id,
+                    "content": json.dumps(r),
+                    "is_error": not r["success"],
+                }
+                for b, r in zip(tool_use_blocks, results)
+            ],
+        })
+    raise RuntimeError("Max iteraciones alcanzado")
 ```
 
-Retry with exponential backoff handles transient failures:
+`is_error: true` le indica al modelo que puede reintentar con otros argumentos o cambiar de estrategia.
+
+### Sandbox para ejecutar código (E2B)
 
 ```python
-async def with_retry(operation, max_attempts=3, base_delay=1):
-  for attempt in range(max_attempts):
-      try:
-          return await operation()
-      except (TimeoutError, RateLimitError) as e:
-          if attempt < max_attempts - 1:
-              delay = base_delay * (2 ** attempt)
-              await asyncio.sleep(delay)
-  return create_error_response("service_unavailable", "Operation failed after retries")
+# pip install e2b-code-interpreter
+from e2b_code_interpreter import Sandbox
+
+async def run_python(code: str) -> dict:
+    with Sandbox() as sbx:
+        exec_ = sbx.run_code(code, timeout=15)
+        return {
+            "stdout": exec_.logs.stdout,
+            "stderr": exec_.logs.stderr,
+            "results": [r.text for r in exec_.results],
+            "error": exec_.error.name if exec_.error else None,
+        }
 ```
 
-Graceful degradation provides partial value when full functionality is unavailable. If the primary security scanner fails, try a backup. If that fails, use basic pattern matching. Return partial results with notes about limitations rather than complete failures.
+E2B ejecuta en un microVM Firecracker aislado, con filesystem y red controlados.
 
-Circuit breakers prevent cascading failures by stopping calls to repeatedly failing services. When a service fails five times, the circuit opens and subsequent calls fail immediately for a recovery period, protecting both the agent and the failing service.
+### Formatting de resultados grandes
 
-Summary
-The execution layer transforms function calls into real actions by routing calls to implementations, interacting with external APIs, and formatting results for the model. Careful integration with services like GitHub and security scanners requires handling authentication, rate limits, and comprehensive error cases.
+```python
+def truncate_result(data: str, max_chars: int = 4000) -> dict:
+    if len(data) <= max_chars:
+        return {"content": data, "truncated": False}
+    return {
+        "content": data[:max_chars],
+        "truncated": True,
+        "total_chars": len(data),
+        "hint": "Usa get_file_chunk(path, start, end) para pedir una sección específica",
+    }
+```
 
-Result formatting should be concise, consistent, and actionable. Include summaries that help the model understand results without processing every detail. Handle large results through truncation or pagination.
+## Errores comunes
 
-Execution context provides ambient information like repository name, permissions, and call history. This context enables permission checking, caching, and smarter execution decisions. Async execution improves performance by running independent operations concurrently.
+- **No validar args antes de ejecutar.** El modelo manda `pr_number="1247"` (string) y tu función crashea esperando int. Usa `jsonschema` o Pydantic.
+- **Reintentar errores no retryables.** Reintentar un 401 Unauthorized tres veces solo retrasa el fallo. Clasifica errores primero.
+- **Ejecutar tools con side effects sin confirmación.** `send_email`, `delete_user`, `charge_card` deben requerir un approval explícito (human-in-the-loop) o un flag `dry_run`.
+- **Devolver respuestas crudas gigantes.** 50k líneas de diff destruyen el contexto. Trunca, resume o pagina.
+- **Logs pobres.** Sin logs estructurados por tool call (name, args, duration, outcome) es imposible debuggear producción.
+- **No manejar tool errors de forma estructurada.** Devolver `None` o lanzar excepción no entendida deja al agente ciego. Devuelve siempre `{"success": False, "error": {...}}` con `type` y `retryable`.
+- **Hardcodear credenciales en el impl.** Usa `ExecutionContext` o un secret manager (Vault, AWS Secrets Manager, env vars).
+- **Ejecución secuencial cuando podría ser paralela.** Si el modelo emite 5 tool calls independientes, no las corras en for loop.
+- **Olvidar timeouts.** Una API que cuelga indefinidamente congela al agente. Siempre `asyncio.wait_for` o equivalente.
+- **Correr código del LLM sin sandbox.** Un `exec(code)` directo es RCE total. Usa Jupyter aislado, Docker, Firecracker.
+- **No invalidar cache.** Devolver datos cacheados sin notar que la fuente cambió lleva a decisiones basadas en información obsoleta.
 
-Robust error handling provides structured responses that help agents decide how to recover. Retry strategies use exponential backoff for transient failures. Graceful degradation offers fallbacks when primary tools fail. Circuit breakers prevent cascading failures from overwhelming services.
+## Resumen
 
-Testing the execution layer requires unit tests with mocked services, integration tests against real APIs, and error scenario testing. Thorough testing ensures reliable behavior in production.
-
-Key Takeaways:
-
-The execution layer routes function calls to implementations and formats results for the model
-External API integration requires careful handling of authentication, rate limits, and errors
-Format results to be concise, consistent, and include actionable summaries
-Execution context provides ambient information for permission checking and caching
-Async execution enables parallel tool calls for better performance
-Structure error responses with type, context, and recovery options for agent reasoning
-Implement retry logic, graceful degradation, and circuit breakers for resilience
-Test both individual tools and the execution infrastructure thoroughly
+- La **capa de ejecución** enruta tool calls a implementaciones, valida argumentos, ejecuta y formatea resultados.
+- Separa responsabilidades: **router + validador + executor + formatter**; cada pieza se testea aislada.
+- Integra APIs externas con **rate limiting**, **timeouts** y **retry con backoff exponencial** solo para errores retryables.
+- Usa **`asyncio.gather`** para ejecutar tool calls paralelas que el modelo emite en una sola respuesta.
+- Devuelve **errores estructurados** (`type`, `message`, `retryable`, `recovery_options`) para que el agente pueda reaccionar.
+- Formatea resultados **concisos, consistentes y accionables**; trunca o pagina lo grande.
+- Para code execution usa **sandboxes aislados** (Jupyter aislado, Docker, Firecracker, E2B); nunca `exec()` directo.
+- Mantén un **ExecutionContext** con permisos, historial y token budget para habilitar auditoría y caching.
+- **Circuit breakers** y **graceful degradation** evitan que un servicio caído tumbe todo el agente.
+- Testea con **mocks** (unit) y **servicios reales** (integration); incluye casos de error (timeouts, rate limits, respuestas inválidas).

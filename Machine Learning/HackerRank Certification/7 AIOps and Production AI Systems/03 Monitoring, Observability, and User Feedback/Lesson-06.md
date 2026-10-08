@@ -1,69 +1,239 @@
-## Comprehensive Monitoring Strategy
+# Dashboards, Respuesta a Incidentes y Estrategia Integral
 
-Building a complete monitoring strategy for AI systems requires integrating infrastructure monitoring, model monitoring, and business monitoring into a coherent whole. Each layer provides different insights, and together they enable effective operations.
+## ¿Qué es?
 
-Infrastructure monitoring forms the foundation. Track CPU, memory, GPU utilization, network bandwidth, disk I/O, and error rates. These metrics tell you if your systems are healthy and have adequate resources. Infrastructure problems often manifest before affecting users, providing early warning. Infrastructure monitoring uses standard tools like Prometheus, CloudWatch, or DataDog and follows traditional operational practices.
+Una **estrategia integral de monitoreo** une todo lo visto en las lecciones anteriores (señales doradas, observabilidad, drift, performance, feedback) en un sistema coherente: dashboards por audiencia, alertas con severidad, runbooks accionables, protocolo de incidentes y postmortems que generan aprendizaje.
 
-Model monitoring adds AI-specific metrics. Track prediction distributions, confidence scores, input feature distributions, model latency, and data drift metrics. These metrics reveal whether your model is behaving correctly. Model degradation, data drift, and prediction quality issues appear in model metrics before affecting business outcomes. Model monitoring requires custom instrumentation specific to your model and use case.
+Un buen sistema de monitoreo no es solo tecnología; es también **cultura**: la forma en que el equipo responde cuando algo falla y aprende de ello.
 
-Business monitoring connects technical metrics to business outcomes. Track revenue, conversion rates, user engagement, customer satisfaction, and other business KPIs that your model influences. Business metrics are the ultimate measure of success. Technical metrics might look good while business metrics decline, indicating your model is not delivering value. Business monitoring provides the "why does this model matter" perspective.
+## ¿Por qué importa?
 
-Integrating these layers requires correlation and context. When business metrics decline, investigate model metrics to understand if model performance degraded. When model metrics show drift, check if business metrics are affected. When infrastructure metrics show problems, understand the impact on models and business. Each layer provides context for others.
+- Sin **dashboards para cada audiencia**, el equipo no tiene lenguaje común: SRE, ML engineers, product managers y ejecutivos necesitan vistas distintas de la misma realidad.
+- Sin **runbooks**, el conocimiento vive en la cabeza del ingeniero senior y desaparece cuando él duerme o se va.
+- Sin **postmortems blameless**, los incidentes se repiten y la gente aprende a esconder errores.
+- La estrategia determina si los $100k en herramientas de observabilidad producen valor o solo producen dashboards bonitos que nadie mira.
 
-Alert design should follow a tiered approach. Critical alerts (system down, major performance degradation) require immediate human response and page on-call engineers. Warning alerts (drift detected, error rate increasing) create tickets for investigation during business hours. Informational alerts (retraining completed, model deployed) provide audit trails without requiring action. This tiering prevents alert fatigue while ensuring important issues get attention.
+## ¿Cómo funciona?
 
-Metric retention strategies balance cost with analysis needs. High-resolution real-time data (per-second metrics) for the last 7 days enables debugging recent incidents. Downsampled hourly aggregates for the last year enable long-term trend analysis. Summary statistics retained indefinitely provide historical context. This tiered retention minimizes storage costs while maintaining necessary historical data.
+### Estrategia por niveles (tiered monitoring)
 
-Dashboard Design for AI Systems
-Effective dashboards make important information visible at a glance and enable rapid investigation when problems occur. Good dashboard design requires understanding your audience and their needs.
+| Nivel | Audiencia | Frecuencia | Preguntas que responde |
+|---|---|---|---|
+| **L1 Executive** | C-level, product | Diario / semanal | ¿El producto crece? ¿Satisface a usuarios? ¿Cuánto cuesta? |
+| **L2 Business / Product** | PM, data analysts | Diario | CTR, conversión, retención, NPS, segmentación |
+| **L3 Model Health** | ML engineers | Horario | Drift, calibración, performance, feedback |
+| **L4 Service Health** | SRE, backend | Minuto | Latencia, errores, saturación, deploys |
+| **L5 Infrastructure** | Platform / SRE | Segundo | CPU, GPU, memoria, red, discos |
 
-Operational dashboards serve on-call engineers responding to incidents. Show current system health: request rate, error rate, latency percentiles, infrastructure resource utilization, and active alerts. Use red/yellow/green color coding to quickly identify problems. Include links to detailed logs and traces for investigation. Operational dashboards prioritize speed of understanding over completeness.
+Las métricas fluyen hacia arriba (una caída en L5 puede causar un problema en L1), pero cada nivel debe poder diagnosticar su propio dominio sin pedir ayuda a los otros niveles.
 
-Model health dashboards serve data scientists and ML engineers monitoring model behavior. Show prediction distributions over time with comparison to training distributions. Show confidence score distributions and changes. Show data drift metrics for key features. Show model performance metrics when ground truth is available. Include model version information and deployment history. Model dashboards prioritize insight into model behavior over operational details.
+### Diseño de dashboards (principios)
 
-Business dashboards serve stakeholders understanding business impact. Show key business metrics that the model influences: conversion rates, revenue, user satisfaction. Show these metrics alongside model deployments to correlate changes. Show A/B test results and their business impact. Use simple, clear visualizations without technical jargon. Business dashboards prioritize business outcomes over technical details.
+1. **Una pregunta por dashboard**: "¿Está sano el servicio?", "¿Cómo va el experimento X?". No mezclar.
+2. **La información más importante arriba a la izquierda** (regla de lectura).
+3. **Comparar siempre contra una línea base**: valor absoluto sin contexto no ayuda. Mostrar hoy vs. 7 días atrás, o vs. baseline esperado.
+4. **Usar colores con significado**: rojo = malo, verde = bueno, amarillo = sospechoso. Nunca por estética.
+5. **Mostrar incertidumbre**: bandas p50-p95, intervalos de confianza en experimentos.
+6. **Enlazar a runbooks y a traces** desde cada panel.
+7. **Menos es más**: 6-10 paneles por dashboard. Más es ruido.
 
-Dashboard layout should follow natural information hierarchy. Most important information goes top-left (where eyes naturally start). Less critical details go bottom-right. Group related metrics together. Use consistent color schemes across dashboards for coherence. Keep critical dashboards to one screen without scrolling when possible.
+### Protocolo de respuesta a incidentes
 
-Time range selection enables investigation at different scales. Default to the last hour or day for operational monitoring. Enable selection of longer ranges (week, month, year) for trend analysis. Show comparisons to previous periods (compare this week to last week) to identify changes. Time range context helps distinguish anomalies from normal variation.
+1. **Detectar**: alerta automática, reporte de usuario, observación interna.
+2. **Triaje**: ¿severidad P0-P3? ¿quién es el on-call? ¿se necesita incident commander?
+3. **Comunicar**: canal dedicado (`#incident-2026-10-07-llm-latency`), status page si afecta a clientes.
+4. **Mitigar**: lo primero es **parar el daño** (rollback, reducir tráfico, deshabilitar feature) antes que investigar la causa.
+5. **Investigar**: con la mitigación aplicada, ahora sí buscar causa raíz.
+6. **Resolver**: fix permanente, verificación.
+7. **Postmortem**: documento blameless con timeline, impacto, causa raíz, acciones correctivas.
 
-Anomaly highlighting draws attention to problems automatically. Use background colors or border highlights to indicate when metrics are outside normal ranges. Show trend lines or forecast lines alongside actual values to reveal deviations. Annotate graphs with deployment markers or incident markers for context. Visual anomaly detection is faster than reading numbers.
+### Runbooks: la memoria del equipo
 
-Drill-down capability enables investigation from high-level to detailed. Click on an error rate spike to see error types. Click on a latency increase to see latency by service. Click on a business metric decline to see contributing factors. Each level provides more detail. This allows starting with dashboards for awareness and drilling down for debugging.
+Cada alerta debe tener un runbook enlazado. Un runbook mínimo contiene:
 
-Real-time updates versus static snapshots depend on use case. Operational dashboards should update in real-time (every few seconds) to show current state. Analytical dashboards can update less frequently (every few minutes) since analysis takes longer than glancing at metrics. Balance update frequency against server load and user attention.
+- **Síntoma** que dispara la alerta.
+- **Impacto esperado** en el usuario.
+- **Primera verificación** (comandos, dashboards a abrir).
+- **Mitigaciones conocidas** (rollback, scale up, flush cache).
+- **Escalación**: a quién llamar si no funciona.
 
-Incident Response for Model Issues
-When problems occur with AI systems, effective incident response minimizes impact and enables rapid recovery. Model incidents differ from traditional software incidents in key ways that affect response procedures.
+Ejemplo de runbook corto para `LLMCostSpike`:
 
-Detection is the first step. Automated alerts notify on-call engineers of problems. Users might report issues through support channels. Business metrics might show unexpected changes. Multiple detection mechanisms provide redundancy. The faster you detect problems, the smaller their impact.
+```markdown
+# LLMCostSpike
 
-Incident classification determines response urgency. Is this a complete outage (no predictions being served), degraded performance (slow or less accurate predictions), or a drift issue (predictions gradually becoming less relevant)? Severity guides response: outages require immediate all-hands response, degraded performance requires prompt investigation, drift issues can wait for business hours.
+**Síntoma**: costo proyectado > $50/hora durante 10m.
+**Impacto**: fuga económica. Puede reflejar abuso, bug o prompt bloat.
 
-Initial triage investigates what is wrong. Check infrastructure metrics: is the serving system operational? Check error rates and logs: are predictions failing? Check model metrics: are predictions behaving normally? Check business metrics: are users affected? This triage phase quickly identifies the problem domain: infrastructure, model, or data.
+## Paso 1: ¿quién consume?
+- Dashboard `cost-by-tenant` (link).
+- Si un tenant concentra >50%, posible abuso. Rate-limit temporal.
 
-Mitigation aims to reduce ongoing impact. For infrastructure problems, scale up resources or failover to backup systems. For model problems, roll back to the previous model version if available. For data problems, switch to cached or default features. Mitigation might not fix the root cause but stops the bleeding while you investigate further.
+## Paso 2: ¿tokens por request subió?
+- Dashboard `tokens-per-req` (link). Si sí, posible prompt bloat tras deploy reciente.
+- `git log --since="24 hours"` en el servicio del prompt.
 
-Communication is critical during incidents. Notify stakeholders of the problem, estimated impact, and expected resolution time. Update regularly as the situation evolves. After resolution, provide incident reports explaining what happened, why, and what will be done to prevent recurrence. Transparency builds trust and manages expectations.
+## Paso 3: ¿cache funcionando?
+- `cache_hit_rate` debería ser >60%. Si cayó, revisar Redis.
 
-Root cause analysis identifies why the problem occurred. For infrastructure issues, what caused the failure? For model issues, what changed about the model or data? For data issues, what changed in upstream systems? Root cause analysis prevents treating symptoms while ignoring underlying problems. Use techniques like "five whys" to dig deeper than surface causes.
+## Escalación
+- Si no se mitiga en 15m, paginar on-call senior.
+```
 
-Postmortem reviews after major incidents capture lessons learned. What went wrong? What went right? What should we change? Blameless postmortems focus on process and system improvements rather than individual fault. Document action items and track completion. Many companies share postmortems publicly to contribute to industry knowledge.
+### Postmortems blameless
 
-Preventive measures reduce future incidents. If infrastructure overload caused an outage, add autoscaling. If model drift went undetected, add drift monitoring. If data quality problems caused errors, add validation checks. Each incident is an opportunity to improve systems and processes.
+Un postmortem efectivo:
 
-Runbooks document response procedures for common incidents. When a specific alert fires, what should you check? What commands should you run? Who should you contact? Good runbooks enable any team member to respond effectively, not just experts. Update runbooks based on incident experiences.
+- **Enfoca en sistemas, no en personas**: no "Juan desplegó mal" sino "no teníamos canary deploy automatizado".
+- **Timeline detallado** con timestamps y acciones.
+- **Impacto cuantificado**: usuarios afectados, requests fallidos, ingresos perdidos.
+- **Causa raíz** usando técnicas como **5 whys**.
+- **Acciones correctivas con dueño y fecha**: sin esto, el postmortem es terapia.
+- **Compartido ampliamente**: el aprendizaje se propaga.
 
-Practice and preparation improve incident response. Run fire drills where you simulate incidents and practice response. This builds muscle memory and reveals gaps in procedures. Teams that practice respond more effectively during real incidents. Gaming incidents reduces stress and improves coordination.
+Una cultura blameless no significa "sin consecuencias"; significa **separar el error de la persona** y atacar las condiciones que lo permitieron.
 
-Summary
-Comprehensive monitoring strategy integrates infrastructure, model, and business metrics into a coherent whole that provides visibility at multiple levels. Effective dashboards tailor information presentation to different audiences: operational dashboards for on-call engineers, model dashboards for data scientists, and business dashboards for stakeholders.
+### Métricas de madurez del monitoreo
 
-Incident response for AI systems requires detection, classification, triage, mitigation, and root cause analysis. Blameless postmortems and runbooks improve future response. The unique characteristics of AI systems (silent failures, drift, delayed feedback) require different response patterns than traditional software incidents.
+| Métrica | Qué mide | Objetivo típico |
+|---|---|---|
+| **MTTD** (Mean Time To Detect) | Minutos entre fallo y alerta | < 5 min para P0 |
+| **MTTR** (Mean Time To Resolve) | Minutos entre alerta y mitigación | < 30 min para P0 |
+| **Alert precision** | % alertas accionables | > 70% |
+| **Postmortem coverage** | % incidentes con postmortem | 100% para P0/P1 |
+| **Action item completion** | % acciones correctivas cerradas | > 80% en 30 días |
 
-Key concepts to remember
-Integrated Monitoring - Integrate infrastructure metrics, model-specific metrics, and business outcomes into correlated views
-Audience-Tailored Dashboards - Tailor dashboard information to audience needs: operational details for engineers, model behavior for data scientists
-Diagnostic Approach - Incident response requires understanding whether problems are infrastructure, model, or data related
-Learn from Incidents - Blameless postmortems capture lessons learned and drive systemic improvements to prevent recurrence
-Practice Readiness - Runbooks and practice drills prepare teams to respond effectively to incidents
+### Diseño de un dashboard de salud de LLM (ejemplo)
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ FILA 1 (visión general)                                  │
+│  [RPS] [p95 latencia] [error rate] [costo/hora]          │
+├──────────────────────────────────────────────────────────┤
+│ FILA 2 (calidad)                                         │
+│  [thumbs ratio]  [llm-judge score p50/p95]               │
+│  [regenerate rate] [tasa de hallucination flaggeada]     │
+├──────────────────────────────────────────────────────────┤
+│ FILA 3 (drift)                                           │
+│  [embedding drift p95]  [top-5 queries que driftan]      │
+├──────────────────────────────────────────────────────────┤
+│ FILA 4 (desglose)                                        │
+│  [latencia por etapa del pipeline]                       │
+│  [tokens por request, trend 7d]                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+## Ejemplo con código
+
+### Alertas Prometheus organizadas por severidad
+
+```yaml
+groups:
+  - name: llm-service-slo
+    interval: 30s
+    rules:
+      # P0 - paginar inmediatamente
+      - alert: LLMServiceDown
+        expr: up{job="llm-service"} == 0
+        for: 1m
+        labels: {severity: P0, team: ml-platform}
+        annotations:
+          summary: "Servicio LLM caído"
+          runbook: "https://wiki/runbooks/llm-service-down"
+
+      - alert: LLMErrorBudgetBurn
+        expr: |
+          (
+            sum(rate(llm_requests_total{status="error"}[1h]))
+            / sum(rate(llm_requests_total[1h]))
+          ) > (14.4 * 0.001)   # burn 14.4x el budget mensual de 0.1%
+        for: 5m
+        labels: {severity: P0}
+        annotations:
+          summary: "Error budget quemándose rápido"
+
+      # P1
+      - alert: LLMLatencyP95High
+        expr: histogram_quantile(0.95, rate(llm_request_latency_seconds_bucket[5m])) > 3
+        for: 10m
+        labels: {severity: P1}
+        annotations:
+          summary: "Latencia p95 > 3s"
+          runbook: "https://wiki/runbooks/llm-latency"
+
+      # P2
+      - alert: EmbeddingDriftWarning
+        expr: embedding_drift_p95 > 0.55
+        for: 30m
+        labels: {severity: P2}
+        annotations:
+          summary: "Drift semántico sostenido"
+
+      # P2
+      - alert: LLMJudgeScoreDrop
+        expr: avg_over_time(llm_judge_score_mean[1h]) < 3.8
+        for: 1h
+        labels: {severity: P2}
+        annotations:
+          summary: "Score del juez LLM < 3.8 durante 1h"
+```
+
+### Template de postmortem (markdown)
+
+```markdown
+# Postmortem — Incidente 2026-10-07 LLM Latency
+
+**Severidad**: P1
+**Duración**: 2026-10-07 14:12 UTC → 15:48 UTC (96 min)
+**Impacto**: 12% de requests > 10s. ~3,400 usuarios afectados.
+
+## Timeline (UTC)
+- 14:12  Alerta `LLMLatencyP99High` dispara.
+- 14:14  On-call reconoce. Abre canal `#incident-2026-10-07`.
+- 14:21  Se descarta problema de GPU (dashboard infra OK).
+- 14:35  Hipótesis: timeout del reranker. Confirmado en traces.
+- 14:50  Rollback del deploy `reranker:v2.3` → `v2.2`. Latencia baja.
+- 15:48  Métricas estables 1h. Incidente cerrado.
+
+## Causa raíz
+`reranker:v2.3` cargaba el modelo en cada request por bug en el singleton.
+Latencia por request subió de 30 ms a 1200 ms.
+
+## Por qué no lo detectó CI
+Tests unitarios no miden cold-start. No había load test en el pipeline.
+
+## Acciones correctivas
+| # | Acción | Dueño | Fecha |
+|---|---|---|---|
+| 1 | Añadir load test en CI | @ana | 2026-10-14 |
+| 2 | Canary deploy obligatorio para reranker | @luis | 2026-10-21 |
+| 3 | Alerta sobre latencia por etapa, no solo total | @carla | 2026-10-10 |
+
+## Lo que salió bien
+- Tracing distribuido permitió localizar la causa en 20 min.
+- Rollback fue inmediato por versionado estricto.
+```
+
+## Errores comunes
+
+- **Dashboards sin audiencia definida**: 60 paneles mezclando infra, modelo y negocio; nadie los lee.
+- **Alertas sin runbook**: despertar a alguien a las 3 AM sin indicarle qué hacer.
+- **Postmortems con culpables**: la gente aprende a esconder errores en lugar de reportarlos.
+- **Acciones correctivas sin dueño ni fecha**: el postmortem se vuelve catarsis.
+- **No practicar incidentes**: la primera vez que el equipo coordina es durante un fallo real.
+- **MTTR sin medir**: imposible mejorar lo que no se mide.
+- **No separar severidades**: tratar todo como P0 agota al equipo; tratar todo como P3 ignora lo importante.
+- **Status page silenciosa**: los clientes se enteran por Twitter.
+- **Dashboards estáticos** sin baseline ni comparación: imposible saber si "20 RPS" está bien o mal.
+- **Confundir tener observabilidad con usarla**: comprar Datadog no reemplaza la cultura de usarlo.
+
+## Resumen
+
+- Una estrategia integral de monitoreo tiene **cinco niveles** (ejecutivo, negocio, modelo, servicio, infra), cada uno con dashboards y audiencias propias.
+- Los **dashboards efectivos** responden una pregunta, muestran comparación con baseline y enlazan a runbooks y traces.
+- La **respuesta a incidentes** sigue un protocolo: detectar, triaje, comunicar, **mitigar primero**, investigar después, resolver, postmortem.
+- Los **runbooks** convierten conocimiento tribal en memoria del equipo; cada alerta debe tener uno.
+- Los **postmortems blameless** separan el error de la persona y producen acciones correctivas concretas con dueño y fecha.
+- Métricas de madurez (**MTTD, MTTR, alert precision, postmortem coverage**) permiten mejorar el proceso iterativamente.
+- Herramientas (**Prometheus, Grafana, Sentry, Datadog, PagerDuty, Opsgenie**) habilitan la estrategia pero no la reemplazan; la cultura es el verdadero multiplicador.
+- El objetivo final no es "nunca fallar" (imposible), sino **detectar rápido, mitigar rápido y aprender siempre**.

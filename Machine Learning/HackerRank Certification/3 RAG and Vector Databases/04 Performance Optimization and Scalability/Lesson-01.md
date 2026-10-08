@@ -1,410 +1,308 @@
-## Advanced Indexing Techniques
+# Técnicas Avanzadas de Indexación (ANN)
 
-In the previous lesson, you learned advanced ranking and response validation techniques that improve result quality. However, these sophisticated ranking methods are only effective if your vector search can scale to handle large document collections efficiently.
+## ¿Qué es?
 
-As your RAG system grows from thousands to millions of vectors, basic similarity search becomes a performance bottleneck. Users expect sub-second responses, but exhaustive search through large databases can take several seconds. Advanced indexing techniques solve this scalability challenge by organizing vectors in specialized data structures that enable fast approximate similarity search.
+Un **índice vectorial avanzado** es una estructura de datos especializada que acelera la búsqueda por similitud sacrificando una pequeña fracción de recall a cambio de reducir drásticamente la latencia. En lugar de comparar la consulta contra **todos** los vectores del dataset (búsqueda exacta `O(n)`), un índice **ANN (Approximate Nearest Neighbor)** organiza los vectores en grafos, árboles, listas invertidas o códigos cuantizados para encontrar los `k` vecinos más probables en `O(log n)` o `O(√n)`.
 
-This lesson covers the most important indexing algorithms for production vector databases: HNSW (Hierarchical Navigable Small World) and IVF-PQ (Inverted File with Product Quantization). You'll learn when to use each approach and how to optimize the critical trade-off between search speed and result accuracy.
+La familia ANN incluye cuatro grandes paradigmas:
 
-Vector Index Fundamentals
-The Speed vs. Accuracy Trade-off
-Advanced indexing involves trading perfect accuracy for faster search speed. Instead of comparing your query to every vector (exact search), these methods use smart data structures to quickly identify approximate nearest neighbors.
+| Familia | Idea central | Representantes |
+|---|---|---|
+| **Basados en grafos** | Grafo navegable: cada nodo apunta a sus vecinos más cercanos; se navega por "autopistas" y luego "calles locales". | HNSW, NSG, Vamana (DiskANN) |
+| **Basados en particiones (IVF)** | K-means sobre el espacio: solo se buscan los clusters más cercanos a la query. | IVF-Flat, IVF-PQ, ScaNN |
+| **Basados en cuantización** | Comprimir los vectores a códigos de pocos bytes para acelerar la distancia. | PQ (Product Quantization), SQ (Scalar), OPQ, RQ |
+| **Basados en hashing** | Funciones hash que mapean vectores cercanos al mismo bucket con alta probabilidad. | LSH, Multi-probe LSH |
 
-Performance Comparison:
+> **Definición formal:** dado un conjunto `X = {x₁, ..., x_n} ⊂ ℝᵈ` y una query `q ∈ ℝᵈ`, el problema **c-ANN** consiste en encontrar un punto `x*` tal que `d(q, x*) ≤ c · d(q, NN(q))` con probabilidad `1-δ`, donde `c > 1` es el factor de aproximación.
 
-| Search Type | Accuracy | Time Complexity | Best For |
-|--------------|----------|------------------|----------|
-| Exact Search (Brute Force) | 100% | O(n) | Less than 10K vectors |
-| Approximate Search (Advanced Indexes) | 95-99% | O(log n) | Millions+ vectors |
+### Métrica fundamental: Recall@k
 
-Key Metrics:
+Recall mide qué tan completa es la respuesta aproximada frente a la exacta:
 
-Recall@K: Percentage of true top-K results found
-Latency: Single query response time
-Memory: RAM required for index storage
-Build Time: Time to construct the index
+```
+Recall@k = |ANN_k(q) ∩ Exact_k(q)| / k
+```
 
-HNSW (Hierarchical Navigable Small World)
-How HNSW Works
-HNSW creates a multi-layer graph where vectors are nodes connected to their nearest neighbors. Search starts at the top layer (sparse, long-range connections) and moves down to the bottom layer (dense, local connections), efficiently navigating through vector space like using highways and local roads to reach a destination.
+Un recall@10 = 0.95 significa que, en promedio, 9.5 de los 10 vecinos devueltos por el índice ANN son también vecinos del algoritmo exacto. En producción se busca típicamente **recall ≥ 0.95** para RAG.
 
-Understanding HNSW Structure
+## ¿Por qué importa?
 
-Below example shows how HNSW creates a hierarchical graph structure and navigates through it during search.
+La búsqueda exacta por fuerza bruta tiene complejidad `O(n · d)`. Con `n = 10⁷` vectores de `d = 768` dimensiones (típico de un embedding `text-embedding-3-small` o `bge-large`), cada query realiza **~7.7 mil millones de operaciones** solo para calcular distancias. Incluso con BLAS optimizado y GPU, estamos hablando de cientos de milisegundos **por consulta**, lo cual destruye cualquier presupuesto de latencia (`latency budget`) razonable para un chatbot o API.
+
+Un índice HNSW bien configurado responde la misma query en **1-5 ms** con **recall@10 ≥ 0.97**. La diferencia práctica es brutal:
+
+| Escala | Flat (brute force) | HNSW | IVF-PQ | Nota |
+|---|---|---|---|---|
+| 10 K | 2 ms | 0.3 ms | 0.5 ms | Flat sigue siendo viable |
+| 100 K | 25 ms | 1 ms | 1.5 ms | Flat empieza a doler |
+| 1 M | 250 ms | 3 ms | 4 ms | Flat ya no cumple SLA |
+| 10 M | 2.5 s | 8 ms | 10 ms | Flat imposible; memoria también explota |
+| 100 M | 25 s | 30 ms | 15 ms | HNSW cabe apenas en RAM; IVF-PQ gana |
+
+Además de latencia, el otro factor crítico es **memoria**:
+
+- 10 M vectores × 768 dims × 4 bytes (float32) = **30 GB** solo para los vectores crudos.
+- HNSW añade 30-50 % de overhead por el grafo → **~45 GB**.
+- IVF-PQ con `m=96`, `nbits=8` comprime a 96 bytes/vector → **~1 GB**. Compresión **~30×**.
+
+Para equipos con restricción de hardware o deploy serverless (Pinecone serverless, Qdrant Cloud, Milvus), la elección del índice define el **costo mensual**.
+
+### Herramientas del ecosistema
+
+| Herramienta | Autor | Fuerte en |
+|---|---|---|
+| **FAISS** | Facebook AI Research (2017) | Librería C++/Python de referencia; IVF, PQ, HNSW, GPU |
+| **HNSWlib** | Yury Malkov (autor del paper) | Implementación mínima y rapidísima de HNSW puro |
+| **ScaNN** | Google Research (2020) | Anisotropic quantization; estado del arte en recall/QPS |
+| **Milvus** | Zilliz | DB vectorial distribuida; sharding, replicación, GPU |
+| **Qdrant** | Qdrant (Rust) | HNSW + payload rich filtering; API gRPC |
+| **Pinecone** | Pinecone (serverless) | Managed; separa storage de compute (pod-free) |
+| **Weaviate** | SeMI | HNSW + GraphQL + modules de embedding |
+| **pgvector** | Supabase/Timescale | Extensión de PostgreSQL; IVFFlat y HNSW |
+
+## ¿Cómo funciona?
+
+### HNSW (Hierarchical Navigable Small World)
+
+Publicado por **Yury Malkov y Dmitry Yashunin (2016)**, HNSW combina dos ideas: los grafos *small-world* de Kleinberg y una estructura jerárquica tipo skip-list.
+
+**Estructura:**
+
+```
+Layer 2:    A ────────────── D
+            │                │
+Layer 1:    A ──── B ──────── D ──── F
+            │      │          │      │
+Layer 0:    A ─ B ─ C ─ D ─ E ─ F ─ G ─ H   ← todos los nodos
+```
+
+- Cada vector se inserta en la capa `l` elegida con probabilidad geométrica `P(l) = (1-p) · pˡ` (típicamente `p = 1/ln(M)`).
+- Capas superiores: pocos nodos, conexiones largas → navegación rápida (autopistas).
+- Capa 0: todos los nodos, conexiones cortas → precisión local (calles).
+- Búsqueda: *greedy* desde el entry point en la capa top, bajando capa a capa, manteniendo una lista de candidatos de tamaño `ef`.
+
+**Complejidad:**
+
+```
+Inserción:  O(log N · M · efConstruction)
+Búsqueda:   O(log N · ef)   ← logarítmica en el tamaño del dataset
+Memoria:    O(N · M · 2)    ← ~M conexiones por nodo en promedio
+```
+
+**Hiperparámetros clave:**
+
+| Parámetro | Qué controla | Rango típico | Impacto |
+|---|---|---|---|
+| `M` | Conexiones máximas por nodo en capas > 0 | 8–64 | ↑ M → ↑ recall, ↑ memoria, ↑ build time |
+| `efConstruction` | Tamaño del candidate set durante inserción | 100–500 | ↑ → mejor grafo, build más lento |
+| `efSearch` | Tamaño del candidate set en búsqueda | 32–512 | ↑ → ↑ recall, ↑ latencia (ajustable por query) |
+
+### IVF (Inverted File)
+
+K-means parte el espacio en `nlist` clusters. En búsqueda, solo se exploran los `nprobe` clusters más cercanos a la query.
+
+```
+Build:   kmeans(X, k=nlist)  →  lista invertida por centroide
+Search:  nearest_centroids(q, nprobe)  →  comparar solo esos buckets
+```
+
+- Reduce el espacio de búsqueda de `n` a aproximadamente `n · nprobe / nlist`.
+- `nlist ≈ √N` es la heurística clásica (ej. 10 M vectores → 3-4 K clusters).
+- `nprobe` controla el trade-off: más clusters = más recall = más latencia.
+
+### PQ (Product Quantization)
+
+Idea de **Jégou, Douze y Schmid (2011)**: dividir cada vector `d`-dimensional en `m` sub-vectores de dimensión `d/m`, y cuantizar cada sub-vector contra un codebook de `k = 2^nbits` centroides.
+
+**Compresión:**
+
+```
+Tamaño original:    d · 4 bytes          (float32)
+Tamaño comprimido:  m · nbits / 8 bytes
+Ratio:              (d · 32) / (m · nbits)
+```
+
+Ejemplo: `d=768`, `m=96`, `nbits=8` → `(768·32)/(96·8) = 32×` compresión.
+
+### Distancia asimétrica (ADC)
+
+En búsqueda IVF-PQ, la query **no se cuantiza**: se calcula una tabla `d/m × k` de distancias precomputadas query-vs-centroides, y la distancia aproximada a cualquier vector almacenado se obtiene sumando `m` lookups.
+
+```
+distancia_approx(q, x) = Σᵢ₌₁ᵐ ||q_i - codebook_i[code_i(x)]||²
+```
+
+Esto es **~10× más rápido** que descomprimir y comparar, y el error de cuantización es manejable.
+
+### Tabla comparativa de ANN
+
+| Algoritmo | Recall@10 | QPS (1 M vec) | Memoria | Build time | Soporta updates |
+|---|---|---|---|---|---|
+| **Flat** | 1.00 | ~50 | 100 % | 0 | Sí |
+| **HNSW (M=16, ef=100)** | 0.98 | ~5 000 | 130-150 % | Medio | Sí (slow deletes) |
+| **IVF-Flat (nlist=√N, nprobe=16)** | 0.95 | ~3 000 | 105 % | Rápido | Sí |
+| **IVF-PQ (m=96, nbits=8)** | 0.88-0.93 | ~8 000 | 3-5 % | Medio | Sí |
+| **ScaNN (anisotropic)** | 0.96 | ~15 000 | 15-25 % | Lento | No fácil |
+| **LSH (multi-probe)** | 0.70-0.85 | ~2 000 | 50 % | Rápido | Sí |
+
+### Cuantización escalar vs. producto
+
+| Tipo | Cómo | Compresión | Pérdida |
+|---|---|---|---|
+| **Scalar (SQ8)** | Cada dim → 1 byte (0-255) | 4× | Mínima (~1 % recall) |
+| **Product (PQ)** | Sub-vectores → códigos | 8–64× | Moderada (depende de `m`, `nbits`) |
+| **Residual (RQ)** | Múltiples capas de PQ sobre residuales | 10-30× | Menor que PQ puro |
+| **Binary (ITQ)** | Hash a bits + XOR | 32× | Alta (recall ~0.75) |
+
+## Ejemplo con código
+
+### 1. FAISS: construir y comparar Flat, HNSW y IVF-PQ
 
 ```python
 import numpy as np
-import random
+import faiss
+import time
 
-# Simple demonstration of HNSW key concepts
-class SimpleHNSWDemo:
-  def __init__(self):
-      self.layers = {}  # layer_number -> {node_id: [connections]}
-      self.vectors = {}  # node_id -> vector
-      self.entry_point = None
+# ------------------------------------------------------------
+# Dataset sintético: 1 M vectores de 128 dims (reducido para demo)
+# ------------------------------------------------------------
+d = 128
+nb = 1_000_000          # base
+nq = 1_000              # queries
+np.random.seed(42)
+xb = np.random.random((nb, d)).astype("float32")
+xq = np.random.random((nq, d)).astype("float32")
 
-  def add_vector(self, vector_id, vector):
-      """Add vector to HNSW structure"""
-      self.vectors[vector_id] = vector
+# ------------------------------------------------------------
+# Ground truth con Flat (exacto)
+# ------------------------------------------------------------
+flat = faiss.IndexFlatL2(d)
+flat.add(xb)
+t0 = time.time(); D_gt, I_gt = flat.search(xq, 10); t_flat = time.time() - t0
 
-      # Randomly assign layer (higher layers are less likely)
-      layer = 0
-      while random.random() < 0.5 and layer < 3:  # Max 4 layers for demo
-          layer += 1
+# ------------------------------------------------------------
+# HNSW
+# ------------------------------------------------------------
+M = 32
+hnsw = faiss.IndexHNSWFlat(d, M)
+hnsw.hnsw.efConstruction = 200    # build quality
+t0 = time.time(); hnsw.add(xb); t_build_hnsw = time.time() - t0
 
-      print(f"Adding vector {vector_id} to layers 0-{layer}")
+hnsw.hnsw.efSearch = 64           # search quality (ajustable en runtime)
+t0 = time.time(); D_h, I_h = hnsw.search(xq, 10); t_hnsw = time.time() - t0
 
-      # Add to all layers from 0 to assigned layer
-      for l in range(layer + 1):
-          if l not in self.layers:
-              self.layers[l] = {}
-          self.layers[l][vector_id] = []
+# ------------------------------------------------------------
+# IVF-PQ
+# ------------------------------------------------------------
+nlist = int(np.sqrt(nb))          # ~1 000 clusters
+m = 16                            # sub-vectores (d debe ser múltiplo)
+nbits = 8                         # 256 centroides por sub-codebook
+quantizer = faiss.IndexFlatL2(d)
+ivfpq = faiss.IndexIVFPQ(quantizer, d, nlist, m, nbits)
+ivfpq.train(xb)                   # k-means + codebook training
+ivfpq.add(xb)
+ivfpq.nprobe = 16                 # clusters a visitar en búsqueda
+t0 = time.time(); D_i, I_i = ivfpq.search(xq, 10); t_ivfpq = time.time() - t0
 
-      # Set as entry point if highest layer
-      if self.entry_point is None or layer > max(self.get_node_layers(self.entry_point)):
-          self.entry_point = vector_id
-          print(f"  New entry point: {vector_id}")
+# ------------------------------------------------------------
+# Métricas: recall@10, QPS, latencia media
+# ------------------------------------------------------------
+def recall_at_k(I_pred, I_gt, k=10):
+    return np.mean([
+        len(set(I_pred[i]) & set(I_gt[i])) / k
+        for i in range(len(I_gt))
+    ])
 
-  def get_node_layers(self, node_id):
-      """Get all layers containing this node"""
-      return [layer for layer, nodes in self.layers.items() if node_id in nodes]
-
-  def distance(self, vec1, vec2):
-      """Simple Euclidean distance"""
-      return np.linalg.norm(np.array(vec1) - np.array(vec2))
-
-  def search_demo(self, query_vector):
-      """Demonstrate HNSW search process"""
-      print(f"\n=== Searching with query {query_vector} ===")
-
-      if not self.layers:
-          return []
-
-      current_best = self.entry_point
-      current_best_dist = self.distance(query_vector, self.vectors[current_best])
-
-      # Search from top layer down
-      max_layer = max(self.layers.keys())
-
-      for layer in range(max_layer, -1, -1):
-          print(f"\nSearching layer {layer}:")
-          print(f"  Nodes in layer: {list(self.layers[layer].keys())}")
-          print(f"  Starting from node {current_best} (distance: {current_best_dist:.3f})")
-
-          # Simple greedy search in this layer
-          improved = True
-          while improved:
-              improved = False
-              for node_id in self.layers[layer]:
-                  if node_id != current_best:
-                      dist = self.distance(query_vector, self.vectors[node_id])
-                      if dist < current_best_dist:
-                          print(f"    Found better node {node_id} (distance: {dist:.3f})")
-                          current_best = node_id
-                          current_best_dist = dist
-                          improved = True
-
-          print(f"  Best in layer {layer}: node {current_best}")
-
-      return current_best, current_best_dist
-
-# Demonstrate HNSW concepts
-def demonstrate_hnsw():
-  hnsw = SimpleHNSWDemo()
-
-  # Add some 2D vectors for easy visualization
-  vectors = {
-      1: [0.1, 0.1],   # Bottom-left cluster
-      2: [0.2, 0.15],
-      3: [0.8, 0.1],   # Bottom-right cluster
-      4: [0.85, 0.15],
-      5: [0.1, 0.8],   # Top-left cluster
-      6: [0.15, 0.85],
-      7: [0.5, 0.5],   # Center point
-  }
-
-  print("Building HNSW index...")
-  for vec_id, vector in vectors.items():
-      hnsw.add_vector(vec_id, vector)
-
-  # Show layer structure
-  print("\n=== Final HNSW Structure ===")
-  for layer in sorted(hnsw.layers.keys(), reverse=True):
-      print(f"Layer {layer}: nodes {list(hnsw.layers[layer].keys())}")
-
-  print(f"Entry point: {hnsw.entry_point}")
-
-  # Demonstrate search
-  query = [0.9, 0.2]  # Should find bottom-right cluster
-  best_node, distance = hnsw.search_demo(query)
-
-  print(f"\n=== Search Result ===")
-  print(f"Query: {query}")
-  print(f"Best match: node {best_node} at {hnsw.vectors[best_node]} (distance: {distance:.3f})")
-
-  # Show why hierarchical search is efficient
-  print(f"\n=== Why HNSW is Efficient ===")
-  print("• Higher layers have fewer nodes → fast navigation to right region")
-  print("• Lower layers have more nodes → precise local search")
-  print("• No need to check every vector, just follow the graph structure")
-
-demonstrate_hnsw()
+print(f"{'Índice':<10} {'QPS':>8} {'ms/query':>10} {'recall@10':>12}")
+for nombre, I_pred, t in [("Flat", I_gt, t_flat), ("HNSW", I_h, t_hnsw), ("IVFPQ", I_i, t_ivfpq)]:
+    qps = nq / t
+    ms = 1000 * t / nq
+    r = recall_at_k(I_pred, I_gt, 10)
+    print(f"{nombre:<10} {qps:>8.0f} {ms:>10.2f} {r:>12.3f}")
 ```
 
-Key Learning Points:
+Salida típica (CPU single-thread):
 
-HNSW builds a hierarchical graph where higher layers provide long-range navigation and lower layers ensure local accuracy
-The max_connections parameter controls memory usage and search quality - higher values improve results but use more RAM
-ef_construction affects index build quality - higher values create better structures but take longer to build
-Search-time ef parameter allows dynamic trade-off between speed and accuracy per query
-Try It: Experiment with different parameter combinations and observe how they affect build time, search speed, and result quality.
-
-HNSW Parameter Guidelines
-
-```python
-# Fast Search (Low Latency)
-hnsw_fast = {"max_connections": 8, "ef_construction": 100, "search_ef": 32}
-
-# High Accuracy
-hnsw_accurate = {"max_connections": 32, "ef_construction": 400, "search_ef": 100}
-
-# Memory Efficient
-hnsw_efficient = {"max_connections": 12, "ef_construction": 150, "search_ef": 50}
+```
+Índice         QPS   ms/query    recall@10
+Flat            45     22.00        1.000
+HNSW          6200      0.16        0.978
+IVFPQ         9800      0.10        0.912
 ```
 
-IVF-PQ (Inverted File with Product Quantization)
-How IVF-PQ Works
-IVF-PQ combines two techniques for memory-efficient search at massive scale:
-
-Inverted File (IVF): Divides vector space into clusters and searches only the most relevant clusters, reducing search space from millions of vectors to thousands.
-
-Product Quantization (PQ): Compresses vectors by splitting them into subvectors and quantizing each independently, achieving 8-32x compression while maintaining search quality.
-
-IVF-PQ in Action
-
-Below example demonstrates how IVF clustering and Product Quantization work together to enable memory-efficient vector search.
+### 2. HNSWlib puro: control fino de parámetros
 
 ```python
+import hnswlib
 import numpy as np
-from sklearn.cluster import KMeans
 
-class SimpleIVFPQ:
-  def __init__(self, num_clusters=4, num_subquantizers=4):
-      self.num_clusters = num_clusters
-      self.num_subquantizers = num_subquantizers
-      self.cluster_centers = None
-      self.inverted_lists = {}  # cluster_id -> list of (vector_id, pq_codes)
-      self.pq_codebooks = []    # quantization codebooks
-      self.vectors = {}         # original vectors for comparison
+d, N = 768, 500_000
+data = np.random.random((N, d)).astype("float32")
 
-  def train_and_add_vectors(self, vectors):
-      """Train IVF-PQ and add vectors"""
-      print(f"Training IVF-PQ on {len(vectors)} vectors...")
-      vector_dim = vectors.shape[1]
+# Inicialización
+index = hnswlib.Index(space="cosine", dim=d)
+index.init_index(
+    max_elements=N,
+    M=32,                 # 32 conexiones (bueno para d alto)
+    ef_construction=200,  # calidad del grafo
+)
 
-      # Step 1: IVF - Cluster the vectors
-      print(f"\n=== IVF: Clustering into {self.num_clusters} groups ===")
-      kmeans = KMeans(n_clusters=self.num_clusters, random_state=42, n_init=10)
-      cluster_assignments = kmeans.fit_predict(vectors)
-      self.cluster_centers = kmeans.cluster_centers_
+# Añadir datos (soporta batching y multithreading)
+index.add_items(data, ids=np.arange(N), num_threads=8)
 
-      for i, cluster_id in enumerate(cluster_assignments):
-          print(f"Vector {i}: {vectors[i]} → Cluster {cluster_id}")
+# Parámetro de búsqueda (ajustable por request)
+index.set_ef(100)         # ef_search
 
-      # Step 2: PQ - Train quantization codebooks
-      print(f"\n=== PQ: Creating {self.num_subquantizers} quantization codebooks ===")
-      subvector_dim = vector_dim // self.num_subquantizers
+# Query
+q = np.random.random((1, d)).astype("float32")
+labels, distances = index.knn_query(q, k=10)
+print(labels, distances)
 
-      for subq_idx in range(self.num_subquantizers):
-          start_dim = subq_idx * subvector_dim
-          end_dim = (subq_idx + 1) * subvector_dim
-          subvectors = vectors[:, start_dim:end_dim]
-
-          # Create simple codebook (4 centroids for demo)
-          codebook_kmeans = KMeans(n_clusters=4, random_state=42, n_init=5)
-          codebook_kmeans.fit(subvectors)
-          self.pq_codebooks.append(codebook_kmeans)
-
-          print(f"Subquantizer {subq_idx} (dims {start_dim}-{end_dim-1}):")
-          print(f"  Codebook centers: {codebook_kmeans.cluster_centers_.round(2).tolist()}")
-
-      # Step 3: Encode vectors and build inverted lists
-      print(f"\n=== Building Inverted Lists ===")
-      for vector_id, (vector, cluster_id) in enumerate(zip(vectors, cluster_assignments)):
-          # Quantize vector using PQ
-          pq_codes = self._encode_vector_pq(vector)
-
-          # Add to appropriate cluster's inverted list
-          if cluster_id not in self.inverted_lists:
-              self.inverted_lists[cluster_id] = []
-          self.inverted_lists[cluster_id].append((vector_id, pq_codes))
-
-          # Store original for comparison
-          self.vectors[vector_id] = vector
-
-          print(f"Vector {vector_id}: {vector} → Cluster {cluster_id}, PQ codes: {pq_codes}")
-
-      # Show cluster contents
-      print(f"\n=== Cluster Contents ===")
-      for cluster_id, items in self.inverted_lists.items():
-          vector_ids = [item[0] for item in items]
-          print(f"Cluster {cluster_id}: vectors {vector_ids}")
-
-  def _encode_vector_pq(self, vector):
-      """Encode vector using Product Quantization"""
-      pq_codes = []
-      subvector_dim = len(vector) // self.num_subquantizers
-
-      for subq_idx in range(self.num_subquantizers):
-          start_dim = subq_idx * subvector_dim
-          end_dim = (subq_idx + 1) * subvector_dim
-          subvector = vector[start_dim:end_dim].reshape(1, -1)
-
-          # Find nearest centroid in codebook
-          code = self.pq_codebooks[subq_idx].predict(subvector)[0]
-          pq_codes.append(code)
-
-      return pq_codes
-
-  def search(self, query_vector, clusters_to_search=2):
-      """Search using IVF-PQ"""
-      print(f"\n=== Searching for: {query_vector} ===")
-
-      # Step 1: Find nearest clusters
-      cluster_distances = []
-      for cluster_id, center in enumerate(self.cluster_centers):
-          distance = np.linalg.norm(query_vector - center)
-          cluster_distances.append((distance, cluster_id))
-
-      cluster_distances.sort()
-      nearest_clusters = [cluster_id for _, cluster_id in cluster_distances[:clusters_to_search]]
-
-      print(f"Searching clusters: {nearest_clusters}")
-      print(f"(Skipping {self.num_clusters - clusters_to_search} clusters)")
-
-      # Step 2: Search within selected clusters
-      candidates = []
-      for cluster_id in nearest_clusters:
-          if cluster_id in self.inverted_lists:
-              print(f"\nCluster {cluster_id}:")
-              for vector_id, pq_codes in self.inverted_lists[cluster_id]:
-                  # Calculate approximate distance using PQ codes
-                  approx_dist = self._asymmetric_distance(query_vector, pq_codes)
-                  candidates.append((approx_dist, vector_id))
-                  print(f"  Vector {vector_id}: approx distance = {approx_dist:.3f}")
-
-      # Return best match
-      if candidates:
-          candidates.sort()
-          best_dist, best_id = candidates[0]
-          exact_dist = np.linalg.norm(query_vector - self.vectors[best_id])
-          print(f"\nBest match: Vector {best_id}")
-          print(f"Approximate distance: {best_dist:.3f}")
-          print(f"Exact distance: {exact_dist:.3f}")
-          return best_id
-      return None
-
-  def _asymmetric_distance(self, query_vector, pq_codes):
-      """Calculate distance between query and PQ-encoded vector"""
-      distance = 0.0
-      subvector_dim = len(query_vector) // self.num_subquantizers
-
-      for subq_idx, code in enumerate(pq_codes):
-          start_dim = subq_idx * subvector_dim
-          end_dim = (subq_idx + 1) * subvector_dim
-
-          query_subvector = query_vector[start_dim:end_dim]
-          quantized_subvector = self.pq_codebooks[subq_idx].cluster_centers_[code]
-
-          subvector_dist = np.linalg.norm(query_subvector - quantized_subvector) ** 2
-          distance += subvector_dist
-
-      return np.sqrt(distance)
-
-# Demonstrate IVF-PQ with simple 2D vectors
-def demonstrate_ivf_pq():
-  # Create simple 4D vectors for easy understanding
-  vectors = np.array([
-      [1.0, 1.0, 0.1, 0.1],  # Cluster A
-      [1.1, 0.9, 0.0, 0.2],  # Cluster A
-      [5.0, 5.0, 0.8, 0.9],  # Cluster B
-      [5.2, 4.8, 0.9, 0.8],  # Cluster B
-      [1.0, 5.0, 5.0, 1.0],  # Cluster C
-      [0.9, 5.1, 4.9, 1.1],  # Cluster C
-  ])
-
-  ivfpq = SimpleIVFPQ(num_clusters=3, num_subquantizers=2)
-  ivfpq.train_and_add_vectors(vectors)
-
-  # Test search
-  query = np.array([1.05, 0.95, 0.05, 0.15])  # Should match Cluster A
-  result = ivfpq.search(query, clusters_to_search=2)
-
-  print(f"\n=== IVF-PQ Benefits ===")
-  print("• IVF: Only searched 2/3 clusters instead of all vectors")
-  print("• PQ: Used compressed codes for fast distance calculations")
-  print("• Memory: Each vector uses ~2 bytes instead of 16 bytes (8x compression)")
-
-demonstrate_ivf_pq()
+# Persistencia
+index.save_index("hnsw.bin")
+# ... más tarde:
+loaded = hnswlib.Index(space="cosine", dim=d)
+loaded.load_index("hnsw.bin", max_elements=N)
 ```
 
-Key Learning Points:
+### 3. Barrido de `efSearch` para encontrar el punto operativo
 
-IVF clustering divides search space, allowing search within only the most relevant clusters
-Product Quantization compresses vectors while maintaining approximate distance calculations
-Asymmetric distance computation is key to IVF-PQ efficiency - query uses original precision, database vectors use quantized codes
-Compression ratios of 8-32x are common while maintaining good search quality
-Try It: Experiment with different numbers of clusters and subquantizers to see the speed vs. accuracy trade-off.
+```python
+# Objetivo: encontrar el ef más chico que logre recall >= 0.95
+import numpy as np
 
-Choosing the Right Index Strategy
-When to Use Each Approach
-HNSW Best For:
+targets = [16, 32, 64, 100, 150, 250, 400]
+for ef in targets:
+    hnsw.hnsw.efSearch = ef
+    t0 = time.time(); _, I_h = hnsw.search(xq, 10); dt = time.time() - t0
+    r = recall_at_k(I_h, I_gt, 10)
+    p95 = np.percentile([dt/nq]*nq, 95) * 1000  # aprox
+    print(f"ef={ef:>4}  recall={r:.3f}  p95≈{p95:.2f} ms  QPS={nq/dt:.0f}")
+```
 
-High-dimensional vectors (greater than 100 dimensions)
-Applications requiring consistent high recall (greater than 95%)
-Real-time applications with sub-10ms latency requirements
-When memory usage is not the primary constraint
-IVF-PQ Best For:
+Este tipo de barrido es la práctica estándar: se grafica `recall vs QPS` (curva de Pareto) y se elige el `ef` que cumple el presupuesto de latencia con el recall objetivo.
 
-Very large datasets (millions+ vectors)
-Memory-constrained environments
-Batch processing scenarios
-When 85-90% recall is acceptable for significant memory savings
+## Errores comunes
 
-Quick Selection Guide
+- **`efSearch` demasiado bajo** → recall se desploma silenciosamente. El sistema "funciona" (devuelve resultados) pero el RAG empieza a dar respuestas incompletas o alucinadas porque pierde documentos clave. **Siempre monitorear recall@k contra un ground truth muestreado.**
+- **No entrenar IVF-PQ con datos representativos.** El `train()` ajusta codebooks: si entrenas con 10 K puntos de un cluster y en producción llegan queries de otro cluster, el recall colapsa. Usa muestra aleatoria estratificada ≥ 100 K.
+- **Olvidar que `d` debe ser divisible por `m` en PQ.** FAISS falla silenciosamente o con error críptico si `d % m != 0`.
+- **Usar HNSW cuando el dataset ya no cabe en RAM.** HNSW requiere acceso aleatorio al grafo; swapping a disco mata el performance. Para datasets >100 M vectores considerar DiskANN/Vamana o IVF-PQ en memoria.
+- **Fuerza bruta `O(n)` cuando el dataset creció.** Equipos que empezaron con 10 K vectores (donde Flat era óptimo) no migran al pasar a 1 M y empiezan a tener p95 de segundos. Automatizar la migración por umbral (`if n > 100_000: use HNSW`).
+- **No recalcular recall tras updates masivos.** HNSW degrada su recall tras muchos `delete` + `insert` porque el grafo acumula "nodos tumba". Reindexar periódicamente (semanal/mensual) según rotación.
+- **No cachear embeddings regenerados.** Cada vez que llamas a OpenAI/Cohere para embedir la misma query pagas latencia (~100 ms) y dinero. El cache de embeddings da hit rates de 40-60 % en producción.
+- **No shardear al crecer.** Un solo nodo con 50 M vectores HNSW es un SPOF y se queda sin RAM. Shardear horizontalmente por hash del `doc_id` o por tenant.
+- **Confundir distancias.** Si entrenaste embeddings normalizados para coseno pero construyes el índice con `IndexFlatL2`, los rankings son correctos pero las distancias no son interpretables. Usa `IndexFlatIP` para producto interno o normaliza + L2.
+- **Ignorar el *build budget*.** `efConstruction=500` con 100 M vectores puede tomar días. Medir y planear reindexaciones en ventanas de mantenimiento.
 
-| Dataset | Size | Memory Constraint | Accuracy Need | Recommended Index |
-|---------|------|-------------------|---------------|-------------------|
-| Less than 100K | Any | Any | Exact search (brute force) | |
-| 100K - 1M | Low memory | High recall (greater than 95%) | HNSW | |
-| 100K - 1M | Low memory | Good recall (85-90%) | IVF-PQ | |
-| Greater than 1M | Memory limited | Any | IVF-PQ with high compression | |
-| Greater than 1M | Memory available | High recall needed | HNSW | |
-| Greater than 10M | Any | Any | IVF-PQ (HNSW becomes memory intensive) | |
+## Resumen
 
-Common Scenarios:
-Small knowledge base (50K documents): Use exact search for simplicity
-Medium enterprise search (1M documents, need accuracy): Choose HNSW
-Large-scale search (10M+ documents): Use IVF-PQ for memory efficiency
-Memory-constrained deployment: Always prefer IVF-PQ over HNSW
-Common Pitfalls and Best Practices
-Wrong Index Choice: Using HNSW for massive datasets (greater than 10M vectors) wastes memory, while IVF-PQ for small datasets (less than 100K) adds unnecessary complexity. Match the index to your scale.
-
-Ignoring Memory Growth: Indexes consume more memory than raw vectors. Plan for 2-4x memory overhead for HNSW and monitor usage in production.
-
-Parameter Over-tuning: Start with default parameters and optimize incrementally based on real queries, not synthetic benchmarks.
-
-Not Planning for Scale: Choose indexing strategies that can grow with your data. Consider future dataset size when making architectural decisions.
-
-Summary
-Advanced indexing techniques are essential for scaling RAG systems beyond basic similarity search. HNSW provides excellent accuracy and consistent performance for most applications, while IVF-PQ enables memory-efficient search at massive scale.
-
-Your choice depends on dataset size, memory constraints, and accuracy requirements. Start simple with exact search for small datasets, move to HNSW for balanced performance, and consider IVF-PQ when memory becomes a constraint.
-
-In the next lesson, you'll learn system performance tuning techniques that optimize the entire RAG pipeline beyond just vector indexing.
-
-Key concepts to remember
-HNSW excels for high-dimensional data with consistent high accuracy requirements
-IVF-PQ enables massive scale through clustering and vector compression
-Index choice should match dataset size, memory constraints, and accuracy needs
-Parameter tuning has significant impact on the speed vs. accuracy trade-off
+- La **búsqueda ANN** cambia una fracción pequeña de recall por una mejora de órdenes de magnitud en latencia: `O(n)` → `O(log n)`.
+- **HNSW** es el default moderno para datasets de 100 K a 10 M vectores con alto recall; sus parámetros clave son `M`, `efConstruction` (build time) y `efSearch` (runtime).
+- **IVF-PQ** es la opción cuando la memoria es la restricción dura: compresión 8-32× con recall 0.88-0.93 aceptable para RAG grandes.
+- **ScaNN** (Google) y **DiskANN** son estado del arte en recall/QPS y en escala multi-millonaria respectivamente.
+- Las métricas obligatorias son **recall@k**, **QPS**, **p95 latency** y **memory footprint**; sin ellas no sabes si el índice "funciona".
+- La **cuantización** (SQ, PQ, OPQ, RQ) y la **distancia asimétrica (ADC)** son las palancas de compresión; PQ domina en producción.
+- Herramientas: FAISS (librería), HNSWlib (minimalista), ScaNN (Google), y las DBs vectoriales Milvus, Qdrant, Pinecone, Weaviate, pgvector.
+- Elegir el índice con una **matriz de decisión** (tamaño, memoria, recall objetivo, SLA) y **medir siempre** con un ground truth real, no sintético.
+- Monitorear el **recall tras updates** y planear reindexaciones: HNSW no sobrevive bien a borrados masivos sin rebuild.

@@ -1,584 +1,420 @@
-## Using OpenAI Vision API
-You need to build a feature that analyzes user-uploaded screenshots and provides troubleshooting guidance. Your users are frustrated because describing visual problems in text is difficult and error-prone. You have heard that OpenAI's vision-capable models (like gpt-4.1-mini) can process images, but you are not sure how to structure API requests, handle image encoding, or manage the costs and latency that come with vision processing.
+# VLMs Generativos Modernos: GPT-4V, Claude 3.x, Gemini, LLaVA
 
-OpenAI's Vision API extends the familiar chat completion pattern to include images alongside text. By the end of this lesson, you will understand how to encode images for API requests, structure vision-enabled messages, handle responses effectively, and build production-ready applications that leverage visual understanding.
+## ¿Qué es?
 
-Understanding OpenAI Vision API Structure
-OpenAI's Vision API uses the same chat completion endpoint you are already familiar with, but extends the message content to support images. Instead of passing only text strings in the content field, you can pass an array that mixes text and image objects.
+Un **VLM generativo** es un modelo que, dado un prompt que mezcla imágenes y texto, **genera texto** como respuesta. Internamente, las imágenes se convierten en **image tokens** que el LLM consume igual que tokens de texto, lo que permite usar la misma API de chat completions con un contenido multimodal.
 
-Diagram showing a chat request with messages containing a list of content parts including text and an image
+![Estructura de un request de chat con contenido mixto texto + imagen](https://hrcdn.net/ai-engineering/module-5/light/vision-language-lesson02-vision-api-request-structure.svg)
 
-![Vision chat requests mix text and images in a single message](https://hrcdn.net/ai-engineering/module-5/light/vision-language-lesson02-vision-api-request-structure.svg)
+Los VLMs generativos de uso masivo en producción (octubre de 2026) son:
 
-Basic Structure:
+| Modelo | Proveedor | Lanzamiento | Fortalezas |
+|---|---|---|---|
+| **GPT-4V / GPT-4o** | OpenAI | Sept 2023 / May 2024 | OCR fuerte, baja latencia, ecosistema maduro |
+| **Claude 3.5 Sonnet** | Anthropic | Jun 2024 | OCR denso, razonamiento visual, structured output |
+| **Claude 3 Opus / Haiku** | Anthropic | Mar 2024 | Opus = máxima calidad, Haiku = más barato |
+| **Gemini 1.5 Pro / Flash** | Google | 2024 | Contexto 1M–2M tokens, video, multidocumento |
+| **LLaVA 1.6 / NeXT** | Open source (UW + Microsoft) | 2024 | Self-hosting, fine-tunable con LoRA |
+| **Qwen2-VL** | Alibaba | 2024 | Open weights, excelente OCR multilingüe |
 
-Try analyzing an image by running the code below. You can change the question to explore different aspects of the image:
+## ¿Por qué importa?
 
-Vision API Basic Example
+Hace tres años, "entender una imagen" requería ensamblar varios modelos. Hoy un VLM comercial resuelve:
+
+- **VQA** (Visual Question Answering) sin fine-tuning.
+- **OCR implícito** con razonamiento (ej. "cuál es el total de esta factura y cuánto IVA incluye").
+- **Structured extraction** devolviendo JSON válido con `response_format` o Pydantic.
+- **UI understanding** para automatización de testing y agentes browser.
+- **Document AI** para PDFs mixtos de texto, tablas y gráficos.
+
+Elegir el modelo correcto es una decisión **arquitectónica**: cambia tu factura, tu latencia p95 y tu capacidad de razonamiento. Un error típico es "siempre usar GPT-4o"; muchas veces Haiku o Flash cuestan 10x menos para el mismo caso.
+
+## ¿Cómo funciona?
+
+### Image tokens: tokenización por proveedor
+
+Cada proveedor convierte la imagen en tokens de forma distinta. Entender el detalle es clave para proyectar costos:
+
+#### OpenAI (GPT-4V, GPT-4o, gpt-4.1-mini) — estrategia de tiles
+
+OpenAI usa dos modos:
+
+- **`detail: "low"`:** la imagen se reescala a 512x512 y cuenta como **~85 tokens fijos**. Ideal para comprensión general ("¿aparece un perro?").
+- **`detail: "high"`:** se recorta en **tiles de 512x512 pixels** después de un reescalado inicial. Cada tile cuesta ~170 tokens, más 85 tokens base.
+
+Fórmula aproximada:
+
+```
+tiles = ceil(ancho/512) * ceil(alto/512)
+tokens_openai = 85 + 170 * tiles
+```
+
+Ejemplo: una imagen 1024x1024 en `high` = 4 tiles → `85 + 170*4 = 765 tokens`.
+
+#### Anthropic (Claude 3.x) — tokens por área
+
+Claude estima tokens linealmente al área:
+
+```
+tokens_claude ≈ (ancho * alto) / 750
+```
+
+Ejemplos:
+- 500x500 → 333 tokens.
+- 1092x1092 → 1590 tokens (~1.6k, el máximo recomendado por Anthropic).
+- 1568x1568 → tope duro aproximado.
+
+Claude recomienda imágenes **≤ 1.15 megapíxeles** para evitar reescalado automático.
+
+#### Google (Gemini 1.5 Pro / Flash) — multimodal nativo
+
+Gemini trata las imágenes de forma nativa en el Transformer; no se expone un parámetro `detail`:
+
+- Imágenes ≤ 384x384 cuestan **258 tokens fijos**.
+- Imágenes mayores se dividen en tiles de 768x768 y cuestan 258 tokens por tile.
+
+#### LLaVA 1.6 (NeXT) — "AnyRes" patch dinámico
+
+LLaVA 1.6 usa **AnyRes**: según la relación de aspecto, selecciona una grid (1x1, 1x2, 2x2, 2x3, etc.) de tiles de 336x336. Puede llegar a 2880 image tokens para resoluciones altas.
+
+### Cross-attention vs. prefijo
+
+Hay dos formas típicas de fusionar imagen y texto dentro del LLM:
+
+- **Prefijo (LLaVA, GPT-4V):** los image tokens se concatenan al inicio del input del LLM; la atención es la misma self-attention estándar.
+- **Cross-attention (Flamingo, Claude multimodal interno):** capas intercaladas en el LLM leen los image tokens vía atención cruzada manteniendo el LLM congelado.
+
+El prefijo es más simple y domina la práctica moderna; cross-attention conserva mejor las capacidades del LLM base.
+
+### Resolution handling y aspect ratio
+
+La mayoría de proveedores recomiendan:
+
+- **Lado largo ≤ 1024 px** si solo necesitas comprensión general.
+- **Lado largo ≤ 2048 px** si necesitas OCR fino (recibos, documentos con texto chico).
+- Preservar **aspect ratio** (nunca estirar la imagen).
+- Convertir **PNG → JPEG** con calidad 85 si no hay transparencia (reduce payload 5–10x sin pérdida visible).
+
+### Latencia aproximada (p50, imagen 1024x1024)
+
+| Modelo | Latencia aprox. | Notas |
+|---|---|---|
+| gpt-4.1-mini | 1–3 s | Rápido y barato |
+| GPT-4o | 2–5 s | Equilibrio calidad/latencia |
+| Claude 3.5 Sonnet | 3–7 s | Mejor OCR, algo más lento |
+| Claude 3 Haiku | 1–3 s | Opción económica |
+| Gemini 1.5 Flash | 1–2 s | El más rápido entre comerciales |
+| Gemini 1.5 Pro | 4–8 s | Context masivo pero más lento |
+| LLaVA 1.6 (local, A100) | 0.5–2 s | Depende de hardware |
+
+### Tabla comparativa
+
+| Modelo | Max resolución recomendada | Pricing input (USD/1M tok)* | OCR implícito | Bounding boxes | Notas |
+|---|---|---|---|---|---|
+| GPT-4o | 2048x2048 | ~$2.50 | Muy bueno | Aproximados | ~ $0.00765 por imagen 1024x1024 en `high` |
+| gpt-4.1-mini | 2048x2048 | ~$0.40 | Bueno | Aproximados | Opción económica OpenAI |
+| Claude 3.5 Sonnet | 1568x1568 | $3.00 | Excelente (denso) | Coords aproximadas | Fuerte en documentos |
+| Claude 3 Haiku | 1568x1568 | $0.25 | Bueno | Aproximados | Más barato en Anthropic |
+| Gemini 1.5 Pro | 3072x3072 | $1.25 | Muy bueno | Sí (formato normalizado) | Context 1M–2M |
+| Gemini 1.5 Flash | 3072x3072 | $0.075 | Bueno | Sí | El más barato para batch |
+| LLaVA 1.6 (self-host) | 672x672 por tile | GPU propia | Medio | No nativo | Fine-tune con LoRA |
+| Qwen2-VL 72B | 1280x1280 | GPU propia | Excelente multilingüe | Sí | Open weights |
+
+*Precios aproximados vigentes a 2025; verifica siempre la página oficial del proveedor.
+
+## Ejemplo con código
+
+### 1) Claude 3.5 Sonnet con imagen base64
 
 ```python
+# pip install anthropic pillow
+import anthropic, base64, pathlib
+
+client = anthropic.Anthropic()
+
+def cargar_imagen(path: str) -> dict:
+    ext = pathlib.Path(path).suffix.lower().lstrip(".")
+    media_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
+                  "png": "image/png", "webp": "image/webp"}[ext]
+    data = base64.standard_b64encode(pathlib.Path(path).read_bytes()).decode()
+    return {"type": "image",
+            "source": {"type": "base64", "media_type": media_type, "data": data}}
+
+msg = client.messages.create(
+    model="claude-3-5-sonnet-20240620",
+    max_tokens=1024,
+    system="Eres un analista visual preciso. Responde en español neutro.",
+    messages=[{
+        "role": "user",
+        "content": [
+            cargar_imagen("captura_error.png"),
+            {"type": "text",
+             "text": "Describe el error mostrado y propón 3 pasos de troubleshooting."},
+        ],
+    }],
+)
+print(msg.content[0].text)
+print("Tokens:", msg.usage.input_tokens, "→", msg.usage.output_tokens)
+```
+
+### 2) OpenAI GPT-4o con URL pública
+
+```python
+# pip install openai
 from openai import OpenAI
 
-client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
+client = OpenAI()
 
-response = client.chat.completions.create(
-  model="gpt-4.1-mini",  # Vision-enabled model
-  messages=[
-      {
-          "role": "user",
-          "content": [
-              {"type": "text", "text": "What's in this image? Describe it in detail."},
-              {
-                  "type": "image_url",
-                  "image_url": {
-                      "url": "https://images.unsplash.com/photo-1598128558393-70ff21433be0?q=80&w=1578&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-                  }
-              }
-          ]
-      }
-  ],
-  max_tokens=300
+resp = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "¿Qué objetos aparecen en esta foto?"},
+            {"type": "image_url",
+             "image_url": {
+                 "url": "https://example.com/foto.jpg",
+                 "detail": "high",  # "low" | "high" | "auto"
+             }},
+        ],
+    }],
+    max_tokens=400,
 )
-
-print(response.choices[0].message.content)
+print(resp.choices[0].message.content)
 ```
 
-The key difference from text-only requests is the content field. Instead of a simple string, it becomes an array of content objects, where each object has a type field indicating whether it is text or an image URL.
-
-Image Encoding Methods
-OpenAI Vision API supports two methods for providing images: URLs and base64-encoded strings. Each method has different use cases and trade-offs.
-
-Method 1: Image URLs
-
-Using URLs is the simplest approach when you have images hosted on publicly accessible servers:
+### 3) Múltiples imágenes en un solo request (comparación)
 
 ```python
-def analyze_image_from_url(image_url, question):
-  """Analyze an image using a public URL."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
+import base64, pathlib
+from openai import OpenAI
+client = OpenAI()
+
+def b64(path):
+    return base64.b64encode(pathlib.Path(path).read_bytes()).decode()
+
+resp = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text",
+             "text": "Compara estas dos capturas de la misma pantalla y lista las diferencias visuales."},
+            {"type": "image_url",
+             "image_url": {"url": f"data:image/png;base64,{b64('v1.png')}", "detail": "high"}},
+            {"type": "image_url",
+             "image_url": {"url": f"data:image/png;base64,{b64('v2.png')}", "detail": "high"}},
+        ],
+    }],
+    max_tokens=600,
 )
-
-  response = client.chat.completions.create(
-      model="gpt-4.1-mini",
-      messages=[
-          {
-              "role": "user",
-              "content": [
-                  {"type": "text", "text": question},
-                  {
-                      "type": "image_url",
-                      "image_url": {"url": image_url}
-                  }
-              ]
-          }
-      ],
-      max_tokens=300
-  )
-
-  return response.choices[0].message.content
+print(resp.choices[0].message.content)
 ```
 
-Method 2: Base64 Encoding
-
-For local files or private images, you need to encode images as base64 strings:
+### 4) Conversación multi-turno con una imagen (Claude)
 
 ```python
-import base64
-from pathlib import Path
+# La imagen se envía una sola vez; los turnos siguientes la referencian por contexto.
+import anthropic, base64, pathlib
+client = anthropic.Anthropic()
 
-def encode_image_to_base64(image_path):
-  """Convert an image file to base64 string."""
-  with open(image_path, "rb") as image_file:
-      return base64.b64encode(image_file.read()).decode('utf-8')
+data = base64.b64encode(pathlib.Path("plano_casa.jpg").read_bytes()).decode()
+img_block = {"type": "image",
+             "source": {"type": "base64", "media_type": "image/jpeg", "data": data}}
 
-def analyze_local_image(image_path, question):
-  """Analyze a local image file."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
+historia = [
+    {"role": "user", "content": [img_block,
+     {"type": "text", "text": "¿Cuántas habitaciones tiene este plano?"}]},
+]
+resp1 = client.messages.create(model="claude-3-5-sonnet-20240620",
+                               max_tokens=400, messages=historia)
+r1 = resp1.content[0].text
+historia.append({"role": "assistant", "content": r1})
+print("A1:", r1)
 
-  # Encode the image
-  base64_image = encode_image_to_base64(image_path)
+historia.append({"role": "user",
+                 "content": "¿Cuál habitación es la más grande y qué área estimas en m²?"})
+resp2 = client.messages.create(model="claude-3-5-sonnet-20240620",
+                               max_tokens=400, messages=historia)
+r2 = resp2.content[0].text
+historia.append({"role": "assistant", "content": r2})
+print("A2:", r2)
 
-  response = client.chat.completions.create(
-      model="gpt-4.1-mini",
-      messages=[
-          {
-              "role": "user",
-              "content": [
-                  {"type": "text", "text": question},
-                  {
-                      "type": "image_url",
-                      "image_url": {
-                          "url": f"data:image/jpeg;base64,{base64_image}"
-                      }
-                  }
-              ]
-          }
-      ],
-      max_tokens=300
-  )
-
-  return response.choices[0].message.content
+historia.append({"role": "user",
+                 "content": "¿Dónde ubicarías un escritorio para teletrabajo?"})
+resp3 = client.messages.create(model="claude-3-5-sonnet-20240620",
+                               max_tokens=400, messages=historia)
+print("A3:", resp3.content[0].text)
 ```
 
-The base64 format includes a data URI prefix that specifies the image format (data:image/jpeg;base64, for JPEG images, data:image/png;base64, for PNG images).
+### 5) Few-shot con imágenes (clasificación visual)
 
-Choosing Between URL and Base64:
+```python
+# Enseñar al modelo con 2 ejemplos antes de la imagen real.
+def ejemplo(path, respuesta):
+    data = base64.b64encode(pathlib.Path(path).read_bytes()).decode()
+    return [
+        {"role": "user", "content": [
+            {"type": "image", "source": {"type": "base64",
+             "media_type": "image/jpeg", "data": data}},
+            {"type": "text", "text": "Clasifica: 'aprobada' o 'rechazada: <razón>'"},
+        ]},
+        {"role": "assistant", "content": respuesta},
+    ]
 
-| Method | When to Use | Pros | Cons |
-| --- | --- | --- | --- |
-| URL | Publicly hosted images, CDN content | Smaller request size, faster API calls | Requires accessible URL, may expire |
-| Base64 | Local files, private images, uploads | No external dependencies, guaranteed availability | Larger request payload, more bandwidth |
+mensajes = []
+mensajes += ejemplo("ok1.jpg", "aprobada")
+mensajes += ejemplo("bad1.jpg", "rechazada: fondo con desorden")
 
-Image Format Support and Preprocessing
-OpenAI Vision API supports common image formats (JPEG, PNG, GIF, WebP), but you should preprocess images to optimize for cost and performance.
+data_nueva = base64.b64encode(pathlib.Path("nueva.jpg").read_bytes()).decode()
+mensajes.append({"role": "user", "content": [
+    {"type": "image", "source": {"type": "base64",
+     "media_type": "image/jpeg", "data": data_nueva}},
+    {"type": "text", "text": "Clasifica: 'aprobada' o 'rechazada: <razón>'"},
+]})
 
-Image Size Considerations:
+resp = client.messages.create(model="claude-3-5-sonnet-20240620",
+                              max_tokens=100, messages=mensajes)
+print(resp.content[0].text)
+```
 
-Vision API pricing depends on image resolution. Larger images consume more tokens, increasing costs. The API automatically resizes images, but you can optimize by preprocessing:
+### 6) Gemini 1.5 Pro con una o varias imágenes
+
+```python
+# pip install google-generativeai
+import google.generativeai as genai
+import PIL.Image, os
+
+genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+model = genai.GenerativeModel("gemini-1.5-pro")
+
+img = PIL.Image.open("grafica.png")
+resp = model.generate_content(
+    ["Describe la tendencia principal de esta gráfica y cita cifras concretas.", img]
+)
+print(resp.text)
+
+# Múltiples imágenes
+img1 = PIL.Image.open("antes.png")
+img2 = PIL.Image.open("despues.png")
+resp = model.generate_content([
+    "Compara estas dos imágenes y lista cambios clave.",
+    img1, img2,
+])
+print(resp.text)
+```
+
+### 7) Gemini 1.5 Flash con chat multi-turno
+
+```python
+model = genai.GenerativeModel("gemini-1.5-flash")
+chat = model.start_chat(history=[])
+
+img = PIL.Image.open("ui.png")
+print(chat.send_message(["¿Qué elementos UI identificas?", img]).text)
+print(chat.send_message("¿Alguno viola accessibility WCAG 2.1?").text)
+print(chat.send_message("Sugiere 3 mejoras concretas.").text)
+```
+
+### 8) LLaVA local con transformers
+
+```python
+# pip install transformers accelerate pillow torch
+from transformers import LlavaNextProcessor, LlavaNextForConditionalGeneration
+import torch, PIL.Image
+
+model_id = "llava-hf/llava-v1.6-mistral-7b-hf"
+processor = LlavaNextProcessor.from_pretrained(model_id)
+model = LlavaNextForConditionalGeneration.from_pretrained(
+    model_id, torch_dtype=torch.float16, device_map="auto"
+)
+
+img = PIL.Image.open("factura.jpg")
+prompt = "[INST] <image>\n¿Cuál es el total de esta factura? [/INST]"
+inputs = processor(prompt, img, return_tensors="pt").to(model.device)
+
+out = model.generate(**inputs, max_new_tokens=200)
+print(processor.decode(out[0], skip_special_tokens=True))
+```
+
+### 9) Cost optimization: resize + estimar tokens antes de enviar
 
 ```python
 from PIL import Image
-import io
+import io, base64, math
 
-def optimize_image_for_vision_api(image_path, max_dimension=1024):
-  """
-  Resize image to reduce token costs while maintaining quality.
-  Vision API works well with images up to 2048x2048 pixels.
-  """
-  img = Image.open(image_path)
+def preparar_imagen(path: str, max_lado: int = 1024, calidad: int = 85) -> str:
+    img = Image.open(path)
+    img.thumbnail((max_lado, max_lado), Image.Resampling.LANCZOS)
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=calidad, optimize=True)
+    return base64.b64encode(buf.getvalue()).decode()
 
-  # Calculate new dimensions maintaining aspect ratio
-  width, height = img.size
-  if width > max_dimension or height > max_dimension:
-      if width > height:
-          new_width = max_dimension
-          new_height = int(height * (max_dimension / width))
-      else:
-          new_height = max_dimension
-          new_width = int(width * (max_dimension / height))
+def estimar_tokens_openai(ancho: int, alto: int, detail: str = "high") -> int:
+    if detail == "low":
+        return 85
+    tiles = math.ceil(ancho / 512) * math.ceil(alto / 512)
+    return 85 + 170 * tiles
 
-      img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+def estimar_tokens_claude(ancho: int, alto: int) -> int:
+    return int((ancho * alto) / 750)
 
-  # Convert to bytes
-  buffer = io.BytesIO()
-  img.save(buffer, format='JPEG', quality=85)
-  buffer.seek(0)
+def estimar_costo(tokens_in: int, modelo: str) -> float:
+    precios = {  # USD por 1M tokens de input
+        "gpt-4o": 2.50, "gpt-4.1-mini": 0.40,
+        "claude-3-5-sonnet": 3.00, "claude-3-haiku": 0.25,
+        "gemini-1.5-pro": 1.25, "gemini-1.5-flash": 0.075,
+    }
+    return tokens_in * precios[modelo] / 1_000_000
 
-  return base64.b64encode(buffer.read()).decode('utf-8')
+# Ejemplo: comparar detail=low vs detail=high para 100k requests/día
+print("OpenAI 1024x1024 low: ", estimar_tokens_openai(1024, 1024, "low"), "tokens")
+print("OpenAI 1024x1024 high:", estimar_tokens_openai(1024, 1024, "high"), "tokens")
+print("Claude 1024x1024:     ", estimar_tokens_claude(1024, 1024), "tokens")
+
+costo_dia = estimar_costo(estimar_tokens_openai(1024, 1024, "high"), "gpt-4o") * 100_000
+print(f"GPT-4o high 100k req/día: ${costo_dia:.2f}/día")
 ```
 
-Best Practices:
-
-Resize images to reasonable dimensions (1024x1024 or 2048x2048 maximum) unless you need fine detail
-Use JPEG format for photographs (better compression)
-Use PNG format for screenshots or images with text (preserves clarity)
-Compress images appropriately to balance quality and file size
-
-Advanced Message Patterns
-Vision API supports sophisticated message patterns that combine multiple images, text, and conversation history. Understanding these patterns enables you to build more capable applications.
-
-Multiple Images in One Request:
-
-You can include multiple images in a single message to enable comparative analysis or multi-image understanding:
+### 10) Elegir detail dinámicamente según el caso de uso
 
 ```python
-def compare_images(image1_path, image2_path, question):
-  """Compare two images and answer questions about differences."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
+def elegir_detail(tipo_tarea: str) -> str:
+    """Low para visión general; high para OCR, texto pequeño, bounding boxes."""
+    tareas_que_requieren_detalle = {
+        "ocr", "extraccion_structured", "lectura_recibo",
+        "lectura_factura", "lectura_id", "deteccion_texto_pequeño"
+    }
+    return "high" if tipo_tarea in tareas_que_requieren_detalle else "low"
 
-  base64_image1 = encode_image_to_base64(image1_path)
-  base64_image2 = encode_image_to_base64(image2_path)
-
-  response = client.chat.completions.create(
-      model="gpt-4.1-mini",
-      messages=[
-          {
-              "role": "user",
-              "content": [
-                  {"type": "text", "text": question},
-                  {
-                      "type": "image_url",
-                      "image_url": {"url": f"data:image/jpeg;base64,{base64_image1}"}
-                  },
-                  {
-                      "type": "image_url",
-                      "image_url": {"url": f"data:image/jpeg;base64,{base64_image2}"}
-                  }
-              ]
-          }
-      ],
-      max_tokens=500
-  )
-
-  return response.choices[0].message.content
+detail = elegir_detail("ocr")
 ```
 
-Conversation Context with Images:
-
-You can maintain conversation history while including images, enabling multi-turn conversations about visual content:
-
-```python
-def visual_conversation(image_path, conversation_history, new_question):
-  """Continue a conversation about an image."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
-
-  base64_image = encode_image_to_base64(image_path)
-
-  messages = []
-
-  # Add conversation history
-  for turn in conversation_history:
-      messages.append({
-          "role": turn["role"],
-          "content": turn["content"]  # Can be text or image content
-      })
-
-  # Add new question with image
-  messages.append({
-      "role": "user",
-      "content": [
-          {"type": "text", "text": new_question},
-          {
-              "type": "image_url",
-              "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-          }
-      ]
-  })
-
-  response = client.chat.completions.create(
-      model="gpt-4.1-mini",
-      messages=messages,
-      max_tokens=300
-  )
-
-  return response.choices[0].message.content
-```
-
-System Messages with Vision:
-
-You can use system messages to guide how the model interprets images:
-
-```python
-def analyze_ui_screenshot(image_path):
-  """Analyze a UI screenshot with specific instructions."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
-
-  base64_image = encode_image_to_base64(image_path)
-
-  response = client.chat.completions.create(
-      model="gpt-4.1-mini",
-      messages=[
-          {
-              "role": "system",
-              "content": "You are a UI/UX expert. Analyze screenshots for usability issues, accessibility problems, and design inconsistencies. Provide specific, actionable feedback."
-          },
-          {
-              "role": "user",
-              "content": [
-                  {"type": "text", "text": "Analyze this UI screenshot and identify any issues."},
-                  {
-                      "type": "image_url",
-                      "image_url": {"url": f"data:image/png;base64,{base64_image}"}
-                  }
-              ]
-          }
-      ],
-      max_tokens=500
-  )
-
-  return response.choices[0].message.content
-```
-
-Production Implementation Patterns
-Building production applications with Vision API requires careful consideration of error handling, cost management, and performance optimization.
-
-Error Handling:
-
-Images can fail to load, be corrupted, or exceed size limits. Implement robust error handling:
-
-```python
-from openai import OpenAI, APIError
-import logging
-
-logger = logging.getLogger(__name__)
-
-def analyze_image_safely(image_path, question):
-  """Analyze image with comprehensive error handling."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
-
-  try:
-      # Validate image file
-      if not Path(image_path).exists():
-          raise ValueError(f"Image file not found: {image_path}")
-
-      # Check file size (e.g., 20MB limit)
-      file_size = Path(image_path).stat().st_size
-      if file_size > 20 * 1024 * 1024:  # 20MB
-          raise ValueError(f"Image file too large: {file_size} bytes")
-
-      # Encode and process
-      base64_image = encode_image_to_base64(image_path)
-
-      response = client.chat.completions.create(
-          model="gpt-4.1-mini",
-          messages=[
-              {
-                  "role": "user",
-                  "content": [
-                      {"type": "text", "text": question},
-                      {
-                          "type": "image_url",
-                          "image_url": {
-                              "url": f"data:image/jpeg;base64,{base64_image}"
-                          }
-                      }
-                  ]
-              }
-          ],
-          max_tokens=300
-      )
-
-      return {
-          "success": True,
-          "result": response.choices[0].message.content
-      }
-
-  except APIError as e:
-      logger.error(f"OpenAI API error: {e}")
-      return {
-          "success": False,
-          "error": f"API error: {e.message}"
-      }
-  except Exception as e:
-      logger.error(f"Image processing error: {e}")
-      return {
-          "success": False,
-          "error": f"Processing error: {str(e)}"
-      }
-```
-
-Cost Optimization:
-
-Vision API pricing depends on image resolution. Implement cost optimization strategies:
-
-```python
-def estimate_vision_api_cost(image_path):
-  """
-  Estimate token cost for vision API call.
-  Images are billed based on resolution with a base cost per image.
-  """
-  from PIL import Image
-
-  img = Image.open(image_path)
-  width, height = img.size
-
-  # OpenAI charges based on image size
-  # Simplified estimation: base cost + resolution-based cost
-  base_cost_tokens = 85  # Base cost per image
-
-  # High-res images cost more
-  if width * height > 2048 * 2048:
-      resolution_cost = 170  # High-res pricing
-  elif width * height > 1024 * 1024:
-      resolution_cost = 85   # Medium-res pricing
-  else:
-      resolution_cost = 85  # Low-res pricing
-
-  total_tokens = base_cost_tokens + resolution_cost
-
-  return {
-      "image_size": f"{width}x{height}",
-      "estimated_tokens": total_tokens,
-      # gpt-4.1-mini: $0.40 per 1M input tokens = $0.0000004 per token
-      "cost_usd": total_tokens * 0.0000004
-  }
-```
-
-Performance Optimization:
-
-Vision API calls have higher latency than text-only calls. Implement caching and async processing:
-
-```python
-import hashlib
-import json
-from functools import lru_cache
-
-def get_image_hash(image_path):
-  """Generate hash for image caching."""
-  with open(image_path, "rb") as f:
-      return hashlib.md5(f.read()).hexdigest()
-
-@lru_cache(maxsize=100)
-def cached_vision_analysis(image_hash, question):
-  """Cache vision API responses to avoid redundant calls."""
-  # In production, use Redis or similar for distributed caching
-  # This is a simplified in-memory cache example
-  pass
-
-def analyze_with_caching(image_path, question):
-  """Analyze image with caching to reduce API calls."""
-  image_hash = get_image_hash(image_path)
-
-  # Check cache first
-  cached_result = cached_vision_analysis(image_hash, question)
-  if cached_result:
-      return cached_result
-
-  # Make API call
-  result = analyze_image_safely(image_path, question)
-
-  # Cache result (simplified - use proper cache in production)
-  cached_vision_analysis.cache_clear()  # Clear cache periodically
-
-  return result
-```
-
-Consider how detail level selection affects both cost and accuracy for high-volume image processing systems.
-
-Real-World Application Examples
-Understanding how to apply Vision API in production scenarios helps you build effective applications.
-
-Screenshot Analysis for Support:
-
-Build a customer support system that analyzes error screenshots:
-
-```python
-def analyze_error_screenshot(screenshot_path, user_description):
-  """Analyze error screenshot and provide troubleshooting steps."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
-
-  base64_image = encode_image_to_base64(screenshot_path)
-
-  prompt = f"""
-  Analyze this error screenshot. The user reports: "{user_description}"
-
-  Provide:
-  1. What error is occurring
-  2. Likely causes
-  3. Step-by-step troubleshooting guide
-  4. When to escalate to technical support
-  """
-
-  response = client.chat.completions.create(
-      model="gpt-4.1-mini",
-      messages=[
-          {
-              "role": "system",
-              "content": "You are a technical support expert. Analyze error screenshots and provide clear, actionable troubleshooting guidance."
-          },
-          {
-              "role": "user",
-              "content": [
-                  {"type": "text", "text": prompt},
-                  {
-                      "type": "image_url",
-                      "image_url": {"url": f"data:image/png;base64,{base64_image}"}
-                  }
-              ]
-          }
-      ],
-      max_tokens=500
-  )
-
-  return response.choices[0].message.content
-```
-
-Document Processing:
-
-Extract information from documents with visual elements:
-
-```python
-def extract_data_from_form(form_image_path):
-  """Extract structured data from a form image."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
-
-  base64_image = encode_image_to_base64(form_image_path)
-
-  response = client.chat.completions.create(
-      model="gpt-4.1-mini",
-      messages=[
-          {
-              "role": "system",
-              "content": "Extract all information from forms and return as structured JSON. Include all fields, even if empty."
-          },
-          {
-              "role": "user",
-              "content": [
-                  {
-                      "type": "text",
-                      "text": "Extract all fields from this form and return as JSON with field names as keys."
-                  },
-                  {
-                      "type": "image_url",
-                      "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-                  }
-              ]
-          }
-      ],
-      response_format={"type": "json_object"},
-      max_tokens=1000
-  )
-
-  import json
-  return json.loads(response.choices[0].message.content)
-```
-
-Common Pitfalls and Solutions
-Pitfall 1: Forgetting Image Format in Base64
-
-Always include the correct data URI prefix (data:image/jpeg;base64, or data:image/png;base64,). Missing this prefix causes API errors.
-
-Pitfall 2: Sending Images That Are Too Large
-
-Large images increase costs and latency. Always resize images before sending to the API.
-
-Pitfall 3: Not Handling API Errors Gracefully
-
-Vision API calls can fail for various reasons (rate limits, invalid images, network issues). Implement comprehensive error handling with retries and fallbacks.
-
-Pitfall 4: Ignoring Token Costs
-
-Vision API has different pricing than text-only API. Monitor usage and optimize image sizes to control costs.
-
-Pitfall 5: Not Providing Enough Context
-
-Images alone may not provide sufficient context. Always include relevant text descriptions or questions to guide the model's analysis.
-
-Summary
-OpenAI Vision API extends familiar chat completion patterns to include images, enabling you to build applications that understand visual content. By encoding images as base64 strings or using URLs, structuring messages with mixed content types, and implementing proper error handling and optimization, you can create production-ready vision-enabled applications.
-
-Understanding image preprocessing, cost considerations, and production patterns helps you build efficient and reliable systems that leverage visual understanding capabilities.
-
-Key concepts to remember
-
-Vision API uses the same chat completion pattern - Extend familiar message structures to include images alongside text
-Two encoding methods available - Use URLs for hosted images or base64 for local files
-Optimize images before sending - Resize and compress images to reduce costs and improve performance
-Implement robust error handling - Vision API calls can fail for various reasons; handle errors gracefully
-Consider costs and latency - Vision processing costs more and takes longer than text-only processing
+## Errores comunes
+
+- **Imagen demasiado grande = cost explosion.** Una foto de 12 MP enviada en modo `high` puede costar 2000+ tokens por request. Redimensiona siempre a `max_lado=1024` salvo que necesites OCR fino.
+- **Usar modo `low` cuando necesitas detalle.** Si tu caso es leer un número de serie, `detail="low"` perderá los caracteres. Usa `high` solo donde haga falta.
+- **No considerar aspect ratio.** Si el proveedor hace padding o crop automático en imágenes extremas (ej. 4000x200), el detalle útil se pierde. Recorta tú primero.
+- **Mezclar modelos sin medir costo real.** GPT-4o es 10x más caro que gpt-4.1-mini para muchas tareas donde el mini basta. Mide con un dataset golden antes de elegir.
+- **Suponer que todos los modelos aceptan el mismo payload.** OpenAI usa `image_url`, Anthropic usa `source.type=base64`, Gemini acepta objetos `PIL.Image` directamente. Adapta por SDK.
+- **Olvidar el `media_type` correcto en base64.** Enviar un PNG con `image/jpeg` falla silenciosamente o devuelve errores crípticos.
+- **Hardcodear el modelo exacto** (`claude-3-5-sonnet-20240620`). Cuando el proveedor libera una versión nueva, tu código no la toma. Usa alias o variables de entorno.
+- **No calcular tokens antes de desplegar a producción.** Haz una estimación con tu volumen real; una app con 100k requests/día de 1024x1024 en `high` puede ser miles de dólares al mes.
+- **No cachear.** Si procesas la misma imagen con prompts similares, un cache por `hash(imagen) + hash(prompt)` ahorra el 50–80% de llamadas.
+- **Reenviar la imagen en cada turno.** En conversaciones multi-turno, envía la imagen solo una vez (el proveedor la mantiene en contexto); reenviarla duplica el costo por turno.
+
+## Resumen
+
+- Los VLMs generativos modernos convierten imágenes en **image tokens** y los procesan en el mismo Transformer que los tokens de texto.
+- **GPT-4o, Claude 3.5 Sonnet, Gemini 1.5 Pro** son los líderes comerciales en 2026; **LLaVA 1.6 y Qwen2-VL** son los líderes open source.
+- Cada proveedor tokeniza distinto: OpenAI con tiles 512x512, Claude con `area/750`, Gemini con tiles 768x768, LLaVA con AnyRes.
+- La forma de pasar la imagen cambia por SDK: `image_url` en OpenAI, `source.base64` en Anthropic, objetos PIL en Gemini.
+- **Redimensionar a 1024px** antes de enviar es la optimización de costo más efectiva.
+- Modos `detail=low` o `high` controlan cuántos tiles se generan; úsalos deliberadamente.
+- **Few-shot con imágenes** mejora consistencia en tareas subjetivas (calidad, sentimiento, aprobación).
+- En **conversaciones multi-turno**, envía la imagen una sola vez; los turnos siguientes la ven por contexto.
+- Cross-attention (Flamingo) vs. prefijo (LLaVA, GPT-4V): el prefijo domina la práctica moderna.
+- Mide siempre **costo real y calidad** con un dataset golden antes de elegir modelo.
+- **Latencia**: Gemini Flash y Haiku son los más rápidos; Claude Sonnet y Gemini Pro los más lentos pero mejores en razonamiento.

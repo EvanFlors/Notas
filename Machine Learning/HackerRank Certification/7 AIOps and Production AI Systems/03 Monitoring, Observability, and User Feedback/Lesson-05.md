@@ -1,77 +1,218 @@
-## Implicit versus Explicit Feedback Collection
+# Recolección de Feedback del Usuario y A/B Testing
 
-User feedback provides ground truth about model quality that technical metrics alone cannot capture. Users interact with model predictions and signal satisfaction or dissatisfaction through their behavior and explicit responses. Collecting and leveraging this feedback is essential for maintaining and improving model quality.
+## ¿Qué es?
 
-Implicit feedback comes from user behavior without explicit statements of satisfaction. Click-through rates, time spent, purchases, shares, and engagement all signal how users respond to predictions. A recommendation model tracks whether users click recommended items. A search model tracks whether users click search results. These behavioral signals reveal prediction quality without asking users direct questions.
+El **feedback del usuario** es la señal más directa (y a menudo la única real) sobre si un modelo está sirviendo bien a sus usuarios. Se divide en dos grandes categorías:
 
-The advantage of implicit feedback is abundance. Every user interaction generates data automatically. No extra user effort is required. You collect feedback from all users continuously. This volume enables rapid iteration and A/B testing with statistical significance.
+- **Explícito**: el usuario le dice al sistema qué le pareció la salida. Ejemplos: thumbs up/down, estrellas, corrección manual, reporte de error, encuesta.
+- **Implícito**: el sistema infiere la calidad del comportamiento. Ejemplos: click, tiempo en página, aceptación de sugerencia, regenerate, abandono.
 
-However, implicit feedback is noisy and requires careful interpretation. A user might not click a recommendation because it is bad or because they already own the item. A user might click a recommendation out of curiosity without actually wanting it. Context matters for interpreting behavioral signals.
+El **A/B testing** (o split testing) es la metodología estándar para decidir si un cambio (nuevo modelo, nuevo prompt, nueva política de retrieval) es realmente mejor que el actual, midiendo el efecto en métricas de negocio sobre dos grupos aleatorios de usuarios.
 
-Explicit feedback comes from users directly expressing opinions. Thumbs up or down, star ratings, written reviews, or feedback forms all provide direct quality signals. A chatbot asks "Was this response helpful?" after each interaction. A recommendation system lets users mark recommendations as "not interested" with reasons.
+## ¿Por qué importa?
 
-The advantage of explicit feedback is clarity. Users directly state satisfaction or dissatisfaction. This provides unambiguous signals about what is working and what is not. Explicit feedback also helps understand why predictions succeed or fail through written feedback and reason selections.
+- Las métricas offline (accuracy, BLEU, score del juez) **no siempre correlacionan con utilidad real**. Un modelo con mejor accuracy puede empeorar la experiencia.
+- Decisiones basadas en intuición o en demos escogidas producen regresiones silenciosas; A/B testing con significancia estadística es la defensa.
+- El feedback del usuario alimenta el **flywheel de datos**: labels gratis para el próximo entrenamiento, señales para RLHF/DPO, insumos para evals.
+- Sin feedback, los equipos operan a ciegas y confían en anécdotas: "me pareció que anoche respondía peor".
 
-The disadvantage is sparsity and bias. Few users provide explicit feedback voluntarily. Those who do are not representative of all users. Extremely satisfied and extremely dissatisfied users provide feedback more than neutral users. This selection bias skews the data.
+## ¿Cómo funciona?
 
-Combining implicit and explicit feedback provides the most comprehensive picture. Implicit feedback shows what users do. Explicit feedback shows what users think. Together, they reveal both behavior and sentiment.
+### Diseño de feedback explícito
 
-A production-ready feedback collection system captures both implicit behavioral signals and explicit user ratings, aggregates them for analysis, and identifies candidates for model retraining based on negative feedback patterns.
+| Patrón | Tasa de respuesta típica | Mejor para |
+|---|---|---|
+| Thumbs up/down en cada respuesta | 1-5% | Señal binaria rápida, agregable |
+| Rating 1-5 estrellas | 0.5-2% | Granularidad, correlación con NPS |
+| Comentario libre (opcional) | 0.1-0.5% | Diagnóstico cualitativo |
+| Corrección inline ("edit response") | 2-10% en coding | Preference data para fine-tuning |
+| Reporte explícito ("flag") | 0.01-0.1% | Casos extremos, moderación |
 
-Feedback-Driven Model Improvement
-Collecting feedback is only valuable if you use it to improve models. This requires systematic processes for analyzing feedback, identifying issues, and incorporating insights into model development.
+Reglas prácticas:
 
-Feedback analysis starts with aggregation and segmentation. Track feedback rates, positive versus negative feedback, and feedback volume over time. Segment by user demographics, model versions, or prediction types to find patterns. If certain user segments provide consistently negative feedback, investigate why.
+- **Fricción mínima**: dos clics máximo. Nada de modales que bloquean.
+- **Pedir contexto solo si el usuario quiere**: un botón "¿quieres contarnos más?" después del thumbs down.
+- **No preguntar siempre**: muestreo (p. ej., preguntar solo al 10% de los usuarios por sesión) evita fatiga.
 
-Identifying failure modes through feedback reveals model weaknesses. Users mark certain recommendation types as "not interested." Users skip certain search results consistently. These patterns indicate where the model is failing. Qualitative feedback (written comments) provides rich detail about failure modes that quantitative metrics miss.
+### Feedback implícito en LLMs
 
-Prioritizing improvements based on feedback requires balancing impact and feasibility. Some failure modes affect many users and fixing them delivers large benefits. Others affect few users. Some fixes are simple. Others require fundamental model changes. Prioritize high-impact, feasible improvements first.
+Señales valiosas que no requieren acción explícita:
 
-Active learning leverages feedback for targeted data collection. When users provide negative feedback, collect additional labels for similar examples. This builds training data that specifically addresses model weaknesses. If users frequently reject horror movie recommendations, collect more labels for horror movies to improve that category.
+- **Regenerate rate**: cuántas veces el usuario pide "intenta de nuevo".
+- **Edit rate**: cuántas veces copia-pega-edita la respuesta.
+- **Follow-up questions**: una pregunta aclaratoria sugiere que la respuesta no fue completa.
+- **Session length**: sesiones muy cortas pueden indicar frustración o éxito inmediato (ambiguo).
+- **Copy rate**: en productos de código, cuánto se copia la salida.
+- **Retention**: ¿el usuario vuelve mañana?
 
-Continuous retraining incorporates feedback into models. Add feedback data to training sets. Use techniques like online learning for continuous updates. Schedule regular retraining with accumulated feedback. This ensures models learn from production experience and gradually improve.
+Las señales implícitas son más abundantes pero más ruidosas; requieren más análisis.
 
-Personalization uses individual user feedback to customize predictions. If a user consistently rejects certain recommendation types, reduce their weight for that user. If a user provides positive feedback for specific content, increase similar recommendations. Individual feedback enables personalization beyond what group-level models achieve.
+### A/B testing: fundamentos
 
-Monitoring feedback metrics over time tracks model improvement or degradation. Is positive feedback increasing? Is negative feedback decreasing? These trends reveal whether changes are improving user experience. Feedback metrics should be primary success metrics alongside business metrics.
+1. **Hipótesis**: "El nuevo prompt aumentará el CTR en al menos 2 pp".
+2. **Métrica primaria**: una sola, inequívoca (CTR, conversión, satisfacción).
+3. **Métricas guardrail**: no pueden empeorar (latencia, costo, tasa de errores, retención).
+4. **Aleatorización estable** por `user_id` (no por sesión) para evitar que el mismo usuario rebote entre variantes.
+5. **Tamaño de muestra calculado a priori** según effect size, baseline, poder estadístico (típico 80%) y nivel de significancia (típico 0.05).
+6. **Duración**: cubrir al menos un ciclo semanal para capturar estacionalidad.
 
-A/B testing validates improvements driven by feedback insights. When feedback analysis suggests a model change, test it with A/B experiments. Compare feedback rates between the new and old versions. This validates that changes actually improve user experience.
+### Significancia estadística
 
-A/B Testing for Model Changes
-A/B testing is the gold standard for validating model changes. By randomly assigning users to different model versions and comparing outcomes, you measure the actual impact of changes while controlling for confounding factors.
+Para métricas binarias (CTR, conversión) se usa habitualmente un **two-proportion z-test** o un **chi-squared**. Para continuas, un **Welch's t-test**.
 
-Experimental design determines what you test and how. The null hypothesis is that the new model performs the same as the current model. The alternative hypothesis is that the new model is better (or different). Define success metrics before starting the test. Common metrics include engagement rates, conversion rates, revenue, or satisfaction scores.
+Fórmula del z-test para dos proporciones:
 
-Randomization assigns users to control (current model) or treatment (new model) groups randomly. This ensures groups are comparable and eliminates selection bias. Consistent assignment means each user sees the same version throughout the test. Use hashing on user IDs to achieve consistent randomization.
+```
+p̂ = (x_A + x_B) / (n_A + n_B)
+SE = sqrt( p̂ (1-p̂) (1/n_A + 1/n_B) )
+z  = (p_A - p_B) / SE
+```
 
-Sample size calculation determines how many users are needed for statistical significance. Smaller effect sizes require larger samples. Higher confidence levels require larger samples. Tools like online calculators or statistical libraries help determine required sample sizes. Running tests too short leads to inconclusive results. Running too long wastes time if the new model is clearly better or worse.
+Un `p-value < 0.05` sugiere que la diferencia observada es improbable bajo H0 (no hay diferencia). Pero **p-value no es magnitud**: una diferencia significativa de 0.1 pp puede ser irrelevante en el negocio.
 
-Statistical significance testing determines if observed differences are real or due to chance. Common tests include t-tests for continuous metrics or chi-squared tests for categorical metrics. A p-value below 0.05 typically indicates statistical significance, meaning less than 5 percent chance the observed difference is random.
+### Significancia estadística vs. significancia práctica
 
-However, statistical significance does not mean practical significance. A statistically significant 0.1 percent improvement might not justify deployment costs. Define minimum detectable effects that represent meaningful improvements. Only deploy changes that exceed this threshold.
+Con tamaños de muestra enormes, cualquier diferencia es estadísticamente significativa. La pregunta real es: **¿la mejora compensa el costo del cambio?** Ejemplo: un nuevo modelo mejora el CTR 0.5 pp con p=0.03 pero cuesta 3x más por request → probablemente no vale la pena.
 
-Confidence intervals provide more information than p-values. Instead of just "is there a difference," intervals show "how big is the difference and how certain are we." A 95 percent confidence interval of [0.5%, 2.0%] means we are 95 percent confident the true improvement is between 0.5 and 2.0 percent.
+### Guardrail metrics
 
-Multiple testing correction is necessary when running many tests simultaneously. Testing 20 different model variations at 0.05 significance level means one will likely appear significant by chance. Bonferroni correction or false discovery rate control methods adjust significance thresholds to account for multiple comparisons.
+Son métricas que no deben empeorar aunque la métrica primaria mejore. Típicas en LLMs:
 
-Monitoring during tests catches problems early. Track both primary metrics (engagement, conversion) and guardrail metrics (error rates, latency, user complaints). If guardrail metrics degrade, stop the test. If primary metrics show clear negative effects early, stop the test. No need to complete the full duration if results are decisively bad.
+- Latencia p95
+- Costo por request
+- Tasa de respuestas moderadas / rechazadas
+- Tasa de errores
+- Retención semanal
 
-Sequential testing enables stopping tests early when results are clear. Traditional fixed-horizon testing requires completing the full sample size. Sequential methods allow checking results periodically and stopping when sufficient evidence accumulates. This reduces test duration when new models are clearly better or worse.
+Si alguna guardrail cae significativamente, el experimento se para incluso si la métrica primaria sube.
 
-Segmented analysis examines results for different user groups. The new model might improve metrics overall but hurt metrics for certain segments. Examine results by geography, device type, user tenure, or other relevant dimensions. This reveals whether improvements are universal or concentrated in specific groups.
+### Peligros clásicos
 
-Long-term effects matter beyond short-term metrics. A new recommendation model might boost clicks initially (novelty effect) but reduce retention long-term. Monitor holdout groups over weeks or months to assess sustained impact. Some companies maintain permanent holdout groups to track cumulative effects of changes.
+- **Peeking**: mirar el p-value cada día y detener en cuanto cruza 0.05 infla el falso positivo. Usar **sequential testing** (SPRT, mSPRT, always-valid p-values) o fijar la duración de antemano.
+- **Novelty effect**: lo nuevo gusta solo por ser nuevo. Correr experimentos lo suficientemente largos.
+- **Interacciones entre experimentos**: dos tests simultáneos en el mismo flow pueden contaminarse.
+- **Simpson's paradox**: la métrica global sube pero cae en cada segmento.
 
-Documentation of A/B tests builds institutional knowledge. Record test design, results, and decisions. When a test shows negative results, document why to avoid repeating failed approaches. When tests succeed, document learnings to guide future work. This accumulated knowledge speeds future experiments.
+## Ejemplo con código
 
-Summary
-User feedback provides essential signals about model quality through both implicit behavioral data and explicit statements of satisfaction. Combining these feedback types reveals comprehensive understanding of user experience. Feedback-driven improvement requires systematic analysis, identifying failure modes, and incorporating insights into model development.
+### Captura de feedback thumbs y asociación con la trace
 
-A/B testing validates model changes by randomly assigning users to different versions and measuring differences in key metrics. Proper experimental design, statistical analysis, and attention to both short and long-term effects ensure accurate assessment of model improvements.
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+from langfuse import Langfuse
 
-Key concepts to remember
-Implicit versus Explicit - Implicit feedback from behavior is abundant but noisy; explicit feedback is clear but sparse and biased
-Comprehensive Signals - Combining multiple feedback signals provides the most comprehensive understanding of model performance
-Pattern Identification - Analyze feedback by segmenting users and prediction types to identify failure modes and prioritize improvements
-A/B Testing Gold Standard - Proper randomization, sample size calculation, and statistical analysis validate model changes rigorously
-Holistic Monitoring - Monitor both primary success metrics and guardrail metrics during tests to detect all effects
+app = FastAPI()
+lf = Langfuse()
+
+class Feedback(BaseModel):
+    trace_id: str
+    thumbs: int        # +1 / -1
+    comment: str | None = None
+
+@app.post("/feedback")
+def submit_feedback(fb: Feedback):
+    lf.score(
+        trace_id=fb.trace_id,
+        name="user_thumbs",
+        value=fb.thumbs,
+        comment=fb.comment,
+    )
+    return {"ok": True}
+```
+
+### Test de significancia para A/B binario con scipy
+
+```python
+import numpy as np
+from scipy.stats import norm
+
+def two_proportion_z_test(x_a: int, n_a: int, x_b: int, n_b: int):
+    p_a, p_b = x_a / n_a, x_b / n_b
+    p_pool = (x_a + x_b) / (n_a + n_b)
+    se = np.sqrt(p_pool * (1 - p_pool) * (1 / n_a + 1 / n_b))
+    z = (p_b - p_a) / se
+    p_value = 2 * (1 - norm.cdf(abs(z)))
+
+    # Intervalo de confianza 95% para la diferencia
+    se_diff = np.sqrt(p_a * (1 - p_a) / n_a + p_b * (1 - p_b) / n_b)
+    diff = p_b - p_a
+    ci = (diff - 1.96 * se_diff, diff + 1.96 * se_diff)
+
+    return {
+        "ctr_A": p_a, "ctr_B": p_b,
+        "lift_abs": diff, "lift_rel": diff / p_a,
+        "z": z, "p_value": p_value, "ci95": ci,
+    }
+
+# Caso del quiz: 10k usuarios por variante, 5.0% vs 5.5%
+r = two_proportion_z_test(x_a=500, n_a=10_000, x_b=550, n_b=10_000)
+print(r)
+# ctr_A=0.050, ctr_B=0.055, lift_abs=0.005, p_value≈0.03
+```
+
+### Cálculo de tamaño de muestra
+
+```python
+from statsmodels.stats.power import NormalIndPower
+from statsmodels.stats.proportion import proportion_effectsize
+
+baseline = 0.05
+mde = 0.005  # minimum detectable effect: 0.5 pp
+effect = proportion_effectsize(baseline + mde, baseline)
+n = NormalIndPower().solve_power(
+    effect_size=effect, alpha=0.05, power=0.8, alternative="two-sided"
+)
+print(f"Necesitas {int(n):,} usuarios por variante")
+# Aproximadamente 31k por variante para detectar 0.5pp con 80% de poder
+```
+
+### Asignación estable por `user_id` (hashing)
+
+```python
+import hashlib
+
+def assign_variant(user_id: str, experiment: str, split: float = 0.5) -> str:
+    key = f"{experiment}:{user_id}".encode()
+    bucket = int(hashlib.sha256(key).hexdigest(), 16) % 10_000 / 10_000
+    return "B" if bucket < split else "A"
+```
+
+### Guardrail check automático
+
+```python
+def check_guardrails(metrics_A: dict, metrics_B: dict) -> list[str]:
+    violations = []
+    for name, max_delta in {
+        "latency_p95_ms": 50,       # no empeorar más de 50 ms
+        "cost_per_req":   0.001,    # no más de +0.1 ¢
+        "error_rate":     0.005,    # no más de +0.5 pp
+    }.items():
+        if metrics_B[name] - metrics_A[name] > max_delta:
+            violations.append(f"{name}: +{metrics_B[name] - metrics_A[name]:.4f}")
+    return violations
+```
+
+## Errores comunes
+
+- **Pedir feedback a todos, siempre**: fatiga al usuario y baja la tasa de respuesta. Usar muestreo inteligente.
+- **No asociar el feedback a la trace exacta**: imposible investigar por qué el usuario dio thumbs down.
+- **Confundir p-value con magnitud del efecto**: significancia estadística no implica relevancia práctica.
+- **Peeking al experimento**: mirar y parar en cuanto cruza p=0.05 convierte 5% de falso positivo en 30%.
+- **Olvidar las métricas guardrail**: optimizar CTR mientras la latencia se dobla.
+- **Aleatorización por sesión en lugar de por usuario**: el mismo usuario ve ambas variantes y contamina el experimento.
+- **Experimento demasiado corto**: no se captura estacionalidad semanal; viernes y lunes se comportan distinto.
+- **Novelty effect confundido con mejora real**: correr al menos 2 semanas para que el efecto novedad decaiga.
+- **No corregir por múltiples comparaciones**: analizar 20 métricas secundarias casi garantiza encontrar una "significativa" por azar.
+- **Interpretar feedback explícito como representativo**: quien se queja no es la mayoría; sesgo de autoselección.
+
+## Resumen
+
+- El feedback **explícito** (thumbs, ratings) es claro pero escaso; el **implícito** (regenerate, edit, retention) es abundante pero ruidoso. Usar ambos.
+- Diseñar feedback con **fricción mínima** y **muestreo** para evitar fatiga; capturar siempre el `trace_id` para investigación.
+- El **A/B testing** es la forma rigurosa de medir impacto; requiere hipótesis, métrica primaria, guardrails y tamaño de muestra calculado.
+- **Aleatorizar por `user_id`** (no por sesión) y correr el experimento al menos un ciclo semanal.
+- **Significancia estadística** no es lo mismo que **relevancia práctica**: una mejora de 0.5 pp puede o no justificar el costo.
+- Las **métricas guardrail** (latencia, costo, errores, retención) deben vigilarse en todo experimento.
+- Peeking, novelty effect, interacciones entre experimentos y Simpson's paradox son trampas conocidas; evitarlas con metodología y herramientas.
+- El feedback alimenta el **flywheel de datos**: insumos para evals, labels para reentrenar, preferences para DPO/RLHF.

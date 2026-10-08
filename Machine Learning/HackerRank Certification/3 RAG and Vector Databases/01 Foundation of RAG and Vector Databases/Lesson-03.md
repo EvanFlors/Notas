@@ -1,255 +1,347 @@
-## Vector Databases
+# Vector Databases, indexing y chunking
 
-You now understand that RAG requires finding similar embeddings among millions of vectors. The critical question becomes: where do you store these vectors, and how do you search through them efficiently?
+## ¿Qué es?
 
-Traditional databases excel at exact matches: SELECT * WHERE user_id = 12345. However, RAG requires similarity search: "find the 5 most similar vectors to this query vector" and execute this operation in milliseconds.
+Una **vector database** (base de datos vectorial) es un sistema especializado para **almacenar** vectores de alta dimensión y **buscar los más similares** a una query en tiempo sub-segundo, incluso con millones o miles de millones de vectores. A diferencia de una base relacional (que busca por igualdad exacta: `WHERE id = 42`), una vector DB resuelve el problema del **Approximate Nearest Neighbor (ANN) search**:
 
-Vector databases address this need. They are specialized systems designed for storing and searching high-dimensional vectors efficiently, making RAG applications possible at scale.
-
-How Vector Search Actually Works
-Before exploring specific databases, you need to understand the fundamental challenge: searching through millions of vectors efficiently. Remember from the previous lesson that embeddings create 384 or 768-dimensional vectors - imagine finding the most similar needle in a haystack of millions of needles, where each needle has hundreds of coordinates.
-
-The Indexing Challenge
-Brute Force Approach:
-
-```python
-# This is what we DO NOT want to do at scale
-def find_similar_brute_force(query_vector, all_vectors):
-  similarities = []
-  for vector in all_vectors:  # Could be millions!
-      similarity = cosine_similarity(query_vector, vector)
-      similarities.append(similarity)
-  return sorted(similarities, reverse=True)[:5]
-# Problem: O(n) complexity - gets slower as data grows
+```
+Dado un query vector q ∈ ℝᵈ y un conjunto V = {v₁, ..., vₙ} ⊂ ℝᵈ,
+encuentra los k vectores más cercanos a q según una métrica de distancia.
 ```
 
-This approach works for thousands of vectors but becomes unusably slow with millions. At 1 million vectors, this could take several seconds per query.
+El reto es que una búsqueda **exacta** (brute force) es `O(n·d)`: para 10 millones de vectores de 1536 dims, cada query cuesta ~60 ms-500 ms y escala linealmente. Las vector DBs usan **índices aproximados (ANN)** que logran latencias de 1-20 ms con recall >95%, al costo de **no garantizar** devolver los k vecinos **exactos**.
 
-Indexing Algorithms: Trading Perfect Accuracy for Speed
-Vector databases solve this using approximate nearest neighbor (ANN) algorithms that sacrifice small amounts of accuracy for massive speed improvements:
+### Componentes de una vector DB
 
-HNSW (Hierarchical Navigable Small Worlds):
-
-How it works: Creates a multi-layer graph where each layer has different connection densities
-Trade-off: 99%+ accuracy in milliseconds vs. 100% accuracy in seconds
-Best for: High-accuracy requirements with acceptable memory usage
-Used by: Pinecone, Qdrant, many others
-
-IVF (Inverted File Index):
-
-How it works: Clusters vectors into regions, searches only relevant clusters
-Trade-off: Lower memory usage, slightly lower accuracy than HNSW
-Best for: Large datasets where memory is constrained
-Used by: FAISS default approach
-
-LSH (Locality Sensitive Hashing):
-
-How it works: Uses hash functions to group similar vectors
-Trade-off: Very fast, lower accuracy, good for high dimensions
-Best for: Real-time applications where speed is critical
-Used by: Specialized applications, some FAISS configurations
-
-Distance Metrics: Building on Cosine Similarity
-You learned about cosine similarity in the embeddings lesson. Vector databases support multiple distance metrics, each optimized for different scenarios:
-
-Cosine Similarity (most common for text):
-
-```python
-# Cosine similarity calculation with normalization
-similarity = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
-# Range: -1 to 1 (1 = identical direction, 0 = perpendicular, -1 = opposite)
+```
+┌─────────────────────────────────────────────────┐
+│  Vector DB                                      │
+│                                                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────┐  │
+│  │ Vectors  │  │ Metadata │  │ Index (HNSW, │  │
+│  │ (ℝᵈ)     │  │ (JSON)   │  │  IVF, LSH)   │  │
+│  └──────────┘  └──────────┘  └──────────────┘  │
+│                                                 │
+│  API: upsert, search, filter, delete            │
+│  Features: persistence, replication, sharding   │
+└─────────────────────────────────────────────────┘
 ```
 
-Euclidean Distance (good for numerical data):
+## ¿Por qué importa?
+
+Un RAG puede funcionar en un notebook con 1,000 docs y numpy. En producción, con millones de chunks, usuarios concurrentes y requerimientos de latencia (<100 ms p99), **necesitas** infraestructura dedicada. Las vector DBs resuelven:
+
+- **Escala:** búsqueda sub-segundo en miles de millones de vectores.
+- **Persistencia:** sobreviven reinicios (numpy en RAM no).
+- **Concurrencia:** miles de QPS con lectura/escritura segura.
+- **Filtrado híbrido:** combinar similitud vectorial con filtros de metadata (`year > 2024 AND tenant_id = "acme"`).
+- **Actualizaciones incrementales:** añadir/borrar vectores sin reconstruir todo el índice.
+- **Multi-tenancy, replicación, snapshots, backups.**
+
+Sin una vector DB, un RAG a escala es inviable.
+
+## ¿Cómo funciona?
+
+### Algoritmos de indexación (ANN)
+
+#### HNSW (Hierarchical Navigable Small World)
+
+Construye un **grafo multi-capa**: la capa superior tiene pocos nodos muy conectados (saltos largos), las capas inferiores tienen más nodos (saltos cortos). La búsqueda baja por el grafo, empezando por un nodo random en la capa superior y descendiendo greedy hacia el más cercano.
+
+- **Pros:** altísimo recall (~99%), latencia muy baja (ms), buena para alta dimensión.
+- **Contras:** uso de RAM elevado (grafo entero en memoria), inserciones costosas, difícil de eliminar vectores.
+- **Hiperparámetros clave:** `M` (conexiones por nodo, típ. 16-64), `ef_construction` (calidad de construcción, 100-500), `ef_search` (candidatos en búsqueda, trade-off recall/latencia).
+- **Usado por:** Qdrant, Pinecone, Weaviate, Milvus, pgvector (desde 0.5), Chroma.
+
+#### IVF (Inverted File Index)
+
+Pre-clusteriza los vectores en `nlist` celdas con **k-means**. En búsqueda, calcula la celda más cercana al query y busca solo dentro de las `nprobe` celdas más cercanas.
+
+- **Pros:** memoria eficiente, bueno para datasets gigantes (>100M).
+- **Contras:** menor recall que HNSW si `nprobe` es bajo; requiere "entrenar" el índice.
+- **Variantes:** `IVF-Flat` (vectores completos), `IVF-PQ` (con **Product Quantization**: comprime cada vector a ~16 bytes).
+- **Usado por:** FAISS, Milvus, Weaviate (opcional).
+
+#### LSH (Locality-Sensitive Hashing)
+
+Usa funciones hash diseñadas para que vectores similares colisionen en el mismo bucket con alta probabilidad. La búsqueda consulta solo los buckets del hash de la query.
+
+- **Pros:** muy rápido, bueno para dimensiones extremadamente altas.
+- **Contras:** recall más bajo que HNSW/IVF para dimensiones moderadas; menos popular hoy.
+- **Usado por:** Datasketch, algunas configs de FAISS, aplicaciones de deduplicación.
+
+#### ScaNN (Google)
+
+Combina IVF con **anisotropic quantization**. Dominante en benchmarks de ANN pero con menos adopción fuera de Google/Vertex AI.
+
+#### DiskANN (Microsoft)
+
+Grafo que vive en SSD, soporta billones de vectores con poca RAM. Usado por Milvus, Turbopuffer, bases que priorizan costo.
+
+### Comparación de algoritmos
+
+| Algoritmo | Recall | Latencia | RAM | Build time | Mejor para |
+|---|---|---|---|---|---|
+| **Flat (brute force)** | 100% | O(n) | Alta | Instantáneo | <100k vectores, baseline |
+| **HNSW** | 95-99% | <10 ms | Alta | Lento | Alta precisión, 1M-100M |
+| **IVF-Flat** | 90-95% | ~20 ms | Media | Medio (entrena k-means) | 10M-1B vectores |
+| **IVF-PQ** | 80-90% | ~20 ms | **Muy baja** | Medio | 100M-10B con poca RAM |
+| **LSH** | 70-85% | <5 ms | Baja | Rápido | Dedup, altísima dim |
+| **DiskANN** | 90-95% | 10-30 ms | Mínima (SSD) | Lento | Billones, costo bajo |
+
+### Comparación de vector DBs
+
+| DB | Tipo | Open Source | Managed | Latencia (típ.) | Fortalezas | Costo (indicativo) |
+|---|---|---|---|---|---|---|
+| **FAISS** | Librería | Sí (Meta) | No | <10 ms | Rápida, educativa, control total | Gratis (self-host) |
+| **Chroma** | Embedded + server | Sí | Chroma Cloud | 10-50 ms | DX simple, ideal prototipos | Gratis / managed desde $0 |
+| **Qdrant** | Server | Sí (Rust) | Qdrant Cloud | 5-20 ms | Filtrado avanzado, HNSW tuneable | Gratis / $25+ /mes |
+| **Weaviate** | Server | Sí (Go) | WCS | 10-30 ms | GraphQL, hybrid search, módulos | Gratis / $25+ /mes |
+| **Milvus** | Server distribuido | Sí (CNCF) | Zilliz Cloud | 10-50 ms | Escala a billones, muchas índices | Gratis / $65+ /mes |
+| **Pinecone** | Managed | No | Sí | 10-50 ms | Zero-ops, serverless | $0 (starter) → miles/mes |
+| **pgvector** | Extensión Postgres | Sí | RDS, Supabase, Neon | 10-50 ms | SQL + vector en un solo lugar | Gratis + costo Postgres |
+| **Vespa** | Server | Sí (Yahoo) | Vespa Cloud | 10-30 ms | Hybrid + ranking complejo | Gratis / managed |
+| **Elasticsearch / OpenSearch** | Server | Sí | Elastic Cloud, AWS | 20-100 ms | Full-text + vector maduro | $$-$$$ |
+| **Turbopuffer** | Managed serverless | No | Sí | 50-200 ms | Costo bajísimo (object storage) | $ |
+| **LanceDB** | Embedded columnar | Sí | LanceDB Cloud | 5-30 ms | Vive en S3, multimodal | Gratis / managed |
+
+**Regla práctica:**
+- Prototipo local → **Chroma** o **FAISS**.
+- Producción con SQL existente → **pgvector**.
+- Producción cloud managed → **Pinecone** o **Qdrant Cloud**.
+- Escala masiva (>100M) → **Milvus**, **Vespa** o **Qdrant** self-hosted.
+- Costo mínimo con latencia relajada → **Turbopuffer** o **LanceDB**.
+
+### Chunking: dividir documentos antes de embeber
+
+Los modelos de embeddings tienen límite de tokens (típ. 512-8192). Además, embeber un PDF entero en un solo vector **diluye** la señal: si el doc tiene 20 temas, el vector es un promedio y no destaca ninguno. Solución: **partir en chunks** y embeber cada uno.
+
+#### Estrategias de chunking
+
+| Estrategia | Cómo | Pros | Contras |
+|---|---|---|---|
+| **Fixed-size** | N caracteres / tokens | Simple, rápido | Corta palabras y oraciones |
+| **Fixed-size + overlap** | N tokens con solapamiento (ej. 10-20%) | Preserva contexto en bordes | Duplica almacenamiento |
+| **Recursive** (LangChain) | Separa por `\n\n`, luego `\n`, luego `. `, luego ` ` hasta caber | Respeta estructura natural | Más lento |
+| **Sentence-based** | 1 chunk = N oraciones (spaCy, NLTK) | Semánticamente coherente | Requiere tokenizer |
+| **Markdown-aware** | Respeta `##`, listas, tablas, bloques de código | Perfecto para docs técnicos | Solo para MD/HTML |
+| **Semantic chunking** | Divide donde cambia el tema (gap en embeddings de oraciones sucesivas) | Chunks temáticos | Caro (embebe para chunk-ear) |
+| **Hierarchical / parent-child** | Chunks pequeños para búsqueda, grandes para contexto | Mejor recall + mejor contexto | Doble almacenamiento |
+| **Agentic / LLM-based** | Un LLM decide los cortes | Máxima calidad | Caro y lento |
+
+#### Guía de tamaño
+
+| Caso | `chunk_size` (tokens) | `overlap` |
+|---|---|---|
+| QA factual, docs cortos | 128-256 | 20-30 |
+| Soporte / FAQ | 256-512 | 50 |
+| Documentación técnica | 512-1024 | 100 |
+| Papers, libros | 800-1500 | 150 |
+| Código fuente | por función/clase | 0 (AST-aware) |
+
+**Trade-off clave:**
+- Chunks **muy grandes** → se **diluye** la señal, el LLM recibe mucho contenido irrelevante.
+- Chunks **muy pequeños** → se **pierde contexto** (una oración sin su párrafo no se entiende).
+- **Sin overlap** → una idea que cruza el borde se corta y queda inaccesible.
+
+## Ejemplo con código
+
+### 1. Chunking con LangChain
 
 ```python
-# Measures straight-line distance between points
-distance = np.linalg.norm(a - b)
-# Range: 0 to infinity (0 = identical, larger = more different)
-```
+# pip install langchain-text-splitters
+from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
 
-Dot Product (faster computation):
+text = open("docs/manual.md").read()
 
-```python
-# Similar to cosine but without normalization
-similarity = np.dot(a, b)
-# Assumes vectors are already normalized
-```
-
-For text embeddings, stick with cosine similarity unless you have specific requirements.
-
-Popular Vector Database Options
-FAISS (Facebook AI Similarity Search)
-What it is: An open-source library developed by Meta Research. It functions as the foundational tool for vector search operations.
-
-Ideal use cases:
-
-Learning vector search concepts and fundamentals
-Developing prototypes and small-scale projects
-Applications requiring complete control over the vector search implementation
-
-Implementation Example:
-
-```python
-import faiss
-import numpy as np
-
-# Create index and add vectors
-index = faiss.IndexHNSWFlat(384, 32)
-embeddings = np.random.random((1000, 384)).astype('float32')
-index.add(embeddings)
-
-# Search
-query = np.random.random((1, 384)).astype('float32')
-distances, indices = index.search(query, k=5)
-```
-
-Trade-offs:
-
-✅ Free and high-performance
-✅ Excellent for learning vector search principles
-❌ No built-in persistence mechanisms
-❌ Limited to single-machine deployments
-
-Pinecone
-What it is: A fully managed cloud-based vector database service designed for production applications.
-
-Ideal use cases:
-
-Rapid deployment to production environments
-Applications where infrastructure management is not desired
-Startups requiring fast time-to-market
-
-Implementation Example:
-
-```python
-import pinecone
-
-pinecone.init(api_key="your-key", environment="us-west1-gcp")
-index = pinecone.Index("my-index")
-
-# Add vectors with metadata
-index.upsert([("doc1", [0.1, 0.2, 0.3], {"title": "Refund Policy"})])
-
-# Search with filtering
-results = index.query(
-  vector=[0.1, 0.2, 0.3],
-  top_k=5,
-  filter={"title": {"$eq": "Refund Policy"}}
+# Recursive: respeta párrafos > oraciones > palabras
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=800,        # caracteres (aprox. 200 tokens)
+    chunk_overlap=100,     # ~12% overlap
+    separators=["\n\n", "\n", ". ", " ", ""],
 )
+chunks = splitter.split_text(text)
+print(f"{len(chunks)} chunks, promedio {sum(len(c) for c in chunks)//len(chunks)} chars")
+
+# Markdown-aware: respeta encabezados
+md_splitter = MarkdownHeaderTextSplitter(
+    headers_to_split_on=[("#", "h1"), ("##", "h2"), ("###", "h3")],
+)
+md_chunks = md_splitter.split_text(text)
+for c in md_chunks[:3]:
+    print(c.metadata, "→", c.page_content[:80])
 ```
 
-Trade-offs:
-
-✅ Zero operational overhead
-✅ Automatic scaling capabilities
-❌ Potentially high costs at scale
-❌ Vendor lock-in considerations
-
-Qdrant
-What it is: An open-source vector database with optional managed service offerings. It provides enterprise-grade features while maintaining flexibility.
-
-Ideal use cases:
-
-Production applications requiring infrastructure control
-Applications needing advanced metadata filtering capabilities
-Organizations preferring open-source solutions with enterprise features
-
-Implementation Example:
+### 2. Semantic chunking
 
 ```python
-from qdrant_client import QdrantClient
+# pip install langchain-experimental langchain-openai
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_openai import OpenAIEmbeddings
 
-client = QdrantClient("http://localhost:6333")
-client.create_collection("documents", vectors_config={"size": 384, "distance": "Cosine"})
-
-# Add vectors
-client.upsert("documents", points=[{
-  "id": 1,
-  "vector": [0.1, 0.2, 0.3],
-  "payload": {"title": "Refund Policy"}
-}])
-
-# Search with filtering
-results = client.search("documents", query_vector=[0.1, 0.2, 0.3])
+splitter = SemanticChunker(
+    OpenAIEmbeddings(model="text-embedding-3-small"),
+    breakpoint_threshold_type="percentile",  # corta en el percentil 95 de distancia
+    breakpoint_threshold_amount=95,
+)
+chunks = splitter.create_documents([text])
 ```
 
-Trade-offs:
+### 3. Ingesta completa en Chroma
 
-✅ Open-source with managed service options
-✅ Advanced filtering and querying capabilities
-❌ More complex initial setup requirements
-❌ Smaller ecosystem compared to established players
+```python
+# pip install chromadb sentence-transformers
+import chromadb
+from sentence_transformers import SentenceTransformer
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-Other Vector Database Solutions
+embedder = SentenceTransformer("BAAI/bge-small-en-v1.5")
+splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 
-Many other vector databases exist including Chroma, Milvus, Weaviate, PGVector (PostgreSQL extension), and cloud-native options from AWS, Azure, and Google Cloud. For a comprehensive comparison of all available vector databases, see the Vector Database Comparison Guide which provides detailed feature comparisons, performance benchmarks, and use case recommendations [(Vector Comparison Guide)](https://vdbs.superlinked.com/).
+docs = {
+    "refunds.md": "Los reembolsos tardan 5-7 días...",
+    "shipping.md": "Las entregas internacionales toman 10-15 días...",
+    "support.md": "El soporte atiende de lunes a viernes...",
+}
 
-Production Considerations
-Vector databases have unique operational characteristics that differ from traditional databases. Understanding these is crucial for successful production deployments.
+client = chromadb.PersistentClient(path="./chroma_db")
+collection = client.get_or_create_collection(
+    name="kb",
+    metadata={"hnsw:space": "cosine", "hnsw:M": 32, "hnsw:construction_ef": 200},
+)
 
-Vector Database Comparison & Scaling Guide
-Scale Thresholds & Solution Comparison:
+for source, text in docs.items():
+    chunks = splitter.split_text(text)
+    embeddings = embedder.encode(chunks, normalize_embeddings=True).tolist()
+    collection.add(
+        ids=[f"{source}::{i}" for i in range(len(chunks))],
+        documents=chunks,
+        embeddings=embeddings,
+        metadatas=[{"source": source, "chunk": i} for i in range(len(chunks))],
+    )
 
-| Vector Count | Memory Needs | Expected Latency | Recommended Solutions | Solution Type | Best For |
-|--------------|--------------|------------------|-----------------------|---------------|----------|
-| 100K        | ~500MB      | 10ms             | FAISS (Facebook AI Similarity Search) | Library       | Research & Prototyping |
-| 100K - 1M   | ~3GB        | 50ms             | FAISS HNSW (Hierarchical Navigable Small World) | Library       | Research & Prototyping |
-| 100K - 1M   | ~3GB        | 50ms             | Pinecone              | Managed Service | Production Applications |
-| 1M - 10M    | ~30GB      | 100ms            | Weaviate              | Open Source   | Custom Solutions |
-| 1M - 10M    | ~30GB      | 100ms            | Chroma                | Open Source   | Development & Testing |
-| 10M+       | 100GB+     | 200ms            | Qdrant                | Managed Service | Enterprise Applications |
+# Query con filtro de metadata
+query = "¿cuánto tarda mi reembolso?"
+q_emb = embedder.encode([query], normalize_embeddings=True).tolist()
+results = collection.query(
+    query_embeddings=q_emb,
+    n_results=3,
+    where={"source": "refunds.md"},   # filtro híbrido
+)
+for doc, meta, dist in zip(results["documents"][0],
+                           results["metadatas"][0],
+                           results["distances"][0]):
+    print(f"[{1 - dist:.3f}] ({meta['source']}) {doc[:80]}...")
+```
 
-Key Scaling Considerations:
+### 4. Qdrant con HNSW tuneado y filtros
 
-Memory-bound operations: Vector databases require significant RAM for fast access
-Index rebuild costs: Adding vectors to approximate indexes can be expensive at scale
-Sharding strategies: Consider domain-based sharding (by category, date, etc.) for horizontal scaling
-Monitoring What Matters
-Critical Vector Database Metrics:
+```python
+# pip install qdrant-client
+from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    Distance, VectorParams, PointStruct, HnswConfigDiff,
+    Filter, FieldCondition, MatchValue,
+)
 
-Search latency: Average time per query (target: < 100ms for most applications)
-Index fullness: How close to capacity limits (alert at 80%+)
-Query accuracy: Approximate indexes may degrade over time
-Memory usage: Track RAM consumption trends for capacity planning
-Performance Degradation Signals:
+qd = QdrantClient(url="http://localhost:6333")
+qd.recreate_collection(
+    collection_name="kb",
+    vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+    hnsw_config=HnswConfigDiff(m=32, ef_construct=200),
+)
 
-Increasing search latency without increased load
-Declining recall rates on approximate indexes
-Memory pressure affecting other system components
-Failed queries due to capacity limits
+# upsert con metadata
+qd.upsert(
+    collection_name="kb",
+    points=[
+        PointStruct(id=i, vector=v, payload={"source": s, "year": 2026})
+        for i, (v, s) in enumerate(zip(embeddings, ["refunds.md"] * len(embeddings)))
+    ],
+)
 
-Backup and Recovery Challenges
-Vector Database Backup Considerations:
+# search con filtro
+hits = qd.search(
+    collection_name="kb",
+    query_vector=q_emb[0],
+    limit=5,
+    search_params={"hnsw_ef": 128},   # ↑ recall, ↑ latencia
+    query_filter=Filter(must=[
+        FieldCondition(key="year", match=MatchValue(value=2026))
+    ]),
+)
+for h in hits:
+    print(h.score, h.payload)
+```
 
-Index rebuilding: Vector indexes often can't be incrementally updated efficiently
-Memory requirements: Restoration may require significant compute resources
-Time to recovery: Large indexes can take hours to rebuild from raw data
-Data consistency: Ensure embedding model consistency across backups
-Recommended Strategies:
+### 5. FAISS puro para benchmark local
 
-Source data backup: Keep original documents and embedding model versions
-Periodic full snapshots: Regular complete index snapshots for fast recovery
-Multi-region replication: For critical applications requiring high availability
+```python
+# pip install faiss-cpu
+import faiss, numpy as np
 
-Common Pitfalls
-Choosing Based on Hype Rather Than Requirements: Do not select a vector database based on marketing or popularity. Evaluate based on your specific needs: data size, query patterns, budget, and team expertise.
+d = 384
+index = faiss.IndexHNSWFlat(d, 32)        # M=32
+index.hnsw.efConstruction = 200
+index.hnsw.efSearch = 64
 
-Underestimating Index Build Time: Large datasets can take hours or days to index initially. Plan for this in your deployment timeline and consider incremental indexing strategies.
+vecs = np.random.random((100_000, d)).astype("float32")
+faiss.normalize_L2(vecs)
+index.add(vecs)
 
-Ignoring Memory Requirements: Vector databases are memory-intensive. A million 768-dimensional vectors require ~3GB of RAM minimum. Budget accordingly for your expected data size.
+q = np.random.random((1, d)).astype("float32"); faiss.normalize_L2(q)
+D, I = index.search(q, k=5)
+print(D, I)
+```
 
-Over-Engineering Early: Start simple with FAISS or a managed solution. Premature optimization with complex self-hosted setups often creates unnecessary operational overhead.
+### 6. pgvector (Postgres)
 
-Summary
-Vector databases are the infrastructure foundation that makes RAG applications possible at scale. They solve the fundamental challenge of finding similar embeddings among millions of vectors in milliseconds, transforming the semantic search capability you learned about in the embeddings lesson into a practical, scalable solution.
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE kb (
+    id SERIAL PRIMARY KEY,
+    source TEXT,
+    content TEXT,
+    embedding vector(384)
+);
 
-The key insight is understanding the trade-offs: FAISS offers maximum control and learning value, Pinecone provides managed convenience, and Qdrant balances open-source flexibility with enterprise features. Your choice depends on your specific requirements for scale, control, and operational complexity.
+-- Índice HNSW (pgvector >= 0.5)
+CREATE INDEX ON kb USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 
-With vector databases understood, you now have all the foundational components for RAG: why it exists (lesson 4.1.1), how embeddings create semantic meaning (lesson 4.1.2), and where to store and search those embeddings efficiently (this lesson). Next, we'll explore how to put these pieces together with effective retrieval strategies and optimization techniques.
+-- Búsqueda top-5 con filtro
+SELECT content, 1 - (embedding <=> $1) AS similarity
+FROM kb
+WHERE source = 'refunds.md'
+ORDER BY embedding <=> $1
+LIMIT 5;
+```
 
-Key concepts to remember
-Vector databases enable similarity search across millions of high-dimensional embeddings in milliseconds
-Different solutions offer trade-offs between control, convenience, cost, and operational complexity
-Production considerations include scaling characteristics, monitoring requirements, and backup strategies
-The fundamental concepts transfer across all vector databases - choose based on your specific needs
+## Errores comunes
+
+- **Chunks demasiado grandes.** 2000 tokens por chunk → se **diluye** la señal; el embedding promedia 10 temas y no destaca ninguno. Objetivo: 1 chunk = 1 idea.
+- **Chunks demasiado pequeños.** 50 tokens pierden contexto; el LLM recibe fragmentos sin suficiente info para responder. Prefiere 256-512 para texto normal.
+- **No usar overlap.** Una idea que cruza el borde del chunk queda **mitad en uno y mitad en otro**, y ninguno la contiene completa. Usa 10-20% de overlap.
+- **Chunking que ignora estructura.** Partir a mitad de una tabla, bloque de código o lista destroza el significado. Usa splitters **aware** del formato (Markdown, HTML, código con AST).
+- **Mezclar query y document embeddings de modelos asimétricos.** Con E5/Cohere embed-v3 usar el **mismo prefijo** rompe el modelo. Query = `search_query`, docs = `search_document`.
+- **No normalizar vectores.** Si tu índice está configurado como `cosine` pero mandas vectores no normalizados, muchos backends igual los normalizan internamente; si usas `dot`, el ranking se corrompe. **Normaliza en ingesta y en query**.
+- **Dimensionalidad mal ajustada.** Crear la colección con `size=768` y mandar vectores de 1536 → error. O peor: silencioso (algún backend trunca). Verifica siempre.
+- **Elegir por hype.** No necesitas Pinecone para 10,000 docs. Empieza con Chroma o pgvector; sube de complejidad cuando duela.
+- **Olvidar los filtros de metadata.** Un vector search sin filtros devuelve docs de todos los tenants / todas las fechas. Usa `payload` + filtros para seguridad y relevancia.
+- **No monitorear recall.** Los índices ANN pueden degradarse al crecer la data o cambiar la distribución. Mide **Recall@k vs. brute force** periódicamente en un sample.
+- **No planear el rebuild.** Añadir muchos vectores a un HNSW puede fragmentarlo; a veces conviene reconstruir desde cero. Planea ventanas de mantenimiento.
+- **Latencia por batch size.** Enviar 1000 queries secuenciales en vez de un batch → 1000x más latencia. Usa el API batch cuando exista.
+- **No cachear embeddings de queries frecuentes.** Las top queries se repiten; cachear ahorra API calls y latencia.
+
+## Resumen
+
+- Una **vector DB** almacena vectores y los busca por **similitud aproximada (ANN)** en milisegundos.
+- Algoritmos: **HNSW** (grafo multi-capa, alta precisión), **IVF** (clustering, memoria eficiente), **IVF-PQ** (comprime vectores), **LSH** (hash), **DiskANN** (SSD, billones).
+- Herramientas: **FAISS, Chroma, Qdrant, Weaviate, Milvus, Pinecone, pgvector, Vespa, LanceDB**. Elige por escala, hosting, costo y features de filtrado.
+- **Chunking** es la decisión más impactante del pipeline: tamaño, overlap, estrategia (fixed, recursive, markdown-aware, semantic, hierarchical).
+- Reglas de oro de chunking: **respeta la estructura**, **usa overlap**, **ajusta tamaño al tipo de contenido**, **un chunk = una idea**.
+- Filtrado híbrido (vector + metadata) es imprescindible en multi-tenant y para precision.
+- **Normaliza siempre**, **respeta prefijos asimétricos**, **verifica dimensionalidad**, **cachea queries frecuentes**.
+- Empieza simple (Chroma/pgvector) y escala solo cuando la operación lo exija; migrar es costoso pero no imposible porque el **pipeline conceptual** (chunk → embed → index → search) es portable entre DBs.
+- Monitorea **recall, latencia, memoria y fullness** del índice; los sistemas ANN se degradan silenciosamente.
+- La trilogía RAG queda cerrada: **por qué** (Lesson-01), **cómo compara significado** (Lesson-02 embeddings), **dónde vive y cómo se busca a escala** (esta lesson).

@@ -1,290 +1,270 @@
-## When Helpful Tools Become Data Leaks
+# Flujos de datos y rutas de fuga en herramientas de IA
 
-Imagine you are debugging a production issue. You paste a stack trace into an AI assistant, along with logs from three services. The assistant helps you find the bug, and you fix it. A month later, you realize the stack trace contained a customer email address, and that email is now stored in the assistant's training data because you used an external tool without an enterprise agreement. What seemed like a harmless debugging session became a privacy violation.
+## ¿Qué es?
 
-This is the hidden data surface in AI tooling. AI tools do not only see the code you paste. They often see context, logs, file paths, and metadata. Some tools log prompts and responses for debugging, evaluation, or product improvement. Others cache results in shared systems. If you do not understand these flows, you cannot protect sensitive data.
+Las **herramientas de IA** (asistentes de código, copilotos, agentes autónomos, chatbots internos) no solo ven el texto que les pegas. Ven **contexto implícito**: archivos abiertos, logs recientes, variables de entorno, metadatos del repositorio, tickets de Jira enlazados, respuestas de APIs intermedias y, en algunos casos, el historial completo de la conversación. Cada uno de esos puntos es una **ruta de fuga potencial** de información sensible.
 
-In this lesson, you will learn how to map data flows in AI tools, identify leakage paths, and prevent accidental exposure of code, secrets, and customer information. You will understand why "internal" does not mean "safe," how to distinguish between trusted and untrusted tools, and how to build workflows that protect sensitive data by default.
+La **privacidad en herramientas de IA** es la disciplina de **mapear, controlar y auditar** los flujos de datos que atraviesan estas herramientas, con el objetivo de evitar que información regulada (PII, PHI, PCI), secretos (API keys, tokens) o IP propietaria (código fuente, arquitectura) escapen del perímetro autorizado.
 
-By the end, you will have a practical framework for understanding what AI tools see, where that data goes, and how to prevent leaks before they happen.
+> **Definición operativa:** si un dato sale de tu sistema hacia un modelo que no controlas (API externa, SaaS, modelo público) o se almacena en un lugar donde no puedes garantizar su retención y acceso, entonces ese dato ha **cruzado el límite de confianza** y debe tratarse bajo política.
 
-The Hidden Data Surface in AI Tooling
-There are three common leakage paths:
+### PII, PHI y PCI: los tres grandes
 
-Prompt content: raw code, configuration, or secrets pasted into prompts. This is the most obvious path, but it is also the easiest to control.
+| Categoría | Qué incluye | Regulación principal | Ejemplos típicos en prompts |
+|---|---|---|---|
+| **PII** (Personal Identifiable Information) | Nombre, email, teléfono, dirección, IP, cookie IDs, geolocalización | GDPR, CCPA, LGPD | Logs con `user_id=juan@acme.com`, stack traces con direcciones |
+| **PHI** (Protected Health Information) | Diagnósticos, historiales médicos, fotos clínicas, resultados de laboratorio | HIPAA (EE.UU.), GDPR Art. 9 | Debug de app de telemedicina con `patient_name` en el payload |
+| **PCI** (Payment Card Industry) | PAN (número de tarjeta), CVV, fecha de expiración, nombre del titular | PCI-DSS v4.0 | Logs de pasarela de pago con `card_number=4111...` |
 
-Context retrieval: files or logs pulled automatically by the tool. This is less obvious because you might not realize what the tool is reading.
+Las tres categorías comparten una propiedad crítica: **basta un solo registro** en un prompt para que la herramienta de IA se convierta en un **procesador de datos** bajo la regulación, lo que activa obligaciones contractuales (DPA), de retención y de derechos del titular.
 
-Telemetry: usage metrics, error traces, and model feedback logs. This is often invisible because it happens automatically in the background.
+### Tres rutas de fuga canónicas
 
-Each path can expose proprietary code or user data. A safe workflow starts by mapping which of these flows exist in your toolchain. When you understand the flows, you can control them. When you do not understand them, leaks happen.
-
-Consider what happens without mapping. A developer uses an AI tool to debug an issue. They paste a log file that contains customer emails. The tool stores that log for training. The customer emails are now in the tool's training data. This is a privacy violation, but the developer did not realize it was happening.
-
-A Data Map You Can Build in One Hour
-You do not need a full privacy program to start. A simple data map answers:
-
-What the developer sends: prompt content, files, logs. This is what developers explicitly provide.
-
-What the tool retrieves automatically: context files, documentation, related code. This is what the tool reads without explicit request.
-
-What the tool stores and for how long: prompts, responses, telemetry, caches. This is where data persists.
-
-Who can access those stored artifacts: tool vendors, other users, internal teams. This is who can see the data.
-
-This map should be reviewed by engineering and security. It becomes the baseline for policy decisions, redaction, and retention. When you have a map, you can make informed decisions. Without a map, you are guessing.
-
-A useful output of the data map is a short table that lists:
-
-Tool name and owner: who is responsible for the tool.
-
-Data sources it can read: repo, logs, tickets. What can the tool access?
-
-Data sinks it can write: logs, PRs, issue trackers. Where does data go?
-
-Retention behavior: where and how long. How long is data kept?
-
-This table becomes a living inventory. If you add a new tool, you add a new row. It is the fastest way to stay aware of exposure. When tools change, update the map. When policies change, update the map. The map keeps you aware of what is happening.
-
-Here is an example of a data map table:
-
-data-map-inventory.md
-```markdown
-# AI Tools Data Map Inventory
-
-## Tool: AI Coding Assistant (Internal)
-
-| Field | Value |
-|-------|-------|
-| **Owner** | Platform Engineering Team |
-| **Data Sources** | Repository files, bug reports, logs, documentation |
-| **Data Sinks** | Generated code, PR descriptions, tool logs, telemetry |
-| **Retention** | Prompts: 30 days, Outputs: 90 days, Telemetry: 1 year |
-| **Access** | Internal team only, requires authentication |
-| **Data Residency** | EU region (GDPR compliant) |
-| **Redaction** | Automatic redaction of secrets before processing |
-
-## Tool: External AI Assistant (Vendor)
-
-| Field | Value |
-|-------|-------|
-| **Owner** | External Vendor |
-| **Data Sources** | User-provided prompts, file uploads |
-| **Data Sinks** | Vendor cloud storage, training data (with opt-out) |
-| **Retention** | Vendor policy: 30 days for prompts, indefinite for training (unless opt-out) |
-| **Access** | Vendor employees, other users (if shared) |
-| **Data Residency** | US region (may not meet EU requirements) |
-| **Redaction** | Manual (user must redact before sending) |
-| **Risk Level** | High - restricted data should not be sent |
-
-## Tool: Code Review AI (Internal)
-
-| Field | Value |
-|-------|-------|
-| **Owner** | Security Team |
-| **Data Sources** | PR diffs, code files, commit messages |
-| **Data Sinks** | Review comments, security reports, audit logs |
-| **Retention** | Review comments: 1 year, Audit logs: 7 years (compliance) |
-| **Access** | Security team, code reviewers |
-| **Data Residency** | Same region as code repository |
-| **Redaction** | Automatic - never processes secrets directory
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     USUARIO / DESARROLLADOR                      │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+          ┌─────────────────┼─────────────────┐
+          ▼                 ▼                 ▼
+   1. PROMPT CONTENT   2. CONTEXT          3. TELEMETRY
+      (lo que pegas)     RETRIEVAL           (métricas,
+                         (lo que la          logs, traces)
+                          herramienta lee
+                          automáticamente)
+          │                 │                 │
+          └─────────────────┼─────────────────┘
+                            ▼
+                   ┌─────────────────┐
+                   │  LLM / Vendor   │
+                   │  (OpenAI, etc.) │
+                   └────────┬────────┘
+                            ▼
+                   ┌─────────────────┐
+                   │  Training data? │
+                   │  Logs? Cache?   │
+                   └─────────────────┘
 ```
 
-Code and IP Exposure Risk
-Even when data is not "personal," it can still be sensitive. Proprietary code, architecture decisions, and internal documentation are valuable IP. If that data is uploaded to an external vendor without a contract, you may violate internal policy or regulatory commitments.
+- **Prompt content:** lo más obvio. Un desarrollador pega un stack trace que contiene `customer_email=ana@gmail.com`.
+- **Context retrieval:** menos visible. El asistente lee automáticamente `.env`, `settings.py`, `README`, los últimos 10 archivos abiertos. Un `OPENAI_API_KEY=sk-...` se envía sin que nadie lo haya escrito en el prompt.
+- **Telemetry:** invisible. La herramienta envía métricas de uso (`prompt_length`, `latency`, error traces) que incluyen fragmentos del prompt original.
 
-The practical risk is not always an external breach. It is also misalignment: engineers assume data is private while the tool stores it for model improvement. This gap causes most policy violations. Engineers think they are using a private tool, but the tool is storing data for training.
-
-Consider what happens with misalignment. An engineer uses an AI tool to generate code. They assume the tool is private because it is an internal tool. But the tool stores prompts for model improvement. The code is now in the tool's training data. This might violate IP policies, but the engineer did not know it was happening.
-
-Practical Examples of Accidental Exposure
-Common examples include:
-
-A stack trace in a prompt that contains a customer email: the email is now in the tool's logs or training data.
-
-A pasted configuration file with embedded API keys: the keys are now stored by the tool vendor.
-
-A bug report that includes internal URLs or system diagrams: internal architecture is now exposed.
-
-None of these are malicious. They are normal developer behavior. The risk comes from the tooling, not the intent. Developers are trying to be helpful, but the tools are storing more than they realize.
-
-This is why mapping matters. When developers understand what tools store, they can make informed decisions. When they do not understand, they accidentally expose data.
-
-Secrets and Credentials Are the Highest-Risk Category
-Secrets are the fastest path from "harmless log" to "incident." A single API key in a prompt can lead to unauthorized access. This is why secrets should never enter the toolchain. Even internal tools should avoid logging secrets.
-
-The rule is simple: if the system would treat the data as a secret in a code review, it should be treated as a secret in the AI workflow. Secrets are secrets regardless of context. They should never be in prompts, logs, or telemetry.
-
-Consider what happens when secrets leak. An API key in a prompt is stored by the tool vendor. An attacker gains access to the vendor's systems and finds the key. They use it to access your systems. This is a real attack vector that happens when secrets enter toolchains.
-
-Internal Versus External Tool Boundaries
-Not all tools live in the same trust zone. For example:
-
-Internal tools might run inside your VPC with strict retention controls. These tools are more trusted because you control them.
-
-External tools may store prompts or logs outside your environment. These tools are less trusted because vendors control them.
-
-This distinction changes how you use them. Sensitive tasks should default to internal tools. External tools should be used only with sanitized context unless there is an explicit contract that aligns with your policies.
-
-Consider what happens without boundaries. A developer uses an external tool for a sensitive task. They paste proprietary code. The code is now stored by the vendor. This might violate IP policies, but the developer did not realize the tool was external.
-
-
-Before diving into telemetry and vendor controls, consider how understanding leak paths is the foundation for safer AI use. You can only protect what you can see.
-
-Telemetry Is Useful But Risky
-Telemetry helps improve tools, but it can also collect sensitive data. Typical telemetry includes:
-
-Prompt and response samples: what developers asked and what the tool answered.
-
-Error traces and stack dumps: debugging information that might contain sensitive data.
-
-File paths and repository metadata: information about code structure and organization.
-
-Model performance metrics: how well the tool is performing.
-
-Each of these can expose information you did not intend to share. The solution is not to disable telemetry entirely, but to control what it captures and how long it is kept.
-
-Practical steps include:
-
-Log only hashes or summaries, not raw prompts: preserve useful metrics without storing sensitive content.
-
-Mask file paths or repository names in telemetry: preserve structure information without exposing organization details.
-
-Separate operational metrics from content logs: keep performance data separate from user content.
-
-Telemetry should answer "how the tool performs" without storing "what the user wrote." When telemetry is focused on metrics, it is useful without being risky.
-
-Data Minimization Patterns for Prompts
-You can reduce leakage by changing how prompts are constructed:
-
-Prefer summaries over raw logs: include only what is necessary, not everything.
-
-Include only the specific functions or files in scope: limit context to what matters.
-
-Avoid pasting entire configuration files when only one key is needed: extract only what is necessary.
-
-These patterns improve safety and reduce cost. They also force the team to define scope, which improves output quality. When prompts are focused, tools produce better results.
-
-Consider what happens with minimization. A developer needs to debug an API endpoint. Instead of pasting the entire codebase, they paste only the endpoint code and the error message. The tool has enough context to help, but sensitive code is not exposed. This is safer and more effective.
-
-Vendor Boundaries and Contractual Controls
-If you use external AI services, the contract should specify:
-
-Whether prompts are stored: are prompts kept, and for how long?
-
-Whether prompts are used for training: will your data be used to improve models?
-
-Retention duration: how long is data kept?
-
-Access controls and auditability: who can access the data, and can you audit access?
-
-This is a security requirement, not a legal luxury. Without this clarity, engineers will assume privacy where none exists. When contracts are unclear, assumptions are made, and assumptions lead to violations.
-
-If you cannot get a clear data handling agreement, treat the vendor as untrusted for sensitive contexts. Restrict usage to public or internal-only data until the contract aligns with your requirements. When vendors cannot provide clarity, assume risk and act accordingly.
-
-Minimum Viable Vendor Checklist
-Before approving an external tool, verify:
-
-Prompts are not used for training without explicit consent: training use should be opt-in, not default.
-
-Retention periods are documented and configurable: you should know how long data is kept and be able to change it.
-
-Data is encrypted at rest and in transit: encryption protects data from unauthorized access.
-
-Audit logs are available for access: you should be able to see who accessed your data and when.
-
-If any of these are missing, you should assume higher risk and adjust usage accordingly. When vendors cannot meet basic requirements, they are not safe for sensitive data.
-
-Local Tools Still Leak
-"Local" does not automatically mean "safe." A local tool can still:
-
-Store prompts on disk: local storage can be accessed by other processes or users.
-
-Write logs with sensitive content: logs might contain secrets or PII.
-
-Sync data to shared caches: local tools might sync to cloud services.
-
-Local-first tools reduce external exposure, but you still need internal controls and secure defaults. When tools are local, you control them more, but you still need to configure them safely.
-
-Balancing Usability with Safety
-Developers will avoid tools that slow them down. The best privacy controls are invisible:
-
-Automatic redaction of known sensitive patterns: secrets are removed automatically, without developer action.
-
-Clear warnings only when sensitive data is detected: developers are warned when they are about to expose data.
-
-Safe defaults that do not require manual configuration: tools are safe by default, not unsafe by default.
-
-This approach keeps productivity high while reducing risk. When controls are invisible, developers use them. When controls are visible and annoying, developers bypass them.
-
-Moving from Ad Hoc Use to a Safe Rollout
-A safe rollout plan often includes:
-
-A pilot group with clear guardrails: start small with a group that understands the risks.
-
-Redaction and logging controls enabled by default: make safe behavior the default behavior.
-
-A short training session on "safe and unsafe prompts": teach developers what to avoid.
-
-Periodic review of telemetry and incident reports: learn from usage and improve controls.
-
-This keeps the rollout controlled without blocking adoption. When rollouts are gradual and monitored, problems are caught early and fixed quickly.
-
-
-Summary: Map the Data, Then Control It
-AI tool privacy starts with visibility. Map prompt content, context retrieval, and telemetry. Treat proprietary code as sensitive by default, and treat secrets as off-limits. Use contracts and configuration to make data handling explicit, not assumed.
-
-When you understand data flows, you can control them. When you do not understand them, leaks happen. Mapping is the foundation of privacy protection. Without it, you are guessing. With it, you can make informed decisions.
-
-A Quick Privacy Readiness Checklist
-Do we know what data is stored and for how long? If not, you cannot protect it.
-
-Do we have redaction for secrets and PII? If not, sensitive data will leak.
-
-Do we know whether prompts are used for training? If not, you might be violating IP policies.
-
-Do developers understand the safe and unsafe uses of the tool? If not, they will make mistakes.
-
-If any of these are unknown, your workflow is not ready for wide deployment. When readiness is unknown, risk is high. When readiness is known, risk is manageable.
-
-Ongoing Governance
-Privacy is not a one-time setup. As teams adopt new tools, data flows change. A practical governance rhythm includes:
-
-Quarterly reviews of tool inventories and retention: keep the map current.
-
-Incident retrospectives that update redaction rules: learn from mistakes and improve controls.
-
-Training refreshers for new hires and high-risk teams: keep awareness high.
-
-This keeps the system aligned with reality rather than with initial assumptions. When governance is ongoing, systems stay safe. When governance is one-time, systems drift.
-
-Monitoring Leak Indicators
-You can detect risk early by tracking simple indicators:
-
-Prompt logs that contain high-entropy tokens: secrets might be in prompts.
-
-Unusually large prompts that include full files: context might be too broad.
-
-Repeated user identifiers in telemetry: PII might be leaking.
-
-These indicators do not require advanced tools. They require visibility and consistent review. When indicators are monitored, problems are caught early. When indicators are ignored, problems become incidents.
-
-Common Pitfalls and Solutions
-Pitfall: assuming vendor defaults are safe. Solution: verify retention and training policies in writing. When vendors are not verified, assumptions are made, and assumptions lead to violations.
-
-Pitfall: logging raw prompts in internal tools. Solution: redact or disable prompt logging by default. When prompts are logged, they can leak. When prompts are redacted, leaks are prevented.
-
-Pitfall: treating local tools as risk-free. Solution: apply the same data handling rules internally. When local tools are treated as safe, they are not configured safely. When local tools are treated like external tools, they are configured safely.
-
-Pitfall: no data mapping. Solution: build a data map before using tools. When flows are unknown, leaks happen. When flows are mapped, leaks are prevented.
-
-Pitfall: no training. Solution: train developers on safe and unsafe usage. When developers are not trained, they make mistakes. When developers are trained, they avoid mistakes.
-
-Key concepts to remember
-Leak paths are predictable—prompts, context retrieval, and telemetry
-IP is sensitive—treat proprietary code as protected data
-Secrets are off-limits—never allow credentials into prompts or logs
-Contracts matter—enforce retention and training policies with vendors
-Map data flows—understand what tools see and where data goes
-Minimize context—include only what is necessary
-Monitor indicators—track signs of leakage and respond quickly
+## ¿Por qué importa?
+
+El escándalo de **Samsung en 2023** es el caso de estudio canónico: tres ingenieros pegaron código propietario de semiconductores en ChatGPT para depurarlo. OpenAI retenía los prompts por defecto para entrenamiento. Resultado: Samsung prohibió ChatGPT en toda la compañía y escribió su propio LLM interno. La fuga no fue por hackeo; fue por **uso normal de una herramienta útil sin entender el flujo de datos**.
+
+Casos similares desde 2023:
+- **JPMorgan, Apple, Verizon, Amazon:** prohibiciones corporativas de ChatGPT por el mismo riesgo.
+- **Air Canada (2024):** un chatbot inventó una política de reembolso y el tribunal canadiense obligó a la aerolínea a cumplirla (riesgo de output, no de input).
+- **Cursor leak (2024):** varios desarrolladores reportaron que prompts con código propietario aparecían como sugerencias para otros usuarios por un bug de aislamiento de contexto.
+
+### El costo real
+
+| Tipo de fuga | Costo típico | Mecanismo |
+|---|---|---|
+| Multa GDPR | Hasta 4% facturación global o 20M EUR | Procesar PII sin base legal o DPA |
+| Multa HIPAA | USD 100 a 1.9M por violación anual | Enviar PHI a un procesador no cubierto por BAA |
+| PCI-DSS fine | USD 5,000 a 100,000 mensuales | Logs con PAN sin tokenización |
+| Pérdida de IP | Incalculable | Código entrenado dentro del modelo del proveedor |
+| Reputación | Alto, difuso | Portada de prensa, pérdida de clientes B2B |
+
+### Zonas de confianza
+
+| Zona | Ejemplos | Qué datos tolera |
+|---|---|---|
+| **Local / on-prem** | Ollama en laptop, LLM self-hosted en Kubernetes privado | Confidencial, incluso restringido con cifrado |
+| **Cloud dedicado** | Azure OpenAI con VNet, AWS Bedrock private endpoint | Confidencial; restringido si hay DPA + BAA |
+| **SaaS enterprise** | Anthropic Enterprise, OpenAI Enterprise, Gemini for Workspace | Confidencial con ZDR firmado |
+| **SaaS consumer** | ChatGPT free, Claude.ai free, Copilot personal | Solo público. **Nunca** restringido |
+
+## ¿Cómo funciona?
+
+### Construir un data map en una hora
+
+El punto de partida de cualquier programa de privacidad para IA es un **mapa de datos** que responde cuatro preguntas por cada herramienta:
+
+1. **Qué envía el desarrollador** (prompts, archivos adjuntos, screenshots).
+2. **Qué recupera la herramienta automáticamente** (contexto del IDE, workspace, variables de entorno).
+3. **Qué almacena el proveedor y por cuánto tiempo** (prompts, outputs, telemetría, caches).
+4. **Quién puede acceder a ese almacenamiento** (empleados del vendor, otros tenants, auditores internos).
+
+### Tabla de inventario de herramientas
+
+| Herramienta | Owner | Fuentes de datos | Sinks | Retención | Residencia | Nivel de riesgo |
+|---|---|---|---|---|---|---|
+| Copilot Business | DevEx | Repo abierto, archivos pinned | Sugerencias, telemetría | 0 días (prompts) | US / EU opt-in | Medio |
+| ChatGPT Team | Marketing | Prompts manuales | OpenAI logs | 30 días con opt-out | US | Alto si pegas datos |
+| Claude Enterprise | Legal | Prompts + archivos | Anthropic (ZDR disponible) | 0 días con ZDR | US / EU | Bajo con ZDR |
+| Cursor | Dev | Repo completo si "privacy mode" off | OpenAI/Anthropic backend | Variable | US | Alto sin privacy mode |
+| Ollama local | Ind. | Prompts del IDE | Disco local | Según config | Local | Bajo |
+
+### Patrón enterprise: proxy redactor
+
+En vez de permitir que cada desarrollador llame directo a la API del proveedor, se interpone un **proxy** que:
+
+1. **Autentica** al usuario interno (SSO, mTLS).
+2. **Redacta** PII/PHI/secretos antes de salir.
+3. **Enruta** a la región correcta (GDPR → EU, HIPAA → BAA-covered region).
+4. **Registra** una copia *sin* los datos sensibles para auditoría.
+5. **Aplica rate limiting** y presupuesto por equipo.
+
+```
+Desarrollador ──► Proxy interno ──► Redactor ──► LLM provider
+                     │                              │
+                     ▼                              ▼
+                 Audit log                    Response
+                 (sin PII)                        │
+                                                  ▼
+                                             Post-filter
+                                                  │
+                                                  ▼
+                                             Desarrollador
+```
+
+Este patrón es el estándar de facto en bancos, aseguradoras y empresas con cumplimiento regulatorio serio.
+
+## Ejemplo con código
+
+### Detección de PII con Microsoft Presidio
+
+**Presidio** es la librería open-source de referencia (Microsoft) para detectar y anonimizar PII. Soporta reconocimiento basado en patrones regex, listas, modelos NLP (spaCy, transformers) y permite recognizers personalizados.
+
+```python
+# pip install presidio-analyzer presidio-anonymizer
+# python -m spacy download en_core_web_lg
+
+from presidio_analyzer import AnalyzerEngine
+from presidio_anonymizer import AnonymizerEngine
+from presidio_anonymizer.entities import OperatorConfig
+
+analyzer = AnalyzerEngine()
+anonymizer = AnonymizerEngine()
+
+prompt_sucio = """
+El cliente Ana García (ana.garcia@acme.com, tel +34 611 223 344,
+DNI 12345678A) reporta un error 500 al pagar con tarjeta
+4111-1111-1111-1111 el 2025-10-01. Su IP fue 192.168.1.42.
+"""
+
+# 1. Detectar entidades sensibles
+resultados = analyzer.analyze(
+    text=prompt_sucio,
+    entities=["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON",
+              "CREDIT_CARD", "IP_ADDRESS", "ES_NIF"],
+    language="en",
+)
+
+for r in resultados:
+    print(f"{r.entity_type:20} score={r.score:.2f}  "
+          f"'{prompt_sucio[r.start:r.end]}'")
+
+# 2. Anonimizar antes de enviar al LLM
+operadores = {
+    "EMAIL_ADDRESS": OperatorConfig("replace", {"new_value": "<EMAIL>"}),
+    "PHONE_NUMBER":  OperatorConfig("replace", {"new_value": "<PHONE>"}),
+    "PERSON":        OperatorConfig("replace", {"new_value": "<PERSON>"}),
+    "CREDIT_CARD":   OperatorConfig("mask",
+                                     {"masking_char": "*",
+                                      "chars_to_mask": 12,
+                                      "from_end": False}),
+    "IP_ADDRESS":    OperatorConfig("hash"),
+    "ES_NIF":        OperatorConfig("replace", {"new_value": "<DNI>"}),
+}
+
+limpio = anonymizer.anonymize(
+    text=prompt_sucio,
+    analyzer_results=resultados,
+    operators=operadores,
+).text
+
+print("\n=== Prompt listo para el LLM ===")
+print(limpio)
+```
+
+Salida esperada:
+
+```
+EMAIL_ADDRESS        score=1.00  'ana.garcia@acme.com'
+PHONE_NUMBER         score=0.75  '+34 611 223 344'
+PERSON               score=0.85  'Ana García'
+CREDIT_CARD          score=1.00  '4111-1111-1111-1111'
+IP_ADDRESS           score=0.95  '192.168.1.42'
+
+=== Prompt listo para el LLM ===
+El cliente <PERSON> (<EMAIL>, tel <PHONE>, DNI <DNI>)
+reporta un error 500 al pagar con tarjeta ************1111
+el 2025-10-01. Su IP fue 7f3d9a....
+```
+
+### Proxy minimal que redacta antes de llamar al LLM
+
+```python
+import os
+import httpx
+from anthropic import Anthropic
+
+cliente = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+def llm_seguro(prompt_usuario: str, modelo: str = "claude-sonnet-4-5") -> str:
+    # Paso 1: redactar
+    resultados = analyzer.analyze(text=prompt_usuario, language="en",
+                                   entities=["EMAIL_ADDRESS", "PHONE_NUMBER",
+                                             "PERSON", "CREDIT_CARD",
+                                             "US_SSN", "IBAN_CODE"])
+    prompt_limpio = anonymizer.anonymize(
+        text=prompt_usuario, analyzer_results=resultados).text
+
+    # Paso 2: log de auditoría SIN el contenido crudo
+    audit_log({
+        "entidades_detectadas": [r.entity_type for r in resultados],
+        "longitud_original": len(prompt_usuario),
+        "longitud_limpia": len(prompt_limpio),
+    })
+
+    # Paso 3: llamar al proveedor
+    msg = cliente.messages.create(
+        model=modelo,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt_limpio}],
+        extra_headers={"anthropic-beta": "zero-data-retention"},
+    )
+    return msg.content[0].text
+```
+
+### Fuentes alternativas y comerciales
+
+| Herramienta | Tipo | Fortaleza |
+|---|---|---|
+| **Microsoft Presidio** | OSS | Extensible, multi-idioma, gratis |
+| **AWS Comprehend PII** | SaaS | Integración nativa AWS, soporta documentos |
+| **Google Cloud DLP** | SaaS | 150+ infoTypes, deidentification jobs |
+| **Lakera Guard** | SaaS | Prompt injection + PII en tiempo real |
+| **Private AI** | SaaS/on-prem | NER multiidioma de alta precisión |
+| **Snorkel Flow** | SaaS | Etiquetado programático + redaction |
+
+## Errores comunes
+
+- **Confundir "interno" con "seguro".** Un asistente desplegado en tu VPC puede seguir enviando telemetría a la nube del proveedor. Verifica flags como `telemetry.enabled=false` y revisa el tráfico de salida con un network policy.
+- **Logs con PII sin redacción.** El clásico: `logger.info(f"User {email} did X")`. En cuanto esos logs llegan a un asistente de observabilidad (Datadog AI, Grafana AI), la PII cruza al proveedor. Redacta en el **sink**, no solo en el visualizador.
+- **No firmar DPA (Data Processing Agreement) con el proveedor.** Sin DPA, procesar PII de ciudadanos UE a través de OpenAI/Anthropic te deja fuera de GDPR Art. 28, aunque el vendor cumpla técnicamente. Es un problema contractual, no técnico.
+- **Usar un modelo público (ChatGPT free, Claude.ai free) para datos regulados.** Esos planes **no ofrecen** ZDR ni BAA. Son para datos públicos únicamente.
+- **No encriptación at-rest** en los caches de respuestas. Un LLM gateway que cachea prompts en Redis sin cifrar es un honeypot de PII.
+- **No retention policy.** "Guardar todo por si acaso" convierte un asistente útil en un lago de PII tóxico. Define TTL desde el día 1.
+- **Context retrieval ciego.** Un agente que lee todo tu workspace `~/dev/` sin lista blanca va a leer tu `.env`, tu `~/.ssh/`, tu `~/.aws/credentials`. Usa allowlists explícitas.
+- **Telemetría de errores que incluye el prompt.** Sentry y similares capturan `locals()` por defecto. Si el prompt está en una variable local, va a Sentry.
+- **Confundir cifrado en tránsito con confidencialidad.** HTTPS protege contra sniffers de red, no contra el vendor que opera el endpoint.
+- **Pegar screenshots.** Los OCR modernos extraen PII perfectamente de capturas de pantalla. Son prompts también.
+
+## Resumen
+
+- Las herramientas de IA tienen **tres rutas de fuga canónicas**: prompt content, context retrieval y telemetría. Mapéalas antes de desplegar.
+- **PII, PHI y PCI** activan obligaciones legales (GDPR, HIPAA, PCI-DSS) en cuanto cruzan el límite de confianza; una sola fuga puede desencadenar auditoría y multa.
+- Construye un **data map** con 4 preguntas: qué envía el usuario, qué recupera la herramienta, qué guarda el proveedor y quién tiene acceso.
+- Diferencia **zonas de confianza**: local → cloud dedicado → SaaS enterprise con ZDR → SaaS consumer (jamás para datos regulados).
+- El **patrón proxy redactor** es el estándar enterprise: un intermediario autentica, redacta, enruta, audita y filtra antes y después del LLM.
+- **Microsoft Presidio** es el punto de entrada OSS más común para detección y anonimización de PII; alternativas comerciales son AWS Comprehend PII, Google Cloud DLP, Lakera y Private AI.
+- Firma **DPA** con cada proveedor que procese PII; sin él, estás fuera de GDPR Art. 28 aunque la implementación técnica sea impecable.
+- **Nunca** uses tiers consumer (ChatGPT free, Claude.ai free, Copilot personal) para datos confidenciales o regulados: no ofrecen ZDR, BAA, ni residencia.
+- Casos reales (Samsung 2023, prohibiciones en JPMorgan/Apple/Verizon) muestran que la fuga por **uso normal** es más común que el hackeo externo.
+- Si no sabes dónde va el dato cuando lo pegas en un prompt, **no lo pegues**; mapea primero, usa después.

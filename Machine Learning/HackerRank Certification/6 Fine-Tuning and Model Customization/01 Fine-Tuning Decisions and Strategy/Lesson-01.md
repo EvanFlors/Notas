@@ -1,387 +1,304 @@
-## Prompting vs RAG vs Fine-Tuning
+# Prompting vs RAG vs Fine-Tuning
 
-Imagine deploying a customer support chatbot that needs to answer questions about your product features, classify support tickets, and generate responses in your company's specific tone. Your team faces a critical decision: should you use prompt engineering, RAG, or fine-tuning? Many teams assume fine-tuning is the most powerful solution and proceed directly to model training, only to discover they have over-engineered their system, wasted computational resources, and created unnecessary maintenance complexity.
+## ¿Qué es?
 
-Understanding the full customization spectrum, from simple prompting to full fine-tuning, is essential for making cost-effective, maintainable decisions that align with business objectives. Each approach serves different purposes: prompting leverages existing capabilities, RAG adds knowledge without changing behavior, and fine-tuning modifies how models think and respond.
+El **espectro de personalización de modelos** describe las cuatro técnicas que un ingeniero de IA puede combinar para que un LLM resuelva una tarea específica. De menor a mayor complejidad:
 
-In this lesson, you will learn the four levels of AI customization, understand when each approach is appropriate through practical examples, and develop a decision framework that guides selection of the right technique for specific use cases.
+1. **Prompt engineering** — redactar instrucciones y ejemplos cuidadosamente para guiar al modelo *sin modificarlo*.
+2. **Retrieval-Augmented Generation (RAG)** — recuperar documentos relevantes de una base externa e inyectarlos en el prompt como contexto.
+3. **PEFT (Parameter-Efficient Fine-Tuning)** — entrenar un subconjunto pequeño de parámetros nuevos (LoRA, adapters) sobre un modelo base congelado.
+4. **Full fine-tuning** — actualizar *todos* los pesos del modelo con tus datos.
 
-The Four Levels of AI Customization
-The AI customization spectrum consists of four distinct levels, each building on the previous one with increasing complexity and capability. Understanding this spectrum enables developers to start with the simplest approach and escalate only when necessary.
+La decisión no es "cuál es mejor" sino **cuál es la más barata y mantenible que resuelve tu problema**. La regla heurística es *la escalera de personalización*: empieza en el escalón 1 y sube solo cuando tengas evidencia medible de que el nivel actual no alcanza.
 
-Level 1: Prompt Engineering
-Prompt engineering is the foundation of all AI customization. At this level, model behavior is guided through carefully crafted instructions, examples, and formatting requirements. This includes zero-shot prompting (no examples), few-shot prompting (providing examples), and advanced techniques like chain-of-thought reasoning.
+> **Insight clave:** la mayoría de los equipos saltan directo a fine-tuning por *hype* y descubren después que un prompt bien escrito + RAG resolvía el 90% del problema a 1/100 del costo.
 
-Prompt engineering is effective when the task aligns with the model's pre-existing capabilities. The model already understands classification, extraction, and generation tasks from its training; the prompt provides clear instructions and examples to guide its behavior.
+### El eje "conocimiento vs capacidad"
 
-Example: Customer Support Ticket Classification
-Consider building a system to classify customer support tickets into categories. The following prompt structure demonstrates how to achieve this with prompt engineering:
+Toda falla de un LLM cae en una de dos categorías:
 
-```python
-# Prompt Engineering Example: Ticket Classification
-# This demonstrates how to structure a prompt with task description,
-# examples, and the concrete task to classify
+| Tipo de brecha | Síntoma | Solución |
+|---|---|---|
+| **Brecha de conocimiento** | El modelo no sabe un dato específico (política interna, documentación reciente, catálogo de productos) | **RAG** |
+| **Brecha de capacidad** | El modelo no sabe *cómo* responder (tono, formato, dominio, razonamiento específico) | **Fine-tuning** |
 
-def classify_ticket(user_ticket: str) -> str:
-  """Classify support tickets using prompt engineering"""
+**Prueba práctica:** si pudieras resolver el problema entregándole al modelo un PDF con la información correcta, es brecha de conocimiento → RAG. Si necesitas que *aprenda un patrón nuevo de comportamiento*, es brecha de capacidad → fine-tuning.
 
-  # Task Description: Define the categories and their meanings
-  # Examples: Provide few-shot examples showing the pattern
-  # Concrete Task: The actual ticket to classify
-  prompt = """
-    Classify the following customer support ticket into one of these categories:
-    - billing: Payment, subscription, refund issues
-    - technical: Bug reports, feature not working
-    - feature_request: Requests for new functionality
-    - complaint: Negative feedback about service
+## ¿Por qué importa?
 
-    Examples:
-    Ticket: "My payment was charged twice this month"
-    Category: billing
+Elegir el nivel equivocado tiene costos reales:
 
-    Ticket: "The login button doesn't work on mobile"
-    Category: technical
+- **Sobre-ingeniería (ir muy alto):** gastar $5,000 en una corrida de fine-tuning cuando un prompt de 50 líneas te daba 92% de accuracy. Más deuda técnica, más mantenimiento, menos agilidad.
+- **Sub-ingeniería (quedarse muy bajo):** forzar prompts gigantes de 10,000 tokens cuando un LoRA entrenado una tarde hubiera reducido latencia a la mitad y mejorado consistencia.
+- **Confundir las herramientas:** usar fine-tuning para *memorizar* la lista de precios (cambia semanalmente → tendrías que re-entrenar cada semana). Lo correcto es RAG.
+- **Costo de oportunidad:** cada semana que un ingeniero pasa curando un dataset de fine-tuning es una semana que no está midiendo el producto con usuarios reales.
 
-    Ticket: "I wish you had dark mode"
-    Category: feature_request
+En producción, el error típico no es técnico sino **estratégico**: no distinguir qué está roto antes de elegir cómo arreglarlo.
 
-    Ticket: "Your customer service is terrible"
-    Category: complaint
+## ¿Cómo funciona?
 
-    Now classify this ticket:
-    Ticket: "{ticket}"
-    Category:
-  """.format(ticket=user_ticket)
+### Nivel 1: Prompt Engineering
 
-  # The model uses its pre-existing understanding of classification
-  # combined with the examples to make the prediction
-  return model.generate(prompt)
+El modelo base ya sabe clasificar, extraer y generar. El prompt le indica *qué* y *cómo*. Técnicas estándar:
 
-# Key insight: No training required - the model already understands
-# classification tasks. The prompt just guides it with examples.
+- **Zero-shot:** solo instrucción.
+- **Few-shot:** instrucción + 2-10 ejemplos (`in-context learning`, Brown et al. 2020, GPT-3).
+- **Chain-of-thought (CoT):** pedir razonamiento paso a paso (Wei et al. 2022).
+- **Structured output:** forzar JSON schema o function calling.
+
+**Ventajas:** cero infraestructura, iteración en segundos, cambios en caliente.
+**Límites:** no cambia el estilo del modelo, consume tokens de contexto en cada request, techo de desempeño.
+
+### Nivel 2: RAG (Retrieval-Augmented Generation)
+
+Agrega una capa externa de conocimiento. El flujo típico:
+
+```
+pregunta → embed → búsqueda semántica → top-k docs → prompt enriquecido → modelo
 ```
 
-When Prompt Engineering Works:
+**Cuándo usar:** información que cambia (docs, precios, políticas), fuentes citables, bases propietarias que no quieres meter al modelo.
+**Costo extra:** vector DB (Pinecone, Weaviate, Qdrant, pgvector) + 100-500 ms de latencia por request.
 
-Task aligns with model's existing capabilities
-Acceptable performance achieved with examples and clear instructions
-Rapid iteration and deployment are priorities
-No specific style or behavioral requirements
-Advantages:
+### Nivel 3: PEFT (LoRA, QLoRA, Adapters)
 
-No training time or infrastructure setup
-Instant deployment and updates
-Low cost and complexity
-Easy to test and iterate
-Limitations:
+En vez de actualizar los **d² parámetros** de una matriz de atención, LoRA aprende dos matrices pequeñas `A ∈ ℝ^(d×r)` y `B ∈ ℝ^(r×d)` tales que:
 
-Cannot teach new behaviors or styles
-Limited by model's pre-existing knowledge
-May not handle domain-specific requirements
-Level 2: Retrieval-Augmented Generation (RAG)
-RAG adds an external knowledge layer to an AI system without modifying the model itself. Instead of relying solely on the model's training data, RAG retrieves relevant information from external documents, databases, or knowledge bases and provides it as context to the model.
-
-RAG solves a specific problem: knowledge gaps. When a model needs access to information that was not in its training data, such as company-specific policies, recent product documentation, or proprietary databases, RAG bridges that gap. The model remains unchanged, but it receives additional context that enables accurate, up-to-date responses.
-
-Example: Product Documentation Q&A
-Consider a support chatbot that needs to answer questions about product features that change weekly. The following demonstrates a RAG workflow:
-
-```python
-# RAG Workflow Example: Product Documentation Q&A
-# This demonstrates how RAG augments knowledge without modifying the model
-
-def answer_question_with_rag(user_question: str, vector_db, model):
-  """Answer questions using RAG to retrieve current documentation"""
-
-  # Step 1: Retrieve relevant documents from vector database
-  # The vector DB searches for documents semantically similar to the question
-  relevant_docs = vector_db.search(user_question, top_k=3)
-
-  # Step 2: Build context from retrieved documents
-  # This creates a knowledge base that the model can reference
-  context = "\n\n".join([doc.content for doc in relevant_docs])
-
-  # Step 3: Provide context to the model in the prompt
-  # The model uses this external knowledge to answer accurately
-  prompt = f"""
-  Use the following product documentation to answer the question.
-
-  Documentation:
-  {context}
-
-  Question: {user_question}
-
-  Answer:
-  """
-
-  return model.generate(prompt)
-
-# Key insight: RAG solves knowledge gaps, not capability gaps.
-# The model remains unchanged - it just receives additional context
-# that enables it to answer questions about information not in its training data.
+```
+W' = W + ΔW  donde  ΔW = B·A    (rango r ≪ d)
 ```
 
-When RAG Works:
+**Parámetros entrenables:** `2·r·d` en lugar de `d²`.
 
-Primary challenge is knowledge gaps, not capability gaps
-Information changes frequently (documentation, policies, pricing)
-Need to cite sources or provide traceability
-Model understands the task but lacks specific information
-Advantages:
+Ejemplo con `d = 4096` y `r = 8`:
+- Full: `4096² = 16,777,216` parámetros por matriz.
+- LoRA: `2 · 8 · 4096 = 65,536` → **reducción ~256x** (y hasta ~1000x con `r = 4`).
 
-Updates knowledge without retraining
-Provides source citations
-Handles frequently changing information
-Lower cost than fine-tuning
-Limitations:
+**QLoRA** (Dettmers et al. 2023) añade cuantización 4-bit al modelo base congelado: permite entrenar un modelo de 65B en una sola GPU de 48 GB.
 
-Does not change model behavior or style
-Adds latency (100-500ms for retrieval)
-Requires vector database infrastructure
-Quality depends on retrieval accuracy
-Level 3: Parameter-Efficient Fine-Tuning (PEFT)
-Parameter-efficient fine-tuning modifies a small subset of model parameters to adapt behavior while keeping most of the model unchanged. Techniques like LoRA (Low-Rank Adaptation) and adapters add trainable parameters that learn task-specific patterns without updating the billions of parameters in the base model.
+### Nivel 4: Full Fine-Tuning
 
-PEFT is ideal when behavioral changes are needed that prompting cannot achieve, but the full capacity of complete fine-tuning is not required. For example, a model might need to adopt a company's specific writing style, follow proprietary formatting requirements, or perform a classification task with domain-specific categories that the base model does not understand.
+Se actualizan todos los pesos. Modalidades principales:
 
-Example: Custom Support Response Style
-Consider training a model to generate support responses that match your team's specific style and protocols:
+- **SFT (Supervised Fine-Tuning):** pares `(prompt, respuesta esperada)`. Loss = cross-entropy sobre la respuesta.
+- **Continued pre-training:** más tokens no supervisados del dominio (código legal, biomédico) para inyectar conocimiento profundo.
+- **Instruction tuning:** SFT sobre un dataset grande y variado de instrucciones (ej. Alpaca, Dolly, FLAN).
+- **DPO (Direct Preference Optimization):** aprende de pares `(preferida, rechazada)` sin modelo de recompensa (Rafailov et al. 2023; alternativa simplificada a RLHF).
+- **RLHF (Reinforcement Learning from Human Feedback):** reward model + PPO. Caro pero fue la receta de ChatGPT (Ouyang et al. 2022).
+
+### Decision tree completo
+
+```
+┌─────────────────────────────────────────────────────┐
+│ 1. ¿El modelo base entiende la tarea?               │
+│    NO → mejor prompt (CoT, ejemplos, system msg)    │
+│    SÍ ↓                                             │
+│                                                     │
+│ 2. ¿La brecha es de CONOCIMIENTO o CAPACIDAD?       │
+│    Conocimiento → RAG                               │
+│    Capacidad    ↓                                   │
+│                                                     │
+│ 3. ¿Tienes 500-5,000 ejemplos de calidad?           │
+│    NO → vuelve a prompt + few-shot                  │
+│    SÍ ↓                                             │
+│                                                     │
+│ 4. ¿Basta con ajuste de estilo/formato?             │
+│    SÍ → PEFT (LoRA / QLoRA)                         │
+│    NO ↓                                             │
+│                                                     │
+│ 5. ¿Tienes 10K+ ejemplos y GPUs grandes?            │
+│    SÍ → Full fine-tuning (SFT + DPO)                │
+│    NO → quédate en PEFT y mejora el dataset         │
+└─────────────────────────────────────────────────────┘
+```
+
+### Comparativa resumen
+
+| Nivel | Costo inicial | Costo por request | Latencia | Flexibilidad | Cambio que logra |
+|---|---|---|---|---|---|
+| Prompt | $0 | Alto (muchos tokens) | Alta | Máxima | Guiar comportamiento existente |
+| RAG | $200-500/mes (vector DB) | Alto + infra | +100-500 ms | Alta | Agregar conocimiento |
+| PEFT (LoRA) | $10-200 por run | Casi $0 self-hosted | Baja | Media (varios adapters) | Estilo, formato, tareas nuevas |
+| Full FT | $500-50K por run | Casi $0 self-hosted | Baja | Baja (un artefacto) | Capacidades profundas |
+
+## Ejemplo con código
+
+### 1. Estimador de costo: ¿me conviene fine-tunear?
 
 ```python
-# PEFT with LoRA Example: Custom Support Response Style
-# This demonstrates parameter-efficient fine-tuning that modifies
-# only a small subset of model parameters to adapt behavior
+# ============================================================
+# ¿Vale la pena hacer fine-tuning vs seguir pagando API?
+# ============================================================
+from dataclasses import dataclass
 
-from peft import LoraConfig, get_peft_model
-from transformers import AutoModelForCausalLM, TrainingArguments, Trainer
+@dataclass
+class CostoAPI:
+    nombre: str
+    usd_por_1k_input: float
+    usd_por_1k_output: float
 
-# Configure LoRA (Low-Rank Adaptation) to modify only attention layers
-# LoRA adds trainable parameters without updating all model weights
+@dataclass
+class CostoSelfHosted:
+    nombre: str
+    gpu_usd_por_hora: float   # A10G ~$1, A100 ~$3, H100 ~$8
+    horas_entrenamiento: float
+    gpu_inferencia_usd_mes: float  # infra siempre encendida
+
+def costo_api_mensual(api: CostoAPI, requests_mes: int,
+                      tokens_in: int = 500, tokens_out: int = 200) -> float:
+    costo_req = (tokens_in / 1000) * api.usd_por_1k_input + \
+                (tokens_out / 1000) * api.usd_por_1k_output
+    return costo_req * requests_mes
+
+def costo_self_hosted_mensual(sh: CostoSelfHosted, meses_amortizacion: int = 6) -> float:
+    costo_entrenamiento = sh.gpu_usd_por_hora * sh.horas_entrenamiento
+    return sh.gpu_inferencia_usd_mes + (costo_entrenamiento / meses_amortizacion)
+
+# Escenario: 500K requests/mes, dataset de 2000 ejemplos
+gpt4o = CostoAPI("GPT-4o", 2.50/1000, 10.00/1000)   # $2.50/1M input
+llama_lora = CostoSelfHosted(
+    nombre="Llama-3-8B + LoRA",
+    gpu_usd_por_hora=3.0,          # A100 en Modal/Together
+    horas_entrenamiento=4,          # LoRA sobre 2000 ejemplos
+    gpu_inferencia_usd_mes=600,     # A10G 24/7
+)
+
+volumenes = [1_000, 10_000, 100_000, 500_000, 2_000_000]
+print(f"{'Requests/mes':<15} {'GPT-4o':<12} {'LoRA self-hosted':<20} {'Break-even?'}")
+print("-" * 65)
+for v in volumenes:
+    c_api = costo_api_mensual(gpt4o, v)
+    c_sh = costo_self_hosted_mensual(llama_lora)
+    winner = "self-hosted" if c_sh < c_api else "API"
+    print(f"{v:<15,} ${c_api:<11.0f} ${c_sh:<19.0f} {winner}")
+```
+
+**Lectura típica:** por debajo de ~50K-100K requests/mes la API gana; a partir de ahí self-hosted amortiza la GPU.
+
+### 2. Ejemplo de cuándo NO fine-tunear (bastaba few-shot)
+
+```python
+# ============================================================
+# Antipatrón: fine-tuning para clasificar sentimiento en 3 clases
+# ============================================================
+# Antes de gastar $500 en una corrida, prueba esto:
+
+from openai import OpenAI
+client = OpenAI()
+
+FEW_SHOT_PROMPT = """Clasifica el sentimiento como POSITIVO, NEGATIVO o NEUTRAL.
+
+Ejemplos:
+"Me encanta este producto, lo recomiendo" -> POSITIVO
+"Llegó roto y nadie me contesta" -> NEGATIVO
+"El pedido llegó a tiempo" -> NEUTRAL
+"Horrible atención, pido reembolso" -> NEGATIVO
+"Mejor compra del año!" -> POSITIVO
+
+Texto: "{texto}"
+Sentimiento:"""
+
+def clasificar(texto: str) -> str:
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": FEW_SHOT_PROMPT.format(texto=texto)}],
+        max_tokens=5, temperature=0,
+    )
+    return resp.choices[0].message.content.strip()
+
+# Si al medir sobre 200 ejemplos reales obtienes >92% accuracy,
+# NO fine-tunees. Costo: $0.0001/clasificación vs $600/mes + 4h de entrenamiento.
+```
+
+**Regla:** si prompt + few-shot alcanza el SLA, fine-tunear es destruir valor.
+
+### 3. LoRA mínimo con HuggingFace PEFT
+
+```python
+# ============================================================
+# PEFT con LoRA: adaptar Llama-3-8B al estilo de soporte interno
+# ============================================================
+from peft import LoraConfig, get_peft_model, TaskType
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
+from trl import SFTTrainer
+
+model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(model_id, load_in_4bit=True)  # QLoRA
+
 lora_config = LoraConfig(
-  r=16,  # Low-rank dimension - controls adapter capacity
-  lora_alpha=32,  # Scaling factor for adapter weights
-  target_modules=["q_proj", "v_proj"],  # Only modify query/value projections
-  lora_dropout=0.1,  # Regularization to prevent overfitting
+    task_type=TaskType.CAUSAL_LM,
+    r=16,                # rango bajo → ~0.1% de parámetros entrenables
+    lora_alpha=32,       # escala del adapter
+    lora_dropout=0.05,
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
 )
 
-# Load the base model (unchanged)
-base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
+model = get_peft_model(model, lora_config)
+model.print_trainable_parameters()
+# Ejemplo: trainable params: 8,388,608 || all params: 8,038,000,000
+# -> 0.104% entrenables (reducción ~1000x vs full FT)
 
-# Apply LoRA adapter to base model
-# This creates a new model with trainable adapter layers
-model = get_peft_model(base_model, lora_config)
-
-# Training configuration
-# PEFT requires much less GPU memory than full fine-tuning
-training_args = TrainingArguments(
-  output_dir="./results",
-  num_train_epochs=3,
-  per_device_train_batch_size=4,
-  gradient_accumulation_steps=4,
-  learning_rate=2e-4,
+args = TrainingArguments(
+    output_dir="./lora-soporte",
+    num_train_epochs=3,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4,
+    learning_rate=2e-4,
+    bf16=True,
+    logging_steps=10,
+    save_strategy="epoch",
 )
 
-# Train on support ticket examples
-# The adapter learns task-specific patterns from your data
-trainer = Trainer(
-  model=model,
-  args=training_args,
-  train_dataset=support_ticket_dataset,  # Examples of desired behavior
+trainer = SFTTrainer(
+    model=model, tokenizer=tokenizer,
+    train_dataset=dataset_soporte,   # 500-2000 ejemplos (prompt, respuesta_estilo_interno)
+    eval_dataset=dataset_eval,       # NUNCA olvidar el eval set
+    args=args, max_seq_length=2048,
 )
-
 trainer.train()
-
-# After training, the model learns behavioral changes:
-# - To start responses with empathy statements (style change)
-# - To follow your specific troubleshooting format (format change)
-# - To use your team's preferred phrases and tone (behavioral change)
-
-# Key insight: PEFT modifies behavior and style, not just knowledge.
-# Unlike RAG, this changes how the model generates responses.
 ```
 
-When PEFT Works:
-
-Need behavioral or stylistic changes that prompting cannot achieve
-Have moderate amounts of task-specific data (hundreds to thousands of examples)
-Want to maintain ability to switch between multiple task-specific adapters
-Need more than prompting but less than full fine-tuning
-Advantages:
-
-10-100x less GPU memory and training time than full fine-tuning
-Can train multiple adapters for different tasks
-Maintains most of base model's general capabilities
-Relatively quick to train and test
-Limitations:
-
-Has capacity limits for deep behavioral changes
-May plateau before achieving desired performance
-Still requires training infrastructure and data preparation
-Less flexible than prompting for rapid changes
-Level 4: Full Fine-Tuning
-Full fine-tuning updates all model parameters, providing maximum capacity to modify behavior, inject knowledge, and adapt to specific domains. This approach is necessary when PEFT reaches its limits, when continued pre-training on domain-specific data is required, or when deep architectural changes are needed.
-
-Full fine-tuning is appropriate for scenarios like training a model on a proprietary codebase to improve code completion, adapting a model to a specialized medical domain with extensive domain-specific terminology, or creating a model that must follow complex, multi-step workflows specific to business processes.
-
-When Full Fine-Tuning Is Necessary:
-
-PEFT has plateaued and better performance is still needed
-Need to inject substantial domain knowledge through continued pre-training
-Require deep behavioral changes that affect model's fundamental reasoning patterns
-Have large amounts of high-quality domain-specific data (tens of thousands of examples)
-Trade-offs:
-
-Resource Requirements: Substantial GPU memory (often 80GB+ for 7B models), longer training times, complex infrastructure
-Flexibility: Lose ability to switch between adapters; each fine-tuned model is a separate artifact
-Maintenance: Requires retraining as requirements evolve, versioning complexity
-Cost: High upfront investment in compute and expertise
-
-Decision Framework: When to Use Each Approach
-Understanding when to use each level requires analyzing specific requirements across multiple dimensions: task complexity, data availability, knowledge requirements, and resource constraints. The decision framework below provides a systematic approach to navigate these choices.
-
-Decision tree flowchart showing when to use prompting, RAG, PEFT, or full fine-tuning based on task understanding, knowledge gaps, behavioral needs, and resource availability
-
-![Decision framework for choosing the right customization approach](https://hrcdn.net/ai-engineering/module-6/light/customization-decision-tree.svg)
-
-Navigating the Decision Tree
-The decision tree above guides you through a series of questions to identify the appropriate customization level. Follow these steps systematically:
-
-Step 1: Assess Task Understanding
-
-Start by asking: Does the base model understand your task? If the model already understands the task type (classification, extraction, generation, etc.) and acceptable performance can be achieved with examples and clear instructions, start with prompt engineering. Only escalate if you encounter clear performance ceilings that cannot be resolved through better prompting.
-
-Step 2: Identify the Core Challenge
-
-This is the critical distinction that determines your path. Ask yourself: Is your primary challenge knowledge or capability?
-
-Knowledge Gap: If the model lacks access to specific information, such as recent data, proprietary knowledge, or frequently updated content, RAG is likely the solution. The model understands the task but needs additional context.
-
-Capability Gap: If the model does not understand how to perform the task or does not exhibit the required behaviors, consider fine-tuning. The model needs to learn new patterns, styles, or behaviors.
-
-Practical Test: If you could solve your problem by providing the model with a document containing the right information, RAG will work. If the model needs to learn new patterns, styles, or behaviors, fine-tuning is necessary.
-
-Step 3: Evaluate Behavioral Requirements
-
-If you identified a capability gap, ask: Can goals be achieved with behavioral changes? If the model needs to adopt specific styles, follow particular formats, or exhibit behaviors not present in the base model, and you have hundreds to thousands of examples available, PEFT is a good starting point. Train a LoRA adapter, evaluate performance, and escalate to full fine-tuning only if PEFT plateaus.
-
-Step 4: Assess Resources
-
-Before committing to full fine-tuning, verify: Do you have sufficient data and resources? Full fine-tuning requires substantial data (tens of thousands of examples for meaningful improvement), significant GPU resources, and expertise in training workflows. If these resources are not available, reconsider whether PEFT or even enhanced prompting might achieve the goals.
-
-Cost, Latency, and Volume Considerations
-Understanding the cost and latency trade-offs helps you make informed decisions. The table below provides a practical comparison across approaches.
-
-| Approach | Upfront Cost | Per-Request Cost | Latency | Break-Even Volume | Best For |
-|----------|---------------|------------------|---------|-------------------|----------|
-| Prompting | $0 | ~$0.027/request (varies by model) | 2-5 seconds | Always cheapest at low volume | Low to medium volume (<1M requests/month), rapid iteration |
-| RAG | $200-500/month (vector DB) | ~$0.027/request + infrastructure (varies by model) | 2.5-5.5 seconds | Similar to prompting | Knowledge gaps, frequently changing information |
-| PEFT (Self-Hosted) | $500-800/month (GPU infrastructure) | ~$0 (negligible at scale) | 2-4 seconds (can be lower with shorter prompts) | 50K-100K requests/month | High volume, behavioral adaptation needed |
-| Full Fine-Tuning (Self-Hosted) | $500-10K/month (GPU infrastructure) | ~$0 (negligible at scale) | 2-4 seconds | 50K-100K requests/month | Maximum customization, when PEFT plateaus |
-
-Cost Estimation Assumptions:
-
-API-Based (Prompting/RAG): Estimates assume GPT-4 pricing ($0.03/1K input, $0.06/1K output tokens) with 500 input + 200 output tokens per request. Other models (GPT-4o-mini, GPT-5) have different pricing. Verify current rates.
-
-Self-Hosted (PEFT/Full Fine-Tuning): Estimates assume 7B open-source models (LLaMA 3 8B, Mistral 7B) on single GPU infrastructure (A10G, ~$500-800/month). Real deployments often need multiple GPUs and redundancy, increasing costs 2-3x. Note: 7B models are not directly comparable to GPT-4 in quality or capabilities.
-
-Important: Pricing changes frequently. Always verify current costs from provider documentation before making decisions.
-
-Key Insights:
-
-Prompting and RAG scale linearly with usage, making them cost-effective for low to medium volume but expensive at scale.
-Self-hosted fine-tuning (PEFT or full) has fixed infrastructure costs but negligible per-request costs, making them cost-effective at high volume (typically 50K-100K+ requests/month).
-Latency is similar across approaches (2-5 seconds), though fine-tuned models can reduce latency by requiring fewer prompt examples.
-Break-even point depends on your specific costs, but typically occurs around 50K-100K requests per month when comparing API-based approaches to self-hosted fine-tuning.
-The Ladder of Customization Principle
-
-The ladder of customization is a principle that guides decision-making: always start at the simplest level that meets requirements, and escalate only when there is evidence that the current level is insufficient. This approach minimizes cost, complexity, and maintenance burden while ensuring solutions are not over-engineered.
-
-Ladder diagram showing escalation from prompt engineering to RAG to PEFT to full fine-tuning, with cost and complexity increasing at each level
-
-![The ladder of customization: escalate only when necessary](https://hrcdn.net/ai-engineering/module-6/light/customization-ladder.svg)
-
-Step-by-Step Escalation Example
-Consider building an email classification system for your company. The ladder approach guides you through systematic escalation:
-
-Step 1: Try Prompting First
-
-Write a prompt with examples of each email category and test it on 50 emails. Achieve 85% accuracy. For many use cases, this is sufficient. Deploy a working solution in hours instead of weeks. Most problems stop here.
-
-Step 2: Evaluate If RAG Helps
-
-Notice the model struggles with emails that reference internal project names or company-specific terminology. This is a knowledge gap, not a capability gap. Add RAG to retrieve relevant company documents when classifying emails. Accuracy improves to 90%. RAG solved the knowledge problem without any model training. Many problems are solved at this level.
-
-Step 3: Escalate to PEFT If Needed
-
-If you still need better performance, and the issue is that the model does not understand your specific email categories or formatting requirements, try PEFT. Collect 500 examples of correctly classified emails, train a LoRA adapter in a few hours, and achieve 94% accuracy. PEFT gave you the behavioral adaptation you needed without the full cost of complete fine-tuning.
-
-Step 4: Full Fine-Tuning as Last Resort
-
-Only if PEFT plateaus and you still need better performance should you consider full fine-tuning. By this point, you have validated that simpler approaches do not work, you understand your requirements clearly, and you have the data and infrastructure to support full fine-tuning.
-
-This ladder approach saves time and money. Most problems are solved at levels 1 or 2. Only a small fraction require fine-tuning.
-
-Understanding What Each Approach Changes
-A critical distinction in the customization spectrum is understanding what each approach does and does not change.
-
-RAG: Knowledge Augmentation, Not Behavioral Change
-RAG augments the model's knowledge by providing external context, but it does not modify the model's behavior, style, or fundamental capabilities.
-
-Example: Legal Document Assistant
-Consider a RAG system built for a legal document assistant. The system has a vector database of the firm's contracts, case law, and regulatory documents.
-
-Scenario:
-
-Query: "What does our standard employment contract say about non-compete clauses?"
-
-RAG Response: RAG retrieves the relevant contract sections and provides them as context. The model can now answer accurately about the specific contracts.
-
-❌ Limitation: The model still responds in its default style: it might be conversational, informal, or use technical language in ways the firm does not prefer. If the model needs to format responses as legal briefs with specific citation formats and formal language, RAG alone will not achieve that.
-
-Key Insight: RAG solves knowledge gaps; it does not solve behavioral or stylistic requirements.
-
-Fine-Tuning: Behavioral and Stylistic Modification
-Fine-tuning, whether PEFT or full, modifies the model's behavior, style, and capabilities. Unlike RAG, which only provides additional context, fine-tuning changes how the model processes information, generates responses, and makes decisions.
-
-Example: Customer Support Agent Training
-Consider fine-tuning a model on customer support interactions. The training data includes examples such as:
-
-```
-Customer: "The app crashed when I tried to upload a photo"
-Agent: "I understand how frustrating this must be. Let me help you troubleshoot this step by step. First, can you tell me what device you're using?"
-```
-
-After Fine-Tuning, the Model Learns:
-
-To recognize this as a technical issue
-To start with an empathetic statement
-To use the team's specific troubleshooting approach
-To follow the question format
-Key Insight: The model does not just have access to support documentation (RAG); it has learned to behave like a support agent.
-
-This behavioral modification is powerful but comes with trade-offs:
-
-Fine-tuned models can lose general capabilities if not trained carefully
-They require ongoing maintenance as requirements evolve
-They create versioning complexity: each fine-tuned model is a separate artifact
-
-Common Pitfalls
-Jumping to Fine-Tuning Prematurely: Many teams assume fine-tuning is the most powerful solution and skip simpler approaches. Always start with prompt engineering and escalate only when necessary. Most problems do not require fine-tuning.
-
-Using RAG When Fine-Tuning Is Needed: If the challenge is behavioral or stylistic rather than knowledge-based, RAG will not solve it. Distinguish between knowledge gaps (RAG) and behavioral requirements (fine-tuning). If the model needs to learn new patterns or styles, fine-tuning is necessary.
-
-Ignoring RAG When Knowledge Is the Bottleneck: Teams sometimes try to fine-tune models to learn information that changes frequently or is proprietary. Use RAG for dynamic knowledge that updates regularly. Fine-tuning is for stable behavioral patterns, not frequently changing information.
-
-Underestimating Maintenance Burden: Fine-tuned models require ongoing maintenance: retraining as data evolves, monitoring for performance degradation, and managing model versions. Consider maintenance costs when choosing an approach. If requirements change frequently, simpler approaches like prompting and RAG may be more sustainable.
-
-Summary
-Understanding the AI customization spectrum, from prompt engineering through full fine-tuning, enables making cost-effective, maintainable decisions that serve business objectives. The four levels each serve different purposes: prompting for tasks that align with base capabilities, RAG for knowledge augmentation, PEFT for efficient behavioral adaptation, and full fine-tuning for maximum capacity changes.
-
-The ladder of customization principle guides starting simple and escalating only when necessary, minimizing cost and complexity while ensuring solutions are not over-engineered. A structured decision tree helps navigate these choices systematically, asking the right questions to identify the appropriate level for specific use cases.
-
-Key concepts to remember
-Four Customization Levels - Prompt engineering, RAG, PEFT, and full fine-tuning each serve different purposes
-Start Simple, Escalate When Needed - The ladder of customization minimizes cost and complexity
-Knowledge vs Capability - RAG solves knowledge gaps; fine-tuning solves capability gaps
-Decision Framework - Systematic questions guide selection of the right approach
-Avoid Common Pitfalls - Premature fine-tuning, confusing RAG with fine-tuning, and underestimating maintenance
+## Errores comunes
+
+- **Fine-tunear cuando bastaba RAG.** El modelo olvida información nueva cada vez que la base de conocimiento cambia; con RAG actualizas un índice en segundos.
+- **Dataset demasiado pequeño.** Menos de ~500-1000 ejemplos rara vez justifica fine-tuning: el modelo memoriza y pierde generalización. Primero invierte en few-shot y evaluación.
+- **Olvidar el eval set.** Si entrenas sin un conjunto *holdout* medido con la misma métrica que te importa en producción, no sabes si mejoraste o empeoraste.
+- **Catastrophic forgetting.** Fine-tuning agresivo degrada capacidades generales del modelo (razonamiento, idiomas, código). Mitigaciones: LoRA en vez de full, mezclar datos genéricos (10-20%), learning rate bajo (`1e-5` a `2e-4`).
+- **Overfitting al estilo de 3 autores.** Dataset sin diversidad (siempre el mismo redactor) produce un modelo que suena idéntico a esa persona y falla fuera de distribución.
+- **Confundir fine-tuning con inyección de conocimiento.** El fine-tuning *puede* memorizar hechos, pero es carísimo y frágil comparado con RAG. Úsalo para **comportamiento**, no para **datos**.
+- **Elegir el modelo más grande por defecto.** 7B con un buen LoRA le gana a 70B base en tareas acotadas y cuesta 10x menos.
+- **Ignorar el costo total de ownership.** El fine-tuning no termina en el training: hay versionado, re-entrenamiento, monitoreo de drift, A/B testing.
+- **Saltarse la escalera.** Ir directo a full fine-tuning sin medir prompt engineering es la causa #1 de proyectos de IA sobre-presupuestados.
+
+### Contexto histórico y papers clave
+
+| Año | Hito | Referencia |
+|---|---|---|
+| 2020 | GPT-3 muestra que *in-context learning* reemplaza mucho fine-tuning | Brown et al. 2020 |
+| 2021 | LoRA: adaptación de bajo rango | Hu et al. 2021 |
+| 2022 | InstructGPT / RLHF | Ouyang et al. 2022 |
+| 2023 | Alpaca / Vicuna democratizan el instruction tuning | Stanford, LMSYS |
+| 2023 | QLoRA: fine-tuning de 65B en una GPU de 48 GB | Dettmers et al. 2023 |
+| 2023 | DPO: preferencias sin reward model | Rafailov et al. 2023 |
+| 2024+ | Unsloth, Axolotl, TRL maduran el ecosistema | HuggingFace |
+
+### Herramientas del ecosistema
+
+- **APIs gestionadas:** OpenAI fine-tuning API, Anthropic fine-tuning vía AWS Bedrock, Google Vertex AI.
+- **Open source:** HuggingFace `transformers` + `peft` + `trl`, Axolotl, Unsloth (2-5x más rápido).
+- **Infra on-demand:** Together AI, Modal, Replicate, RunPod, Lambda Labs.
+- **Experiment tracking:** Weights & Biases, MLflow, Comet.
+
+## Resumen
+
+- Existen **cuatro niveles** de personalización: prompt engineering, RAG, PEFT y full fine-tuning. Cada uno resuelve un problema distinto.
+- **RAG arregla brechas de conocimiento; fine-tuning arregla brechas de capacidad.** Confundirlos es el error más caro.
+- Sigue la **escalera de personalización**: empieza con prompts, sube solo con evidencia de que el nivel actual no basta.
+- **LoRA** entrena `2·r·d` parámetros en vez de `d²` → reducción típica de ~1000x en memoria y tiempo, con pérdida de calidad mínima.
+- **QLoRA** suma cuantización 4-bit y permite entrenar modelos de 65B en una sola GPU.
+- **SFT** aprende de pares `(prompt, respuesta)`; **DPO** aprende de preferencias `(preferida, rechazada)` sin reward model; **continued pre-training** inyecta conocimiento de dominio.
+- Con menos de **500-1000 ejemplos**, el fine-tuning rara vez supera a few-shot bien hecho.
+- El break-even entre API gestionada y self-hosted suele estar entre **50K y 100K requests/mes**.
+- Siempre **mide con un eval set** antes y después; sin eso, el fine-tuning es cargo culto.
+- Nunca fine-tunees información que cambia cada mes: eso es un problema de **RAG**, no de pesos.

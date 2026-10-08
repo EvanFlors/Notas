@@ -1,88 +1,94 @@
-## Quiz: Agent Fundamentals
-Agent Fundamentals
-Your team has built a chatbot that answers developer questions about code, but developers are frustrated because it cannot actually check their code or run tests. You need to upgrade it to an agent that can analyze pull requests, run security scans, check test coverage, and provide actionable feedback. The system must handle multi-step workflows, remember what it has already checked, and explain its reasoning for debugging.
+# Quiz: Agent Fundamentals
 
+Tu equipo construyó un chatbot que responde preguntas sobre código, pero los desarrolladores se frustran porque **no puede ejecutar nada**: ni correr el linter, ni abrir el PR, ni verificar tests. Necesitan convertirlo en un **agente** capaz de analizar pull requests, correr escaneos de seguridad, revisar cobertura y dar feedback accionable, todo manteniendo estado entre pasos y explicando su razonamiento.
 
-What is the fundamental difference between a chatbot and an agent that makes agents better suited for code review tasks?
+---
 
-Agents use more advanced language models than chatbots
+### 1. ¿Cuál es la diferencia fundamental entre un chatbot y un agente que hace a los agentes mejores para revisar código?
 
-Agents can execute multi-step workflows with tools and maintain state across actions, while chatbots only generate text responses
+- Los agentes usan modelos de lenguaje más avanzados que los chatbots
+- **Los agentes pueden ejecutar workflows multi-paso con tools y mantener estado entre acciones, mientras que los chatbots solo generan texto**
+- Los agentes son más rápidos procesando peticiones que los chatbots
+- Los agentes dan explicaciones más detalladas que los chatbots
 
-Agents are faster at processing requests than chatbots
+**Respuesta correcta:** Los agentes pueden ejecutar workflows multi-paso con tools y mantener estado entre acciones.
 
-Agents provide more detailed explanations than chatbots
-Correct Answer!
-Agents can take actions (run tools, check code) and remember previous steps, enabling complex workflows that chatbots cannot handle.
+**Explicación:** Un chatbot genera texto *sobre* acciones pero no las ejecuta. Un agente combina **LLM + tools + loop + memoria**: lee el PR, corre el linter, consulta cobertura y encadena esas acciones manteniendo contexto. El modelo subyacente puede incluso ser el mismo; la diferencia es la **arquitectura** (loop de control, tool registry, state management), no la "potencia" del LLM.
 
-In the agent loop, what happens during the 'observation' phase?
+---
 
-The agent decides what action to take next based on available tools
+### 2. En el loop del agente, ¿qué ocurre durante la fase de **observation**?
 
-The agent receives feedback from executed actions, which becomes part of its perception for the next iteration
+- El agente decide qué acción tomar según los tools disponibles
+- **El agente recibe el feedback de las acciones ejecutadas, que pasa a ser parte de su percepción en la siguiente iteración**
+- El agente ejecuta un tool o genera una respuesta al usuario
+- El agente entiende su situación actual incluyendo la petición del usuario y el historial
 
-The agent executes a tool or generates a response to the user
+**Respuesta correcta:** El agente recibe el feedback de las acciones ejecutadas.
 
-The agent understands its current situation including user request and conversation history
-Correct Answer!
-Observation captures results from actions (API responses, tool outputs) and feeds them back into the agent's understanding.
+**Explicación:** El loop clásico es *perceive → reason → act → observe*. La **observation** captura el resultado del tool (respuesta de la API, output del script, excepción) y lo re-inyecta como contexto para la próxima iteración. Sin observation el agente no puede corregir rumbo cuando algo falla: estaría ciego a las consecuencias de sus propias acciones.
 
-Why does the ReAct pattern improve agent decision quality compared to agents that don't think out loud?
+---
 
-ReAct makes agents faster by reducing the number of tool calls needed
+### 3. ¿Por qué el patrón **ReAct** mejora la calidad de decisión frente a agentes que no "piensan en voz alta"?
 
-ReAct forces agents to explicitly reason about what to do next before acting, improving decision quality and providing debuggability
+- ReAct hace al agente más rápido reduciendo el número de tool calls
+- **ReAct obliga al agente a razonar explícitamente antes de actuar, mejorando la calidad de decisión y permitiendo debugging**
+- ReAct elimina la necesidad de state management
+- ReAct permite al agente saltarse la fase de percepción del loop
 
-ReAct eliminates the need for state management in agent systems
+**Respuesta correcta:** Obliga al agente a razonar explícitamente antes de actuar.
 
-ReAct allows agents to skip the perception phase in the agent loop
-Correct Answer!
-Explicit reasoning (thoughts) before actions helps agents make better decisions and provides transparency for debugging.
+**Explicación:** ReAct (Yao et al., 2022) intercala `Thought → Action → Observation`. Verbalizar el razonamiento **antes** de la acción forzó mejoras medibles en benchmarks como HotpotQA y ALFWorld, y produce **trazas auditables**: cuando el agente se equivoca, puedes leer su Thought y detectar si le faltó contexto, malinterpretó una observation o eligió la tool incorrecta. La transparencia no es un extra, es parte del valor del patrón.
 
-When designing tools for a code review agent, why is a mid-level abstraction (like `get_pr_details(pr_number)`) better than either very low-level (`github_api_call(endpoint, method)`) or very high-level (`merge_pr_if_approved(pr_number)`) tools?
+---
 
-Mid-level tools are faster to execute than low-level or high-level tools
+### 4. Al diseñar tools para un agente de code review, ¿por qué una abstracción **media** (como `get_pr_details(pr_number)`) es mejor que muy baja (`github_api_call(endpoint, method)`) o muy alta (`merge_pr_if_approved(pr_number)`)?
 
-Mid-level tools provide the right balance: they map to meaningful domain operations while remaining composable for diverse scenarios
+- Las tools de nivel medio son más rápidas de ejecutar
+- **Las tools de nivel medio dan el balance correcto: mapean a operaciones de dominio significativas y siguen siendo componibles para escenarios diversos**
+- Las tools de nivel medio requieren menos validación
+- Las tools de nivel medio son las únicas que los agentes pueden usar de forma confiable
 
-Mid-level tools require less validation than low-level or high-level tools
+**Respuesta correcta:** Dan el balance entre flexibilidad y simplicidad.
 
-Mid-level tools are the only type that agents can reliably use
-Correct Answer!
-Mid-level tools match common operations without being too complex (low-level) or too rigid (high-level), enabling flexible composition.
+**Explicación:** Las tools de **bajo nivel** (API raw) exigen que el agente conozca pagination, encoding y headers → muchos errores. Las de **alto nivel** esconden lógica rígida y no cubren variantes ("¿y si quiero mergear con otra estrategia?"). Las de **nivel medio** reflejan operaciones del dominio (como endpoints REST bien diseñados para humanos) y se componen libremente: `get_pr_details → analyze_security → add_comment → merge_pr`.
 
-Your code review agent needs to remember that it already checked the authentication module for security issues. What type of memory is most appropriate for tracking this current task state?
+---
 
-Episodic memory, which stores specific past interactions as discrete episodes
+### 5. Tu agente necesita recordar que ya revisó el módulo de autenticación. ¿Qué tipo de memoria es más apropiado para el estado de la tarea actual?
 
-Working memory, which tracks the current conversation, recent actions, and immediate observations
+- **Episodic**, que guarda interacciones pasadas como episodios discretos
+- **Working**, que mantiene la conversación actual, acciones recientes y observaciones inmediatas
+- **Semantic**, que guarda conocimiento general y patrones aprendidos
+- **Procedural**, que guarda procedimientos y workflows aprendidos
 
-Semantic memory, which stores general knowledge and learned patterns
+**Respuesta correcta:** Working memory.
 
-Procedural memory, which stores learned procedures and workflows
-Correct Answer!
-Working memory maintains short-term context about the current task, including what has been checked and what remains.
+**Explicación:** **Working memory** es el equivalente a la memoria de trabajo humana: vive en el context window del LLM y rastrea *lo que está pasando en esta sesión* (qué chequeaste, qué falta, qué observaste). Episodic serviría para recordar *"hace dos semanas revisé un PR parecido"*; semantic para *"el módulo auth suele tener bugs de validación"*; procedural para *"el playbook de review de seguridad tiene 5 pasos"*. Para "¿ya revisé auth en esta corrida?", es working.
 
-After 50 tool calls, your agent's conversation history has grown too large for the context window. According to agent fundamentals, which approach best mitigates this state explosion problem?
+---
 
-Increase the context window size to accommodate all history
+### 6. Tras 50 tool calls el historial no cabe en el context window. ¿Qué mitigación encaja mejor con los fundamentos?
 
-Summarize old history, keep only recent actions in full detail, and design agents to complete tasks in fewer steps
+- Aumentar el tamaño del context window para que quepa todo
+- **Resumir el historial viejo, mantener solo las acciones recientes en detalle y diseñar agentes que resuelvan tareas en menos pasos**
+- Borrar todo el historial después de cada tool call
+- Usar un modelo más rápido que pueda procesar contextos mayores
 
-Delete all history after each tool call to keep state minimal
+**Respuesta correcta:** Resumir el historial viejo + retener solo recientes + reducir pasos.
 
-Use a faster language model that can process larger contexts
-Correct Answer!
-Compression strategies (summarization, selective retention) and efficient task design prevent state explosion while maintaining necessary context.
+**Explicación:** El **context explosion** se ataca con compresión: *summarization* de steps antiguos, *selective retention* de los importantes, *hierarchical state* por fases y *sliding window*. Aumentar el context window es un parche caro (más tokens = más dólares por llamada y peor calidad por *lost-in-the-middle*). Borrar todo rompe la continuidad. Cambiar de modelo no resuelve el problema de diseño: si tu agente necesita 50 iteraciones, probablemente le faltan tools de más alto nivel o le sobra re-trabajo.
 
-Your code review agent needs to decide which security checks to run, execute those checks, track which checks have completed, and prevent unauthorized code merges. Which component handles tracking which checks have completed?
+---
 
-The reasoning engine, which analyzes pull requests and decides what checks to run
+### 7. Tu agente de code review debe decidir qué checks correr, ejecutarlos, trackear cuáles ya completó y prevenir merges sin autorización. ¿Qué componente trackea los checks completados?
 
-State management, which tracks what has happened across loop iterations including completed actions
+- El **reasoning engine**, que analiza PRs y decide qué checks correr
+- **State management**, que trackea lo que ha pasado entre iteraciones del loop, incluyendo acciones completadas**
+- El **execution layer**, que corre los tools de seguridad
+- **Safety controls**, que previenen acciones dañinas como merges no autorizados
 
-The execution layer, which runs the security check tools
+**Respuesta correcta:** State management.
 
-Safety controls, which prevent harmful actions like unauthorized merges
-Correct Answer!
-State management maintains context about what has been done, what results were received, and what remains to be done.
+**Explicación:** Cada componente tiene su responsabilidad: el **reasoning engine** (el LLM) decide; el **execution layer** ejecuta tools; **safety controls** aplican permisos y rate limits. El **state management** es la memoria del loop: guarda qué tools se llamaron, con qué parámetros, qué devolvieron y qué queda por hacer. Sin esa capa, el agente no sabría que ya corrió el escaneo de seguridad y lo repetiría indefinidamente.

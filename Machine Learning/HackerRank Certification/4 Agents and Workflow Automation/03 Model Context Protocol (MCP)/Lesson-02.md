@@ -1,269 +1,256 @@
-## From Internal Tools to MCP Servers
-You have an internal security scanner that does amazing work. It catches vulnerabilities your team would miss, but it returns data in a proprietary format, requires custom authentication, and has quirky error codes. Every time someone wants to use it with a new agent, they spend days figuring out the integration details.
+# Construir un MCP Server
 
-Building an MCP server wraps this complexity behind a clean, standardized interface that any MCP client can use. The server becomes a translator: it speaks your tool's language internally while presenting a consistent MCP interface externally.
+## ¿Qué es?
 
-In this lesson, you will build MCP servers that expose tools, resources, and prompts. You will learn the patterns that make servers production-ready, from input validation to error handling.
+Un **MCP server** es un proceso independiente que **expone capacidades** (tools, resources y/o prompts) a cualquier MCP client que se conecte, siguiendo las reglas del protocolo. En términos prácticos es la traducción de "tu API/base de datos/herramienta interna" al **idioma común de MCP**, para que Claude Desktop, Claude Code, Cursor u otro host puedan usarla sin saber nada de su API original.
 
-By the end, you will have hands-on experience creating servers that your code review agent can connect to.
+Un server puede ser tan simple como 10 líneas de Python (un único tool que suma dos números) o tan complejo como el server oficial de GitHub que expone decenas de operaciones sobre repos, PRs e issues.
 
-Server Structure and Setup
-The MCP SDK provides libraries that handle protocol details, letting you focus on your server's actual functionality. For Python, the mcp package provides server primitives that manage connections, message routing, and capability negotiation.
+### Server stdio vs. server HTTP
 
-A basic server starts with initialization and capability declaration:
+| Tipo | Cuándo | Despliegue |
+|---|---|---|
+| **stdio** | Herramientas locales (filesystem, git, scripts) | El host lanza el proceso como subproceso |
+| **SSE** | Legacy remoto | Un endpoint HTTP de larga duración |
+| **Streamable HTTP** | Remoto moderno, multi-tenant | Server HTTP escalable (uvicorn, nginx, k8s) |
+
+En este lesson construimos primero un server stdio con `FastMCP` (el helper de alto nivel del SDK) y después mostramos el equivalente HTTP.
+
+## ¿Por qué importa?
+
+Escribir un buen server es más valioso que escribir un buen cliente, porque **un server lo usan N clientes**. Cada vez que publicas un server para tu base de datos interna, tu CRM o tu wiki, cualquier agente MCP de tu organización puede consumirlo sin reinventar la integración.
+
+Los servers oficiales (filesystem, github, postgres, slack…) cubren lo genérico. **Lo que da ventaja competitiva a tu empresa son los servers de tus sistemas internos**: tu Jira configurado a tu modo, tu lago de datos, tu plataforma de observabilidad. Ese es el trabajo que ningún open source hará por ti.
+
+Buen diseño del server también importa por razones de seguridad: el server es el **punto de control**. Es donde decides qué puede hacer el modelo, qué datos ve y qué no, qué operaciones requieren confirmación. Un server mal diseñado es un vector de abuso directo.
+
+## ¿Cómo funciona?
+
+### Estructura general de un server
+
+Todo server MCP sigue este esqueleto:
+
+```
+1. Importar el SDK y crear instancia (nombre + versión)
+2. Registrar handlers para cada primitiva:
+     - list_tools / call_tool
+     - list_resources / read_resource
+     - list_prompts / get_prompt
+3. Elegir transport (stdio por defecto)
+4. Ejecutar
+```
+
+El SDK ofrece dos APIs:
+
+- **Low-level `Server`**: control total, decoradores para cada handler. Útil para casos avanzados.
+- **High-level `FastMCP`**: inspirado en FastAPI, usa decoradores declarativos y deduce el JSON Schema del type-hint. Es lo recomendado para empezar.
+
+### Flujo de una llamada a tool
+
+```
+Client                                  Server
+  │  initialize ───────────────────────▶ │
+  │  ◀─────────────── capabilities      │
+  │  list_tools ───────────────────────▶ │
+  │  ◀─────────── [tool metadata]       │
+  │                                     │
+  │  call_tool("get_pr", {...}) ───────▶ │
+  │                                     │  (ejecuta lógica, llama API,
+  │                                     │   maneja errores)
+  │  ◀───────────── TextContent         │
+```
+
+Cada tool devuelve una lista de **content parts** (texto, imagen, embedded resource). El modelo recibe esto como salida de la función y decide el siguiente paso.
+
+### Resources vs. Tools: cuándo usar cuál
+
+| Pregunta | Si "sí" → úsalo como |
+|---|---|
+| ¿Tiene efectos secundarios (escribe, borra, envía)? | **Tool** |
+| ¿Es solo lectura y el usuario puede "adjuntarlo" al contexto? | **Resource** |
+| ¿El modelo elige cuándo usarlo según el prompt del usuario? | **Tool** |
+| ¿Lo precarga el host al abrir una sesión? | **Resource** |
+
+Un server bien diseñado suele ofrecer ambos: `read_file` como tool para que el modelo lea archivos sobre la marcha, y `file:///ruta/README.md` como resource para que el usuario lo adjunte manualmente a la conversación.
+
+### Prompts
+
+Los prompts son **plantillas parametrizadas** que el usuario invoca (en Claude Desktop aparecen como slash commands del server). Son útiles para empaquetar flujos repetitivos:
+
+- `/security_review pr_number=1247` → arma un mensaje largo con instrucciones de auditoría.
+- `/explain_schema table=users` → consulta el esquema y pide al modelo documentarlo.
+
+## Ejemplo con código
+
+### Server completo con `FastMCP` (tools + resources + prompts)
+
+```python
+# github_server.py
+from mcp.server.fastmcp import FastMCP
+from mcp.types import TextContent
+from github import Github, GithubException
+import os
+import json
+
+mcp = FastMCP("github-code-review", version="0.1.0")
+gh = Github(os.environ["GITHUB_TOKEN"])
+
+# ---------- TOOLS ----------
+
+@mcp.tool()
+def get_pr_details(owner: str, repo: str, pr_number: int) -> str:
+    """Devuelve detalles de un Pull Request (título, autor, archivos modificados)."""
+    if pr_number < 1:
+        return json.dumps({"error": "pr_number debe ser positivo"})
+    try:
+        pr = gh.get_repo(f"{owner}/{repo}").get_pull(pr_number)
+        return json.dumps({
+            "number": pr.number,
+            "title": pr.title,
+            "author": pr.user.login,
+            "state": pr.state,
+            "files": [f.filename for f in pr.get_files()],
+        })
+    except GithubException as e:
+        return json.dumps({"error": "github_error", "status": e.status, "message": str(e)})
+
+@mcp.tool()
+def post_comment(owner: str, repo: str, pr_number: int, body: str) -> str:
+    """Publica un comentario en un PR. Operación con efecto secundario."""
+    try:
+        pr = gh.get_repo(f"{owner}/{repo}").get_pull(pr_number)
+        comment = pr.create_issue_comment(body)
+        return json.dumps({"ok": True, "id": comment.id, "url": comment.html_url})
+    except GithubException as e:
+        return json.dumps({"error": "github_error", "message": str(e)})
+
+# ---------- RESOURCES ----------
+
+@mcp.resource("github://{owner}/{repo}/pulls/{pr_number}/diff")
+def pr_diff(owner: str, repo: str, pr_number: str) -> str:
+    """Diff completo del PR como texto plano."""
+    pr = gh.get_repo(f"{owner}/{repo}").get_pull(int(pr_number))
+    return pr.diff_url  # en producción, descargar el contenido real
+
+# ---------- PROMPTS ----------
+
+@mcp.prompt()
+def security_review(owner: str, repo: str, pr_number: int) -> str:
+    """Plantilla de revisión de seguridad para un PR."""
+    return (
+        f"Revisa el PR #{pr_number} de {owner}/{repo} con foco en seguridad.\n\n"
+        "Analiza:\n"
+        "1. Validación y sanitización de inputs\n"
+        "2. Auth y control de acceso\n"
+        "3. SQL injection\n"
+        "4. XSS\n"
+        "5. Fuga de secretos\n\n"
+        "Usa las tools disponibles para leer el diff y publica un comentario con los hallazgos."
+    )
+
+if __name__ == "__main__":
+    mcp.run()  # stdio por defecto
+```
+
+### Despliegue remoto con streamable HTTP
+
+```python
+# server_http.py
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("remote-server")
+
+@mcp.tool()
+def ping() -> str:
+    return "pong"
+
+if __name__ == "__main__":
+    # transport HTTP, útil para desplegar en un contenedor
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=8080)
+```
+
+Luego, desde el cliente:
+
+```python
+from mcp.client.streamable_http import streamablehttp_client
+
+async with streamablehttp_client("http://localhost:8080/mcp") as (r, w, _):
+    async with ClientSession(r, w) as s:
+        await s.initialize()
+        print(await s.call_tool("ping", {}))
+```
+
+### Low-level API (control total)
+
+Si necesitas control fino, usa el `Server` de bajo nivel:
 
 ```python
 from mcp.server import Server
 from mcp.types import Tool, TextContent
-import json
-
-# Create server instance with a descriptive name
-server = Server("github-code-review")
-
-# List the tools this server provides
-@server.list_tools()
-async def list_tools():
-  return [
-      Tool(
-          name="get_pr_details",
-          description="Retrieves pull request information including files and status",
-          inputSchema={
-              "type": "object",
-              "properties": {
-                  "owner": {"type": "string", "description": "Repository owner"},
-                  "repo": {"type": "string", "description": "Repository name"},
-                  "pr_number": {"type": "integer", "description": "PR number"}
-              },
-              "required": ["owner", "repo", "pr_number"]
-          }
-      )
-  ]
-```
-
-The ```@server.list_tools()``` decorator tells MCP clients what capabilities this server offers. When a client connects, it calls this function to discover available tools. The schema definition follows JSON Schema format, which LLMs already understand from function calling.
-
-Implementing Tool Handlers
-Tools do the actual work. When a client invokes a tool, the server's handler receives the tool name and arguments, performs the operation, and returns structured results.
-
-```python
-@server.call_tool()
-async def call_tool(name: str, arguments: dict):
-  """Route tool calls to appropriate handlers"""
-  if name == "get_pr_details":
-      return await get_pr_details(**arguments)
-  elif name == "post_comment":
-      return await post_comment(**arguments)
-  else:
-      return [TextContent(type="text",
-                         text=json.dumps({"error": f"Unknown tool: {name}"}))]
-
-async def get_pr_details(owner: str, repo: str, pr_number: int):
-  """Fetch pull request details from GitHub"""
-  repo_obj = github_client.get_repo(f"{owner}/{repo}")
-  pr = repo_obj.get_pull(pr_number)
-
-  result = {
-      "number": pr.number,
-      "title": pr.title,
-      "author": pr.user.login,
-      "files": [f.filename for f in pr.get_files()]
-  }
-  return [TextContent(type="text", text=json.dumps(result))]
-```
-
-The handler pattern is straightforward: check the tool name, call the appropriate function, and wrap results in ```TextContent```. This pattern scales cleanly as you add more tools.
-
-Implementing Resources
-Resources provide read-only data access. For code review, resources might expose PR diffs, file contents, or review history. Unlike tools (which perform actions), resources give agents direct access to data they can read and reference throughout a conversation.
-
-```python
-from mcp.types import Resource
-
-@server.list_resources()
-async def list_resources():
-  return [
-      Resource(
-          uri="github://company/backend-api/pulls/1247",
-          name="PR #1247: Add OAuth support",
-          description="Pull request details and metadata",
-          mimeType="application/json"
-      ),
-      Resource(
-          uri="github://company/backend-api/pulls/1247/diff",
-          name="PR #1247 Diff",
-          description="Complete diff for all changed files",
-          mimeType="text/x-diff"
-      )
-  ]
-
-@server.read_resource()
-async def read_resource(uri: str):
-  """Fetch resource content based on URI"""
-  parsed = parse_github_uri(uri)
-
-  repo = github_client.get_repo(f"{parsed['owner']}/{parsed['repo']}")
-  pr = repo.get_pull(parsed["pr_number"])
-
-  if parsed["type"] == "pr":
-      content = {
-          "number": pr.number,
-          "title": pr.title,
-          "body": pr.body,
-          "author": pr.user.login
-      }
-      return [TextContent(uri=uri, mimeType="application/json",
-                         text=json.dumps(content))]
-
-  elif parsed["type"] == "diff":
-      diff = get_pr_diff(pr)
-      return [TextContent(uri=uri, mimeType="text/x-diff", text=diff)]
-
-```
-
-Resource URIs should follow a consistent scheme that is easy to parse. The ```github://owner/repo/pulls/123``` pattern clearly identifies the resource type and location.
-
-Implementing Prompts
-Prompts provide reusable interaction templates for common workflows. For code review, prompts might guide security reviews, coverage checks, or style audits.
-
-```python
-from mcp.types import Prompt, PromptArgument, GetPromptResult, PromptMessage
-
-@server.list_prompts()
-async def list_prompts():
-  return [
-      Prompt(
-          name="security_review",
-          description="Comprehensive security-focused code review",
-          arguments=[
-              PromptArgument(name="owner", required=True),
-              PromptArgument(name="repo", required=True),
-              PromptArgument(name="pr_number", required=True)
-          ]
-      )
-  ]
-
-@server.get_prompt()
-async def get_prompt(name: str, arguments: dict):
-  if name == "security_review":
-      pr = await get_pr_details(**arguments)
-
-      prompt_text = f"""Perform a security review of PR #{arguments['pr_number']}.
-
-**Review Focus:**
-1. Input validation and sanitization
-2. Authentication and authorization checks
-3. SQL injection vulnerabilities
-4. Cross-site scripting (XSS) risks
-5. Sensitive data exposure
-
-Use the available tools to analyze the code and report findings."""
-
-      return GetPromptResult(
-          messages=[PromptMessage(
-              role="user",
-              content=TextContent(type="text", text=prompt_text)
-          )]
-      )
-Prompts help agents use tools effectively by providing structured guidance. Clients request prompts and feed the resulting messages to their LLM, ensuring consistent behavior for common tasks.
-
-Error Handling
-Robust servers handle errors gracefully, providing useful feedback to clients. MCP clients rely on clear error messages to recover from failures or inform users what went wrong.
-
-python
-@server.call_tool()
-async def call_tool(name: str, arguments: dict):
-  # Validate required parameters
-  if "pr_number" in arguments:
-      pr_number = arguments["pr_number"]
-      if not isinstance(pr_number, int) or pr_number < 1:
-          return [TextContent(type="text", text=json.dumps({
-              "error": "validation_error",
-              "message": "pr_number must be a positive integer"
-          }))]
-
-  try:
-      return await execute_tool(name, arguments)
-  except RateLimitError as e:
-      return [TextContent(type="text", text=json.dumps({
-          "error": "rate_limit",
-          "message": "GitHub API rate limit exceeded",
-          "retry_after": e.reset_time
-      }))]
-  except NotFoundError as e:
-      return [TextContent(type="text", text=json.dumps({
-          "error": "not_found",
-          "message": str(e),
-          "suggestion": "Verify the repository and PR number exist"
-      }))]
-  except Exception as e:
-      return [TextContent(type="text", text=json.dumps({
-          "error": "internal_error",
-          "message": str(e)
-      }))]
-```
-
-Structured error responses help clients understand and handle failures. Include error types, human-readable messages, and suggestions for recovery when possible.
-
-Running the Server
-Servers connect to transports that handle the actual communication. For local development, stdio is simplest—the client spawns the server as a subprocess.
-
-```python
-import asyncio
+import asyncio, json
 from mcp.server.stdio import stdio_server
 
+server = Server("low-level-example")
+
+@server.list_tools()
+async def list_tools():
+    return [Tool(
+        name="suma",
+        description="Suma dos enteros",
+        inputSchema={
+            "type": "object",
+            "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+            "required": ["a", "b"],
+        },
+    )]
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict):
+    if name == "suma":
+        return [TextContent(type="text", text=json.dumps({"resultado": arguments["a"] + arguments["b"]}))]
+    return [TextContent(type="text", text=json.dumps({"error": f"tool desconocido: {name}"}))]
+
 async def main():
-  async with stdio_server() as (read_stream, write_stream):
-      await server.run(
-          read_stream,
-          write_stream,
-          server.create_initialization_options()
-      )
+    async with stdio_server() as (r, w):
+        await server.run(r, w, server.create_initialization_options())
 
 if __name__ == "__main__":
-  asyncio.run(main())
+    asyncio.run(main())
 ```
 
-For remote deployment, use HTTP with Server-Sent Events:
+### Debug con el Inspector
 
-```python
-from mcp.server.sse import SseServerTransport
-from starlette.applications import Starlette
-from starlette.routing import Route
-
-sse = SseServerTransport("/messages")
-
-async def handle_sse(request):
-  async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
-      await server.run(streams[0], streams[1],
-                      server.create_initialization_options())
-
-app = Starlette(routes=[
-  Route("/sse", endpoint=handle_sse),
-  sse.get_message_route()
-])
-
-# Run with: uvicorn server:app --host 0.0.0.0 --port 8080
+```bash
+npx -y @modelcontextprotocol/inspector python github_server.py
 ```
 
-Common Pitfalls and Solutions
-Not validating inputs: Always validate parameters before calling external APIs. Invalid inputs should return clear error messages, not crash the server.
+Abre `http://localhost:5173` donde puedes:
 
-Missing error context: Generic error messages make debugging difficult. Include the operation that failed, relevant parameters, and recovery suggestions in error responses.
+- Ver la lista de tools, resources y prompts.
+- Invocar un tool manualmente con un formulario.
+- Leer logs y payloads JSON-RPC en bruto.
+- Verificar la negociación de capacidades.
 
-Blocking operations: MCP servers are async. Do not use blocking calls that freeze the server while waiting for API responses. Use async libraries for HTTP requests and database operations.
+## Errores comunes
 
-Hardcoding configuration: Credentials and settings should come from environment variables or configuration files, not hardcoded in the server. This makes deployment flexible and secure.
+- **No validar inputs antes de llamar APIs externas.** JSON Schema valida tipos pero no reglas de negocio. Si `pr_number` debe ser positivo, chequéalo tú. Un modelo alucinado puede pasarte `-1` o `0`.
+- **Mensajes de error inútiles.** `"error occurred"` no sirve. Devuelve `{error: "rate_limit", message: "...", retry_after: 60}` para que el modelo pueda razonar sobre el fallo.
+- **Operaciones bloqueantes en un server async.** Usar `requests.get(...)` en vez de `httpx.AsyncClient` congela el server mientras la API responde, bloqueando otros tools.
+- **Hard-codear credenciales en el código.** Lee de `os.environ["GITHUB_TOKEN"]`. Nunca commits `token = "ghp_..."`.
+- **No limitar el scope.** Un server de filesystem que recibe `/` como ruta base permite al modelo leer `/etc/shadow`. Pasa rutas explícitas y valídalas en cada llamada.
+- **Exponer secretos como resources.** `secrets://api-keys/prod` filtra credenciales al contexto. Los secretos nunca viajan como datos servidos.
+- **Olvidar manejar crashes.** Si el server muere, el host lo pierde hasta reiniciar. Usa un supervisor (systemd, pm2) o lógica de restart en el client.
+- **No versionar el server.** Cuando cambia el schema de un tool, los clientes antiguos rompen. Declara `version="0.2.0"` y considera deprecaciones.
+- **Devolver resultados gigantescos.** Si tu tool devuelve 2 MB de JSON, saturas el contexto del modelo. Paginar o resumir antes de responder.
+- **No etiquetar tools destructivos.** `delete_repo` debería tener en su `description` que es irreversible, para que el host pueda pedir confirmación al usuario.
 
-Summary
-Building MCP servers involves implementing tool handlers, resources, and prompts that expose your capabilities through the standardized protocol. The MCP SDK handles protocol details while you focus on functionality.
+## Resumen
 
-Servers expose tools through decorated handlers that process arguments and return structured results. Resources provide read-only data access through URI-based addressing. Prompts offer reusable workflow templates that guide agent interactions.
-
-Key Takeaways:
-
-Use the MCP SDK to handle protocol details while you implement business logic
-Tools are decorated handlers that validate input and return TextContent results
-Resources use URI schemes for consistent addressing and efficient data access
-Prompts provide workflow templates that guide agent interactions
-Structured error responses help clients handle failures gracefully
-Choose transport based on deployment: stdio for local, HTTP/SSE for remote
+- Un **MCP server** traduce una capacidad interna (API, base de datos, servicio) al protocolo común de MCP para que cualquier client la consuma.
+- Dos APIs en el SDK: **`FastMCP`** (decoradores declarativos, deduce schemas) para la mayoría de casos; **`Server`** low-level cuando necesitas control total.
+- Expone cuatro primitivas: **tools** (acciones con side effects), **resources** (datos de solo lectura por URI), **prompts** (plantillas) y **sampling** (poco común).
+- Transports: **stdio** para herramientas locales lanzadas como subproceso, **streamable HTTP** para despliegues remotos escalables.
+- Diseño: tools para acciones, resources para contexto adjuntable, prompts para flujos repetitivos empaquetados como slash commands.
+- Buenas prácticas: validar inputs, errores estructurados, código async, credenciales por env, scope mínimo, versionado explícito.
+- Debug con **MCP Inspector** (`npx @modelcontextprotocol/inspector`); nunca intentes depurar MCP solo con prints.
+- El server es el **punto de control de seguridad**: lo que no expongas, el modelo no lo verá. Diseña con el principio de menor privilegio.

@@ -1,530 +1,354 @@
-## Using OpenAI Image Generation API
-You need to integrate image generation into your application, but you are not sure how to structure API requests, craft effective prompts, or handle the asynchronous nature of image generation. You have heard that prompt quality dramatically affects results, but you do not know what makes a good prompt. How do you use OpenAI's Image Generation API effectively in production?
+# Uso de la API de Generación de Imágenes de OpenAI
 
-OpenAI's Image Generation API provides programmatic access to high-quality image generation. By the end of this lesson, you will understand how to structure image generation API requests, craft effective prompts, tune generation parameters, handle responses, and build production applications that generate images reliably.
+## ¿Qué es?
 
-Understanding Image Generation API Structure
-The Image Generation API uses a simple request-response pattern. You send a text prompt describing the image you want, and the API returns generated images.
+La **API de imágenes de OpenAI** (`client.images`) expone tres modelos de generación bajo una interfaz común: **DALL-E 2**, **DALL-E 3** y **GPT-Image-1** (y su versión económica `gpt-image-1-mini`). A través de un único endpoint `generate` recibes el prompt, decides tamaño, calidad, cantidad y formato de respuesta, y la API devuelve la imagen lista para servir o almacenar.
 
-| Feature | DALL·E 2 | DALL·E 3 | GPT Image 1 |
-|---------|-----------|-----------|--------------|
-| Response Format | URL or base64 | URL or base64 | base64 only |
-| Image Sizes | 256x256, 512x512, 1024x1024 | 1024x1024, 1792x1024, 1024x1792 | 1024x1024, 1536x1024, 1024x1536, auto |
-| Variations | ✅ Supported | ❌ Not supported | ❌ Not supported |
-| Inpainting/Editing | ✅ Supported | ❌ Not supported | ✅ Supported |
-| Multiple Images (n > 1) | ✅ Up to 10 | ❌ Only n=1 | ✅ Supported |
-| Quality Parameter | Not applicable | standard, hd | auto, high, medium, low |
+Esta API cubre tres operaciones principales:
 
-The response_format parameter (to choose URL or base64) is only supported by DALL·E models. GPT Image models always return base64-encoded images.
+| Operación | Endpoint | Qué hace |
+|---|---|---|
+| `generate` | `client.images.generate(...)` | Text-to-image puro |
+| `edit` | `client.images.edit(...)` | Inpainting con máscara + prompt |
+| `create_variation` | `client.images.create_variation(...)` | Variantes de una imagen existente (solo DALL-E 2) |
 
-Basic API Request:
+### Comparación de modelos OpenAI
 
-```python
-import openai
+| Feature | DALL-E 2 | DALL-E 3 | GPT-Image-1 |
+|---|---|---|---|
+| **Tamaños** | 256², 512², 1024² | 1024², 1792×1024, 1024×1792 | 1024², 1536×1024, 1024×1536, `auto` |
+| **Calidad** | única | `standard` / `hd` | `low` / `medium` / `high` / `auto` |
+| **n máx.** | 10 | 1 | múltiple |
+| **Variations** | sí | no | no |
+| **Edit (inpaint)** | sí | no | sí |
+| **Response format** | `url` o `b64_json` | `url` o `b64_json` | solo `b64_json` |
+| **Prompt revision** | no | sí (`revised_prompt`) | sí |
+| **Precio aprox.** | $0.016-0.02 | $0.04-0.12 | $0.011-0.19 |
 
-response = openai.Image.create(
-  model="dall-e-3",
-  prompt="a futuristic cityscape at sunset with flying cars",
-  size="1024x1024",
-  n=1,
-  response_format="url"  # Only DALL-E models support this parameter
-)
+> **Clave:** `response_format` **solo existe en DALL-E**. GPT-Image siempre devuelve base64 y debes decodificarlo tú.
 
-image_url = response.data[0].url
-print(f"Generated image URL: {image_url}")
+## ¿Por qué importa?
+
+Integrar correctamente la API es la diferencia entre un prototipo que funciona en Jupyter y un producto que:
+
+- No pierde imágenes porque descargó la URL antes de que expire (~1 hora).
+- No gasta USD 10,000 al mes por no cachear prompts repetidos.
+- No bloquea el hilo principal esperando 15 segundos de generación.
+- Reintenta inteligentemente ante rate limits en lugar de fallar al usuario.
+- Elige el modelo correcto por caso de uso (DALL-E 3 para marketing, GPT-Image low para thumbnails, DALL-E 2 para variations baratas).
+
+Un diseño ingenuo falla en producción por: expiración de URLs, falta de retries, base64 no decodificado, mezclar parámetros incompatibles entre modelos.
+
+## ¿Cómo funciona?
+
+### Flujo request-response
+
+```
+Prompt (str) ──► OpenAI API ──► {data: [{url o b64_json, revised_prompt?}], created: ts}
+                     │
+                     ├─► Cola interna
+                     ├─► Modelo de difusión
+                     ├─► Moderación de contenido (safety filter)
+                     └─► Hosting temporal (si url) o encoding (si b64)
 ```
 
-Try generating an image using DALL·E 2 below. This model returns a URL you can view directly:
+### Parámetros disponibles
 
-OpenAI Image API Basic Example
+| Parámetro | Tipo | Modelos | Descripción |
+|---|---|---|---|
+| `model` | str | todos | `"dall-e-2"`, `"dall-e-3"`, `"gpt-image-1"`, `"gpt-image-1-mini"` |
+| `prompt` | str | todos | Máx. 1000 chars (DALL-E 2), 4000 (DALL-E 3), 32000 (GPT-Image) |
+| `size` | str | todos | ver tabla arriba |
+| `n` | int | DALL-E 2, GPT-Image | número de imágenes |
+| `quality` | str | DALL-E 3, GPT-Image | granularidad del render |
+| `style` | str | DALL-E 3 | `"natural"` o `"vivid"` |
+| `response_format` | str | solo DALL-E | `"url"` o `"b64_json"` |
+| `user` | str | todos | ID de usuario final (para abuse monitoring) |
+
+### Elegir modelo por caso de uso
+
+```
+¿Necesitas múltiples imágenes baratas (n>1)?            → DALL-E 2
+¿Necesitas text-to-image de alta calidad?                → DALL-E 3
+¿Necesitas inpainting con máscara?                       → GPT-Image-1
+¿Necesitas variations de una imagen?                     → DALL-E 2
+¿Necesitas lo máximo en fotorrealismo y texto legible?   → GPT-Image-1 high
+¿Thumbnails en volumen a bajo costo?                     → GPT-Image-1 low
+```
+
+## Ejemplo con código
+
+### 1. Setup y request básico
 
 ```python
 from openai import OpenAI
+import os
 
-client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 response = client.images.generate(
-  model="dall-e-3",
-  prompt="a futuristic cityscape at sunset with flying cars",
-  size="1024x1024",
-  n=1,
-  response_format="url"  # Only DALL-E models support this parameter
+    model="dall-e-3",
+    prompt="a futuristic cityscape at sunset with flying cars, cinematic, 8k",
+    size="1792x1024",
+    quality="hd",
+    style="vivid",
+    n=1,
+    response_format="url",
 )
 
-image_url = response.data[0].url
-print(f"Generated image URL: {image_url}")
+print("URL:", response.data[0].url)
+print("Revised prompt:", response.data[0].revised_prompt)
 ```
 
-Output
-DALL·E models return image URLs that you can download, display, or store. Images are hosted temporarily (typically for about an hour), so download them if you need persistent access. GPT Image models return base64-encoded images directly in the response.
-
-Prompt Engineering for Image Generation
-Prompt quality dramatically affects image generation results. Well-crafted prompts produce significantly better images than vague descriptions.
-
-Effective Prompt Structure:
-
-Good prompts include:
-
-Subject: What is the main subject or focus?
-Style: What artistic or visual style?
-Composition: How should elements be arranged?
-Details: Specific details about colors, lighting, mood
-Context: Setting, background, environment
-Example Prompts:
-
-Poor Prompt: "a dog"
-
-Better Prompt: "a golden retriever puppy playing in a sunny park, photorealistic, soft natural lighting, shallow depth of field"
-
-Excellent Prompt: "a photorealistic golden retriever puppy playing fetch in a sunny park during golden hour, soft natural lighting, shallow depth of field blurring the background, vibrant green grass, blue sky with white clouds, joyful and energetic mood, high detail, professional photography style"
-
-Prompt Engineering Best Practices:
-
-Be Specific: Include details about style, composition, lighting, mood
-Use Descriptive Language: Adjectives and descriptive phrases help guide generation
-Specify Style: Mention "photorealistic", "illustration", "watercolor", etc.
-Include Composition Details: "close-up", "wide angle", "centered", "rule of thirds"
-Describe Lighting: "soft natural light", "dramatic shadows", "golden hour"
-Set Mood: "peaceful", "energetic", "mysterious", "cheerful"
-
-```python
-def craft_image_prompt(subject, style="photorealistic", mood="neutral", details=None):
-  """Craft a well-structured image generation prompt."""
-  prompt_parts = [subject]
-
-  # Add style
-  prompt_parts.append(f", {style} style")
-
-  # Add mood
-  if mood != "neutral":
-      prompt_parts.append(f", {mood} mood")
-
-  # Add details
-  if details:
-      prompt_parts.append(f", {details}")
-
-  # Add quality indicators
-  prompt_parts.append(", high quality, detailed")
-
-  return "".join(prompt_parts)
-
-# Example usage
-prompt = craft_image_prompt(
-  subject="a modern office workspace",
-  style="photorealistic",
-  mood="productive and organized",
-  details="natural lighting, minimalist design, plants, laptop on desk"
-)
-# Result: "a modern office workspace, photorealistic style, productive and organized mood, natural lighting, minimalist design, plants, laptop on desk, high quality, detailed"
-```
-
-API Parameters and Options
-The Image Generation API supports several parameters that control generation. Available parameters vary by model:
-
-Model Selection:
-
-dall-e-2: Fast generation, supports variations and editing, returns URLs
-dall-e-3: Higher quality, better prompt understanding, returns URLs
-gpt-image-1: Latest model with highest quality, returns base64 only
-Size Options (vary by model):
-
-DALL·E 2: 256x256, 512x512, 1024x1024
-DALL·E 3: 1024x1024, 1792x1024, 1024x1792
-GPT Image 1: 1024x1024, 1536x1024, 1024x1536, auto
-Quality Settings:
-
-DALL·E 3: standard, hd
-GPT Image 1: auto, high, medium, low
-Number of Images:
-
-DALL·E 2: n=1 to 10
-DALL·E 3: n=1 only
-GPT Image 1: n=1 or more
-
-```python
-def generate_image_with_options(prompt, size="1024x1024", model="dall-e-3"):
-  """Generate image with specific options."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
-
-  # Build request parameters based on model
-  params = {
-      "model": model,
-      "prompt": prompt,
-      "size": size,
-      "n": 1
-  }
-
-  # Add response_format only for DALL-E models (not GPT Image models)
-  if model.startswith("dall-e"):
-      params["response_format"] = "url"
-
-  response = client.images.generate(**params)
-
-  # DALL-E models return URL, GPT Image models return base64
-  if model.startswith("dall-e"):
-      return response.data[0].url
-  else:
-      return response.data[0].b64_json  # Base64 encoded image
-```
-
-Handling API Responses
-Image Generation API responses include image data and metadata. The response format differs by model:
-
-Response Structure:
-
-```python
-# DALL-E models return URLs (when response_format="url")
-response = client.images.generate(
-  model="dall-e-3",
-  prompt="a sunset over mountains",
-  size="1024x1024",
-  response_format="url"
-)
-print(response.data[0].url)           # Image URL (temporary, ~1 hour)
-print(response.data[0].revised_prompt) # How DALL-E 3 interpreted your prompt
-print(response.created)                # Timestamp
-
-# GPT Image models always return base64
-response = client.images.generate(
-  model="gpt-image-1-mini",
-  prompt="a sunset over mountains",
-  size="1024x1024"
-)
-print(response.data[0].b64_json)  # Base64 encoded image data
-```
-
-Saving Images:
-
-DALL·E URLs are temporary (~1 hour). GPT Image returns base64 directly. Here is how to save both:
+### 2. Descargar inmediatamente (las URLs expiran)
 
 ```python
 import requests
+from pathlib import Path
+
+def save_from_url(url: str, path: str) -> str:
+    r = requests.get(url, timeout=30)
+    r.raise_for_status()
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_bytes(r.content)
+    return path
+
+save_from_url(response.data[0].url, "output/city.png")
+```
+
+### 3. GPT-Image-1 devuelve base64
+
+```python
 import base64
 from pathlib import Path
 
-def save_image_from_url(image_url, save_path):
-  """Download and save image from URL (for DALL-E models)."""
-  response = requests.get(image_url)
-  response.raise_for_status()
+def save_from_b64(b64: str, path: str) -> str:
+    data = base64.b64decode(b64)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_bytes(data)
+    return path
 
-  Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-  with open(save_path, 'wb') as f:
-      f.write(response.content)
-  return save_path
-
-def save_image_from_base64(b64_data, save_path):
-  """Save base64 encoded image (for GPT Image models)."""
-  image_data = base64.b64decode(b64_data)
-
-  Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-  with open(save_path, 'wb') as f:
-      f.write(image_data)
-  return save_path
-
-# Usage with DALL-E (returns URL)
-image_url = generate_image_with_options("a cat in space", model="dall-e-3")
-save_image_from_url(image_url, "generated_images/cat_space.png")
+resp = client.images.generate(
+    model="gpt-image-1",
+    prompt="a cozy minimalist bedroom, morning light, 35mm",
+    size="1024x1024",
+    quality="high",
+    # ⚠️ NO pasar response_format aquí: GPT-Image lo rechaza
+)
+save_from_b64(resp.data[0].b64_json, "output/bedroom.png")
 ```
 
-Error Handling:
+### 4. Prompt engineering estructurado
 
-Handle API errors gracefully:
+Un buen prompt sigue la fórmula **sujeto + estilo + composición + iluminación + calidad**:
 
 ```python
-from openai import OpenAI, APIError, RateLimitError
-import time
-import logging
+def build_prompt(subject: str, *, style: str, composition: str,
+                 lighting: str, quality: str = "high detail, 8k") -> str:
+    return f"{subject}, {style}, {composition}, {lighting}, {quality}"
+
+prompt = build_prompt(
+    subject="a golden retriever puppy playing fetch",
+    style="photorealistic, 85mm lens, shallow depth of field",
+    composition="centered, rule of thirds, close-up",
+    lighting="golden hour, warm backlight",
+    quality="high detail, professional photography, 8k",
+)
+```
+
+Comparación lado a lado:
+
+```
+Pobre:     "a dog"
+Medio:     "a golden retriever puppy playing in a sunny park"
+Excelente: "a photorealistic golden retriever puppy playing fetch in a sunny park
+            during golden hour, 85mm lens, shallow depth of field, vibrant green
+            grass, blue sky with soft clouds, joyful mood, 8k, professional"
+```
+
+### 5. Reintentos con backoff exponencial
+
+```python
+import time, logging
+from openai import OpenAI, APIError, RateLimitError, BadRequestError
 
 logger = logging.getLogger(__name__)
 
-def generate_with_retry(prompt, model="dall-e-3", max_retries=3):
-  """Generate image with retry logic."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
+def generate_with_retry(prompt: str, *, model="dall-e-3",
+                        size="1024x1024", max_retries=4) -> dict:
+    params = {"model": model, "prompt": prompt, "size": size, "n": 1}
+    if model.startswith("dall-e"):
+        params["response_format"] = "url"
+    if model == "dall-e-3":
+        params["quality"] = "standard"
 
-  for attempt in range(max_retries):
-      try:
-          params = {
-              "model": model,
-              "prompt": prompt,
-              "size": "1024x1024",
-              "n": 1
-          }
-          # Only DALL-E models support response_format
-          if model.startswith("dall-e"):
-              params["response_format"] = "url"
+    for attempt in range(max_retries):
+        try:
+            r = client.images.generate(**params)
+            if model.startswith("dall-e"):
+                return {"ok": True, "url": r.data[0].url,
+                        "revised": r.data[0].revised_prompt}
+            return {"ok": True, "b64": r.data[0].b64_json}
 
-          response = client.images.generate(**params)
+        except BadRequestError as e:
+            # 400 = content policy / prompt inválido → no reintentar
+            return {"ok": False, "error": f"bad_request: {e}"}
 
-          # Return appropriate format based on model
-          if model.startswith("dall-e"):
-              return {"success": True, "url": response.data[0].url}
-          else:
-              return {"success": True, "b64_json": response.data[0].b64_json}
+        except RateLimitError:
+            wait = 2 ** attempt
+            logger.warning(f"Rate limit, esperando {wait}s")
+            time.sleep(wait)
 
-      except RateLimitError as e:
-          wait_time = 2 ** attempt  # Exponential backoff
-          logger.warning(f"Rate limit hit, waiting {wait_time}s")
-          time.sleep(wait_time)
+        except APIError as e:
+            if e.status_code in (401, 403):
+                return {"ok": False, "error": f"auth: {e}"}
+            time.sleep(2 ** attempt)
 
-      except APIError as e:
-          if e.status_code in [400, 401, 403]:
-              return {"success": False, "error": f"API error: {e.message}"}
-          wait_time = 2 ** attempt
-          logger.warning(f"API error, retrying in {wait_time}s")
-          time.sleep(wait_time)
-
-      except Exception as e:
-          return {"success": False, "error": f"Unexpected error: {str(e)}"}
-
-  return {"success": False, "error": "Failed after retries"}
+    return {"ok": False, "error": "max retries exceeded"}
 ```
 
-Image Variations and Editing
-The Image Generation API supports generating variations of existing images:
+### 6. Edición con máscara (inpainting)
 
-Three-panel diagram showing an original image, a mask highlighting the editable region, and the edited result
-![Mask-based editing changes only a selected region while keeping the rest of the image consistent](https://hrcdn.net/ai-engineering/module-5/light/image-generation-lesson02-mask-based-editing.svg)
-
-Creating Variations:
+La máscara debe ser un PNG **del mismo tamaño** que la imagen, con **píxeles transparentes** marcando la región a editar.
 
 ```python
-def create_image_variations(image_path, n=4):
-  """Create variations of an existing image."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
-
-  with open(image_path, "rb") as image_file:
-      response = client.images.create_variation(
-          image=image_file,
-          n=n,
-          size="1024x1024"
-      )
-
-  return [item.url for item in response.data]
-Image Editing:
-
-Edit specific parts of images using masks:
-
-python
-def edit_image(image_path, mask_path, prompt):
-  """Edit image using a mask."""
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
-
-  with open(image_path, "rb") as image_file, open(mask_path, "rb") as mask_file:
-      response = client.images.edit(
-          image=image_file,
-          mask=mask_file,
-          prompt=prompt,
-          n=1,
-          size="1024x1024"
-      )
-
-  return response.data[0].url
+with open("sneaker_white_bg.png", "rb") as img, \
+     open("sneaker_mask.png", "rb") as mask:
+    r = client.images.edit(
+        model="gpt-image-1",
+        image=img,
+        mask=mask,
+        prompt="replace the background with a sunny beach, soft golden light",
+        size="1024x1024",
+        n=1,
+    )
+save_from_b64(r.data[0].b64_json, "output/sneaker_beach.png")
 ```
 
-Production Implementation Patterns
-Building production image generation applications requires careful architecture:
+### 7. Variaciones (solo DALL-E 2)
 
-Async Processing:
+```python
+with open("product.png", "rb") as img:
+    r = client.images.create_variation(
+        model="dall-e-2",
+        image=img,
+        n=4,
+        size="1024x1024",
+        response_format="url",
+    )
+urls = [d.url for d in r.data]
+```
 
-Image generation takes time. Use async processing:
+### 8. Async para alto throughput
 
 ```python
 import asyncio
 from openai import AsyncOpenAI
 
-async def generate_image_async(prompt, model="dall-e-3"):
-  """Generate image asynchronously."""
-  client = AsyncOpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
+aclient = AsyncOpenAI()
+sem = asyncio.Semaphore(10)   # máx. 10 requests paralelos
 
-  params = {
-      "model": model,
-      "prompt": prompt,
-      "size": "1024x1024",
-      "n": 1
-  }
-  if model.startswith("dall-e"):
-      params["response_format"] = "url"
+async def gen_one(prompt: str) -> str:
+    async with sem:
+        r = await aclient.images.generate(
+            model="dall-e-3", prompt=prompt,
+            size="1024x1024", n=1, response_format="url",
+        )
+        return r.data[0].url
 
-  response = await client.images.generate(**params)
+async def gen_many(prompts: list[str]) -> list[str]:
+    return await asyncio.gather(*(gen_one(p) for p in prompts))
 
-  if model.startswith("dall-e"):
-      return response.data[0].url
-  return response.data[0].b64_json
-
-# Process multiple prompts concurrently
-async def generate_multiple_images(prompts, model="dall-e-3"):
-  """Generate multiple images concurrently."""
-  tasks = [generate_image_async(prompt, model) for prompt in prompts]
-  return await asyncio.gather(*tasks)
+urls = asyncio.run(gen_many([
+    "a red apple on wooden table",
+    "a blue vase with sunflowers",
+    "a vintage camera on marble",
+]))
 ```
 
-Caching:
-
-Cache generated images to avoid redundant API calls:
+### 9. Cache por hash del prompt
 
 ```python
-import hashlib
-import json
+import hashlib, json
 
-class ImageGenerationCache:
-  """Cache generated images."""
+class PromptCache:
+    def __init__(self, backend: dict | None = None):
+        self.backend = backend if backend is not None else {}
 
-  def __init__(self, cache_backend=None):
-      self.cache_backend = cache_backend or {}
+    def _key(self, prompt: str, size: str, quality: str, model: str) -> str:
+        payload = json.dumps({"p": prompt, "s": size, "q": quality, "m": model},
+                             sort_keys=True)
+        return hashlib.sha256(payload.encode()).hexdigest()
 
-  def get_cache_key(self, prompt, size, quality):
-      """Generate cache key."""
-      key_data = f"{prompt}:{size}:{quality}"
-      return hashlib.sha256(key_data.encode()).hexdigest()
+    def get(self, prompt, size, quality, model):
+        return self.backend.get(self._key(prompt, size, quality, model))
 
-  def get(self, prompt, size, quality):
-      """Get cached image URL."""
-      key = self.get_cache_key(prompt, size, quality)
-      return self.cache_backend.get(key)
+    def set(self, prompt, size, quality, model, value):
+        self.backend[self._key(prompt, size, quality, model)] = value
 
-  def set(self, prompt, size, quality, image_url):
-      """Cache image URL."""
-      key = self.get_cache_key(prompt, size, quality)
-      self.cache_backend[key] = image_url
+cache = PromptCache()
+key_args = ("a red fox in snow", "1024x1024", "standard", "dall-e-3")
+if (hit := cache.get(*key_args)) is None:
+    hit = generate_with_retry(key_args[0])
+    cache.set(*key_args, hit)
 ```
 
-Queue System:
-
-Use queues for high-volume generation:
+### 10. Prompt templates reutilizables
 
 ```python
-from queue import Queue
-import threading
+class PromptTemplate:
+    PRODUCT_STUDIO = (
+        "{subject}, studio product photography, "
+        "clean white background, soft diffused lighting, "
+        "centered composition, high detail, commercial quality"
+    )
+    SOCIAL_HERO = (
+        "{subject}, modern graphic design, {palette} palette, "
+        "bold typography-free composition, {platform} optimized, "
+        "eye-catching, 4k"
+    )
 
-class ImageGenerationQueue:
-  """Queue system for image generation."""
+    @classmethod
+    def render(cls, name: str, **kwargs) -> str:
+        return getattr(cls, name).format(**kwargs)
 
-  def __init__(self, worker_count=3):
-      self.queue = Queue()
-      self.workers = []
-      for _ in range(worker_count):
-          worker = threading.Thread(target=self._worker)
-          worker.start()
-          self.workers.append(worker)
-
-  def _worker(self):
-      """Worker thread processes queue items."""
-      while True:
-          item = self.queue.get()
-          if item is None:
-              break
-          try:
-              result = generate_with_retry(item['prompt'])
-              item['callback'](result)
-          except Exception as e:
-              item['error_callback'](e)
-          finally:
-              self.queue.task_done()
-
-  def enqueue(self, prompt, callback, error_callback):
-      """Add generation task to queue."""
-      self.queue.put({
-          'prompt': prompt,
-          'callback': callback,
-          'error_callback': error_callback
-      })
-```
-
-Real-World Application Examples
-Product Image Generation:
-
-Generate product images for e-commerce:
-
-```python
-def generate_product_image(product_name, product_description, style="lifestyle"):
-  """Generate product image for e-commerce."""
-  prompt = f"""
-  {style} product photography of {product_name}.
-  {product_description}
-  Professional product photography, clean white background,
-  studio lighting, high quality, detailed, commercial photography style.
-  """
-
-  return generate_with_retry(prompt)
-
-# Usage
-image_url = generate_product_image(
-  "wireless headphones",
-  "modern design, black color, premium materials",
-  style="lifestyle"
+prompt = PromptTemplate.render(
+    "PRODUCT_STUDIO",
+    subject="wireless over-ear headphones in matte black",
 )
 ```
 
-Social Media Graphics:
+## Errores comunes
 
-Generate social media graphics:
+- **Pasar `response_format` a GPT-Image** → `BadRequestError`. Solo DALL-E lo acepta.
+- **Esperar `n > 1` en DALL-E 3** → error. DALL-E 3 solo genera 1 imagen por request.
+- **No descargar la URL en 1 hora** → URL expira, imagen perdida. Descarga inmediatamente a S3/CDN.
+- **No decodificar base64** → guardar el string como `.png` produce basura. Siempre `base64.b64decode(...)`.
+- **Ignorar `revised_prompt`** → DALL-E 3 reescribe tu prompt silenciosamente. Loggéalo para debuggear discrepancias.
+- **Prompts > 4000 chars en DALL-E 3** → truncados sin aviso.
+- **No manejar rate limits (429)** → fallos cascada en producción. Implementa backoff exponencial.
+- **Usar `edit` sin máscara PNG transparente** → la API rechaza o edita toda la imagen.
+- **Enviar máscara de distinto tamaño que la imagen** → error. Deben ser idénticas en dimensiones.
+- **No validar el prompt contra content policy** → tasas de rechazo altas. Pre-filtra términos obviamente problemáticos.
+- **Pedir calidad `hd` cuando basta `standard`** → gasto 2× sin beneficio visible en thumbnails.
+- **No limitar concurrencia** (sin `asyncio.Semaphore`) → saturar rate limits y acelerar el bloqueo.
+- **Generar personas reales específicas** → DALL-E rechaza y GPT-Image puede marcar la cuenta.
+- **No pasar `user=user_id`** → OpenAI no puede correlacionar abuso al usuario final de tu app.
+- **Hardcodear la API key en el código** → leak en Git. Usa variables de entorno o secret managers.
 
-```python
-def generate_social_media_graphic(topic, style="modern", platform="instagram"):
-  """Generate social media graphic."""
-  size_map = {
-      "instagram": "1024x1024",
-      "facebook": "1200x630",
-      "twitter": "1200x675"
-  }
+## Resumen
 
-  prompt = f"""
-  Social media graphic about {topic}.
-  {style} design style, vibrant colors, engaging composition,
-  suitable for {platform}, professional graphic design.
-  """
-
-  return generate_image_with_options(prompt, size=size_map.get(platform, "1024x1024"))
-```
-
-Common Pitfalls and Solutions
-Pitfall 1: Vague Prompts
-
-Vague prompts produce generic images. Solution: Include specific details about style, composition, lighting, and mood.
-
-Pitfall 2: Ignoring Revised Prompts
-
-The image generation model revises prompts. Review revised prompts to understand what the model interpreted. Use revised prompts to improve future prompts.
-
-Pitfall 3: Not Handling Rate Limits
-
-Rate limits can cause failures. Solution: Implement retry logic with exponential backoff.
-
-Pitfall 4: Not Downloading Images
-
-Images are hosted temporarily. Solution: Download images immediately for persistent storage.
-
-Pitfall 5: Ignoring Content Policies
-
-Some prompts violate content policies. Solution: Validate prompts before sending, handle policy violations gracefully.
-
-Summary
-OpenAI's Image Generation API enables programmatic image generation from text prompts. Effective prompt engineering, proper parameter tuning, and robust error handling enable you to build production applications that generate images reliably.
-
-Understanding API structure, response handling, and production patterns helps you integrate image generation into your applications effectively.
-
-Key concepts to remember
-Choose the right model - DALL·E models return URLs, GPT Image models return base64
-Use response_format only with DALL·E - This parameter is not supported by GPT Image models
-Prompt quality dramatically affects results - Well-crafted prompts with specific details produce better images
-Handle responses properly - Download URL images immediately (temporary), decode base64 for GPT Image
-Implement retry logic - Rate limits and errors require retry mechanisms
-Use async processing - Image generation takes time, use async for better performance
+- La API de OpenAI unifica tres modelos (DALL-E 2, DALL-E 3, GPT-Image-1) bajo `client.images.generate / .edit / .create_variation`.
+- **DALL-E devuelve URL o base64; GPT-Image solo base64**. No pases `response_format` a GPT-Image.
+- Las **URLs expiran en ~1 hora**: descarga y persiste inmediatamente a S3/CDN.
+- Parámetros clave: `model`, `prompt`, `size`, `n`, `quality`, `style`, `response_format`.
+- Un buen prompt sigue: **sujeto + estilo + composición + iluminación + calidad**.
+- DALL-E 3 reescribe tu prompt (`revised_prompt`); úsalo para iterar.
+- **Reintentos con backoff exponencial** son obligatorios para RateLimitError (429) y 5xx; NO reintentes 400/401/403.
+- Para alto throughput: `AsyncOpenAI` + `asyncio.Semaphore(N)` + cola de tareas.
+- **Cachea por hash** de (prompt, size, quality, model) para evitar gastos duplicados.
+- Para inpainting: máscara PNG del mismo tamaño con píxeles transparentes marcando la región editable.
+- `create_variation` solo existe en DALL-E 2.
+- Elige modelo por caso: DALL-E 2 (variations baratas, n grande), DALL-E 3 (text-to-image calidad), GPT-Image (SOTA + inpaint).
+- Pre-valida prompts contra content policy y maneja `BadRequestError` sin reintentar.
+- Pasa `user=user_id` para que OpenAI pueda rastrear abuso al usuario final.

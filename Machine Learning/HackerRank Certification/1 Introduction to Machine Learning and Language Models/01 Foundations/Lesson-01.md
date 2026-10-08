@@ -1,269 +1,434 @@
-# What is Machine Learning
+# ¿Qué es Machine Learning?
 
-## Introduction to Machine Learning
+## ¿Qué es?
 
-Traditional software engineering relies on explicit rules, but what happens when those rules cannot keep up with constantly changing patterns? Imagine trying to detect spam emails with hard-coded rules; spammers would quickly adapt, making your filters obsolete. This fundamental limitation of rule-based systems led to the development of Machine Learning.
+**Machine Learning (ML)** es una rama de la inteligencia artificial donde los programas **aprenden patrones a partir de datos** en lugar de seguir reglas escritas a mano. En términos técnicos, un sistema de ML construye una **función parametrizada** `f(x; θ)` cuyos parámetros `θ` se ajustan automáticamente para minimizar un error entre predicciones y realidad.
 
-In this lesson, you will understand what makes Machine Learning different from traditional programming, explore the core components that every ML system needs, and see real-world examples of how ML solves problems that would be impossible with conventional approaches.
+La diferencia esencial con la programación tradicional es la dirección del flujo:
 
-By the end, you will have a clear mental model of how ML works and when to apply it, setting the foundation for understanding the types of machine learning you will explore in the next lesson.
+| Enfoque | Entrada | Salida |
+|---|---|---|
+| Programación tradicional | Reglas + Datos | Resultado |
+| Machine Learning | Datos + Resultados (etiquetas) | Reglas (modelo) |
 
-What is Machine Learning?
-In traditional software engineering, we explicitly write rules for the computer to follow.
-This works for a short time, but then spammers get smarter. They start writing "w1n m0ney" or "claim reward." Suddenly, your rules break. Adding more rules is like playing whack-a-mole—you will never keep up.
+> **Definición formal (Tom Mitchell, 1997):** Se dice que un programa aprende de la experiencia `E` respecto a una tarea `T` y una medida de desempeño `P`, si su desempeño en `T`, medido por `P`, mejora con la experiencia `E`.
 
-Spammers constantly change tactics. Fraudsters evolve faster than rules can be updated. User preferences (music, shopping, recommendations) shift daily. Maintaining thousands of rules quickly becomes impossible.
+### Jerarquía: IA → ML → Deep Learning → Generative AI
 
-This is where Machine Learning (ML) comes in.
+Es común confundir estos términos. La relación de inclusión es:
 
-Traditional: Rules + Data → Output
-Machine Learning: Data + Outputs (labels) → Learning Algorithm → Model (rules automatically learned)
-
-At its core, Machine Learning (ML) is about building programs that improve their performance at a task as they are exposed to more data.
-
-If we have to translate into simple terms, the three blocks for Machine Learning include:
-
-What do you want the model to do? (e.g., detect spam emails)
-What data does it see while learning? (e.g., thousands of labeled emails)
-How do you measure success? (e.g., accuracy, precision, recall)
-When all three are in place, we have Machine Learning.
-
-Core Components of ML
-Data → Inputs and outputs (features & labels)
-Model → The function mapping inputs → predictions
-Algorithm → The step-by-step process that helps the model learn from data. For example, when the model makes wrong predictions, the algorithm adjusts the model's internal weights to perform better next time
-Evaluation Metric → The measure of performance (accuracy, recall, F1, RMSE)
-In spam detection, the data is email content with labels (spam/not spam), the model is a pattern-recognition system, the algorithm is the method that teaches the model (example: logistic regression), and the metric tells us how accurate the predictions are.
-
-How Machine Learning Works
-Think of ML as a pipeline:
-
-![How machine learning works](https://hrcdn.net/ai-engineering/module-1/light/foundations-lesson01-ml-pipeline.svg)
-
-Data (Features & labels) → Algorithm (Learns from data) → Model (Learned function) → Predictions → Evaluation Metric (Accuracy, Recall, F1 Score)
-ML pipeline from data to deployment
-
-Data Collection → Gather examples (emails labeled spam/not spam, transactions marked fraud/not fraud)
-Feature Representation → Convert raw data into numerical form
-Training → Use algorithms to find patterns that map inputs → outputs
-Evaluation → Test the model on unseen data to see if it is able to understand the data
-Deployment → Integrate into a product, monitor, and retrain as needed
-
-In simpler terms, training is like studying past exam questions and evaluation is like taking a new exam to test if you have truly learned.
-
-## How ML Differs from Traditional Programming
-
-In traditional software development, we follow a deterministic approach:
-Rules + Data → Output This represents the traditional programming approach.
-
-In machine learning, the process is reversed:
-Data + Outputs (labels) → Learning Algorithm → Model (rules automatically learned)
-
-Spam Detection Example
-Let's take a look at how spam detection will differ in a traditional and ML-based approach.
-
-Traditional Approach
-You might hard-code rules:
-
-```python
-if "win" in email and "money" in email:
-    spam = True
+```
+Inteligencia Artificial (IA)
+└── Machine Learning (ML)                    ← aprender de datos
+    └── Deep Learning (DL)                   ← ML con redes neuronales profundas
+        └── Generative AI (LLMs, difusión)   ← DL que genera contenido nuevo
 ```
 
-Engineers write explicit rules
+- **IA** es el campo amplio: cualquier sistema que exhiba comportamiento "inteligente" (incluye sistemas expertos basados en reglas, búsqueda, planificación).
+- **ML** es un subconjunto: *aprende* en lugar de ser programado.
+- **DL** usa redes neuronales con muchas capas (típicamente >3).
+- **GenAI** son modelos de DL que generan texto, imágenes, audio o código (GPT, Stable Diffusion, Whisper).
 
-ML Approach
-Collect thousands of examples labeled spam or not spam, then let an algorithm (e.g., logistic regression) learn statistical patterns. Now the program can generalize to unseen spam tactics.
+### Formalización matemática
 
-![ML approach](https://hrcdn.net/ai-engineering/module-1/light/foundations-lesson01-traditional-vs-ml.svg)
+Dado un dataset `D = {(xᵢ, yᵢ)}ⁿᵢ₌₁` donde `xᵢ ∈ X` (espacio de entrada) e `yᵢ ∈ Y` (espacio de salida), queremos encontrar una función `f: X → Y` dentro de una familia `H` (hypothesis space) que minimice una **función de pérdida** `L`:
 
-```python
-# ML approach: Learn from examples, then generalize
-
-# Algorithm learns statistical patterns
-model.train(thousands_of_labeled_examples)
-
-# → "spam" (generalizes to unseen tactics)
-model.classify("w1n m0n3y fast")
+```
+θ* = argmin_θ  (1/n) Σᵢ L(f(xᵢ; θ), yᵢ)  +  λ·R(θ)
+                └─── pérdida empírica ───┘   └ regularización ┘
 ```
 
-Algorithm discovers patterns automatically
+- `L` penaliza errores (ej. error cuadrático para regresión, cross-entropy para clasificación).
+- `R(θ)` desincentiva modelos demasiado complejos (L1, L2) para evitar overfitting.
+- `λ` controla el balance entre ajuste y simplicidad.
 
-What Exactly Is a Model?
-A model in ML is just a function that maps inputs to outputs, with parameters that are adjusted during training.
+Este es el **principio de minimización del riesgo empírico (ERM)** y es la base matemática de prácticamente todo ML supervisado.
 
-![ML model](https://hrcdn.net/ai-engineering/module-1/light/foundations-lesson01-model-concept.svg)
+## ¿Por qué importa?
 
-A machine learning model is essentially a parameterized function that maps inputs to outputs — for example, taking purchase history features like age and location as inputs and producing a prediction like $450. The function's behavior is controlled by learnable parameters (weights such as w₁ = 250 and w₂ = 50,000, plus a bias b = 100,000 in a simple housing-price formula like price = w₁ × area + w₂ × bedrooms + b), which are not hand-coded but discovered from training data. Learning, then, is the iterative process of tuning those parameter values to minimize prediction error, and the same principle scales from simple models with just a handful of weights to complex ones like GPT-4 that contain billions of parameters arranged in deep neural networks.
+Las reglas escritas a mano se rompen cuando el mundo cambia. Un filtro anti-spam basado en reglas (`if "win" in email and "money" in email`) queda obsoleto en días: los spammers escriben `w1n m0ney`, `claim reward`, usan imágenes o inyectan texto invisible. Mantener miles de reglas en constante actualización es un juego de **whack-a-mole** imposible de ganar.
 
-For example, in linear regression:
+Machine Learning importa cuando:
 
-price = w1 * area + w2 * bedrooms + b
+- Los **patrones cambian** con el tiempo (fraude, spam, preferencias de usuario).
+- Los patrones son **demasiado complejos** para enumerarse (reconocer una cara, traducir un idioma).
+- Hay **mucha data histórica** disponible pero las reglas no son obvias.
+- Se requiere **personalización a escala** (recomendaciones para millones de usuarios).
 
-Here, w1, w2, and b are parameters (also known as weights) that are learned from data.
+Un modelo bien entrenado **generaliza** a casos que nunca vio, mientras que un sistema de reglas solo cubre los casos que su autor imaginó.
 
-In Neural Networks
-Instead of a few weights, there may be millions (or billions) of parameters.
+### Cuándo NO usar ML
 
-The learning process = finding the parameter values that make predictions closest to reality.
+Igual de importante es saber cuándo evitarlo:
 
-The Ingredients of Machine Learning
+- **Reglas estables y bien definidas:** calcular impuestos, validar un RFC, aplicar una fórmula física. Usa código tradicional.
+- **Datos escasos:** <1,000 ejemplos y sin posibilidad de generar más. Un sistema de reglas o un humano experto rendirá mejor.
+- **El costo del error es catastrófico y no hay humano en el loop:** cirugía autónoma, control de reactor nuclear. ML en estos dominios requiere capas de seguridad y verificación formal.
+- **No se puede explicar la decisión y la regulación lo exige:** aprobación de crédito en ciertas jurisdicciones (GDPR Art. 22). Modelos muy complejos son difíciles de auditar.
+- **Problemas combinatorios resolubles exactamente:** mejor usar programación lineal, SAT solvers o algoritmos clásicos.
 
-Data
-Features: Measurable input variables (e.g., word counts, transaction amount)
-Labels: Desired outputs (e.g., spam/not spam, fraud/not fraud)
+### Historia breve (contexto cultural)
 
-Algorithm
-The method used to adjust the model parameters (e.g., gradient descent)
+| Año | Hito |
+|---|---|
+| 1943 | McCulloch & Pitts: primera neurona matemática |
+| 1957 | Rosenblatt: Perceptrón |
+| 1986 | Rumelhart et al.: Backpropagation popularizado |
+| 1997 | Deep Blue vence a Kasparov (ajedrez) |
+| 1998 | LeCun: LeNet-5 (CNN para dígitos) |
+| 2006 | Hinton: Deep Belief Networks → nace "Deep Learning" |
+| 2012 | AlexNet gana ImageNet por 10 puntos → revolución DL |
+| 2017 | Vaswani et al.: *Attention Is All You Need* (Transformers) |
+| 2020 | GPT-3 (175B parámetros) |
+| 2022 | ChatGPT: ML llega al público masivo |
+| 2024+ | Modelos multimodales, agentes autónomos, razonamiento |
 
-Model
-The function that represents the relationship between inputs and outputs
+## ¿Cómo funciona?
 
-Evaluation Metric
-The yardstick to measure success (e.g., accuracy, F1 score, RMSE)
+Todo sistema de ML se compone de cuatro ingredientes mínimos:
 
-Real-World Examples
+### 1. Datos
+- **Features (características):** variables de entrada medibles. Ejemplo: para un correo, `[cantidad_palabras, tiene_link, remitente_conocido, hora_envío]`.
+- **Labels (etiquetas):** la respuesta correcta durante el entrenamiento. Ejemplo: `spam` o `no_spam`.
+- **Representación:** los datos crudos (texto, imagen, audio) deben convertirse en números. Un pixel es un entero 0-255; una palabra puede ser un *embedding* vectorial de 768 dimensiones; una categoría se codifica con one-hot encoding.
 
-Everyday Applications You Already Use
-Spam filtering → Gmail detecting spam automatically
-Recommendations → Netflix suggesting movies, Amazon recommending products
-Voice Assistants → Siri and Alexa recognizing speech and intent
+Regla de oro: la **calidad y cantidad** de los datos suele importar más que la elección del algoritmo. El dicho común en la industria es *"garbage in, garbage out"*.
 
-Business & Industry
-Fraud detection → Banks flagging unusual transactions
-Predictive maintenance → Machines in factories warning before they fail
-Healthcare → Models assisting in diagnosing diseases from scans
+### 2. Modelo
+Una función matemática con **parámetros aprendibles**. En regresión lineal:
 
-Developer Use Cases
-Code completion → GitHub Copilot predicting the next line
-Bug detection → Static analysis powered by ML models
-Monitoring → Detecting anomalies in logs
+```
+precio = w₁·área + w₂·habitaciones + b
+```
 
-Machine Learning in Production
-Training a model in a Jupyter notebook is just the beginning. Deploying to production introduces new challenges:
+Donde `w₁`, `w₂` y `b` son los parámetros que se ajustan. En redes neuronales profundas estos parámetros son millones o miles de millones (GPT-4 tiene ~1.7 trillones).
 
-Data Drift: Monitoring how the real-world data evolves
-Latency & Scale: The model must respond in milliseconds at high traffic (e.g., autocomplete)
-Monitoring: A model that works today may degrade tomorrow due to data drift (e.g., spammers changing tactics)
-Versioning: Need to know which data + code + parameters produced the deployed model
-Feedback Loop: Collect predictions + outcomes to retrain and improve
+**Capacidad del modelo (bias-variance tradeoff):**
 
-This is why modern ML engineering often blends ML with MLOps practices.
+- **Alto bias (underfitting):** el modelo es demasiado simple y no captura los patrones. Ejemplo: usar regresión lineal para datos circulares.
+- **Alta varianza (overfitting):** el modelo memoriza el ruido del entrenamiento y no generaliza. Ejemplo: un árbol de decisión sin profundidad limitada.
+- El objetivo es el **punto dulce**: suficiente capacidad para aprender la señal, pero no tanta como para memorizar el ruido.
 
-## Traditional Rules vs Learning from Data
-The code snippet below shows the fundamental difference between writing explicit rules versus letting a system learn patterns from examples, using the spam detection concept from the lesson.
+```
+Error total = Bias² + Varianza + Ruido_irreducible
+```
 
-You can run this code directly to see machine learning in action.
+### 3. Algoritmo de aprendizaje
+El procedimiento que modifica `θ` para reducir el error. El más común es el **descenso del gradiente**:
+
+```
+θ_nuevo = θ_viejo - η · ∇L(θ)
+         └─ parámetros ─┘ └ tasa de aprendizaje · gradiente ┘
+```
+
+Variantes:
+
+- **Batch GD:** usa todo el dataset para cada paso. Preciso pero lento.
+- **SGD (Stochastic):** un ejemplo a la vez. Ruidoso pero escapa de mínimos locales.
+- **Mini-batch SGD:** compromiso práctico (32, 64, 128 ejemplos por paso). Estándar en deep learning.
+- **Adam, RMSProp, AdamW:** optimizadores adaptativos que ajustan la tasa de aprendizaje por parámetro. AdamW es el default actual en LLMs.
+
+### 4. Métrica de evaluación
+Un número que mide qué tan bien funciona el modelo:
+
+| Tipo de problema | Métricas comunes | Cuándo usar |
+|---|---|---|
+| Clasificación balanceada | Accuracy | Todas las clases importan por igual |
+| Clasificación desbalanceada | Precision, Recall, F1 | Fraude, enfermedades raras |
+| Clasificación binaria con umbral móvil | AUC-ROC, AUC-PR | Rankear riesgo |
+| Regresión | MAE, MSE, RMSE, R² | Predecir cantidades continuas |
+| Ranking / Recomendación | NDCG, MAP, MRR, Hit@K | Búsqueda, recsys |
+| Generación de texto | BLEU, ROUGE, perplejidad, eval humana, LLM-as-judge | Traducción, resumen, chatbots |
+| Visión | mAP (detección), IoU (segmentación), FID (generación) | Imágenes |
+
+**La matriz de confusión** es la herramienta base para clasificación:
+
+```
+                 Predicho +    Predicho -
+Real +           TP            FN        → Recall = TP/(TP+FN)
+Real -           FP            TN        → Specificity = TN/(TN+FP)
+                 ↓
+                 Precision = TP/(TP+FP)
+```
+
+### Tipos de aprendizaje
+
+| Paradigma | Qué recibe | Qué aprende | Ejemplos |
+|---|---|---|---|
+| **Supervisado** | `(x, y)` etiquetados | Mapeo `x → y` | Spam, precio de casa, diagnóstico |
+| **No supervisado** | Solo `x` | Estructura latente | Clustering (K-means), reducción (PCA, UMAP), anomalías |
+| **Auto-supervisado** | `x` + tarea artificial | Representaciones ricas | BERT (masked LM), SimCLR (contrastivo), GPT (predecir siguiente token) |
+| **Semi-supervisado** | Poco etiquetado + mucho sin etiquetar | Combinar ambos | Pseudo-labeling, consistency training |
+| **Por refuerzo (RL)** | Estado + recompensa | Política de acción | AlphaGo, robótica, RLHF para LLMs |
+| **Transferencia** | Modelo pre-entrenado + poca data nueva | Ajustar a tarea específica | Fine-tuning, LoRA |
+
+### Pipeline completo
+
+```
+Recolección de datos
+      ↓
+Exploración (EDA: distribuciones, nulos, outliers)
+      ↓
+Limpieza y feature engineering
+      ↓
+Split: train / validation / test (ej. 70/15/15)
+      ↓
+Entrenamiento (ajuste de parámetros)
+      ↓
+Validación (ajuste de hiperparámetros)
+      ↓
+Evaluación en test (una sola vez, al final)
+      ↓
+Despliegue (API, batch, edge, embebido)
+      ↓
+Monitoreo + re-entrenamiento
+```
+
+**Hiperparámetros vs. parámetros:**
+
+- **Parámetros:** se aprenden automáticamente (pesos `w`, bias `b`).
+- **Hiperparámetros:** se eligen a mano o con búsqueda (learning rate, número de capas, profundidad de árbol, `k` en KNN). Se tunean con el *validation set*, no con el test set.
+
+Analogía: el **entrenamiento** es estudiar con exámenes pasados; la **validación** es un simulacro para elegir estrategia de estudio; la **evaluación final** es el examen real que solo presentas una vez. Si el modelo memoriza los ejemplos de entrenamiento pero falla en el examen nuevo, hablamos de **overfitting**.
+
+### Validación cruzada (k-fold)
+
+Cuando los datos son escasos, dividirlos en train/val/test desperdicia información. **K-fold cross-validation** divide los datos en `k` partes, entrena `k` veces usando cada parte como validación una vez, y promedia el resultado:
+
+```
+Fold 1: [val][train][train][train][train]
+Fold 2: [train][val][train][train][train]
+Fold 3: [train][train][val][train][train]
+...
+```
+
+Métricas más robustas, pero `k` veces más costo computacional.
+
+## Ejemplo con código
+
+Comparación lado a lado de un enfoque tradicional y uno de ML para detección de spam:
 
 ```python
-# Traditional Programming: Rules + Data → Output
+# ============================================================
+# Enfoque tradicional: reglas escritas a mano
+# ============================================================
+def spam_tradicional(email: str) -> str:
+    palabras_sospechosas = ["win", "money", "free", "prize", "urgent"]
+    email = email.lower()
+    hits = sum(1 for w in palabras_sospechosas if w in email)
+    return "SPAM" if hits >= 2 else "NO_SPAM"
 
-def traditional_approach(email_text):
-    """
-    Hard-coded rules (like the lesson example)
-    """
-    spam_words = ["win", "money", "free", "prize", "urgent"]
-    email_lower = email_text.lower()
 
-    spam_count = 0
-    for word in spam_words:
-        if word in email_lower:
-            spam_count += 1
+# ============================================================
+# Enfoque ML: aprender de ejemplos (Naive Bayes simplificado)
+# ============================================================
+from collections import defaultdict
+import math
 
-    if spam_count >= 2:
-        return "SPAM"
-    else:
-        return "NOT SPAM"
+def entrenar(ejemplos: list[tuple[str, str]]):
+    """Cuenta frecuencia de cada palabra por clase."""
+    conteos = {"SPAM": defaultdict(int), "NO_SPAM": defaultdict(int)}
+    totales = {"SPAM": 0, "NO_SPAM": 0}
+    for texto, etiqueta in ejemplos:
+        for palabra in texto.lower().split():
+            conteos[etiqueta][palabra] += 1
+            totales[etiqueta] += 1
+    return conteos, totales
 
-# Machine Learning: Data + Labels → Learn Rules
+def predecir(email: str, conteos, totales, alpha=1.0) -> str:
+    """Clasifica usando log-probabilidades con suavizado de Laplace."""
+    scores = {}
+    vocab = set(conteos["SPAM"]) | set(conteos["NO_SPAM"])
+    for clase in ("SPAM", "NO_SPAM"):
+        log_prob = math.log(totales[clase] / sum(totales.values()))
+        for palabra in email.lower().split():
+            # Suavizado: evita probabilidad cero para palabras nuevas
+            freq = conteos[clase][palabra] + alpha
+            log_prob += math.log(freq / (totales[clase] + alpha * len(vocab)))
+        scores[clase] = log_prob
+    return max(scores, key=scores.get)
 
-def learn_from_examples(training_examples):
-    """
-    Learn what words indicate spam from examples
-    """
-    spam_words = {}
-    legit_words = {}
 
-    # Count word frequencies in spam vs legitimate emails
-    for email, label in training_examples:
-        words = email.lower().split()
-        if label == "SPAM":
-            for word in words:
-                spam_words[word] = spam_words.get(word, 0) + 1
-        else:
-            for word in words:
-                legit_words[word] = legit_words.get(word, 0) + 1
-
-    return spam_words, legit_words
-
-def ml_prediction(email_text, spam_words, legit_words):
-    """
-    Use learned patterns to classify new email
-    """
-    words = email_text.lower().split()
-    spam_score = 0
-    legit_score = 0
-
-    for word in words:
-        spam_score += spam_words.get(word, 0)
-        legit_score += legit_words.get(word, 0)
-
-    if spam_score > legit_score:
-        return "SPAM"
-    else:
-        return "NOT SPAM"
-
-# Example data (what the system learns from)
-training_data = [
-    ("win free money now", "SPAM"),
-    ("urgent action required", "SPAM"),
-    ("meeting tomorrow at 3pm", "NOT SPAM"),
-    ("project deadline friday", "NOT SPAM"),
-    ("claim your prize today", "SPAM"),
-    ("lunch with team tuesday", "NOT SPAM"),
-    ("w1n money in few days", "SPAM")
+# ============================================================
+# Datos de entrenamiento
+# ============================================================
+dataset = [
+    ("win free money now",        "SPAM"),
+    ("claim your prize today",    "SPAM"),
+    ("urgent action required",    "SPAM"),
+    ("w1n money in few days",     "SPAM"),
+    ("meeting tomorrow at 3pm",   "NO_SPAM"),
+    ("project deadline friday",   "NO_SPAM"),
+    ("lunch with team tuesday",   "NO_SPAM"),
 ]
 
-print("=== TRAINING DATA ===")
-for email, label in training_data:
-    print(f"'{email}' → {label}")
+conteos, totales = entrenar(dataset)
 
-# Learn from the data
-spam_patterns, legit_patterns = learn_from_examples(training_data)
-
-print("\n=== WHAT THE SYSTEM LEARNED ===")
-print("Spam indicators:", dict(spam_patterns))
-print("Legitimate indicators:", dict(legit_patterns))
-
-# Test both approaches
-test_emails = [
-    "win money fast",           # Should be caught by both
-    "w1n m0n3y fast",           # Traditional rules might miss this
-    "meeting about budget",     # Should be legitimate
-    "urgent prize notification" # Mixed signals
+# ============================================================
+# Comparación
+# ============================================================
+pruebas = [
+    "win money fast",
+    "w1n m0n3y fast",            # el tradicional lo pierde
+    "meeting about budget",
+    "urgent prize notification",
 ]
 
-print("\n=== COMPARING APPROACHES ===")
-print(f"{'Email':<25} {'Traditional':<12} {'ML Learned'}")
-print("-" * 50)
-
-for email in test_emails:
-    traditional_result = traditional_approach(email)
-    ml_result = ml_prediction(email, spam_patterns, legit_patterns)
-    print(f"{email:<25} {traditional_result:<12} {ml_result}")
-
-print("\n=== KEY DIFFERENCE ===")
-print("Traditional: We write the rules manually")
-print("ML: The system discovers patterns from examples")
-print("ML can adapt when spammers change tactics!")
+print(f"{'Email':<30} {'Tradicional':<14} {'ML'}")
+print("-" * 60)
+for correo in pruebas:
+    print(f"{correo:<30} {spam_tradicional(correo):<14} {predecir(correo, conteos, totales)}")
 ```
 
-Summary
-Machine Learning represents a fundamental shift from writing explicit rules to learning patterns from data. Instead of trying to anticipate every possible scenario with hard-coded logic, ML systems discover relationships automatically and adapt as new data becomes available.
+**Qué observar:** el enfoque tradicional falla con `w1n m0n3y fast` porque la regla no contempla variantes ortográficas. El modelo ML, al aprender estadísticamente de los ejemplos, puede capturar que el patrón general de "pedir dinero con urgencia" es spam, independientemente de la ortografía exacta.
 
-Key concepts to remember
+### Versión industrial con scikit-learn (pipeline + validación cruzada)
 
-Learning from data instead of rules: Teaching computers to find patterns rather than programming every decision is the core of Machine Learning
-Essential components: Every ML system needs a clear task, quality data, an appropriate model, a learning algorithm, and evaluation metrics
-Real-world applications: From spam filtering to fraud detection, ML powers systems that would be impossible to build with traditional rule-based approaches
-Production considerations: Successful ML involves monitoring, versioning, retraining, and scaling—not just training models
+```python
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import cross_val_score, GridSearchCV
+from sklearn.metrics import classification_report, confusion_matrix
+
+X = [t for t, _ in dataset]
+y = [l for _, l in dataset]
+
+pipe = Pipeline([
+    ("tfidf", TfidfVectorizer(ngram_range=(1, 2), min_df=1, sublinear_tf=True)),
+    ("clf", LogisticRegression(max_iter=1000, class_weight="balanced")),
+])
+
+# Búsqueda de hiperparámetros con validación cruzada
+grid = {
+    "tfidf__ngram_range": [(1, 1), (1, 2), (1, 3)],
+    "clf__C": [0.1, 1.0, 10.0],       # inverso de la regularización
+}
+search = GridSearchCV(pipe, grid, cv=3, scoring="f1_macro", n_jobs=-1)
+search.fit(X, y)
+
+print("Mejores hiperparámetros:", search.best_params_)
+print("F1 promedio en CV:", search.best_score_)
+
+# Reporte de métricas
+y_pred = search.predict(X)
+print(classification_report(y, y_pred))
+print("Matriz de confusión:")
+print(confusion_matrix(y, y_pred))
+```
+
+### Visualizando bias vs. varianza
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import make_pipeline
+
+# Datos sintéticos: y = sin(x) + ruido
+rng = np.random.default_rng(42)
+X = np.linspace(0, 2 * np.pi, 30).reshape(-1, 1)
+y = np.sin(X).ravel() + rng.normal(0, 0.2, X.shape[0])
+
+X_test = np.linspace(0, 2 * np.pi, 200).reshape(-1, 1)
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+for ax, grado in zip(axes, [1, 4, 15]):
+    modelo = make_pipeline(PolynomialFeatures(grado), LinearRegression())
+    modelo.fit(X, y)
+    ax.scatter(X, y, color="black", s=20)
+    ax.plot(X_test, modelo.predict(X_test), color="red")
+    ax.plot(X_test, np.sin(X_test), color="green", linestyle="--", label="verdad")
+    diagnostico = {1: "underfitting", 4: "ajuste correcto", 15: "overfitting"}[grado]
+    ax.set_title(f"grado {grado} → {diagnostico}")
+    ax.legend()
+plt.show()
+```
+
+- Grado 1: línea recta → *underfitting* (alto bias).
+- Grado 4: curva suave que sigue el seno → punto dulce.
+- Grado 15: pasa por casi todos los puntos pero oscila salvajemente → *overfitting* (alta varianza).
+
+## Errores comunes
+
+- **Confundir correlación con causalidad.** Un modelo puede aprender que la gente que compra pañales también compra cerveza, pero eso no significa que vender pañales *cause* ventas de cerveza. Para decisiones causales usa inferencia causal (DAGs, do-calculus de Pearl), no solo correlaciones.
+- **Data leakage.** Incluir en los features información que en producción no estará disponible al momento de predecir (ej. usar el precio final de venta para predecir el precio de venta). Formas sutiles:
+  - *Target leakage:* feature que es efecto de la etiqueta.
+  - *Train-test contamination:* normalizar con media global antes del split.
+  - *Temporal leakage:* usar datos futuros para predecir el pasado.
+- **Entrenar y evaluar en los mismos datos.** El modelo parece perfecto porque memorizó; en producción se desploma. Siempre usa un split train/val/test.
+- **Olvidar el *data drift* y *concept drift*.**
+  - *Data drift:* la distribución de entradas cambia (nueva demografía de usuarios).
+  - *Concept drift:* la relación entre entrada y salida cambia (durante COVID, patrones de compra cambiaron radicalmente).
+- **Métrica mal elegida.** Un modelo que siempre predice "no fraude" tiene 99.9% accuracy si solo 0.1% de transacciones son fraude, pero es inútil. Usa precision/recall o F1 cuando las clases están desbalanceadas.
+- **Sobre-ingenierizar antes de validar.** Primero comprueba que el problema realmente necesita ML (un *baseline* simple como reglas o regresión logística con TF-IDF puede ganarle a modelos complejos si los datos son limitados).
+- **Ignorar el sesgo (bias) en los datos.** Si el dataset histórico refleja discriminación (ej. aprobaciones de crédito sesgadas), el modelo la perpetúa y amplifica. Audita por grupos protegidos.
+- **Optimizar la métrica incorrecta.** Goodhart's Law: *"cuando una medida se convierte en objetivo, deja de ser una buena medida"*. Un modelo optimizado por clicks puede generar clickbait y destruir la experiencia del usuario.
+- **No versionar datos.** Reproducir un experimento 6 meses después es imposible si el CSV original fue modificado. Usa herramientas como DVC, LakeFS o Delta Lake.
+- **No fijar la semilla aleatoria.** Resultados no reproducibles → debuggear bugs es una pesadilla. `random.seed(42)`, `np.random.seed(42)`, `torch.manual_seed(42)`.
+- **Olvidar el costo de los falsos positivos/negativos.** En diagnóstico médico, un falso negativo (no detectar cáncer) es mucho más costoso que un falso positivo (biopsia innecesaria). Elige el umbral consciente de esto.
+
+## Casos de uso reales
+
+| Dominio | Aplicación | Tipo de modelo típico |
+|---|---|---|
+| Email | Filtro de spam (Gmail) | Clasificación (SVM, LR, Transformers) |
+| Streaming | Recomendación de películas (Netflix) | Collaborative filtering, matrix factorization, two-tower NN |
+| Banca | Detección de fraude en tiempo real | Gradient boosting (XGBoost, LightGBM), redes neuronales |
+| Industria | Mantenimiento predictivo | Series de tiempo, LSTM, Prophet |
+| Salud | Diagnóstico asistido por imagen | CNN (ResNet, EfficientNet), ViT |
+| Dev tools | Autocompletado de código (Copilot) | Transformers / LLMs (Codex, Code Llama) |
+| Logística | Optimización de rutas (Uber, Amazon) | Reinforcement learning, grafos (GNN) |
+| Marketing | Churn prediction, LTV | XGBoost, survival analysis |
+| Legal | Clasificación de contratos, due diligence | BERT fine-tuned, LLMs con RAG |
+| Agricultura | Detección de plagas por drone | Object detection (YOLO), segmentación |
+
+## Machine Learning en producción
+
+Entrenar un modelo en Jupyter es apenas el 10% del trabajo. Un sistema en producción debe gestionar:
+
+- **Latencia:** responder en milisegundos (autocompletado, antifraude en tiempo real). Un modelo con 500ms de inferencia es inviable para búsqueda web.
+- **Throughput:** millones de requests por hora → batching, cuantización, modelos destilados.
+- **Escala horizontal:** balanceadores, autoscaling en Kubernetes, serving con Triton / vLLM / TorchServe.
+- **Monitoreo:** detectar degradación por *data drift* o *concept drift*. Herramientas: Evidently, WhyLabs, Arize.
+- **Versionado completo:** saber exactamente qué datos + código + hiperparámetros produjeron el modelo desplegado (reproducibilidad). Stack común: MLflow + DVC + Git.
+- **Feedback loop:** capturar predicciones y outcomes reales para re-entrenar. Cuidado con *feedback loops* perversos (un sistema de recomendación que solo recomienda lo popular refuerza su propio sesgo).
+- **Fairness y sesgo:** auditar que el modelo no discrimine por género, raza, edad, etc. (fairlearn, AIF360).
+- **Explicabilidad:** SHAP, LIME, counterfactuals. Obligatorio en finanzas, salud, HR.
+- **Rollback y canary deployments:** desplegar al 1% de usuarios primero, medir, luego escalar.
+- **Shadow deployment:** correr el modelo nuevo en paralelo con el viejo sin servir sus respuestas, para comparar.
+
+### El ciclo real (MLOps)
+
+```
+┌──────────────────────────────────────────────┐
+│   Data → Features → Train → Eval → Deploy    │
+│     ↑                                   ↓    │
+│     └──── Monitor ← Serve ← Users ←─────┘    │
+└──────────────────────────────────────────────┘
+```
+
+Esto es el territorio de **MLOps** (y para modelos generativos, **LLMOps**), que verás en módulos posteriores del curso.
+
+## Conceptos relacionados que explorarás
+
+- **Feature engineering** y **feature stores** (Feast, Tecton).
+- **AutoML** (H2O, AutoGluon, Google Vertex AI).
+- **Transfer learning** y **fine-tuning** (ver Módulo 6).
+- **Prompt engineering** como "programación" de LLMs (ver Módulo 2).
+- **Retrieval-Augmented Generation (RAG)** para dar contexto fresco a los LLMs (ver Módulo 3).
+- **Agentes** que combinan LLMs con herramientas y memoria (ver Módulo 4).
+
+## Resumen
+
+- Machine Learning **invierte** la lógica tradicional: en vez de reglas, le damos datos y etiquetas y el sistema aprende las reglas.
+- Todo sistema ML tiene cuatro ingredientes: **datos**, **modelo**, **algoritmo de aprendizaje** y **métrica**.
+- El modelo es una **función parametrizada**; aprender = resolver `argmin_θ L(θ) + λR(θ)` (ERM).
+- Entender el **bias-variance tradeoff** es esencial: ni demasiado simple (underfitting) ni demasiado complejo (overfitting).
+- Existen muchos **paradigmas** de aprendizaje: supervisado, no supervisado, auto-supervisado, semi-supervisado, refuerzo, transferencia. Elegir el correcto depende de qué datos tengas.
+- ML es la respuesta correcta cuando los patrones son **complejos**, **cambiantes** o requieren **generalización**. Para reglas estables, mejor código tradicional.
+- **Métricas desalineadas** son el error más caro: siempre pregúntate qué significa fallar y a quién le duele.
+- Un modelo que funciona en el notebook no sirve si no sobrevive en producción: **monitoreo**, **versionado**, **fairness** y **re-entrenamiento** son parte del trabajo real.
+- Siempre valida con un **baseline simple** antes de invertir en modelos complejos: a veces una regresión logística con buenos features le gana a una red neuronal gigante.
+- La historia va de perceptrones (1957) a transformers (2017) a agentes (2024+); entender esa trayectoria te da intuición sobre qué viene después.

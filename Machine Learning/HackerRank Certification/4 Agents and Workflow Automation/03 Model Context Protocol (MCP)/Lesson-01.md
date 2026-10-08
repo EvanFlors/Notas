@@ -1,142 +1,270 @@
-## The Tool Integration Problem
-Your code review agent connects to GitHub beautifully. You spent two weeks building the integration—handling OAuth, rate limits, pagination, and result formatting. Now you want to add GitLab support. Another two weeks. Security scanning? Two more weeks. Every new tool means custom integration code, and the pattern repeats endlessly.
+# Introducción al Model Context Protocol (MCP)
 
-This is the tool integration problem that every agent developer faces. Across the industry, thousands of teams write the same GitHub integrations, the same Slack integrations, the same database connectors. This duplication is wasteful and fragile—every custom integration is another system to maintain, test, and update when APIs change.
+## ¿Qué es?
 
-In this lesson, you will learn about the Model Context Protocol (MCP), an open standard that solves this problem by providing a universal way for agents to connect to tools and data sources. You will understand how MCP works, when to use it, and how it can dramatically simplify your agent's tool ecosystem.
+**Model Context Protocol (MCP)** es un **protocolo abierto** publicado por **Anthropic en noviembre de 2024** que estandariza la forma en que los modelos de lenguaje (y los agentes construidos sobre ellos) se conectan a **fuentes de datos** y **herramientas externas**. En lugar de que cada equipo escriba su propia integración ad hoc para GitHub, PostgreSQL, Slack o un sistema de tickets, MCP define un **lenguaje común** que servidores y clientes hablan entre sí.
 
-By the end, you will have a clear mental model of MCP's architecture and be ready to build both servers and clients that speak this protocol.
+La analogía oficial es la del **USB-C para IA**: un único conector físico/lógico que permite enchufar cualquier periférico (herramienta) a cualquier host (modelo). Antes de MCP cada aplicación LLM reinventaba la rueda; después de MCP un mismo servidor sirve a Claude Desktop, Cursor, Zed, VS Code, Cline, Continue y cualquier otro cliente compatible.
 
-Why Custom Integrations Break Down
-Building agents that use tools is powerful, but it creates a scaling challenge. Your code review agent needs to connect to GitHub, security scanners, coverage services, and notification systems. Each integration requires understanding the specific API, handling authentication, managing rate limits, and formatting data for the agent.
+> **Definición formal:** MCP es un protocolo cliente/servidor basado en **JSON-RPC 2.0** que especifica tres primitivas (**tools**, **resources**, **prompts**), un mecanismo de **capability negotiation**, y varios **transports** (stdio, SSE, streamable HTTP) sobre los que viaja el intercambio de mensajes.
 
-Now imagine you want to add a new code analysis tool. You write another custom integration. Want to switch security scanners? Rewrite that integration. Want to share your GitHub integration with another team? They need to understand your specific implementation details.
+### ¿Por qué un nuevo protocolo?
 
-```python
-# The custom integration approach: repeat for every tool
-github_client = GitHubClient(token)
-pr = github_client.get_pr("company/repo", 1247)
+Antes de MCP teníamos tres patrones principales para conectar un LLM al mundo exterior:
 
-# Different API, different patterns
-scanner = SecurityScanner(api_key)
-vulnerabilities = scanner.scan(files)
+| Patrón | Año | Problema principal |
+|---|---|---|
+| **ChatGPT Plugins** | 2023 (deprecado 2024) | Propietario, atado a OpenAI, difícil de versionar |
+| **Function calling** nativo | 2023+ | Específico de cada proveedor, cada herramienta se define a mano en el prompt |
+| **Frameworks (LangChain, LlamaIndex)** | 2022+ | Integraciones hechas por la comunidad pero sin un protocolo común entre apps |
 
-# Yet another integration to maintain
-coverage = CoverageAPI(token)
-coverage_data = coverage.get_pr_coverage("company/repo", 1247)
+MCP no sustituye al function calling: lo **envuelve** y lo **estandariza** para que la misma herramienta pueda ser consumida por cualquier modelo o aplicación.
+
+## ¿Por qué importa?
+
+Imagina que construyes un **agente de code review**. Hoy necesitas conectarlo a GitHub (OAuth, paginación, rate limits), a un escáner de seguridad (API propietaria), a un servicio de cobertura de tests (otro SDK) y a Slack para notificar. Son cuatro integraciones custom, cada una con su propio ciclo de mantenimiento. Si mañana quieres añadir GitLab, repites el trabajo. Si otro equipo quiere reutilizar tu integración de GitHub, debe entender tu código concreto.
+
+Este es el **problema de integración N×M**: `N` modelos (Claude, GPT, Gemini, Llama) multiplicados por `M` herramientas (GitHub, Slack, Postgres, Jira…) producen `N×M` integraciones distintas en el ecosistema. MCP lo convierte en `N+M`: cada modelo implementa un cliente MCP una vez, cada herramienta implementa un servidor MCP una vez.
+
+### MCP vs. function calling vs. ChatGPT Plugins
+
+| Dimensión | Function calling nativo | ChatGPT Plugins | **MCP** |
+|---|---|---|---|
+| Estándar | Propio de cada API (OpenAI, Anthropic, Google) | OpenAI, cerrado | Abierto, multi-vendor |
+| Transport | HTTP del proveedor | HTTPS + OpenAPI | stdio, SSE, streamable HTTP |
+| Descubrimiento de capacidades | Herramientas pasadas en cada request | `ai-plugin.json` + OpenAPI | `list_tools`, `list_resources`, `list_prompts` dinámicos |
+| Primitivas | Solo tools | Solo endpoints HTTP | Tools, resources, prompts, sampling |
+| Estado del proyecto | Vivo | **Deprecado** (abril 2024) | Vivo y creciendo (nov 2024+) |
+| Mantiene quién | Cada proveedor | OpenAI (ya no) | Anthropic + comunidad |
+| Lenguaje | JSON Schema | OpenAPI 3 | JSON-RPC 2.0 + JSON Schema |
+
+El valor de MCP es la **portabilidad**: el mismo servidor de Postgres funciona hoy con Claude Desktop y mañana con Cursor sin tocar nada.
+
+### Ecosistema actual
+
+- **Servers oficiales de Anthropic:** `filesystem`, `github`, `gitlab`, `google-drive`, `postgres`, `sqlite`, `slack`, `brave-search`, `fetch`, `git`, `memory`, `puppeteer`, `everart`, `sentry`.
+- **Servers de la comunidad:** cientos ya en GitHub (Linear, Notion, AWS, Cloudflare, Stripe, YouTube, etc.).
+- **Clientes compatibles:** Claude Desktop, Claude Code, Cursor, Zed, Cline, Continue, Windsurf, LibreChat, Sourcegraph Cody.
+- **SDKs oficiales:** Python (`mcp`), TypeScript (`@modelcontextprotocol/sdk`), Kotlin, Swift, C#.
+
+## ¿Cómo funciona?
+
+### Arquitectura host → client → server
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│  HOST (Claude Desktop, Claude Code, Cursor, tu app…)          │
+│                                                               │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐          │
+│  │ MCP Client  │   │ MCP Client  │   │ MCP Client  │          │
+│  └──────┬──────┘   └──────┬──────┘   └──────┬──────┘          │
+└─────────┼─────────────────┼─────────────────┼─────────────────┘
+          │ stdio           │ SSE             │ streamable HTTP
+┌─────────▼──────┐   ┌──────▼───────┐   ┌─────▼────────┐
+│ Filesystem     │   │ GitHub       │   │ Postgres     │
+│ MCP Server     │   │ MCP Server   │   │ MCP Server   │
+└────────────────┘   └──────────────┘   └──────────────┘
 ```
 
-This fragmentation means every agent system builds its own integrations, duplicating effort across the industry. There is no standard way for an agent to discover available tools, understand their capabilities, or interact with them consistently.
+- **Host:** la aplicación que el usuario ve (Claude Desktop, Claude Code, un IDE). Contiene al modelo y coordina múltiples clients.
+- **Client:** un conector 1-a-1 con un server. El host puede tener muchos clients activos a la vez.
+- **Server:** un proceso independiente que expone capacidades (tools, resources, prompts). Puede ser local (subproceso) o remoto (HTTP).
 
-MCP: A Universal Protocol for Agent Tools
-The Model Context Protocol solves this problem by providing a standard protocol for connecting AI agents to data sources and tools. Instead of building custom integrations, you implement the MCP standard on both sides: servers that expose capabilities and clients that consume them. Any MCP client can connect to any MCP server without custom code.
+Esta separación es clave: el modelo nunca habla directamente con GitHub o Postgres, siempre pasa por el server. Esto permite **sandboxing**, **auditoría** y **control de permisos** centralizado.
 
-Think of MCP like USB for AI agents. Before USB, every device needed its own connector and driver. USB standardized the physical connection and communication protocol, making devices universally compatible. MCP does the same for agent-tool communication.
+### Las primitivas de MCP
 
-```python
-# With MCP: same protocol for every tool
-github = MCPClient("github-server")
-pr = await github.call_tool("get_pr_details", {"pr_number": 1247})
+MCP define cuatro primitivas que un server puede exponer:
 
-# Same interface, different server
-security = MCPClient("security-server")
-vulns = await security.call_tool("scan_files", {"files": pr["files"]})
+| Primitiva | Qué es | Quién decide usarla | Ejemplo |
+|---|---|---|---|
+| **Tools** | Funciones ejecutables con efectos secundarios | El **modelo** (como function calling) | `create_issue`, `run_sql`, `send_slack_message` |
+| **Resources** | Datos de solo lectura identificados por URI | La **aplicación** (host) carga y pasa al contexto | `file:///README.md`, `postgres://db/schema` |
+| **Prompts** | Plantillas de interacción parametrizadas | El **usuario** las invoca (ej. slash commands) | `/security-review`, `/explain-schema` |
+| **Sampling** | El server pide al host hacer una llamada al LLM | El **server** (inversión de control) | Un server que necesita resumir texto grande |
 
-# Swap servers without changing code
-coverage = MCPClient("coverage-server")
-data = await coverage.call_tool("get_coverage", {"pr_number": 1247})
+Esta separación es más rica que el simple "function calling". **Tools** son acciones; **resources** son contexto; **prompts** son flujos guiados. Un buen server de GitHub expone `get_pr_details` como tool, `github://repo/pulls/123/diff` como resource, y `/review-pr` como prompt.
+
+### Transports
+
+MCP viaja sobre tres transports estandarizados:
+
+| Transport | Cuándo usarlo | Pros | Contras |
+|---|---|---|---|
+| **stdio** | Servers locales lanzados por el host (subproceso) | Simple, sin red, cero config | Solo local, un proceso por client |
+| **SSE** (Server-Sent Events) | Servers remotos legacy | Streaming simple sobre HTTP | Marcado como legacy en spec reciente |
+| **Streamable HTTP** | Servers remotos modernos (2025+) | Bidireccional, resumible, escalable | Más complejo de implementar |
+
+En la práctica, el 90% de los servers oficiales que hoy ves en Claude Desktop usan **stdio**: el host arranca `npx -y @modelcontextprotocol/server-filesystem /ruta` como subproceso y habla con él por stdin/stdout.
+
+### Ciclo de vida de una sesión MCP
+
+```
+1. INITIALIZE          client → server:  "hola, hablo MCP v2024-11-05"
+                       server → client:  "yo también, soporto tools+resources"
+2. CAPABILITY NEGOTIATE ambos acuerdan qué features usar
+3. DISCOVERY           client llama list_tools, list_resources, list_prompts
+4. OPERATION           loop: call_tool, read_resource, get_prompt...
+5. SHUTDOWN             cierre limpio del transport
 ```
 
-The power of standardization becomes clear when you need to change tools. If a better security scanner becomes available with an MCP interface, you swap the server connection without touching your agent code. Your agent speaks MCP; the servers speak MCP; everything works together.
+El paso de **capability negotiation** es importante: no todos los servers soportan todas las primitivas, y las versiones del protocolo evolucionan. Si cliente y servidor no se ponen de acuerdo en la versión, deben fallar explícitamente, no silenciosamente.
 
-What MCP Provides
-MCP standardizes three key aspects of agent-tool integration: discovery, communication, and context management.
+### Authentication
 
-Discovery allows agents to find out what tools and data sources are available. When an MCP client connects to a server, it can query what capabilities exist. A GitHub MCP server might expose tools like ```get_pr_details```, ```post_comment```, and ```merge_pr```, plus resources like pull request data and repository information. The agent learns these capabilities dynamically rather than having them hardcoded.
+MCP **no define autenticación en el protocolo mismo**; delega al transport:
 
-Communication standardizes how agents interact with tools. MCP defines message formats for invoking tools, passing parameters, and receiving results. An agent built to speak MCP can use any MCP-compatible tool without modification. The protocol handles serialization, error reporting, and response formatting consistently.
+- **stdio:** confía en el proceso padre; se pasan credenciales por variables de entorno (`GITHUB_TOKEN=...`).
+- **HTTP/SSE:** se usa el estándar HTTP (Bearer tokens, mTLS). Desde 2025, la spec recomienda **OAuth 2.1** para servers remotos públicos.
 
-Context management addresses how agents access and maintain context from external sources. MCP servers can provide not just tools but also resources—data the agent can read and reference. A code review server might provide the PR diff as a resource, available for the agent to reference throughout the review without repeated API calls.
+Es responsabilidad del host **almacenar secretos de forma segura** (Keychain en macOS, variables de entorno, secret managers) y nunca enviarlos como parámetros de tool.
 
-Core Concepts: Servers, Clients, Tools, and Resources
-Understanding MCP requires familiarity with its building blocks.
+## Ejemplo con código
 
-Servers expose capabilities to agents. An MCP server is a process that implements the MCP protocol and provides tools, resources, or both. A GitHub MCP server connects to GitHub's API and exposes that functionality through MCP. Servers can run locally, on remote machines, or in containers.
+### 1. Un server mínimo con el SDK de Python
 
-Clients consume server capabilities. Your agent acts as an MCP client, connecting to one or more servers. The client discovers available tools, invokes them when needed, and processes results. Most LLM frameworks provide MCP client support or easy integration paths.
+```python
+# server_hello.py
+from mcp.server.fastmcp import FastMCP
 
-Tools are functions the server exposes. Tools have names, descriptions, and parameter schemas—similar to function calling schemas you may already know. The difference is that MCP standardizes how tools are described and invoked across all servers.
+mcp = FastMCP("hello-server")
+
+# Un tool: el modelo puede invocarlo
+@mcp.tool()
+def saludar(nombre: str) -> str:
+    """Devuelve un saludo personalizado."""
+    return f"¡Hola, {nombre}! Bienvenido a MCP."
+
+# Un resource: el host lo carga como contexto
+@mcp.resource("config://ejemplo")
+def config_ejemplo() -> str:
+    """Configuración de ejemplo expuesta como recurso."""
+    return '{"version": "1.0", "entorno": "desarrollo"}'
+
+if __name__ == "__main__":
+    mcp.run()  # por defecto, transport = stdio
+```
+
+Para usarlo desde Claude Desktop, se añade al archivo de configuración (`~/Library/Application Support/Claude/claude_desktop_config.json` en macOS):
 
 ```json
 {
-"name": "get_pr_details",
-"description": "Retrieves pull request information including files and status",
-"inputSchema": {
-  "type": "object",
-  "properties": {
-    "owner": {"type": "string", "description": "Repository owner"},
-    "repo": {"type": "string", "description": "Repository name"},
-    "pr_number": {"type": "integer", "description": "Pull request number"}
-  },
-  "required": ["owner", "repo", "pr_number"]
-}
+  "mcpServers": {
+    "hello": {
+      "command": "python",
+      "args": ["/ruta/absoluta/a/server_hello.py"]
+    }
+  }
 }
 ```
 
-Resources are data sources the server provides. Unlike tools (which perform actions), resources provide data the agent can read. A GitHub server might expose resources for repository contents, PR diffs, or issue lists. Resources support efficient data access without repeated tool calls.
+### 2. Configurar un server oficial (filesystem) en Claude Desktop
 
-Prompts are pre-defined interaction patterns the server provides. A code review server might offer a "security-review" prompt that guides the agent through security-focused analysis. Prompts help agents use tools effectively for common scenarios.
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/yo/Documents",
+        "/Users/yo/Proyectos"
+      ]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_xxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  }
+}
+```
 
-These concepts work together: clients connect to servers, discover available tools and resources, invoke tools to perform actions, read resources for context, and optionally use prompts for guided interactions.
+Tras reiniciar Claude Desktop, el modelo puede listar directorios, leer archivos, crear issues en GitHub, etc., sin que escribas una sola línea de código adicional.
 
-![MCP architecture: clients connect to servers that expose tools and resources](https://hrcdn.net/ai-engineering/module-4/dark/mcp-lesson01-architecture.svg)
+### 3. Un client mínimo que lista y llama tools
 
-MCP vs Custom Integrations
-Understanding the differences between MCP and custom integrations helps you decide when each approach makes sense.
+```python
+# client_demo.py
+import asyncio
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 
-Custom integrations give you complete control. You decide exactly how to call APIs, format data, and handle errors. For specialized, performance-critical, or proprietary systems, custom integrations might be necessary. But they are expensive to build, maintain, and share.
+async def main():
+    params = StdioServerParameters(
+        command="python",
+        args=["server_hello.py"],
+    )
 
-MCP integrations provide standardization at the cost of some flexibility. You work within the protocol's constraints, but you gain interoperability, reduced development time, and access to a growing ecosystem of compatible tools.
+    async with stdio_client(params) as (read, write):
+        async with ClientSession(read, write) as session:
+            # 1. Handshake + negociación de capacidades
+            await session.initialize()
 
-| Aspect | Custom Integration | MCP Integration |
-|--------|-------------------|-----------------|
-| Development time | Days to weeks per tool | Hours if MCP server exists |
-| Maintenance | You maintain everything | Server maintainers handle updates |
-| Switching tools | Rewrite integration | Change server connection |
-| Sharing | Share code + documentation | Share server address |
-| Control | Complete | Protocol-constrained |
+            # 2. Discovery
+            tools = await session.list_tools()
+            for t in tools.tools:
+                print(f"- {t.name}: {t.description}")
 
-MCP shines when you want to integrate multiple tools quickly, benefit from community-maintained servers, or build agents that work with tools you do not control. Custom integrations make sense for proprietary systems, extreme performance requirements, or capabilities MCP does not support.
+            resources = await session.list_resources()
+            for r in resources.resources:
+                print(f"- recurso {r.uri}")
 
-In practice, many production systems use both. MCP for standard integrations like version control, databases, and common services; custom integrations for specialized internal tools. The approaches are complementary, not exclusive.
+            # 3. Invocación de tool
+            resultado = await session.call_tool("saludar", {"nombre": "Ana"})
+            print("Resultado:", resultado.content[0].text)
 
-When to Use MCP
-MCP is not always the right choice. Understanding when it helps guides good architectural decisions.
+            # 4. Lectura de resource
+            cfg = await session.read_resource("config://ejemplo")
+            print("Config:", cfg.contents[0].text)
 
-Use MCP when:
+if __name__ == "__main__":
+    asyncio.run(main())
+```
 
-Integrating with tools that have MCP servers available
-Building agents that need flexibility to swap tools
-Sharing integrations across teams or projects
-You want to benefit from community-maintained servers
-Building agents that connect to user-provided tools
-Consider alternatives when:
+### 4. Instalación
 
-Performance is critical and MCP overhead matters
-You need capabilities MCP does not support
-The tool is proprietary with no MCP server
-You are building a single-purpose agent with fixed tools
-For a code review agent, MCP is an excellent fit. Code review integrates many standard tools (version control, scanners, coverage services) that likely have MCP servers. The ability to swap components as better tools emerge is valuable. Sharing your agent's capabilities with other teams becomes straightforward.
+```bash
+# SDK de Python
+pip install mcp
 
-Summary
-The Model Context Protocol standardizes how AI agents connect to tools and data sources. It solves the tool integration problem by providing a common protocol for discovery, communication, and context management. Any MCP client can work with any MCP server, enabling interoperability across the ecosystem.
+# SDK de TypeScript
+npm install @modelcontextprotocol/sdk
 
-MCP introduces core concepts: servers that expose capabilities, clients that consume them, tools for actions, resources for data, and prompts for guided interactions. The growing ecosystem provides ready-made servers for common integrations while allowing custom server development for specialized needs.
+# Server oficial de ejemplo
+npx -y @modelcontextprotocol/server-filesystem ~/Documents
 
-Key Takeaways:
+# CLI de debugging
+npx -y @modelcontextprotocol/inspector python server_hello.py
+```
 
-MCP standardizes agent-tool integration like USB standardized device connections—any client works with any server
-Servers expose tools and resources; clients discover and use them through a common protocol
-Discovery, communication, and context management are the three pillars of MCP
-MCP enables tool swapping, sharing, and ecosystem benefits at some cost in flexibility
-Production systems often combine MCP for standard integrations with custom code for specialized needs
+El **MCP Inspector** es tu mejor amigo durante el desarrollo: abre una UI web donde puedes ver tools, invocarlos a mano y leer los logs del server.
+
+## Errores comunes
+
+- **Confundir MCP con un reemplazo de function calling.** MCP se apoya en function calling por debajo; no lo elimina. Es una capa de **estandarización y descubrimiento**, no una tecnología de inferencia.
+- **No manejar el schema version mismatch.** Si tu client habla `2024-11-05` y el server `2025-03-26`, deben negociarlo en `initialize`. Ignorarlo produce errores silenciosos difíciles de depurar.
+- **Exponer secretos como resources.** Un server que publica `secrets://api-keys/prod` como resource los filtra al contexto del modelo. Los secretos van en variables de entorno del proceso server, nunca como datos servidos.
+- **Dar acceso de filesystem a `/` o `~`.** El server oficial de filesystem toma rutas permitidas como argumento (`npx ... /Users/yo/Proyectos`). Pasar `/` convierte al modelo en un `rm -rf` potencial.
+- **Olvidar que los tools tienen efectos secundarios.** `delete_repo`, `send_email`, `run_sql` son irreversibles. Marca los destructivos y pide confirmación al usuario desde el host.
+- **No implementar reinicio ante crash.** Un server que muere deja al host sin esa capacidad hasta reiniciar manualmente. Usa supervisores (systemd, pm2) o lógica de reconexión en el client.
+- **Hard-codear rutas o credenciales en el server.** Usa `os.environ` y argumentos CLI. Facilita despliegues y testing.
+- **Olvidar validar inputs de tools.** JSON Schema valida tipos pero no semántica. Si `pr_number` debe ser > 0, valídalo tú.
+- **No usar el Inspector durante el desarrollo.** Depurar MCP sin verlo graficamente es doloroso. `npx @modelcontextprotocol/inspector` es gratis.
+- **Asumir que todos los clientes soportan todas las primitivas.** Claude Desktop soporta tools, resources y prompts; otros clientes solo tools. Diseña tu server para degradarse si falta algo.
+
+## Resumen
+
+- **MCP** es un protocolo abierto de Anthropic (noviembre 2024) que estandariza la conexión entre LLMs y herramientas/datos externos, basado en **JSON-RPC 2.0**.
+- Resuelve el problema **N×M** de integraciones: cada modelo implementa un client una vez, cada herramienta implementa un server una vez.
+- Arquitectura **host → client → server**: el host (Claude Desktop, Cursor) coordina múltiples clients, cada uno conectado a un server independiente.
+- Cuatro **primitivas**: tools (acciones), resources (datos de solo lectura), prompts (plantillas) y sampling (el server pide inferencia al host).
+- Tres **transports**: stdio (local, lo más común), SSE (legacy), streamable HTTP (remoto moderno).
+- Se compara favorablemente con **ChatGPT plugins** (deprecados) y es **complementario** al function calling nativo, al que envuelve con una capa de descubrimiento y portabilidad.
+- Ecosistema vivo: decenas de servers oficiales (filesystem, github, postgres, slack…) y cientos de la comunidad.
+- Herramientas clave: `mcp` (Python), `@modelcontextprotocol/sdk` (TS), **Claude Desktop**, **Claude Code**, **MCP Inspector**.
+- La **autenticación** no está en el protocolo: viaja por el transport (env vars en stdio, OAuth 2.1 en HTTP remoto).
+- Buenas prácticas: nunca exponer secretos como resources, limitar el scope del filesystem, validar inputs, planificar reinicios y usar el Inspector para depurar.

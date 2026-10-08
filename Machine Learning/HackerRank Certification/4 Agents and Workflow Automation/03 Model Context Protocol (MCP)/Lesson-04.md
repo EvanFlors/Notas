@@ -1,211 +1,304 @@
-## Putting It All Together
-You have learned about MCP servers and clients individually. Now it is time to see how they combine into a production system. A code review agent that can check security, verify coverage, fetch PR details, and post comments—all through standardized MCP connections.
+# Sistema MCP de extremo a extremo
 
-This synthesis lesson brings everything together. You will see how multiple specialized servers collaborate, how a client manages their capabilities, and how an agent orchestrates the full review workflow.
+## ¿Qué es?
 
-By the end, you will have a blueprint for building modular, maintainable agent systems using MCP.
+Esta lesson une todo lo anterior en un **sistema completo de producción**: un agente de code review que utiliza múltiples MCP servers especializados a través de un client manager unificado. Es un patrón arquitectónico aplicable mucho más allá del code review: data analysis, soporte, DevOps, operaciones de negocio.
 
-Designing the Architecture
-Building a production code review system with MCP demonstrates how servers, clients, and agents work together. The architecture separates concerns cleanly: each server handles one domain, the client aggregates capabilities, and the agent orchestrates the workflow.
+La arquitectura general es:
 
-The system has three layers. At the top, the Code Review Agent handles LLM-powered decision making. It connects to the MCP Client Manager, which manages connections and routes tool calls. The client manager connects to multiple specialized servers running in parallel.
-
-Each server focuses on one domain:
-
-GitHub Server: PR details, file contents, posting comments
-Security Scanner Server: Vulnerability detection, code analysis
-Coverage Server: Test coverage data, untested code identification
-Slack Server: Developer notifications, review alerts
-This separation allows independent development, testing, and scaling. Servers can be swapped without affecting others. New capabilities can be added by connecting additional servers.
-
-The Complete Code Review Agent
-The agent orchestrates reviews using tools from all connected servers. It follows the same pattern as single-server agents, but now draws capabilities from multiple specialized sources:
-
-```python
-class MCPCodeReviewAgent:
-  def __init__(self, llm_client, mcp_manager, config):
-      self.llm = llm_client
-      self.mcp = mcp_manager
-      self.config = config
-
-  async def review_pr(self, owner: str, repo: str, pr_number: int):
-      """Perform a complete code review using MCP tools"""
-      messages = [
-          {"role": "system", "content": self._system_prompt()},
-          {"role": "user", "content": f"Review PR #{pr_number} in {owner}/{repo}"}
-      ]
-      tools = self.mcp.get_tools_for_llm()
-
-      for iteration in range(self.config.get("max_iterations", 15)):
-          response = await self.llm.chat.completions.create(
-              model=self.config.get("model", "gpt-4"),
-              messages=messages, tools=tools
-          )
-          choice = response.choices[0]
-
-          if choice.finish_reason == "tool_calls":
-              messages.append(choice.message)
-              for call in choice.message.tool_calls:
-                  result = await self.mcp.call_tool(
-                      call.function.name, json.loads(call.function.arguments)
-                  )
-                  messages.append({"role": "tool", "tool_call_id": call.id,
-                                  "content": json.dumps(result)})
-          else:
-              return {"success": True, "review": choice.message.content}
+```
+┌───────────────────────────────────────────────────────────┐
+│  HOST: Agent de code review (LLM: Claude Sonnet)          │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │          MCP Client Manager (routing)               │  │
+│  └──┬──────────┬──────────┬──────────┬────────────────┘  │
+└─────┼──────────┼──────────┼──────────┼───────────────────┘
+      │          │          │          │
+┌─────▼──┐  ┌────▼───┐  ┌───▼────┐  ┌──▼──────┐
+│ GitHub │  │Security│  │Coverage│  │  Slack  │
+│ server │  │scanner │  │ server │  │  server │
+└────────┘  └────────┘  └────────┘  └─────────┘
 ```
 
-The agent does not need to know which server provides which tool—the client handles routing transparently. This enables modular systems where servers can be swapped or added without changing agent code.
+Cada server es **independiente** (código, despliegue, escalado), el client manager **agrega** sus capacidades, y el agente **orquesta** sin saber qué server provee cada tool.
 
-Configuration-Driven Setup
-Production systems separate configuration from code. Server connections, credentials, and behavior settings come from external configuration:
+### Qué veremos
+
+- Diseño modular por dominio (un server = una responsabilidad).
+- Configuración declarativa con YAML + variables de entorno.
+- Loop del agente con reintentos, timeouts y degradación.
+- Observabilidad: logs estructurados, métricas, tracing.
+- Consideraciones de seguridad en producción.
+
+## ¿Por qué importa?
+
+Un agente que llama una sola API es un juguete. Un agente de producción:
+
+- Combina **múltiples fuentes** (código + CI + métricas + canal humano).
+- Debe seguir funcionando **cuando algo falla** (si Slack cae, el review no se cancela).
+- Se **actualiza por partes** (cambiar el escáner de seguridad no debe tocar el agente).
+- Es **auditable**: hay que saber qué tool se llamó, con qué args, qué respondió.
+- Es **testeable**: cada server se prueba aislado, el agente se prueba con servers mock.
+
+MCP convierte estos requisitos en algo tratable. Sin MCP, cada equipo escribe su propio marco de integración de herramientas y acaba replicando lo mismo. Con MCP, obtienes servers reutilizables, un patrón de client probado y un ecosistema creciente de piezas intercambiables.
+
+## ¿Cómo funciona?
+
+### 1. Separación de responsabilidades
+
+| Server | Responsabilidad única | Tools típicos |
+|---|---|---|
+| **github** | Repos, PRs, issues, comentarios | `get_pr_details`, `get_file_content`, `post_review` |
+| **security** | Escaneo estático y SCA | `scan_code_security`, `check_dependencies` |
+| **coverage** | Cobertura de tests | `get_coverage`, `find_untested_code` |
+| **slack** | Notificaciones | `send_message`, `create_thread` |
+
+Esta separación permite:
+
+- Equipos distintos mantienen servers distintos.
+- Fallos aislados (si `security` cae, el agente sigue con los otros tres).
+- Escalado independiente (si `security` consume CPU, se escala solo él).
+- Testeo individual (mocks por server).
+
+### 2. Configuración declarativa
+
+Toda la configuración del sistema vive fuera del código:
 
 ```yaml
+# review_system.yaml
 servers:
-github:
-  command: ["python", "servers/github_server.py"]
-  env:
-    GITHUB_TOKEN: \${GITHUB_TOKEN}
-security:
-  command: ["python", "servers/security_server.py"]
-  env:
-    SCANNER_API_KEY: \${SCANNER_API_KEY}
-coverage:
-  command: ["python", "servers/coverage_server.py"]
-slack:
-  command: ["python", "servers/slack_server.py"]
-  env:
-    SLACK_TOKEN: \${SLACK_TOKEN}
+  github:
+    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_TOKEN}
+  security:
+    command: ["python", "servers/security_server.py"]
+    env:
+      SCANNER_API_KEY: ${SCANNER_API_KEY}
+  coverage:
+    command: ["python", "servers/coverage_server.py"]
+  slack:
+    command: ["python", "servers/slack_server.py"]
+    env:
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+    optional: true   # si falla, el agente sigue sin él
 
 agent:
-model: gpt-4
-max_iterations: 15
-timeout_seconds: 300
+  model: claude-sonnet-4-5
+  max_iterations: 15
+  timeout_seconds: 300
+  required_tools:
+    - get_pr_details    # sin esto, no hay review
 ```
 
-The client reads this configuration and connects to each server:
+### 3. Orquestación
+
+El agente sigue el patrón ReAct (razonar → actuar → observar), pero las acciones son tool calls MCP:
+
+```
+┌──────────────────────────────────────────────┐
+│  Usuario: "revisa PR #1247 de company/api"   │
+└─────────────────────┬────────────────────────┘
+                      ▼
+      ┌─────────────────────────────┐
+      │  LLM piensa + decide tools  │
+      └─────────────┬───────────────┘
+                    ▼
+      ┌─────────────────────────────┐
+      │  MCP manager rutea al server│
+      └─────────────┬───────────────┘
+                    ▼
+      ┌─────────────────────────────┐
+      │  Server ejecuta, devuelve   │
+      └─────────────┬───────────────┘
+                    ▼
+    (loop hasta que el LLM responda sin tool_calls)
+```
+
+### 4. Degradación controlada
+
+Un server marcado como `optional: true` puede fallar sin tumbar el sistema. El manager omite sus tools de la lista presentada al LLM, de modo que el modelo ni siquiera intenta usarlos.
+
+## Ejemplo con código
+
+### Construcción del sistema desde YAML
 
 ```python
-import yaml
+# review_system.py
 import os
-
-async def create_review_system(config_path: str):
-  # Load configuration
-  with open(config_path) as f:
-      config = yaml.safe_load(f)
-
-  # Initialize MCP client
-  mcp_client = MCPClientManager()
-
-  # Connect to each configured server
-  for name, server_config in config["servers"].items():
-      # Expand environment variables
-      env = {}
-      for key, value in server_config.get("env", {}).items():
-          if value.startswith("\${") and value.endswith("}"):
-              env_var = value[2:-1]
-              env[key] = os.environ.get(env_var, "")
-          else:
-              env[key] = value
-
-      await mcp_client.connect_server(
-          name=name,
-          command=server_config["command"],
-          env=env
-      )
-
-  # Create agent with connected client
-  llm = AsyncOpenAI()
-  agent = MCPCodeReviewAgent(llm, mcp_client, config["agent"])
-
-  return agent, mcp_client
-```
-
-This approach makes deployment flexible—enable or disable servers via config, manage credentials through environment variables, and tune agent behavior without code changes.
-
-Example Review Flow
-Here is how a typical review unfolds:
-
-```markdown
-1. Agent calls get_pr_details(owner="company", repo="backend-api", pr_number=1247)
- → Returns: PR adds OAuth authentication, changes 5 files in auth/ directory
-
-2. Agent calls get_file_content for each changed auth file
- → Returns: File contents for security analysis
-
-3. Agent calls scan_code_security with file contents
- → Returns: 1 high severity issue (hardcoded secret), 2 medium issues
-
-4. Agent calls check_test_coverage for auth/ files
- → Returns: 67% coverage, missing tests for error handling
-
-5. Agent calls post_review with REQUEST_CHANGES:
- "Found security issues that must be addressed:
- - HIGH: Hardcoded API secret in auth/oauth.py line 45
- - MEDIUM: Missing input validation in auth/tokens.py
-
- Test coverage is 67%, below 80% threshold. Please add tests for:
- - OAuth error handling paths
- - Token expiration scenarios"
-The agent seamlessly uses tools from GitHub (PR details, file contents), security scanner (vulnerability detection), coverage service (test metrics), and GitHub again (posting review). MCP makes this multi-server orchestration transparent.
-```
-
-Production Considerations
-Deploying this system in production requires additional considerations beyond the core functionality.
-
-Monitoring and Observability: Track review duration, tools used, findings count, and outcomes. This helps identify slow servers, optimize agent prompts, and measure review quality.
-
-```python
+import yaml
+import asyncio
+import json
 import logging
 from datetime import datetime
+import anthropic
+from client_manager import MCPClientManager  # del lesson 03
 
-logger = logging.getLogger("code-review-agent")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("review-system")
 
-async def monitored_review(agent, owner, repo, pr_number, **kwargs):
-  start_time = datetime.now()
-  logger.info(f"Starting review of {owner}/{repo}#{pr_number}")
+def expand_env(value: str) -> str:
+    """Expande ${VAR} desde el entorno."""
+    if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+        return os.environ.get(value[2:-1], "")
+    return value
 
-  try:
-      result = await agent.review_pr(owner, repo, pr_number, **kwargs)
-      duration = (datetime.now() - start_time).seconds
+async def build_system(config_path: str):
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
 
-      logger.info(
-          f"Review completed in {duration}s, "
-          f"{result['iterations']} iterations, "
-          f"tools: {result['tools_used']}"
-      )
-      return result
-  except Exception as e:
-      logger.error(f"Review failed: {e}")
-      raise
+    mgr = MCPClientManager()
+    for name, s_cfg in config["servers"].items():
+        env = {k: expand_env(v) for k, v in s_cfg.get("env", {}).items()}
+        try:
+            await mgr.connect_stdio(name, s_cfg["command"], env=env)
+            log.info("conectado server=%s", name)
+        except Exception as e:
+            if s_cfg.get("optional"):
+                log.warning("server opcional %s falló: %s", name, e)
+            else:
+                raise
+
+    # chequeo de tools requeridos
+    required = set(config["agent"].get("required_tools", []))
+    missing = required - set(mgr.tools.keys())
+    if missing:
+        raise RuntimeError(f"faltan tools requeridos: {missing}")
+
+    return mgr, config["agent"]
 ```
 
-Scaling: For high-volume deployments, run multiple agent workers processing a review queue. Each worker maintains its own MCP client connections.
+### Agente completo
 
-Security: Never hardcode credentials. Use environment variables or secrets managers. Validate that PR numbers and repositories match allowed patterns before processing.
+```python
+class CodeReviewAgent:
+    SYSTEM = (
+        "Eres un revisor de código senior. Para cada PR:\n"
+        "1. Obtén los detalles con get_pr_details.\n"
+        "2. Lee cada archivo cambiado.\n"
+        "3. Escanea con las tools de seguridad y cobertura disponibles.\n"
+        "4. Publica un review (post_review) con hallazgos accionables.\n"
+        "5. Notifica al autor si hay cambios críticos."
+    )
 
-Graceful Degradation: If a server fails (say, the security scanner), the agent should still complete reviews using available tools rather than failing entirely.
+    def __init__(self, mgr: MCPClientManager, cfg: dict):
+        self.mgr = mgr
+        self.cfg = cfg
+        self.llm = anthropic.Anthropic()
 
-Common Pitfalls and Solutions
-Tight coupling between agent and servers: If your agent code references specific tool names, changing servers requires code changes. Instead, let the agent discover tools dynamically and use tool descriptions to guide selection.
+    async def review(self, owner: str, repo: str, pr_number: int):
+        start = datetime.now()
+        messages = [{"role": "user",
+                     "content": f"Revisa PR #{pr_number} en {owner}/{repo}"}]
+        tools = self.mgr.tools_for_anthropic()
+        tools_used = []
 
-Not testing server failures: Production servers fail. Test what happens when GitHub is rate-limited, the security scanner times out, or Slack rejects a message. Build resilience from the start.
+        for i in range(self.cfg.get("max_iterations", 15)):
+            resp = self.llm.messages.create(
+                model=self.cfg["model"],
+                max_tokens=4096,
+                system=self.SYSTEM,
+                tools=tools,
+                messages=messages,
+            )
 
-Overloading context with tool results: Large file contents or extensive security reports can overwhelm the LLM context. Consider summarizing results before passing them to the agent.
+            if resp.stop_reason != "tool_use":
+                summary = "".join(b.text for b in resp.content if b.type == "text")
+                duration = (datetime.now() - start).total_seconds()
+                log.info("review ok duration=%.1fs iter=%d tools=%s",
+                         duration, i, tools_used)
+                return {"ok": True, "review": summary,
+                        "iterations": i, "tools_used": tools_used}
 
-Ignoring cost implications: Each LLM call with many tools costs more. Track token usage and optimize tool descriptions to minimize overhead.
+            messages.append({"role": "assistant", "content": resp.content})
+            results = []
+            for block in resp.content:
+                if block.type == "tool_use":
+                    tools_used.append(block.name)
+                    out = await self.mgr.call(block.name, block.input, timeout=30)
+                    results.append({"type": "tool_result",
+                                    "tool_use_id": block.id,
+                                    "content": json.dumps(out),
+                                    "is_error": not out.get("ok")})
+            messages.append({"role": "user", "content": results})
 
-Summary
-Building a code review system with MCP demonstrates the power of standardized tool integration. Specialized servers handle GitHub operations, security scanning, coverage analysis, and notifications. A unified client connects to all servers and aggregates their capabilities. The agent orchestrates reviews using tools from any connected server without knowing which server provides what.
+        log.error("review excedió max_iterations")
+        return {"ok": False, "error": "max_iterations_exceeded"}
+```
 
-This architecture provides flexibility (swap servers without code changes), scalability (add more specialized servers), and maintainability (each server is independent). MCP's standardization means the same agent works with any MCP-compatible tools.
+### Punto de entrada
 
-Key Takeaways:
+```python
+async def main():
+    mgr, agent_cfg = await build_system("review_system.yaml")
+    agent = CodeReviewAgent(mgr, agent_cfg)
+    try:
+        result = await agent.review("company", "backend-api", 1247)
+        print(json.dumps(result, indent=2))
+    finally:
+        await mgr.close()
 
-Separate concerns into specialized servers: GitHub, security, coverage, notifications
-Use a unified client to aggregate capabilities from all servers
-Configure servers through external configuration for deployment flexibility
-The agent orchestrates multi-server workflows through standard MCP tool calls
-Production systems need monitoring, error handling, and graceful degradation
-MCP enables building modular, maintainable agent systems with interchangeable components
-You have now mastered the Model Context Protocol. You understand how MCP standardizes agent-tool integration, and you have learned to build both servers and clients that work together in production systems.
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Flujo típico de un review
+
+```
+1. get_pr_details(owner="company", repo="backend-api", pr_number=1247)
+   → PR añade OAuth, cambia 5 archivos en auth/
+
+2. get_file_content(path="auth/oauth.py") × 5
+   → contenidos de los archivos
+
+3. scan_code_security(files=[...])
+   → 1 crítico (secret hard-codeado), 2 medios
+
+4. get_coverage(path="auth/")
+   → 67%, faltan tests para error handling
+
+5. post_review(pr_number=1247, event="REQUEST_CHANGES", body="""
+   Hallazgos:
+   - CRÍTICO: secret hard-codeado en auth/oauth.py L45
+   - MEDIO: validación de input faltante en auth/tokens.py
+   Cobertura 67% < umbral 80%. Añadir tests para:
+   - manejo de errores OAuth
+   - expiración de token
+   """)
+
+6. send_message(channel="#backend", text="Review publicado en PR #1247")
+```
+
+### Consideraciones de producción
+
+- **Observabilidad:** loguea en JSON (`structlog`), emite métricas (duración por tool, errores por server) a Prometheus/Datadog, correlaciona con `trace_id`.
+- **Escalado:** varios workers consumiendo una cola (Redis/SQS); cada worker tiene su propio `MCPClientManager`.
+- **Secretos:** nunca en código; usa Vault, AWS Secrets Manager, variables de entorno gestionadas.
+- **Allowlist:** valida que `owner`/`repo` estén en una lista permitida antes de operar.
+- **Resumen de tool outputs:** si un tool devuelve 500 KB, resume antes de pasar al modelo o guarda en resource y referencia por URI.
+
+## Errores comunes
+
+- **Acoplar el agente a nombres de tools específicos.** Si tu system prompt dice "siempre llama get_pr_details_v2", migrar servers rompe todo. Deja que el modelo descubra las tools por sus `description`.
+- **No probar escenarios de fallo.** En desarrollo todo está UP; en producción Slack rate-limita, GitHub devuelve 503 y el escáner cuelga. Simula estos fallos con mocks.
+- **Saturar el contexto con resultados gigantes.** Un diff de 3000 líneas o un reporte de seguridad de 10 MB consume el context window. Resume o pagina.
+- **Ignorar el costo.** Cada iteración del loop es una llamada al LLM con todos los tools serializados. Vigila tokens de entrada y salida; optimiza descripciones de tools (menos ejemplos redundantes).
+- **No distinguir fallos transitorios de permanentes.** `timeout` reintenta; `tool desconocido` no. Clasifica errores en el manager.
+- **Loguear secretos.** Si tus logs incluyen `arguments` crudos y un tool recibe un token, acabas con credenciales en Splunk. Filtra campos sensibles antes de loguear.
+- **Olvidar `required_tools`.** Un agente que arranca sin su tool principal "funciona" alucinando. Chequea presencia tras conectar.
+- **No versionar la config.** `review_system.yaml` cambia; versiónalo en Git como cualquier código.
+- **Mezclar entornos.** Un server de GitHub conectado a producción desde un entorno de desarrollo puede causar daño real (cerrar PRs, borrar branches). Usa cuentas y tokens separados por entorno.
+- **Max iterations demasiado alto sin circuit breaker.** 50 iteraciones con un loop infinito del modelo = factura inesperada. Combina `max_iterations` con un presupuesto de tokens.
+
+## Resumen
+
+- Un sistema MCP de producción compone **múltiples servers especializados** (uno por dominio) tras un **client manager** y un **agente orquestador**.
+- La **separación por dominios** permite desarrollo, despliegue y escalado independientes de cada server.
+- La **configuración declarativa** (YAML + env) saca servers, credenciales y modelo del código y facilita rotar o deshabilitar piezas.
+- El **agente nunca sabe** qué server implementa qué tool; el manager rutea transparentemente.
+- La **degradación controlada** (servers opcionales) hace al sistema resistente a fallos parciales.
+- **Observabilidad** (logs estructurados, métricas, tracing) y **seguridad** (secretos externos, allowlists, aislamiento por entorno) son requisitos, no extras.
+- **Resumir outputs grandes** antes de pasarlos al LLM mantiene el context manejable y el costo controlado.
+- Testea **escenarios de fallo** y limita `max_iterations` + presupuesto de tokens para evitar runaway costs.
+- Con MCP, mover un sistema entre proveedores (`claude-sonnet-4-5` → `gpt-5` → `gemini-2.5-pro`) requiere cambiar el cliente LLM; **los servers son los mismos**.
+- Dominas MCP cuando puedes articular por qué tal tool va en un server u otro, cuándo degradar, cómo observar y qué romper deliberadamente para probar.

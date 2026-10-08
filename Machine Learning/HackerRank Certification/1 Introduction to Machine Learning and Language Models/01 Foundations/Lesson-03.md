@@ -1,200 +1,290 @@
-# Model Lifecycle
+# Ciclo de Vida del Modelo (Model Lifecycle)
 
-Imagine you have built a machine learning model to predict customer churn for your company. The model shows 95% accuracy in your Jupyter notebook, so you deploy it to production with confidence. Three months later, you discover the model is performing terribly; customers who were predicted to stay are leaving, while your retention campaigns are targeting users who were never going to churn anyway.
+## ¿Qué es?
 
-What went wrong? The model looked great in development but failed in the real world. This is the classic problem of skipping the proper machine learning lifecycle. Just like you would not ship a mobile app without testing it first, you cannot deploy ML models without following a systematic approach to building, validating, and maintaining them.
+El **ciclo de vida del modelo** es la secuencia **disciplinada de etapas** por las que pasa un sistema de ML desde los datos crudos hasta un servicio en producción que se mantiene con el tiempo. No es un proyecto con fecha de cierre: es un **loop continuo** de entrenar, validar, desplegar, monitorear y re-entrenar.
 
-In this lesson, you will learn how to design data splits that mimic the future, build pipelines that match production, record the right metadata for reproducibility, and diagnose overfitting and underfitting quickly. You will understand the complete journey from raw data to production deployment.
+> **Definición operativa:** un modelo tiene un *ciclo de vida* saludable cuando puedes responder, para cualquier predicción servida en producción, estas tres preguntas: ¿qué datos lo entrenaron?, ¿qué código lo generó?, ¿cómo se comporta hoy vs. ayer?
 
-By the end, you will have a blueprint you can apply to any supervised ML task and a mental model that helps when you fine-tune LLMs or ship embedding-based systems.
+El error cultural más común es tratar al modelo como un *entregable* (como un reporte de Jupyter) en vez de un *servicio* que vive, decae y debe mantenerse. Un modelo con 95% accuracy en el notebook puede desplomarse a 60% tres meses después si no hay disciplina de ciclo de vida.
 
-Training, Validation and Testing
+### Las fases del ciclo
 
-One of the most critical aspects of successful ML development is properly splitting your data into three distinct sets: training, validation, and test. Think of this like preparing for an exam where training is studying, validation is taking practice tests, and the test set is your final exam.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  Recolección → EDA → Features → Split → Train → Validate →      │
+│                                                        ↓        │
+│         ┌─────── Monitor ← Serve ← Deploy ← Test ◄────┘        │
+│         ↓                                                       │
+│      Retrain (schedule o trigger)  →  nuevo ciclo               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-Training Set (60-70% of data)**: This is where your model learns patterns. Your algorithm sees this data and adjusts its parameters to minimize prediction errors. For example, if you are building a fraud detection system, your training set contains thousands of labeled transactions where the model learns to distinguish between legitimate and fraudulent patterns.
+## ¿Por qué importa?
 
-Validation Set (15-20% of data)**: This acts as your development testing ground. You use this data to tune hyperparameters, select the best model architecture, and make decisions about feature engineering. Crucially, while you make decisions based on validation performance, the model does not directly learn from this data during training.
+Un modelo que **no sobrevive el paso a producción** no genera valor, por bueno que sea su `R²`. Las fallas típicas son:
 
-Test Set (15-20% of data)**: Your final, untouched evaluation set. This simulates real-world performance because the model has never seen this data during any part of development. This is your honest assessment of how the model will perform in production.
+- **Preprocessing leakage:** el `StandardScaler` se ajustó con datos del test, inflando artificialmente la métrica.
+- **Distribution shift silencioso:** la data drift hace que un modelo "preciso" degrade mes a mes sin que nadie se entere.
+- **Imposibilidad de rollback:** no se versionó qué dataset entrenó el modelo que hoy sirve → debuggear un incidente requiere arqueología digital.
+- **Métrica desalineada con negocio:** maximizar F1 cuando el costo real está en falsos negativos de 100× el de falsos positivos.
 
-Consider a recommendation system for an e-commerce platform. Your training set teaches the model user preferences, the validation set helps you choose between collaborative filtering versus content-based approaches, and the test set gives you confidence in the system's performance before launching to customers.
+El ciclo de vida importa porque **transforma ML de un arte artesanal a una disciplina de ingeniería**: reproducible, auditable, operacional. Esta disciplina se conoce como **MLOps** (y para LLMs, **LLMOps**).
 
-![Data Split Visualization](https://hrcdn.net/ai-engineering/module-1/light/foundations-lesson03-train-val-test-split.svg)
+### Analogía: pasta cocinada
 
-Choosing the Right Split Strategy
-The way you split your data must match your production environment. Choose the pattern that fits your data:
+- **Underfitting:** pasta cruda. El modelo no absorbió los patrones.
+- **Overfitting:** pasta sobrecocida. Memoriza ruido, se vuelve rígido e inútil fuera del plato específico.
+- **Sweet spot:** al dente. Captura la señal, generaliza, y mantiene estabilidad.
 
-Random + stratified when data is independent and identically distributed (no time or identity ties). Stratify to keep minority labels in each split.
-Time-based when tomorrow can differ from today (forecasts, churn, fraud, traffic, content). Sort by time: oldest → train, middle → validation, newest → test. This blocks "seeing the future."
-Group-aware when the same entity repeats (user, device, patient, item). Keep each entity in one split to avoid identity leakage.
+## ¿Cómo funciona?
+
+### 1. Diseño de splits: train / validation / test
+
+Dividir los datos correctamente es la **decisión de producto más subestimada** en ML. Es análogo a preparar un examen: *training* = estudiar, *validation* = exámenes de práctica, *test* = examen final.
+
+| Split | Tamaño típico | Propósito | Cuándo lo "ve" el modelo |
+|---|---|---|---|
+| **Training** | 60-70% | Ajusta parámetros (`θ`) | En cada paso de gradient descent |
+| **Validation** | 15-20% | Tunea hiperparámetros, elige arquitectura, early stopping | Entre épocas, para decisiones |
+| **Test** | 15-20% | Estimación honesta del desempeño futuro | **Una sola vez**, al final |
+
+![Visualización del split de datos](https://hrcdn.net/ai-engineering/module-1/light/foundations-lesson03-train-val-test-split.svg)
+
+> **Regla de oro:** el test set es sagrado. Si lo tocas más de una vez para tomar decisiones, ya no es un test set — se convirtió en otro validation. Esto se llama *test set contamination* y es la fuente #1 de modelos que fallan en producción.
+
+#### Elegir la estrategia de split
+
+El split **debe reflejar cómo se usará el modelo en producción**:
+
+| Estrategia | Cuándo usar | Qué prevenir |
+|---|---|---|
+| **Random + stratified** | Datos i.i.d. sin dependencia temporal ni identidad; mantener proporción de clases | Clases minoritarias ausentes en un split |
+| **Time-based** | Datos con componente temporal (forecast, churn, fraude) | Ver el futuro al predecir el pasado |
+| **Group-aware (GroupKFold)** | La misma entidad se repite (usuario, paciente, dispositivo) | *Identity leakage*: mismo usuario en train y test |
+| **Stratified group** | Combinas grupos con desbalance de clases | Ambos problemas simultáneos |
+| **TimeSeriesSplit** | Backtesting con ventana expansiva o deslizante | Overfit a un periodo específico |
 
 ```python
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from datetime import datetime, timedelta
+from sklearn.model_selection import train_test_split, GroupKFold, TimeSeriesSplit
 
-# Create sample data
+# Dataset simulado con usuarios y timestamps
 np.random.seed(42)
-n_samples = 1000
-
-# Sample dataset with time and user information
-data = pd.DataFrame({
-    'user_id': np.random.randint(1, 100, n_samples),
-    'timestamp': pd.date_range('2023-01-01', periods=n_samples, freq='H'),
-    'feature1': np.random.randn(n_samples),
-    'feature2': np.random.randn(n_samples),
-    'target': np.random.randint(0, 2, n_samples)
+n = 1000
+df = pd.DataFrame({
+    "user_id":   np.random.randint(1, 100, n),
+    "timestamp": pd.date_range("2023-01-01", periods=n, freq="H"),
+    "feature1":  np.random.randn(n),
+    "feature2":  np.random.randn(n),
+    "target":    np.random.randint(0, 2, n),
 })
 
-print("=== DATA SPLITTING STRATEGIES ===")
-print(f"Dataset: {len(data)} samples, {data['user_id'].nunique()} users")
-print(f"Time range: {data['timestamp'].min()} to {data['timestamp'].max()}")
+# 1) Random stratified: datos sin tiempo ni identidad
+train, test = train_test_split(df, test_size=0.2, stratify=df["target"], random_state=42)
 
-# 1. Random Split (Wrong for time series)
-print("\n1. RANDOM SPLIT (dangerous for time series):")
-train_random, test_random = train_test_split(data, test_size=0.2, random_state=42)
-print(f"Train time range: {train_random['timestamp'].min()} to {train_random['timestamp'].max()}")
-print(f"Test time range: {test_random['timestamp'].min()} to {test_random['timestamp'].max()}")
-print("Problem: Test data contains past information!")
+# 2) Time-based: respetar la flecha del tiempo
+df = df.sort_values("timestamp")
+cut = df["timestamp"].quantile(0.8)
+train_t = df[df["timestamp"] <  cut]
+test_t  = df[df["timestamp"] >= cut]
+assert train_t["timestamp"].max() < test_t["timestamp"].min()
 
-# 2. Time-based Split (Correct for time series)
-print("\n2. TIME-BASED SPLIT (correct approach):")
-data_sorted = data.sort_values('timestamp')
-split_time = data_sorted['timestamp'].quantile(0.8)
-train_time = data_sorted[data_sorted['timestamp'] < split_time]
-test_time = data_sorted[data_sorted['timestamp'] >= split_time]
-print(f"Train time range: {train_time['timestamp'].min()} to {train_time['timestamp'].max()}")
-print(f"Test time range: {test_time['timestamp'].min()} to {test_time['timestamp'].max()}")
-print("Correct: Test data is strictly in the future!")
+# 3) Group-aware: ningún usuario cruza entre train y test
+gkf = GroupKFold(n_splits=5)
+for fold, (tr_idx, te_idx) in enumerate(gkf.split(df, df["target"], groups=df["user_id"])):
+    tr_users = set(df.iloc[tr_idx]["user_id"])
+    te_users = set(df.iloc[te_idx]["user_id"])
+    assert len(tr_users & te_users) == 0, "¡Fuga de usuarios!"
+    print(f"Fold {fold}: train={len(tr_idx)} test={len(te_idx)}")
 
-# 3. Group-aware Split (Correct for user data)
-print("\n3. GROUP-AWARE SPLIT (prevents user leakage):")
-unique_users = data['user_id'].unique()
-train_users = np.random.choice(unique_users, size=int(0.8 * len(unique_users)), replace=False)
-train_group = data[data['user_id'].isin(train_users)]
-test_group = data[~data['user_id'].isin(train_users)]
-print(f"Train users: {len(train_users)}, Test users: {len(unique_users) - len(train_users)}")
-print(f"No user appears in both train and test: {len(set(train_group['user_id']) & set(test_group['user_id'])) == 0}")
-
-print("\nKey lesson: Choose split strategy based on your data structure!")
+# 4) Series de tiempo con ventanas crecientes
+tss = TimeSeriesSplit(n_splits=5)
+for fold, (tr, te) in enumerate(tss.split(df)):
+    print(f"Fold {fold}: train[0..{tr[-1]}]  test[{te[0]}..{te[-1]}]")
 ```
 
-Building Production-Ready Pipelines
-In production, preprocessing must be identical to training. The safest approach is to ship a single pipeline that includes preprocessing and the model. Always fit preprocessing on training data only, then reuse it for validation, test, and serving. This prevents a subtle but common failure called preprocessing leakage.
+### 2. Pipelines reproducibles: fit solo en training
 
-For example, when building a customer churn model, your preprocessing pipeline might normalize spending amounts and encode categorical features. If you fit your scaler on all data before splitting, your model inadvertently sees future information through the scaling parameters. Instead, fit the scaler only on training data, then apply those same scaling parameters to validation, test, and production data
+En producción, el preprocesamiento debe ser **idéntico** al de entrenamiento. La forma segura es empaquetar preprocesamiento + modelo en un **único pipeline** y serializarlo como una unidad.
+
+> **Preprocessing leakage:** ajustar un `StandardScaler`, `TfidfVectorizer` o `OneHotEncoder` sobre todos los datos *antes* del split. El modelo "ve" estadísticas del test (media, varianza, vocabulario) y la métrica se infla.
 
 ```python
-# Wrong: Fit preprocessing on all data
+# ❌ MAL: fit sobre todos los datos → leakage
+from sklearn.preprocessing import StandardScaler
 scaler = StandardScaler().fit(all_data)
 X_train = scaler.transform(train_data)
-X_test = scaler.transform(test_data)
+X_test  = scaler.transform(test_data)   # test contaminó al scaler
 
-# Right: Fit only on training data
-scaler = StandardScaler().fit(train_data)
-X_train = scaler.transform(train_data)
-X_test = scaler.transform(test_data)  # Uses train statistics
+# ✅ BIEN: fit solo en train, aplica a test / producción
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.ensemble import GradientBoostingClassifier
+
+pre = ColumnTransformer([
+    ("num", StandardScaler(),                 ["spending", "visits"]),
+    ("cat", OneHotEncoder(handle_unknown="ignore"), ["plan", "region"]),
+])
+
+pipe = Pipeline([
+    ("pre", pre),
+    ("clf", GradientBoostingClassifier(random_state=42)),
+])
+pipe.fit(X_train, y_train)
+# Guardar la unidad completa:
+import joblib
+joblib.dump(pipe, "churn_v1.3.joblib")
 ```
 
-Understanding Overfitting vs Underfitting
-Think of overfitting and underfitting like cooking pasta. Underfit models are like undercooked pasta; they have not learned enough to be useful. Overfit models are like overcooked pasta; they have learned too much detail and become rigid and unusable.
+### 3. Overfitting vs. underfitting
 
-Underfitting (High Bias): Your model is too simple to capture the underlying patterns. It performs poorly on both training and validation data. For example, trying to predict house prices using only the number of bedrooms; you are missing crucial information like location, size, and condition.
+![Overfitting vs underfitting](https://hrcdn.net/ai-engineering/module-1/light/1.1.3_underfitting_overfitting.svg)
 
-Overfitting (High Variance): Your model memorizes training data instead of learning generalizable patterns. It performs excellently on training data but poorly on validation and test data. This happens when you have too many features relative to your dataset size, or when your model is overly complex.
+| Diagnóstico | Train error | Val error | Causa | Qué hacer |
+|---|---|---|---|---|
+| **Underfit (alto bias)** | Alto | Alto | Modelo demasiado simple o pocas features | Más capacidad, mejores features, menos regularización |
+| **Overfit (alta varianza)** | Bajo | Alto | Modelo memoriza ruido | Regularizar, más datos, dropout, early stopping |
+| **Sweet spot** | Bajo | Bajo (similar) | Captura la señal, generaliza | Nada, lanza a producción |
+| **Datos pobres** | Alto en ambos pero train > val | — | Dataset tiene mucho ruido o labels malos | Mejorar labels, limpiar datos |
 
-The Sweet Spot: A well-fitted model captures the essential patterns without memorizing noise. It shows good performance on training data and similar (slightly lower) performance on validation data.
+**Descomposición formal:**
 
-![Overfitting vs Underfitting](https://hrcdn.net/ai-engineering/module-1/light/1.1.3_underfitting_overfitting.svg)
+```
+Error_total = Bias² + Varianza + Ruido_irreducible
+```
 
-Bias-Variance Intuition
-High bias → underfit (too rigid)
-High variance → overfit (too sensitive)
-Aim for the simplest model that performs well on validation and is stable across time and data slices.
+- **Bias:** error por supuestos simplificadores del modelo.
+- **Varianza:** sensibilidad a fluctuaciones del dataset de entrenamiento.
+- **Ruido irreducible:** aleatoriedad intrínseca del fenómeno.
 
-To understand overfitting and underfitting, plot your training and validation loss over time. If training loss decreases while validation loss increases or plateaus, you're overfitting. If both remain high, you're underfitting.
+#### Learning curves: la herramienta de diagnóstico #1
 
-Adjust the model complexity slider to see how it affects training and validation loss in real-time. Watch how underfitting, good fit, and overfitting manifest in the loss curves; a fundamental concept in machine learning that determines whether your model will succeed in production.
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import learning_curve
+from sklearn.ensemble import RandomForestClassifier
 
-Experiment: Start with complexity at 1 (underfitting), gradually increase to 5 (sweet spot), then push to 10 (overfitting). Observe how the gap between training and validation loss changes. This hands-on experience helps understand the bias-variance tradeoff that is critical in production Machine learning.
+sizes, train_s, val_s = learning_curve(
+    RandomForestClassifier(n_estimators=100, random_state=42),
+    X, y,
+    train_sizes=np.linspace(0.1, 1.0, 10),
+    cv=5, scoring="f1_macro", n_jobs=-1,
+)
 
-Model and Data Versioning
-In software development, you version your code. In ML, you must version both your models and datasets because both evolve constantly. Data versioning is often overlooked but equally critical since any model's performance is only as good as the data quality and consistency.
+plt.plot(sizes, train_s.mean(axis=1), label="train")
+plt.plot(sizes, val_s.mean(axis=1),   label="validation")
+plt.fill_between(sizes, val_s.mean(axis=1)-val_s.std(axis=1),
+                        val_s.mean(axis=1)+val_s.std(axis=1), alpha=0.2)
+plt.xlabel("tamaño del training set")
+plt.ylabel("F1 macro")
+plt.legend(); plt.title("Learning Curve")
+```
 
-You must be able to answer: "Which model, trained on which data, made this decision?" That means versioning all three layers:
+- Si ambas curvas convergen alto → underfit.
+- Si gap grande que no cierra con más datos → overfit.
+- Si gap que *sí* cierra con más datos → recolectar más es la mejor inversión.
 
-Data Versioning Strategy: Every time you collect new data, clean existing data, or modify features, create a new version. Use tools like DVC (Data Version Control) or simple naming conventions with timestamps. For instance, customer_data_v2.1_2024_03_15 clearly indicates version and collection date.
+### 4. Versionado: datos + código + modelo
 
-Model Versioning Approach: Version models after each training run, not just successful ones. Include metadata about the training data version, hyperparameters, and performance metrics. A practical naming scheme might be fraud_detection_v1.3_acc_0.94_2024_03_15, which immediately tells you the model version, accuracy, and training date.
+En desarrollo de software versionas tu código. En ML debes versionar **tres capas**, porque todas evolucionan constantemente:
 
-Code & Configuration: Track git SHA, library versions, hyperparameters, random seeds, decision thresholds, and the version of your label-generation logic.
+| Capa | Qué incluye | Herramientas |
+|---|---|---|
+| **Datos** | Datasets crudos, limpios, features engineereadas, splits exactos | DVC, LakeFS, Delta Lake, Pachyderm |
+| **Código** | Git SHA, versión de librerías, hiperparámetros, random seeds, umbral de decisión | Git + `requirements.txt` / `poetry.lock`, Hydra |
+| **Modelo** | Pesos, métricas, metadata del training run | MLflow, Weights & Biases, Neptune, Vertex AI Model Registry |
 
-Netflix versions their recommendation models continuously. When they discovered that user behavior changed during the pandemic, they could quickly roll back to previous model versions or retrain with updated data while maintaining full traceability of what changed and why.
+**Convenciones de naming útiles:**
 
-## Production Lifecycle Management
-Moving from Jupyter notebooks to production systems requires understanding the complete model lifecycle.
+```
+customer_data_v2.1_2024_03_15.parquet
+fraud_detection_v1.3_acc_0.94_f1_0.87_2024_03_15.joblib
+```
 
-Development Phase
-Start with exploratory data analysis and feature engineering. Use your training/validation split to iterate quickly on model architectures and hyperparameters. Document everything: which features you tried, why you chose specific algorithms, and what didn't work.
+> **Netflix:** versiona sus modelos de recomendación continuamente. Cuando el comportamiento cambió durante la pandemia, pudieron rollback rápido a versiones previas y re-entrenar manteniendo trazabilidad total de qué cambió y por qué.
 
-Staging Phase
-Test your model with production-like data volumes and latency requirements. This is where you discover that your beautiful gradient boosting model takes 10 seconds per prediction—unacceptable for real-time applications. You might need to switch to a faster linear model or implement model compression techniques.
+### 5. Fases de despliegue
 
-Production Deployment
-Deploy safely by running in shadow mode, then canary to a small percentage of traffic. Implement monitoring for data drift, model performance degradation, and system health. Real-world data changes constantly. Your customer behavior model trained on pre-pandemic data might become useless during economic uncertainty.
+| Fase | Objetivo | Riesgo que mitiga |
+|---|---|---|
+| **Development** | EDA, feature engineering, iteración rápida | Decidir si el problema es siquiera resoluble |
+| **Staging** | Probar con volumen y latencia productivos | Descubrir que tu XGBoost tarda 10s por predicción |
+| **Shadow deployment** | Correr nuevo modelo en paralelo sin servir sus respuestas | Comparar vs. baseline sin impactar usuarios |
+| **Canary (1-5%)** | Servir a una fracción pequeña de tráfico | Detectar bugs antes del rollout masivo |
+| **Full rollout** | 100% del tráfico | — |
+| **Rollback plan** | Volver al modelo anterior en minutos | Incidentes en producción |
 
-Continuous Improvement
-Monitor latency (p50/p95), errors, score distributions, and precision/recall at your chosen threshold once labels arrive. Detect drift by watching input drift, output drift, and performance drift when ground truth catches up. Establish feedback loops to collect new data and retrain models. Set up automated retraining pipelines that trigger when performance drops below thresholds or when sufficient new data becomes available.
+### 6. Monitoreo continuo
 
-Retraining Strategy
-Implement retraining on a schedule (weekly/monthly) and on triggers (drift, schema change, metric drop). Every retrain is a new version with its own evaluation and rollback plan.
+Un modelo en producción debe medir constantemente:
 
-## Common Pitfalls and Solutions
+| Dimensión | Qué monitorear | Ejemplo de alerta |
+|---|---|---|
+| **Sistema** | Latencia p50/p95/p99, errores HTTP, uso de CPU/GPU | p95 > 300ms |
+| **Datos de entrada** | Input drift (KS test, PSI) | PSI > 0.25 en una feature clave |
+| **Predicciones** | Output drift (distribución de scores) | Media de scores cambia >3σ |
+| **Desempeño (cuando llegan labels)** | Precision/recall/F1 vs. baseline | F1 cae >5% semana a semana |
+| **Negocio** | Conversión, revenue, satisfacción | Conversión del grupo tratado < control |
 
-Data Leakage
-Data leakage occurs when information from the future or target variable inadvertently appears in your training features. This creates artificially high performance metrics that completely fail in production.
+Herramientas: Evidently AI, WhyLabs, Arize, Fiddler, Datadog ML Monitoring.
 
-Temporal Leakage: Using future information to predict past events. For example, including "account_closed_date" as a feature to predict customer churn—obviously customers who churned have this date filled, but you won't know this information when making real-time predictions.
+### 7. Estrategia de re-entrenamiento
 
-Target Leakage: Including features that are direct consequences of the target variable. In credit scoring, using "default_flag" to predict loan defaults seems obvious but is completely circular.
+| Trigger | Cuándo | Ejemplo |
+|---|---|---|
+| **Scheduled** | Cada N días/semanas | Weekly retrain de modelos de churn |
+| **Drift-based** | Cuando PSI o KL supera umbral | Reentrenar si drift > 0.25 |
+| **Performance-based** | Cuando F1 cae X% | Reentrenar si F1 cae >5% |
+| **Volume-based** | Cuando llega N nuevo data | Reentrenar cada 100K nuevos ejemplos |
+| **Schema change** | Nueva feature o cambio de upstream | Reentrenar + validar pipeline |
 
-Solution: Implement strict temporal ordering in your data splits. Ensure your test set represents truly future data that your model will encounter in production. Create detailed feature documentation that traces the origin and availability timeline of each feature.
+Cada retrain es **una nueva versión** con su propia evaluación y plan de rollback. Automatiza esto con Airflow, Prefect, Kubeflow Pipelines o Vertex AI Pipelines.
 
-Improper Data Splitting
-Random splitting works for stable datasets, but most real-world applications involve time-series data where future information must never leak into training.
+## Errores comunes
 
-The Wrong Way: Randomly shuffling all your data before splitting. This means your model might be trained on data from December and tested on data from January—but in production, it needs to predict February using only information available through January.
+- **Data leakage temporal.** Incluir `account_closed_date` como feature para predecir churn: obviamente los que churned tienen esa fecha. En producción no la tendrás y el modelo se desploma. Siempre audita el **timeline de disponibilidad** de cada feature.
+- **Target leakage.** Usar `default_flag` para predecir default de crédito: circular. El modelo "aprende" algo que es consecuencia directa del target.
+- **Preprocessing leakage.** Ajustar scaler/encoder sobre todo el dataset antes del split. Usa `Pipeline` + `fit` solo en train.
+- **Split aleatorio para series de tiempo.** Entrenar con datos de diciembre y testear con enero funciona en el notebook, pero en producción debes predecir febrero con info solo hasta enero. Usa **time-based split**.
+- **Identity leakage.** Mismo usuario/paciente en train y test. El modelo "memoriza" la identidad en vez de aprender patrones. Usa `GroupKFold`.
+- **Celebrar accuracy sin ver la matriz de confusión.** 99% accuracy con 1% de clase positiva = modelo que predice "no" siempre. Siempre revisa precision/recall por clase.
+- **No versionar el dataset de entrenamiento.** 6 meses después alguien pregunta "¿cómo entrenamos este modelo?" y el CSV fue sobreescrito. DVC lo resuelve.
+- **No fijar random seeds.** Resultados no reproducibles → debuggear bugs se vuelve brujería. `random.seed(42)`, `np.random.seed(42)`, `torch.manual_seed(42)`.
+- **Modelo bellísimo pero inviable en latencia.** XGBoost con 2000 árboles da +0.3% F1 pero tarda 500ms. En hot path de ads/search es inviable. Mide latencia desde el día 1.
+- **Olvidar el feedback loop perverso.** Un recomendador que solo recomienda lo popular refuerza su propio sesgo: los nuevos ítems nunca se exponen. Mitiga con exploración.
+- **No tener plan de rollback.** El modelo nuevo degrada producción un sábado a las 2am. ¿Cómo vuelves al anterior en 5 minutos? Si no sabes la respuesta, no estás listo para producción.
+- **Confundir "modelo entrenado" con "sistema desplegado".** El 90% del trabajo real está en pipelines, monitoreo, retraining y governance — no en el `.fit()`.
+- **Scale mismatch.** El modelo funciona con CSVs limpios en el laptop pero falla con streaming real que tiene nulos, formatos variables y volumen 100× mayor. Testea con **production-scale data** desde staging.
+- **Ignorar fairness por grupo.** El modelo promedia bien pero discrimina sistemáticamente a un grupo. Audita por género, raza, edad, geografía (fairlearn, AIF360).
 
-The Right Way: Use temporal splits where training data comes from earlier time periods than validation and test data. For a customer churn model, train on months 1-8, validate on month 9, and test on month 10.
+### Herramientas industriales por fase
 
-Improper Data Splitting
-Random splitting works for stable datasets, but most real-world applications involve time-series data where future information must never leak into training.
+| Fase | Herramientas típicas |
+|---|---|
+| Versionado de datos | DVC, LakeFS, Delta Lake, Pachyderm |
+| Experiment tracking | MLflow, Weights & Biases, Neptune, Comet |
+| Orquestación | Airflow, Prefect, Dagster, Kubeflow Pipelines |
+| Feature stores | Feast, Tecton, Hopsworks, Vertex AI Feature Store |
+| Model serving | TorchServe, Triton, BentoML, Seldon, KServe, SageMaker |
+| Monitoreo | Evidently, WhyLabs, Arize, Fiddler, Datadog ML |
+| Governance | ModelDB, MLflow Model Registry, Vertex Model Registry |
 
-The Wrong Way: Randomly shuffling all your data before splitting. This means your model might be trained on data from December and tested on data from January—but in production, it needs to predict February using only information available through January.
+## Resumen
 
-The Right Way: Use temporal splits where training data comes from earlier time periods than validation and test data. For a customer churn model, train on months 1-8, validate on month 9, and test on month 10.
-
-Overfitting Disguised as Success
-High training accuracy can mask serious overfitting problems. Teams often celebrate 99% training accuracy without checking validation performance, only to discover 60% accuracy in production.
-
-Always plot learning curves showing both training and validation performance over time. Implement early stopping when validation performance stops improving. Use cross-validation for smaller datasets to get more robust performance estimates.
-
-Scale Mismatch
-Models that work perfectly on your laptop with cleaned CSV files often fail when processing real-time streaming data with missing values, different formats, and volume constraints.
-
-Solution: Test with production-scale data volumes during development. Implement robust preprocessing pipelines that handle missing data, outliers, and format variations. Build monitoring to detect when incoming data differs from training data distributions.
-
-## Summary
-The model lifecycle forms the backbone of successful ML engineering. Your ability to manage data splits, version control, and avoid overfitting directly determines whether your models succeed or fail in production.
-
-A dependable ML system is the result of a disciplined lifecycle, not a lucky model. Design train/validation/test splits that mimic production (time flows forward, entities repeat, labels may be rare). Version data, code, and models together so any prediction is reproducible and rollbacks are easy. Use the train-validation gap to detect over/underfitting and guide your next step. After the "final exam," treat the model like a service: deploy safely, monitor drift and latency, and retrain on purpose.
-
-Key concepts to remember
-
-Split design is a product decision: Mirror reality (time, identity, imbalance) in your data splits
-Ship the whole pipeline: Fit transforms on training data only to prevent preprocessing leakage
-Version everything: Track data, code, and model versions together for reproducibility
-Use fast signals: Monitor the train-validation gap to detect problems early
-Production is different: Plan for monitoring, drift detection, and retraining from day one
+- El ciclo de vida del modelo es un **loop continuo**, no un proyecto con fecha de cierre. Un modelo en producción es un servicio que vive, decae y se mantiene.
+- Diseñar los **splits** es una decisión de producto: deben **espejar la realidad de producción** (tiempo, identidad, desbalance).
+- El **test set es sagrado**: una sola mirada al final. Tocarlo repetidamente lo contamina.
+- **Pipeline reproducible:** fit del preprocesamiento solo en train, serializa pre + modelo como una unidad. Previene preprocessing leakage.
+- **Overfitting vs underfitting** se diagnostica con el gap train/validation y learning curves. La respuesta no siempre es "más capacidad": a veces es más datos, mejores features o más regularización.
+- **Versiona tres capas**: datos (DVC), código (Git), modelos (MLflow). Debes poder responder: "¿qué modelo, entrenado con qué datos, tomó esta decisión?"
+- **Despliegue seguro:** staging → shadow → canary → full rollout. Siempre con plan de rollback de minutos.
+- **Monitoreo multidimensional:** sistema (latencia), datos (drift), predicciones (output drift), negocio (métricas de impacto).
+- **Re-entrenamiento disciplinado:** por schedule, drift, performance o volumen. Cada retrain es una nueva versión con evaluación propia.
+- **MLOps** es la disciplina que hace sostenible todo lo anterior. Sin ella, cada modelo nuevo es un prototipo frágil.
+- El fallo más caro no es un modelo que no funciona en el notebook — es uno que *parece* funcionar y degrada silenciosamente en producción.

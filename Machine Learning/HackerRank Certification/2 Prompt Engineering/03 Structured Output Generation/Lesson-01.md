@@ -1,240 +1,308 @@
-## JSON Mode and Schema Design
-When building AI applications that integrate with existing systems, you need reliable, predictable data formats. Imagine a customer service chatbot that extracts ticket information from user messages - one day it returns {"priority": "high"}, the next day {"urgency": "critical"}, and sometimes just unstructured text. This inconsistency breaks downstream systems and frustrates users.
+# JSON Mode y Diseño de Schemas
 
-JSON mode and schema design solve this problem by creating contracts between your AI models and applications. In this lesson, you will learn to design robust schemas that balance flexibility with reliability, implement validation strategies that catch errors before they impact users, and build production-ready systems that handle edge cases gracefully. By the end of this lesson, you will be creating AI applications that generate consistent, validated structured outputs every time.
+## ¿Qué es?
 
-How JSON Mode Transforms Unstructured AI Outputs
-Traditional language model outputs are conversational and unpredictable. A model might respond to "extract customer details" with natural language like "The customer appears to be John Smith, and I think his email is john@example.com." While humans understand this perfectly, applications cannot parse it reliably.
+**Structured output generation** es la disciplina de obligar a un LLM a producir texto que cumple un **contrato de formato** verificable por máquina (JSON válido, XML con cierre correcto, CSV con el número exacto de columnas) y, además, un **contrato semántico** (los campos tienen los nombres, tipos y rangos esperados).
 
-JSON mode instructs the model to format responses as valid JSON objects, transforming the same request into structured data like {"name": "John Smith", "email": "john@example.com", "confidence": 0.92}. This structured approach enables direct integration with databases, APIs, and business logic without additional parsing layers.
+Hay dos niveles separados que la gente confunde:
 
-However, JSON mode alone only guarantees syntactically valid JSON - not semantically useful data. A model might return {"customer_name": "John Smith"} when you expected {"name": "John Smith"}, breaking your application. This is where schema design becomes critical.
+| Nivel | Qué garantiza | Qué NO garantiza |
+|---|---|---|
+| **JSON mode** (`response_format={"type": "json_object"}`) | El string de salida parsea como JSON válido | Que los campos se llamen como quieres, ni que los tipos sean correctos |
+| **Structured outputs nativos** (schema estricto) | Validez sintáctica **más** conformidad con un JSON Schema | Que los valores sean *correctos* respecto a la realidad |
 
-Effective schemas serve as blueprints that define exactly what fields to expect, their data types, and validation rules. Think of schemas as API contracts - they specify the interface between your AI system and the rest of your application architecture.
+En términos prácticos: un `json_object` puro puede devolverte `{"customer_name": "Juan"}` cuando esperabas `{"name": "Juan"}`. Un schema estricto (OpenAI `response_format={"type": "json_schema", ..., "strict": True}`, Anthropic *tool use*, grammars de llama.cpp, Outlines) **rechaza el token** siguiente si no cumple el esquema, forzando salidas 100 % conformes.
+
+### Breve evolución histórica
+
+| Año | Técnica dominante | Problema |
+|---|---|---|
+| 2020-2022 | **Regex parsing** del output natural | Frágil, fallos silenciosos al cambiar el prompt |
+| 2023 | **JSON mode** (OpenAI, nov 2023) | Sintaxis sí, semántica no |
+| 2023 | **Function calling / tool use** | Primera forma de forzar un schema concreto |
+| 2024 | **Structured outputs nativos** con decoding constrained | Garantía dura; adoptado por OpenAI, Anthropic, Google |
+| 2024-2025 | Librerías (**Pydantic**, **Instructor**, **Outlines**, **BAML**) estandarizan la DX |  |
+
+## ¿Por qué importa?
+
+Un chatbot de soporte extrae datos de un ticket. Hoy devuelve `{"priority": "high"}`, mañana `{"urgency": "critical"}` y pasado un texto en prosa. El sistema aguas abajo (base de datos, cola de prioridad, dashboard) **se rompe en producción** porque fue escrito contra un contrato que el modelo no respeta.
+
+Structured outputs importa porque:
+
+- **Integración con sistemas existentes**: APIs, bases de datos y colas esperan tipos estrictos, no prosa.
+- **Observabilidad y evaluación**: evaluar `recall` sobre un campo `priority` es trivial si el campo existe siempre; imposible si el modelo lo omite el 15 % de las veces.
+- **Costo**: cada reintento por salida malformada paga tokens de entrada **y** de salida. En volumen, el ahorro es enorme.
+- **Seguridad**: validar antes de ejecutar previene inyección de datos arbitrarios en herramientas (SQL, shell, APIs).
+- **Composición de agentes**: un agente que llama a otro agente necesita un canal tipado; prosa libre es ruido.
+
+### Cuándo NO forzar schema
+
+- **Generación creativa libre** (narrativa, brainstorming): el schema estrangula al modelo.
+- **Chat conversacional** con humano final: la respuesta ya es el producto.
+- **Modelos muy pequeños** sin soporte nativo: el prompt engineering puede ser más barato que montar grammars.
+
+## ¿Cómo funciona?
+
+### JSON mode
+
+Es un flag que modifica el **decoder** del servidor del modelo: durante el muestreo, solo se permiten tokens que puedan continuar un JSON válido. Garantiza `json.loads()` sin excepción, pero **no** valida nombres de campos ni tipos. Siempre debes incluir la palabra `JSON` en el prompt y describir el schema deseado en texto.
+
+### Structured outputs nativos (schema estricto)
+
+Un paso más: el provider recibe un JSON Schema y aplica **constrained decoding** sobre él. Cada posición de la secuencia solo acepta tokens compatibles con el schema. Resultado: la salida **siempre** valida contra tu modelo. Costos: menor fluidez cuando el schema es muy restrictivo, y no todos los modelos lo soportan.
+
+### Function calling / tool use
+
+Aunque nació para "llamar funciones", su mecanismo (describir un schema de argumentos y recibir un JSON conforme) es la forma **más portable** de obtener structured output. Anthropic recomienda explícitamente `tools` para esto; OpenAI expone ambos caminos.
+
+### Constrained decoding con grammars
+
+Librerías como **Outlines**, **llama.cpp (GBNF)**, **vLLM** y **SGLang** permiten imponer una **gramática libre de contexto** o una **expresión regular** sobre el muestreo. Esto es un superset de JSON Schema: puedes forzar un correo electrónico, un UUID, un código postal mexicano, o un dialecto propio.
+
+### Comparativa de enfoques
+
+| Enfoque | Garantía | Portabilidad | Overhead | Cuándo usarlo |
+|---|---|---|---|---|
+| Prompt + regex parsing | Ninguna | Total | Bajo | Prototipos, modelos sin API moderna |
+| JSON mode | Sintaxis JSON | OpenAI, varios | Bajo | Cuando controlas el prompt y toleras post-validación |
+| Tool use (Anthropic/OpenAI) | Schema completo | Alta entre providers top | Medio | Producción multi-provider |
+| Structured outputs nativos | Schema completo | OpenAI, Google | Medio | Un solo provider, máxima garantía |
+| Grammar-constrained (Outlines/llama.cpp) | Gramática arbitraria | Local / self-hosted | Alto | Modelos abiertos, formatos exóticos |
+
+### Pydantic como lingua franca
+
+**Pydantic v2** se ha convertido en el estándar de facto: defines una clase en Python, obtienes JSON Schema con `.model_json_schema()`, y validas con `Model.model_validate_json(texto)`. Las librerías modernas (**Instructor**, LangChain, LlamaIndex, OpenAI SDK ≥1.40) aceptan `BaseModel` directamente.
+
+| Aspecto | JSON Schema crudo | Pydantic |
+|---|---|---|
+| Legibilidad | Verboso, anidado | Clases Python idiomáticas |
+| Validación en runtime | Requiere `jsonschema` + código | Automática con mensajes claros |
+| Documentación | `description` manual | Docstrings y `Field(description=...)` |
+| Refactor | Buscar y reemplazar texto | Refactor del IDE |
+| Interop | Universal | Exporta a JSON Schema trivialmente |
+
+### Diseño de un schema robusto
+
+1. **Especificidad progresiva**: empieza con enums amplios (`"technical" | "billing" | "account"`) y refina solo cuando los datos lo exijan.
+2. **Agrupación semántica**: anida campos relacionados (`customer.email`, `customer.phone`) en vez de aplanar.
+3. **Degradación elegante**: campos opcionales con `None` para la variabilidad del mundo real; los `required` solo para lo imprescindible.
+4. **Profundidad máxima 3–4 niveles**: más allá, el modelo se confunde.
+5. **`description` en TODOS los campos**: el modelo las lee como instrucciones.
+6. **Indicadores de confianza**: incluye `confidence: float` o `_meta.uncertain: bool` para que el consumidor decida.
+7. **Nombres consistentes**: `snake_case`, sin abreviaturas ambiguas.
+
+## Ejemplo con código
+
+### 1. JSON mode "clásico" (OpenAI)
 
 ```python
-import json
 from openai import OpenAI
-from typing import Dict, List, Optional
-from pydantic import BaseModel, Field, validator
+import json
 
-class CustomerExtraction(BaseModel):
-  """Schema for extracting customer information from support tickets"""
-  name: str = Field(description="Full customer name")
-  email: Optional[str] = Field(description="Email address if available")
-  phone: Optional[str] = Field(description="Phone number if mentioned")
-  issue_category: str = Field(description="Primary issue type")
-  priority: str = Field(description="Urgency level: low, medium, high")
-  sentiment: float = Field(ge=-1.0, le=1.0, description="Sentiment score")
+client = OpenAI()
 
-  @validator('email')
-  def validate_email(cls, v):
-      if v and '@' not in v:
-          raise ValueError('Invalid email format')
-      return v
+prompt = """Extrae los datos del ticket y devuelve SOLO JSON con las claves:
+name (str), email (str|null), priority (uno de: low, medium, high).
 
-  @validator('priority')
-  def validate_priority(cls, v):
-      if v not in ['low', 'medium', 'high']:
-          raise ValueError('Priority must be low, medium, or high')
-      return v
+Ticket: Hola, soy Sara Pérez (sara@acme.com), no puedo entrar a mi cuenta,
+¡urgente, tengo demo mañana!"""
 
-# Example usage in production
-def extract_customer_info(ticket_text: str) -> CustomerExtraction:
-  prompt = f"""
-  Extract customer information from this support ticket and return as JSON:
+resp = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": prompt}],
+    response_format={"type": "json_object"},  # garantiza JSON válido
+)
 
-  {ticket_text}
-
-  Return only valid JSON matching this schema:
-  {CustomerExtraction.schema_json(indent=2)}
-  """
-
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-  )
-
-  response = client.chat.completions.create(
-      model="gpt-5-mini",
-      messages=[{"role": "user", "content": prompt}],
-      response_format={"type": "json_object"}
-  )
-
-  return CustomerExtraction.parse_raw(response.choices[0].message.content)
-
-# Sample support tickets for demonstration
-sample_tickets = [
-  """
-  From: sarah.johnson@techcorp.com
-  Subject: URGENT - Cannot access my account
-
-  Hi, this is Sarah Johnson from TechCorp. I've been trying to log into my account
-  for the past 2 hours but keep getting an error message. This is really frustrating
-  because I have an important presentation tomorrow and need access to my files.
-  My phone number is 555-123-4567 if someone needs to call me.
-  """,
-  """
-  From: mike.chen@startup.io
-  Subject: Question about billing
-
-  Hello, I'm Mike Chen and I have a quick question about my recent invoice.
-  I noticed there's a charge I don't recognize. Could someone please explain
-  what the "Premium API Access" fee is for? Thanks!
-  Email: mike.chen@startup.io
-  """,
-  """
-  Subject: Feature Request
-
-  Hi team, love the product! I was wondering if you could add a dark mode option.
-  It would really help during those late night coding sessions. Not urgent at all,
-  just a nice-to-have feature. Keep up the great work!
-
-  Best regards,
-  Alex Thompson
-  """
-]
-
-# Demonstrate structured extraction
-print("=== STRUCTURED CUSTOMER DATA EXTRACTION ===\n")
-
-for i, ticket in enumerate(sample_tickets, 1):
-    print(f"--- Processing Ticket {i} ---")
-    try:
-        result = extract_customer_info(ticket)
-        print(f"Extracted Data:")
-        print(f"Name: {result.name}")
-        print(f"Email: {result.email}")
-        print(f"Phone: {result.phone}")
-        print(f"Issue Category: {result.issue_category}")
-        print(f"Priority: {result.priority}")
-        print(f"Sentiment: {result.sentiment}")
-        print()
-    except Exception as e:
-        print(f"Error processing ticket: {e}")
-        print()
+data = json.loads(resp.choices[0].message.content)
+print(data)  # {'name': 'Sara Pérez', 'email': 'sara@acme.com', 'priority': 'high'}
 ```
 
-This approach transforms unpredictable AI outputs into reliable data structures that integrate seamlessly with your existing systems.
+Problema: nada impide que el modelo devuelva `customer_name` en lugar de `name`.
 
-Building Production-Ready Schema Architecture
-Production schemas require careful balance between specificity and flexibility. Too rigid, and the model cannot express natural variations in real-world data. Too loose, and you lose the reliability benefits of structured outputs.
-
-Start with progressive specificity - begin with broad categories and narrow down based on your specific requirements. For customer support, you might start with general categories like "technical", "billing", "account" and refine to specific subcategories as you understand your data better.
-
-Semantic grouping organizes related information into nested objects, making schemas more maintainable and reducing field proliferation. Instead of flat structures with dozens of fields, group related data logically.
+### 2. Pydantic + schema estricto (OpenAI structured outputs)
 
 ```python
-class ProductAnalysis(BaseModel):
-    """Complex nested schema for product feedback analysis"""
+from pydantic import BaseModel, Field
+from typing import Literal, Optional
+from openai import OpenAI
 
-    # Core identification
-    product: Dict[str, str] = Field(description="Product details")
-    customer: Dict[str, Optional[str]] = Field(description="Customer information")
+client = OpenAI()
 
-    # Analysis results grouped semantically
-    sentiment_analysis: Dict[str, float] = Field(description="Sentiment breakdown")
-    feature_feedback: List[Dict[str, str]] = Field(description="Specific features mentioned")
+class Ticket(BaseModel):
+    """Datos extraídos de un ticket de soporte."""
+    name: str = Field(description="Nombre completo del cliente")
+    email: Optional[str] = Field(default=None, description="Correo si aparece")
+    phone: Optional[str] = Field(default=None, description="Teléfono si aparece")
+    priority: Literal["low", "medium", "high"] = Field(
+        description="Urgencia inferida del tono y contenido"
+    )
+    sentiment: float = Field(ge=-1.0, le=1.0, description="Sentimiento en [-1, 1]")
 
-    # Business intelligence
-    business_impact: Dict[str, str] = Field(description="Revenue and retention insights")
-    action_items: List[str] = Field(description="Recommended next steps")
-
-    # Metadata
-    processing_metadata: Dict[str, str] = Field(description="Processing timestamps and versions")
-
-    # Example of semantic grouping in practice
-    example_output = {
-    "product": {
-        "name": "Analytics Dashboard",
-        "version": "2.1.4",
-        "category": "Business Intelligence"
-    },
-    "customer": {
-        "tier": "enterprise",
-        "tenure_months": 18,
-        "previous_feedback_count": 3
-    },
-    "sentiment_analysis": {
-        "overall": 0.75,
-        "feature_specific": 0.82,
-        "support_experience": -0.15
-    },
-    "feature_feedback": [
-        {
-            "feature": "real_time_dashboards",
-            "sentiment": "positive",
-            "specific_mention": "love the new real-time updates"
-        }
+resp = client.chat.completions.parse(   # método tipado del SDK
+    model="gpt-4o-2024-08-06",
+    messages=[
+        {"role": "system", "content": "Extrae datos del ticket."},
+        {"role": "user", "content": "Soy Sara (sara@acme.com). ¡URGENTE!"},
     ],
-    "business_impact": {
-        "churn_risk": "low",
-        "expansion_opportunity": "high",
-        "support_priority": "standard"
-    },
-    "action_items": [
-        "Follow up on support experience concerns",
-        "Present advanced analytics features for potential upsell"
-    ],
-    "processing_metadata": {
-        "model_version": "gpt-4-2024-preview",
-        "processing_timestamp": "2024-09-17T10:30:00Z",
-        "confidence_score": "0.91"
-    }
-}
+    response_format=Ticket,              # Pydantic directo
+)
+
+ticket: Ticket = resp.choices[0].message.parsed
+print(ticket.priority, ticket.sentiment)
 ```
 
-Graceful degradation ensures your system continues functioning even with partial information. Design optional fields strategically - required fields should contain only absolutely essential data, while optional fields handle the natural variability in real-world inputs.
+El SDK convierte `Ticket` a JSON Schema, pasa `strict=True` y devuelve una instancia validada. Si el modelo intenta producir un `priority` fuera del `Literal`, el decoder lo bloquea.
 
-Array handling needs special attention because models sometimes struggle with consistent array structures. Provide clear examples of expected array formats and implement validation that handles both empty arrays and varied element structures.
+### 3. Anthropic con tool use (patrón portable)
 
-Validation Strategies That Prevent Production Failures
-Multi-layer validation provides comprehensive error catching without overwhelming latency. Implement validation in order of speed and criticality—fast syntactic checks first, then progressively slower semantic validation only when needed.
+```python
+import anthropic
+from pydantic import BaseModel, Field
+from typing import Literal
 
-For example, consider the following JSON output from an AI model generating product reviews:
+class Ticket(BaseModel):
+    name: str
+    priority: Literal["low", "medium", "high"]
+
+client = anthropic.Anthropic()
+
+msg = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    tools=[{
+        "name": "save_ticket",
+        "description": "Guarda el ticket estructurado.",
+        "input_schema": Ticket.model_json_schema(),
+    }],
+    tool_choice={"type": "tool", "name": "save_ticket"},  # fuerza la llamada
+    messages=[{"role": "user", "content": "Soy Sara, URGENTE no entro"}],
+)
+
+# El bloque con tipo "tool_use" contiene el JSON validado contra el schema
+tool_block = next(b for b in msg.content if b.type == "tool_use")
+ticket = Ticket.model_validate(tool_block.input)
+```
+
+`tool_choice` obligatorio es el truco: Anthropic no tiene un `response_format` genérico, pero forzar una herramienta produce el mismo efecto.
+
+### 4. Instructor: la misma idea, un solo decorador
+
+```python
+import instructor
+from openai import OpenAI
+from pydantic import BaseModel
+
+client = instructor.from_openai(OpenAI())
+
+class Ticket(BaseModel):
+    name: str
+    priority: str
+
+ticket = client.chat.completions.create(
+    model="gpt-4o-mini",
+    response_model=Ticket,
+    max_retries=3,                       # reintenta con el error como feedback
+    messages=[{"role": "user", "content": "Soy Sara, urgente"}],
+)
+```
+
+Instructor envuelve el flujo *schema → prompt → parse → validate → retry* en una sola llamada. Soporta OpenAI, Anthropic, Groq, Ollama, etc.
+
+### 5. Outlines (constrained decoding sobre modelos abiertos)
+
+```python
+import outlines
+from pydantic import BaseModel
+
+class Ticket(BaseModel):
+    name: str
+    priority: str
+
+model = outlines.models.transformers("meta-llama/Llama-3.1-8B-Instruct")
+generator = outlines.generate.json(model, Ticket)
+
+ticket = generator("Soy Sara, urgente, no puedo entrar")
+# `ticket` ES ya una instancia de Ticket; imposible que falle el parse
+```
+
+Outlines compila el schema a un **FSM** sobre el vocabulario del modelo, por lo que la garantía es dura incluso con un Llama local sin API de structured outputs.
+
+### 6. JSON Schema crudo vs. Pydantic (el mismo contrato)
 
 ```json
 {
-    "review_id": "rev_12345",
-    "user_id": "user_67890",
-    "product_id": "prod_54321",
-    "review_text": "The product quality exceeded my expectations. Delivery was fast and the packaging was secure.",
-    "rating": 5,
-    "sentiment": "positive",
-    "timestamp": "2025-09-26T10:30:00Z"
+  "type": "object",
+  "properties": {
+    "name":     {"type": "string", "description": "Nombre completo"},
+    "email":    {"type": ["string", "null"], "format": "email"},
+    "priority": {"type": "string", "enum": ["low", "medium", "high"]},
+    "sentiment":{"type": "number", "minimum": -1, "maximum": 1}
+  },
+  "required": ["name", "priority", "sentiment"],
+  "additionalProperties": false
 }
 ```
 
-Validation layers would be applied as follows:
+```python
+from pydantic import BaseModel, Field, EmailStr
+from typing import Literal, Optional
 
-Syntax validation: Catches malformed JSON, missing required fields, and incorrect data types immediately. For example, it ensures that rating is an integer and timestamp is a valid ISO string. This prevents obviously broken responses from reaching downstream systems.
+class Ticket(BaseModel):
+    model_config = {"extra": "forbid"}   # == additionalProperties: false
+    name: str = Field(description="Nombre completo")
+    email: Optional[EmailStr] = None
+    priority: Literal["low", "medium", "high"]
+    sentiment: float = Field(ge=-1, le=1)
+```
 
-Safety validation: Scans fields like review_text for personally identifiable information (PII), inappropriate content, and security concerns. This layer protects both your users and your organization from compliance violations.
+### 7. Retry con validación como feedback
 
-Semantic validation: Uses AI judges or rule-based logic to verify that the content makes logical sense and aligns with your business requirements. For instance, it checks that the sentiment field matches the tone of review_text and that the rating is consistent with the review content. This layer catches subtle errors that rule-based validation might miss, such as inconsistent sentiment analysis or mismatched product categories.
+```python
+from pydantic import ValidationError
 
-Common Pitfalls and Solutions
-Schema design failures often stem from over-engineering complex nested structures that confuse models or under-specifying requirements that lead to inconsistent outputs. Limit nesting to 3-4 levels deep and use clear, descriptive property names that leave no ambiguity about expected content.
+def extract_with_retry(client, prompt: str, schema: type[BaseModel], n: int = 3):
+    messages = [{"role": "user", "content": prompt}]
+    for intento in range(n):
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content
+        try:
+            return schema.model_validate_json(raw)
+        except ValidationError as e:
+            # Inyecta el error como mensaje para que el modelo se autocorrija
+            messages.append({"role": "assistant", "content": raw})
+            messages.append({"role": "user",
+                             "content": f"La salida es inválida: {e}. Corrige y responde SOLO JSON."})
+    raise RuntimeError("No se obtuvo salida válida tras N intentos")
+```
 
-Field naming inconsistency creates integration headaches. Establish naming conventions early - use snake_case consistently, avoid abbreviations, and choose names that clearly indicate the field's purpose and data type.
+## Errores comunes
 
-Validation timing mistakes either catch errors too late (after expensive processing) or too early (missing context-dependent validation). Implement fast validation first, then progressively more expensive checks only on data that passes initial screening.
+- **Schema demasiado profundo o enorme**. Más de 4 niveles o 40 campos y el modelo confunde posiciones. Divide en varias llamadas o aplana.
+- **Olvidar `description` en los `Field`**. El modelo las usa como mini-prompts por campo; sin ellas, inventa.
+- **Enums mal definidos**. `["high", "High", "HIGH"]` o traducciones (`"alta"`) mezcladas → inconsistencia. Mantén un único canon.
+- **Floats vs ints**. Si pides `rating: int` y el modelo escribe `4.0`, un schema no estricto lo aceptará; uno estricto lo rechazará. Decide y documenta.
+- **No manejar `null`**. En JSON Schema debes usar `"type": ["string", "null"]`; en Pydantic `Optional[str] = None`. Omitirlo fuerza al modelo a inventar valores vacíos (`""`) o alucinar.
+- **Comentarios estilo Python en la salida** (`// esto es...`). JSON no los admite. Pide explícitamente "sin comentarios".
+- **Truncamiento por `max_tokens`**. El JSON queda cortado a la mitad. Monitorea `finish_reason == "length"` y sube el límite o pide una respuesta más corta.
+- **Confiar en JSON mode como si fuese structured output estricto**. Garantiza sintaxis, no semántica: siempre valida con Pydantic/JSON Schema aguas abajo.
+- **Mezclar documentación y datos en el mismo campo** (`"notes": "ver nota al pie..."`). Separa en subobjetos.
+- **No versionar el schema**. Un cambio silencioso (renombrar `priority` → `urgency`) rompe consumidores sin que lo notes. Versiona (`schema_version: "1.2"`) y haz pruebas de contrato.
+- **Validar solo al parsear**. La validación es *multi-capa*: sintaxis → tipos → PII/seguridad → reglas de negocio → lógica semántica. No metas todo en un `try/except`.
 
-Error recovery strategies should handle common failure modes gracefully. When JSON is malformed, attempt intelligent parsing with regex fallbacks. When required fields are missing, implement reasonable defaults or request regeneration with more specific prompts.
+## Resumen
 
-Missing confidence indicators make it difficult to handle uncertain outputs appropriately. Always include confidence scores or uncertainty markers in your schemas, allowing downstream systems to make informed decisions about data reliability.
-
-Summary
-JSON mode and schema design transform unreliable AI outputs into production-ready structured data by establishing clear contracts between models and applications. Effective schemas balance specificity with flexibility through progressive refinement, semantic grouping, and graceful degradation strategies.
-
-Production validation requires multi-layer approaches that prioritize speed and criticality - syntax validation for immediate error catching, safety validation for compliance and security, and semantic validation for business logic consistency. This architecture prevents failures while maintaining acceptable performance characteristics.
-
-Key concepts to remember
-
-Progressive Specificity - Design schemas with progressive specificity, starting broad and refining based on real-world data patterns
-Semantic Grouping - Implement semantic grouping to organize related fields into logical nested structures
-Multi-Layer Validation - Use multi-layer validation with appropriate timing - fast checks first, expensive validation only when needed
-Confidence Indicators - Include confidence scores and uncertainty indicators in all schemas for better error handling
-Naming Conventions - Establish clear naming conventions and field requirements early in development
-Graceful Degradation - Plan for graceful degradation with strategic use of optional fields and default values
-Test with Real Data - Test schema designs with diverse real-world inputs before production deployment
+- **JSON mode** garantiza sintaxis JSON; **structured outputs nativos** garantizan sintaxis **y** conformidad con un schema.
+- Un schema bien diseñado es un **contrato**: nombres canónicos, enums limitados, campos con `description`, opcionales marcados explícitamente.
+- **Pydantic** es la forma más limpia de expresar schemas en Python; se traduce a JSON Schema para enviarlo al modelo.
+- Para **portabilidad entre providers**, el truco universal es **tool use / function calling** con `tool_choice` forzado.
+- Para **modelos abiertos o formatos exóticos**, usa **Outlines** o grammars GBNF: constrained decoding duro.
+- **Instructor** encapsula el patrón prompt + schema + parse + retry en una API minimal.
+- La **validación es multi-capa**: sintaxis primero (barata), semántica después (cara). Nunca uses un `AI judge` para validar lo que una regex puede resolver.
+- Diseña siempre pensando en el **fallo**: `max_tokens` truncado, enums ligeramente mal escritos, campos faltantes. Retry con el error como feedback es la táctica más efectiva.
+- Prefiere **especificidad progresiva** y **agrupación semántica** antes que schemas gigantes y planos.
+- Incluye **indicadores de confianza** (`confidence`, `_meta`) para que los consumidores decidan sin reparsear.
+- Versiona tus schemas y escribe **pruebas de contrato** contra ejemplos reales antes de desplegar.

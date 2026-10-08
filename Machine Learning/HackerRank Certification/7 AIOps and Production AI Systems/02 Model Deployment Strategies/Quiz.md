@@ -1,77 +1,81 @@
-## Quiz: Model Deployment Strategies
+# Quiz: Model Deployment Strategies
 
-Model Deployment Strategies
-Your team is preparing to deploy a new computer vision model for product quality inspection in a manufacturing line. The model processes images and classifies products as pass/fail. The system handles 500 images per minute during peak hours. A false negative (accepting a defective product) costs $100. A false positive (rejecting a good product) costs $10. System downtime costs $1,000 per minute.
+**Escenario base:** Tu equipo prepara el deployment de un nuevo modelo de computer vision para inspección de calidad en una línea de manufactura. El modelo procesa imágenes y clasifica productos como *pass/fail*. El sistema maneja 500 imágenes por minuto durante horas pico. Un **falso negativo** (aceptar un producto defectuoso) cuesta **$100**. Un **falso positivo** (rechazar un producto bueno) cuesta **$10**. El **downtime del sistema** cuesta **$1,000 por minuto**.
 
+---
 
-Your current model v1 runs in production. Model v2 shows 2% better accuracy in offline tests. Which deployment pattern is most appropriate for this high-stakes manufacturing scenario?
+### Pregunta 1
 
-Batch prediction running v2 overnight to precompute all results.
+Tu modelo actual v1 corre en producción. El modelo v2 muestra 2% mejor accuracy en pruebas offline. ¿Qué patrón de deployment es el más apropiado para este escenario de manufactura de alto riesgo?
 
-Immediate blue-green deployment switching all traffic to v2.
+- Batch prediction corriendo v2 de noche para pre-computar todos los resultados.
+- Blue-green deployment inmediato cambiando todo el tráfico a v2.
+- Streaming deployment procesando imágenes a través de message queues.
+- **Shadow deployment de v2 junto a v1 para validación antes de promoverlo.**
 
-Streaming deployment processing images through message queues.
+**Explicación:** El shadow deployment valida v2 con datos reales de producción **sin afectar las decisiones productivas**. Cada imagen se envía a ambos modelos; v1 responde al PLC de la línea y v2 solo logea predicciones para análisis offline. Dado el costo por error ($100 por falso negativo acumulado sobre 500 imgs/min = hasta $50k/hora de riesgo) y el costo de downtime ($1,000/min), la validación en producción sin impacto justifica el costo adicional de duplicar inferencia por unos días. Batch no sirve porque la decisión es en línea; blue-green a 100% sin validación en producción expone todo el flujo al riesgo de la mejora offline (2% accuracy en test ≠ 2% en producción por data drift o training-serving skew); streaming añade latencia innecesaria y no resuelve el problema de validación. Herramientas típicas: Istio `mirror` directive, Envoy request mirroring, pipelines Spark para análisis offline de los pares `(input, output_v1, output_v2)`.
 
-Shadow deployment of v2 alongside v1 for validation before promotion.
-Correct Answer!
-Shadow deployment validates v2 with real production data without affecting actual decisions. Given high costs of errors, this safety is justified before full rollout.
+---
 
-You are building a model serving API that will be called by internal microservices (all written in Python and Go). The system needs to handle 10,000 requests per second with large image payloads (2-5MB each). Which protocol choice is most appropriate?
+### Pregunta 2
 
-gRPC with Protocol Buffers for better performance with large payloads.
+Estás construyendo una API de serving que será llamada por microservicios internos (todos escritos en Python y Go). El sistema debe manejar 10,000 requests por segundo con payloads grandes de imagen (2-5MB cada uno). ¿Cuál es la elección de protocolo más apropiada?
 
-REST with JSON because it is universally compatible.
+- **gRPC con Protocol Buffers por mejor performance con payloads grandes.**
+- REST con JSON porque es universalmente compatible.
+- GraphQL por capacidades flexibles de query.
+- WebSockets para comunicación bidireccional.
 
-GraphQL for flexible query capabilities.
+**Explicación:** gRPC provee 2-5x mejor performance que REST+JSON gracias a la codificación binaria de Protocol Buffers (más compacta que JSON, menos CPU en serialización/deserialización) y a HTTP/2 (multiplexing de múltiples requests sobre una sola conexión TCP, header compression con HPACK). Para 10k rps con payloads de 2-5MB (= 20-50 GB/s agregados), cada ms de serialización y cada byte extra en el wire se multiplican dramáticamente. Como ambos lados son internos (Python y Go, ambos con soporte gRPC maduro: `grpcio` y `google.golang.org/grpc`), la pérdida de accesibilidad universal de REST no importa. REST+JSON sumaría overhead significativo; GraphQL está diseñado para APIs con queries flexibles del cliente (no para model serving); WebSockets no aporta sobre un flujo request/response. Herramientas industriales que usan gRPC a esta escala: Envoy (Lyft/Stripe), TensorFlow Serving, Triton Inference Server, servicios internos de Google/Meta.
 
-WebSockets for bidirectional communication.
-Correct Answer!
-gRPC provides 2-5x better performance with binary encoding and HTTP/2. For internal services with large payloads at high throughput, gRPC is optimal.
+---
 
-Your model requires 8GB GPU memory and uses 2 CPU cores during inference. Testing shows the model processes 50 requests per second per GPU. You need to handle 500 requests per second. How many GPU Pods should you request in Kubernetes?
+### Pregunta 3
 
-5 Pods with 1 GPU each (exactly 500 req/s capacity).
+Tu modelo requiere 8GB de memoria GPU y usa 2 CPU cores durante inferencia. Las pruebas muestran que el modelo procesa 50 requests por segundo por GPU. Necesitas manejar 500 requests por segundo. ¿Cuántos Pods con GPU deberías solicitar en Kubernetes?
 
-10 Pods to handle twice the expected load.
+- 5 Pods con 1 GPU cada uno (exactamente 500 req/s de capacidad).
+- 10 Pods para manejar el doble de la carga esperada.
+- **7-8 Pods con 1 GPU cada uno (40-60% de over-provisioning por seguridad).**
+- 1 Pod con 10 GPUs para mejor utilización de recursos.
 
-7-8 Pods with 1 GPU each (40-60% over-provisioning for safety).
+**Explicación:** Dimensionar exactamente al peak (5 Pods para 500 rps) elimina todo margen: cualquier picoanomalía, falla de nodo, GC pause, o restart de pod (que tarda 30-60s en cargar el modelo) tira requests al 100% de utilización. Con 7-8 pods obtienes 350-400 rps como baseline sostenido y el HPA puede escalar hacia arriba para peaks reales, dando ~40-60% de headroom — el estándar en Google SRE para servicios user-facing. 10 pods duplica el costo sin ganancia proporcional. Un único pod con 10 GPUs es un SPOF catastrófico: una falla deja el servicio en cero y no permite rolling updates. La fórmula aplicable: `replicas = ceil(peak_rps × avg_latency / max_concurrent_per_pod × safety_factor)` con `safety_factor ∈ [1.3, 1.5]` típicamente. Complementar siempre con HPA (`autoscaling/v2`) usando métricas custom (queue depth, p99 latency) además de CPU.
 
-1 Pod with 10 GPUs for better resource utilization.
-Correct Answer!
-You need 10 GPUs for 500 req/s. Deploying 7-8 Pods provides 350-400 req/s baseline with autoscaling for peaks. This balances cost and reliability.
+---
 
-During a canary release with 10% traffic on v2, you observe: v1 has 0.5% error rate, v2 has 1.2% error rate. Both have seen 10,000 requests. What should you do?
+### Pregunta 4
 
-Immediately roll back v2 because error rate is higher.
+Durante un canary release con 10% de tráfico en v2, observas: v1 tiene 0.5% error rate, v2 tiene 1.2% error rate. Ambos han visto 10,000 requests. ¿Qué deberías hacer?
 
-Investigate the errors, check statistical significance, and decide based on root cause.
+- Rollback inmediato de v2 porque la tasa de error es mayor.
+- **Investigar los errores, verificar significancia estadística y decidir con base en la causa raíz.**
+- Continuar el rollout porque 1.2% es aceptablemente bajo.
+- Aumentar el tráfico de v2 a 50% para recolectar datos más rápido.
 
-Continue rollout because 1.2% is acceptably low.
+**Explicación:** Con solo 10,000 requests y una diferencia absoluta de 0.7% entre error rates, debes verificar significancia estadística antes de actuar. Aplicando el z-test para dos proporciones: `p_pool = (50+120)/20000 = 0.0085`, `SE = sqrt(0.0085 × 0.9915 × (2/10000)) ≈ 0.0013`, `z = 0.007/0.0013 ≈ 5.4`, que **sí** es estadísticamente significativo (|z| > 2.58 al 99%). Pero significancia estadística no implica significancia operacional ni root cause conocido: ¿son los mismos tipos de inputs los que fallan en ambos? ¿Es un bug en el nuevo serializer? ¿Es un edge case que v1 también maneja mal pero disfraza? Rollback automático sin investigar genera deuda operacional (no aprendes del incidente) y puede estar reaccionando a ruido en escenarios con menos muestras. Aumentar a 50% sin diagnosticar amplifica el blast radius exactamente cuando hay señales de problema. La respuesta correcta combina: pausar el rollout (congelar en 10%), analizar logs de errores de v2 que no fallaron en v1, verificar métricas por segmento (tipo de input, cliente, versión del tokenizador), y decidir con evidencia. Herramientas: Flagger pausa automáticamente ante anomalías; dashboards Grafana por versión; log aggregation (Loki/Elasticsearch) por `version` label.
 
-Increase v2 traffic to 50% to gather more data faster.
-Correct Answer!
-The difference could be noise with limited data, or real issues. Examine the actual errors, verify statistical significance, and make an informed decision.
+---
 
-Your Docker image for model serving is 8GB (model is 5GB, base image and dependencies are 3GB). Image pulls take 5 minutes, slowing autoscaling. How should you optimize?
+### Pregunta 5
 
-Store the model in S3 and download it when containers start.
+Tu imagen Docker para model serving pesa 8GB (el modelo es 5GB, la imagen base y las dependencias suman 3GB). Los pulls de la imagen tardan 5 minutos, ralentizando el autoscaling. ¿Cómo deberías optimizar?
 
-Use a smaller base image like Alpine to reduce the 3GB overhead.
+- **Almacenar el modelo en S3 y descargarlo cuando los contenedores inician.**
+- Usar una imagen base más pequeña como Alpine para reducir los 3GB de overhead.
+- Comprimir el archivo del modelo para reducir su tamaño.
+- Usar multi-stage builds para reducir las capas de la imagen.
 
-Compress the model file to reduce its size.
+**Explicación:** Descargar 5GB desde S3 en la misma región toma 30-60 segundos (bandwidth de ~100-500 MB/s dentro de AWS), mientras que el `docker pull` de 8GB sobre registry público tarda 5 minutos. Esto reduce el tiempo de scale-up ~10x y permite que el HPA responda a picos reales de tráfico. El patrón concreto es un `initContainer` en Kubernetes que ejecuta `aws s3 cp` a un `emptyDir` compartido antes de que arranque el contenedor principal; el modelo se monta read-only. La imagen base queda <1GB y se cachea en los nodos. Las otras opciones aportan poco: Alpine ahorra ~100-300MB pero el bulk (5GB del modelo) sigue ahí y además Alpine tiene problemas conocidos con wheels pre-compiladas de PyTorch/TensorFlow (usa musl en lugar de glibc). Comprimir el modelo gana 20-40% pero sigue inflando la imagen y añade tiempo de descompresión al startup. Multi-stage builds son excelente práctica, pero no resuelven que 5GB del modelo estén embebidos. Herramientas complementarias: `aws s3 cp --no-sign-request` con VPC endpoint para velocidad máxima, image registry caching con **Harbor** o **ECR pull-through cache**, y **registry mirror** regional para la imagen base.
 
-Use multi-stage builds to reduce image layers.
-Correct Answer!
-Downloading 5GB from S3 in a nearby region takes 30-60 seconds versus 5 minutes for full image pull. Keep image small (<1GB) and load models at startup.
+---
 
-Your API gateway uses a sliding window rate limit of 1,000 requests per minute per API key. A client makes 900 requests in the first 30 seconds, then 200 requests in the next 30 seconds. What should happen?
+### Pregunta 6
 
-All 1,100 requests succeed because they average to 18 requests per second.
+Tu API gateway usa un rate limit de sliding window de 1,000 requests por minuto por API key. Un cliente hace 900 requests en los primeros 30 segundos, luego 200 requests en los siguientes 30 segundos. ¿Qué debería suceder?
 
-All requests succeed because each 1-minute window is under 1,000.
+- Todos los 1,100 requests pasan porque promedian 18 requests por segundo.
+- Todos los requests pasan porque cada ventana de 1 minuto está bajo 1,000.
+- El gateway encola los requests en exceso para procesarlos más tarde.
+- **Los primeros 1,000 requests pasan, los últimos 100 son rechazados con 429.**
 
-The gateway queues excess requests to process them later.
-
-The first 1,000 requests succeed, the last 100 are rejected with 429.
-Correct Answer!
-Sliding window rate limiting tracks requests in any 60-second window. After 900 in 30s, only 100 more are allowed in the next 30s before hitting 1,000/minute.
+**Explicación:** Sliding window rate limiting cuenta los requests en **cualquier ventana de 60 segundos**, no en ventanas fijas (eso sería tumbling window, estrategia distinta y más laxa). La implementación con Redis sorted sets `ZADD/ZCARD` evalúa en cada request: `allowed ⟺ count_of_requests_in(now - 60s, now) < 1000`. En este escenario, al minuto `t=60s` la ventana (0s, 60s] contiene 900 + 200 = 1,100 requests. En el momento en que el cliente llega al request #1,001 (que caerá típicamente alrededor de los 50-55s), el contador ya alcanza 1,000 y los siguientes 100 reciben HTTP 429 con header `Retry-After` indicando cuántos segundos esperar hasta que requests viejos salgan de la ventana. Promediar es incorrecto (sliding window es exacto, no estadístico); el gateway no debería encolar (acumularía memoria sin fin y genera latencia desconocida, se delega al cliente con 429 + backoff). Tumbling window (opción 2) permitiría los 1,100 si caen justo entre dos ventanas fijas, pero es menos preciso y permite "burst doubling" al cambio de ventana — por eso se prefiere sliding window en gateways serios (Kong, Envoy ratelimit service, custom con Redis).

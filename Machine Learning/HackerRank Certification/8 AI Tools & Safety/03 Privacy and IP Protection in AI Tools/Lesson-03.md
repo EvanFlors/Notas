@@ -1,360 +1,342 @@
-## When Stored Data Becomes a Liability
-Imagine you have been using an AI coding assistant for six months. It has helped your team ship features faster, and you have stored all the prompts and outputs for debugging and analytics. Then a security audit reveals that some of those prompts contain customer emails and API keys. You need to delete the data, but you cannot find it all. Some is in logs, some is in caches, some is in vendor systems. What seemed like helpful debugging data became a compliance nightmare.
+# Retención, auditoría y procedencia
 
-This is why retention is a security decision. Data you keep becomes data you must protect. In AI-assisted development, prompts and outputs are often stored for debugging, evaluation, or analytics. That creates a shadow dataset that can contain sensitive information. If you do not control retention, that dataset grows indefinitely, creating risk without benefit.
+## ¿Qué es?
 
-In this lesson, you will learn how to design retention policies for AI tool data, how to build audit trails that enable incident response, and how to maintain provenance that makes changes reproducible. You will understand why storing less reduces risk, how to structure audit logs for usability, and how provenance tags enable debugging and learning.
+**Retención** es la política que define cuánto tiempo se conserva cada clase de dato antes de ser destruida. **Auditoría** es el registro inalterable de qué ocurrió, cuándo y por quién, usable como evidencia frente a reguladores. **Procedencia (provenance)** es el linaje que conecta cada output del LLM con el prompt exacto, el modelo, la configuración y el contexto que lo produjeron.
 
-By the end, you will have a practical framework for data retention, auditability, and provenance that balances operational needs with security and compliance requirements.
+Las tres piezas forman la **memoria operativa** de un sistema de IA en producción:
 
-Retention Is a Security Decision
-Retention policies should answer:
+> **Retención** = ¿qué se guarda y por cuánto?
+> **Auditoría** = ¿qué pasó y quién lo hizo?
+> **Procedencia** = ¿cómo se produjo este output específicamente?
 
-What data is stored: prompts, outputs, logs, telemetry, or metadata?
+Sin las tres, un incidente deja de ser investigable y una regulación deja de ser cumplible.
 
-How long it is stored: days, weeks, months, or years?
+### El "shadow dataset" de las herramientas de IA
 
-Who can access it: developers, security, vendors, or auditors?
+Cada vez que un asistente procesa un prompt, nace un rastro:
 
-How it is deleted: automated jobs, manual processes, or vendor APIs?
+- El **prompt** (lo que el usuario envió).
+- La **respuesta** del modelo.
+- Los **tool calls** si el agente usó herramientas.
+- Los **metadatos** (modelo, temperatura, latencia, tokens).
+- La **telemetría** (errores, timings).
 
-If you cannot answer these questions, you do not have a retention policy. You have a risk. When retention is undefined, data accumulates indefinitely, creating risk without benefit.
+Multiplica eso por miles de interacciones diarias y tienes un **lago de datos sombra** que casi siempre contiene PII residual, incluso después de redactar. Este dataset es tan sensible como la base de clientes de producción, pero rara vez se gestiona con el mismo rigor.
 
-Retention should also be aligned with business value. If you never use prompt logs after one week, keeping them for a year creates risk without benefit. The best retention policies are evidence-based: keep data only as long as it is operationally useful. When retention matches usage, risk is minimized while value is preserved.
+### Tiered retention por clasificación
 
-Retention Tiers by Data Sensitivity
-You can define retention tiers based on classification:
+| Clasificación | Prompts crudos | Outputs | Métricas agregadas | Provenance |
+|---|---|---|---|---|
+| **Restricted** | 0 días (no se guarda) | 0 días | 90 días | 1 año |
+| **Confidential** | 7 días | 30 días | 180 días | 1 año |
+| **Internal** | 30 días | 90 días | 365 días | 2 años |
+| **Public** | 90 días | 180 días | Indefinido | Indefinido |
 
-Restricted: no storage, or immediate deletion after use. This includes secrets, credentials, and regulated data.
+Esta tabla no es universal, pero es un punto de partida razonable. GDPR Art. 5(1)(e) exige **storage limitation**: el dato se conserva "solo lo necesario". HIPAA pide 6 años para registros médicos. Cada tier debe mapearse a una regulación aplicable.
 
-Confidential: short retention for debugging, then delete. This includes proprietary code and internal documentation.
+## ¿Por qué importa?
 
-Internal: medium retention for operational insights. This includes general engineering data and metrics.
+**Caso real:** en 2024 una fintech europea recibió un **DSAR** (Data Subject Access Request) de un cliente invocando GDPR Art. 17 ("right to erasure"). El cliente pidió borrar todo rastro de su información. El equipo pudo borrarlo de la BD transaccional, de los backups y de los CRMs… pero descubrió que su asistente de soporte había cacheado 3,000 conversaciones con el email del cliente en S3 **sin TTL**. Resultado: 72 horas de panic engineering para construir un workflow de borrado retrospectivo, bajo riesgo de multa.
 
-Public: longer retention for analytics and product improvement. This includes public code and non-sensitive examples.
+### Las tres funciones del audit log
 
-This approach makes retention policy consistent and easier to explain to developers. When tiers are clear, decisions are fast. When tiers are unclear, decisions are slow and inconsistent.
+1. **Incident response.** Cuando hay fuga, el audit log es la primera parada: ¿qué entró, qué salió, cuándo?
+2. **Reproducibility.** Un bug reportado hace una semana solo se puede reproducir si tienes la combinación exacta de prompt + modelo + versión + contexto.
+3. **Compliance evidence.** Auditores GDPR/HIPAA/SOC2 piden evidencia de controles: logs de acceso, pruebas de deletion, retention schedules aplicados.
 
-The Hidden Dataset: Prompts and Tool Logs
-Most teams focus on production data but ignore the data created by AI tools. This includes:
+### Procedencia como "lockfile" de la IA
 
-Prompt logs: what developers asked and what tools answered.
+En software determinístico tienes `package-lock.json`: cualquiera puede reproducir el build exacto. En IA el equivalente es un **provenance tag** que contiene:
 
-Tool call logs: what commands were executed and what they returned.
+- `prompt_template_id` + versión
+- `context_manifest_id` (hash del conjunto de documentos retrieved)
+- `model_name` + versión + parámetros (`temperature`, `top_p`, `seed`)
+- Timestamp y actor
 
-Generated diffs: code changes produced by AI tools.
+Con eso se puede re-ejecutar la decisión semanas después (modulo la no-determinismo residual del modelo).
 
-Evaluation outputs: test results and quality metrics.
+## ¿Cómo funciona?
 
-These artifacts are powerful for debugging, but they also contain sensitive information. Treat them as first-class data assets. When tool data is ignored, it accumulates without control. When tool data is managed, it is useful without being risky.
+### Esquema de audit log
 
-Access Control for Retained Data
-Retention is only part of the story. You also need access controls:
+Un entry mínimo pero completo:
 
-Restrict prompt logs to a small group of engineers: not everyone needs to see debugging data.
-
-Separate production and development logs: production logs are more sensitive than development logs.
-
-Require approval for access to restricted data: sensitive data should require explicit approval.
-
-This prevents internal misuse, which is a common but under-discussed risk. When access is uncontrolled, data can be misused. When access is controlled, misuse is prevented.
-
-Provenance Matters for Incident Response
-When a problem occurs, you need to know the chain of decisions: which prompt produced the change, which context was used, and which tool calls were executed. Without provenance, you cannot reliably answer "why did this happen?"
-
-Consider what happens without provenance. A bug appears in production. You know it was introduced by an AI-assisted change, but you do not know which prompt, which context, or which model produced it. You cannot reproduce the change, so you cannot debug it. You cannot learn from it, so the same mistake happens again.
-
-Provenance is also important for reproducibility. If you cannot reproduce a change, you cannot verify or fix it confidently. When provenance is complete, changes are reproducible. When provenance is incomplete, changes are mysteries.
-
-Data Deletion Workflows
-Retention policies are meaningless without deletion workflows. You should have:
-
-Scheduled deletion jobs that enforce retention windows: automated deletion ensures policies are followed.
-
-Manual deletion paths for user requests: users should be able to request deletion of their data.
-
-Audit logs that confirm deletion occurred: deletion should be logged and verifiable.
-
-This is not only about compliance. It is about limiting your risk exposure. When data is deleted on schedule, risk decreases over time. When data is never deleted, risk accumulates indefinitely.
-
-Retention in Multi-Tenant Environments
-If your AI tools serve multiple teams or products, you need tenant-aware retention. Data from one team should not be accessible to another, and retention rules may differ by business unit or regulatory domain. Multi-tenant retention is easy to overlook, but it is critical for enterprise safety.
-
-Consider what happens without tenant awareness. Team A has strict retention requirements. Team B has lenient requirements. If retention is not tenant-aware, Team A's data might be kept too long, or Team B's data might be deleted too soon. When retention is tenant-aware, each team gets appropriate treatment.
-
-
-Before diving into audit trails and provenance tagging, consider how retention and provenance allow you to audit AI-assisted changes and respond to incidents with evidence, not guesswork.
-
-Designing Retention Policies for AI Tooling
-A practical retention policy is risk-based:
-
-Short retention for raw prompts and logs: these contain the most sensitive data and should be kept only as long as needed for debugging.
-
-Longer retention for aggregated metrics: these contain less sensitive data and can be kept longer for analytics.
-
-Immediate deletion for restricted data: secrets and credentials should never be stored.
-
-This approach preserves useful insights without keeping sensitive content longer than necessary. When retention is risk-based, value is preserved while risk is minimized.
-
-It also makes incident response more manageable. When only a short window of raw prompts is stored, investigators have a smaller dataset to review and a lower risk of accidental exposure during analysis. When datasets are small, investigation is fast and safe.
-
-Audit Trails That Are Actually Usable
-Audit logs are only useful if they are searchable and complete. A good audit record includes:
-
-Timestamp and actor: when did it happen, and who or what caused it?
-
-Input sources: which files, which tickets, which context was used?
-
-Tool actions and results: what commands were executed, and what did they return?
-
-Redaction and policy decisions: what data was redacted, and what policies were applied?
-
-This makes it possible to reconstruct the chain of events. Without these fields, audits become forensic guesswork. When audit logs are complete, incidents are debuggable. When audit logs are incomplete, incidents are mysteries.
-
-Tamper-Evident Logs
-Audit logs are most useful when they are tamper-evident. Use append-only storage, checksums, or log integrity tools so that audit data cannot be altered silently. This is especially important when audit trails are used for compliance evidence.
-
-Consider what happens without tamper-evidence. An attacker modifies audit logs to hide their actions. You cannot detect the modification, so you cannot respond. When logs are tamper-evident, modifications are detectable, and responses are possible.
-
-Auditing Access to the Audit Logs
-Audit logs can themselves contain sensitive data. Track who accesses them and why. This creates a second-layer audit trail and reduces the chance of misuse. When audit log access is logged, misuse is detectable. When audit log access is not logged, misuse is invisible.
-
-Retention for Evaluation Datasets
-Many teams store evaluation datasets for prompt tuning and regression tests. These datasets can include sensitive content from real incidents. Apply the same retention and access rules to eval datasets as you do to prompt logs, or they will become a long-lived privacy risk.
-
-Consider what happens without retention for eval datasets. A team stores eval datasets indefinitely for regression testing. Those datasets contain customer data from past incidents. Over time, the datasets accumulate sensitive data that should have been deleted. When eval datasets have retention, this risk is managed.
-
-Provenance Tagging in Practice
-Provenance tags can be simple:
-
-Prompt template ID and version: which template was used, and which version?
-
-Context manifest ID: which context was included?
-
-Model and configuration used: which model, which temperature, which settings?
-
-These tags create a reproducible fingerprint for each AI-assisted change. They also let you detect when outputs were produced under different rules or configurations. When provenance is tagged, changes are reproducible. When provenance is not tagged, changes are mysteries.
-
-Provenance as a Safety Gate
-You can require provenance tags before a change is merged. If a diff does not include the prompt template ID or context manifest ID, it is not reviewable. This encourages consistent documentation without requiring manual note-taking for every task.
-
-Consider what happens without provenance gates. Developers merge AI-assisted changes without documenting how they were produced. When bugs appear, you cannot reproduce the changes, so you cannot debug them. When provenance is gated, documentation is consistent, and debugging is possible.
-
-Integrating Provenance into Developer Workflow
-Provenance should be captured automatically, not by asking developers to copy and paste metadata. The best systems embed provenance into PR templates or attach it as build artifacts. This keeps overhead low and accuracy high.
-
-When provenance is automatic, it is consistent. When provenance is manual, it is inconsistent. The goal is to make provenance capture invisible to developers while ensuring it is complete and accurate.
-
-
-Summary: Store Less, Know More
-Retention, auditability, and provenance are about disciplined data handling. Store only what you need, for as long as you need it, and make sure you can trace decisions end-to-end. When data handling is disciplined, risk is managed while value is preserved.
-
-Retention reduces risk by limiting how long sensitive data is stored. Auditability enables incident response by providing evidence of what happened. Provenance enables reproducibility by documenting how changes were produced. Together, these practices make AI-assisted development manageable and debuggable.
-
-A Minimal Provenance Record
-At minimum, each AI-assisted change should record:
-
-Prompt template ID and version: which instructions were used?
-
-Context source list: which files, logs, or documents were included?
-
-Model and configuration settings: which model, which settings, which version?
-
-This small record is often enough to reproduce the output and understand why the change happened. When provenance is minimal but complete, it is useful without being burdensome.
-
-Retention and Audit Ownership
-Retention rules and audit policies should have clear ownership. If nobody owns them, they will drift. Assign an owner for retention configuration and an owner for audit log integrity. These roles can be part-time but must be explicit.
-
-When ownership is clear, policies are maintained. When ownership is unclear, policies drift. The goal is to make ownership explicit so that policies stay current and effective.
-
-Example Retention Schedule
-An example schedule for AI tool data:
-
-Prompt logs: 7 days. These contain the most sensitive data and are rarely needed after a week.
-
-Tool call logs: 30 days. These are useful for debugging but less sensitive than prompts.
-
-Aggregated metrics: 180 days. These are useful for analytics and contain less sensitive data.
-
-Provenance metadata: 1 year. This is needed for reproducibility and contains minimal sensitive data.
-
-This schedule is not universal, but it provides a starting point for teams that have never defined retention before. When schedules are evidence-based, they balance value with risk.
-
-Here is an example retention policy configuration:
-
-retention-policy.yaml
-```yaml
-# Retention Policy Configuration
-
-retention_policies:
-prompt_logs:
-  retention_days: 7
-  classification: restricted
-  auto_delete: true
-  access_control: ["security-team", "platform-team"]
-
-tool_call_logs:
-  retention_days: 30
-  classification: confidential
-  auto_delete: true
-  access_control: ["engineering-team"]
-
-aggregated_metrics:
-  retention_days: 180
-  classification: internal
-  auto_delete: true
-  access_control: ["all-engineers"]
-
-provenance_metadata:
-  retention_days: 365
-  classification: internal
-  auto_delete: true
-  access_control: ["all-engineers"]
-
-# Multi-tenant retention rules
-tenant_overrides:
-team-a:
-  prompt_logs:
-    retention_days: 3  # Stricter for Team A
-team-b:
-  prompt_logs:
-    retention_days: 14  # More lenient for Team B
+```json
+{
+  "event_id": "evt_01HXYZ...",
+  "ts": "2025-10-07T14:32:11Z",
+  "actor": {"type": "user", "id": "eng_42", "sso": "okta|john"},
+  "action": "llm_request",
+  "input": {
+    "sha256": "a3f7...",
+    "length": 1234,
+    "classification": "confidential",
+    "redactions": {"EMAIL_ADDRESS": 2, "PERSON": 1}
+  },
+  "model": {"name": "claude-sonnet-4-5", "temperature": 0.3},
+  "provenance": {
+    "prompt_template_id": "support_debug_v3",
+    "context_manifest_id": "ctx_8f9e..."
+  },
+  "policy": {"region": "eu-west-1", "zdr": true},
+  "output": {"sha256": "b6c1...", "tokens": 342},
+  "integrity_hmac": "e4d9..."
+}
 ```
 
-Here is an example audit log structure:
+### Workflow DSAR (Data Subject Access Request)
 
-audit-log-example.md
-```markdown
-# Audit Log Entry Structure
+GDPR Art. 15 obliga a entregar al titular toda su información; Art. 17 obliga a borrarla a petición. Para herramientas de IA el workflow es:
 
-## Required Fields
-
-- **timestamp**: ISO 8601 timestamp of the action
-- **actor**: User ID or service account that triggered the action
-- **action**: Type of action (prompt_sent, tool_executed, data_accessed)
-- **input_sources**: List of files, tickets, or context used
-- **tool_actions**: Commands executed and their results
-- **redaction_applied**: What data was redacted and why
-- **policy_decisions**: Which policies were applied
-- **checksum**: Hash of log entry for tamper detection
+```
+Usuario pide erasure (ej. ana@acme.com)
+     │
+     ▼
+1. Buscar en audit log todos los eventos con hash(email_crudo)
+   coincidente con hash(ana@acme.com)
+     │
+     ▼
+2. Para cada evento → localizar artefactos (prompt cifrado,
+   output cifrado, contexto retrieved)
+     │
+     ▼
+3. Borrar artefactos (overwrite + delete) y marcar
+   evento con "erased=true, erasure_ts=..."
+     │
+     ▼
+4. Notificar al proveedor LLM (si hay prompts no-ZDR,
+   abrir ticket de deletion con vendor)
+     │
+     ▼
+5. Confirmar al titular con reporte firmado
 ```
 
-Here is an example provenance tagging system:
+### Logs tamper-evident
 
-provenance-tagging-system.py
+Append-only + hash chain (estilo blockchain simplificado o AWS CloudTrail digest):
+
+```
+entry_n.hmac = HMAC(key, entry_n.body || entry_{n-1}.hmac)
+```
+
+Cualquier modificación histórica rompe la cadena. Alternativas production-grade:
+- **AWS CloudTrail Lake** con integrity validation.
+- **GCP Cloud Audit Logs** con digests firmados.
+- **Immudb** / **QLDB** (ledger databases).
+
+## Ejemplo con código
+
+### Audit log con HMAC chain
+
 ```python
-#!/usr/bin/env python3
-"""
-Provenance tagging system for AI-assisted changes.
-Captures metadata needed to reproduce outputs.
-"""
-
-from dataclasses import dataclass
-from typing import List, Dict, Optional
+# pip install cryptography
+import hashlib, hmac, json, os
 from datetime import datetime
-import hashlib
-import json
+from pathlib import Path
+
+AUDIT_KEY = os.environ["AUDIT_HMAC_KEY"].encode()  # en KMS en producción
+LOG_PATH = Path("/var/log/ai/audit.jsonl")
+
+def _last_hmac() -> str:
+    if not LOG_PATH.exists():
+        return "0" * 64
+    with LOG_PATH.open("rb") as f:
+        f.seek(0, 2)
+        size = f.tell()
+        f.seek(max(0, size - 4096))
+        last = f.read().splitlines()[-1]
+    return json.loads(last)["hmac"]
+
+def audit(event: dict) -> dict:
+    event.setdefault("ts", datetime.utcnow().isoformat() + "Z")
+    body = json.dumps(event, sort_keys=True).encode()
+    chain_input = body + _last_hmac().encode()
+    event["hmac"] = hmac.new(AUDIT_KEY, chain_input, hashlib.sha256).hexdigest()
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with LOG_PATH.open("a") as f:
+        f.write(json.dumps(event, sort_keys=True) + "\n")
+    return event
+
+def verificar_cadena() -> bool:
+    prev = "0" * 64
+    with LOG_PATH.open() as f:
+        for linea in f:
+            e = json.loads(linea)
+            saved = e.pop("hmac")
+            body = json.dumps(e, sort_keys=True).encode()
+            esperado = hmac.new(AUDIT_KEY, body + prev.encode(),
+                                 hashlib.sha256).hexdigest()
+            if esperado != saved:
+                return False
+            prev = saved
+    return True
+```
+
+### Provenance tagging y verificación
+
+```python
+from dataclasses import dataclass, asdict, field
+from typing import Any
+import hashlib, json, uuid
+from datetime import datetime
 
 @dataclass
 class ProvenanceTag:
-  """Provenance metadata for an AI-assisted change."""
+    change_id: str
+    prompt_template_id: str
+    prompt_template_version: str
+    context_manifest_id: str
+    model_name: str
+    model_config: dict[str, Any]
+    actor: str
+    ts: str = field(default_factory=lambda:
+                    datetime.utcnow().isoformat() + "Z")
 
-  prompt_template_id: str
-  prompt_template_version: str
-  context_manifest_id: str
-  model_name: str
-  model_config: Dict[str, any]
-  timestamp: datetime
+    def fingerprint(self) -> str:
+        payload = json.dumps(asdict(self), sort_keys=True).encode()
+        return hashlib.sha256(payload).hexdigest()[:16]
 
-  def to_dict(self) -> Dict:
-      """Convert to dictionary for storage."""
-      return {
-          "prompt_template_id": self.prompt_template_id,
-          "prompt_template_version": self.prompt_template_version,
-          "context_manifest_id": self.context_manifest_id,
-          "model_name": self.model_name,
-          "model_config": self.model_config,
-          "timestamp": self.timestamp.isoformat()
-      }
 
-  def to_fingerprint(self) -> str:
-      """Generate reproducible fingerprint."""
-      data = json.dumps(self.to_dict(), sort_keys=True)
-      return hashlib.sha256(data.encode()).hexdigest()[:16]
+class ProvenanceStore:
+    def __init__(self):
+        self._store: dict[str, ProvenanceTag] = {}
 
-class ProvenanceTracker:
-  """Tracks provenance for AI-assisted changes."""
+    def tag(self, **kw) -> ProvenanceTag:
+        tag = ProvenanceTag(change_id=kw.pop("change_id",
+                                              f"chg_{uuid.uuid4().hex[:12]}"),
+                            **kw)
+        self._store[tag.change_id] = tag
+        audit({"action": "provenance_tagged",
+               "change_id": tag.change_id,
+               "fingerprint": tag.fingerprint()})
+        return tag
 
-  def __init__(self):
-      self.tags: Dict[str, ProvenanceTag] = {}
-
-  def tag_change(
-      self,
-      change_id: str,
-      prompt_template_id: str,
-      prompt_template_version: str,
-      context_manifest_id: str,
-      model_name: str,
-      model_config: Dict[str, any]
-  ) -> ProvenanceTag:
-      """Tag a change with provenance metadata."""
-      tag = ProvenanceTag(
-          prompt_template_id=prompt_template_id,
-          prompt_template_version=prompt_template_version,
-          context_manifest_id=context_manifest_id,
-          model_name=model_name,
-          model_config=model_config,
-          timestamp=datetime.now()
-      )
-
-      self.tags[change_id] = tag
-      return tag
-
-  def get_provenance(self, change_id: str) -> Optional[ProvenanceTag]:
-      """Retrieve provenance for a change."""
-      return self.tags.get(change_id)
-
-  def verify_provenance(self, change_id: str) -> bool:
-      """Verify that a change has complete provenance."""
-      tag = self.get_provenance(change_id)
-      if not tag:
-          return False
-
-      # Check required fields
-      required_fields = [
-          tag.prompt_template_id,
-          tag.prompt_template_version,
-          tag.context_manifest_id,
-          tag.model_name
-      ]
-
-      return all(field for field in required_fields)
+    def reproducible(self, change_id: str) -> bool:
+        tag = self._store.get(change_id)
+        if not tag:
+            return False
+        requeridos = [tag.prompt_template_id, tag.prompt_template_version,
+                      tag.context_manifest_id, tag.model_name]
+        return all(requeridos)
 ```
 
-Incident Response and Retention
-During incidents, teams often want to keep logs longer. If you do this, document the reason and set a new expiration date. Temporary extensions should not become permanent retention by accident.
+### Handler DSAR (right to erasure, GDPR Art. 17)
 
-When extensions are documented, they are manageable. When extensions are undocumented, they become permanent, and risk accumulates. The goal is to make extensions explicit and temporary.
+```python
+import hashlib, json
+from pathlib import Path
 
-Periodic Audits
-A quarterly audit of retention settings and access logs is usually enough. The goal is not perfect compliance, it is to catch drift before it becomes a problem. When audits are regular, problems are caught early. When audits are irregular, problems accumulate.
+ARTEFACTOS = Path("/var/lib/ai-cache")
 
-Common Pitfalls and Solutions
-Pitfall: retaining everything by default. Solution: define explicit retention windows and enforce deletion. When retention is undefined, data accumulates indefinitely. When retention is defined, data is managed.
+def hash_pii(valor: str) -> str:
+    return hashlib.sha256(valor.lower().strip().encode()).hexdigest()
 
-Pitfall: logs that are too noisy. Solution: log structured fields and avoid storing raw prompts unless needed. When logs are noisy, they are hard to use. When logs are structured, they are useful.
+def dsar_erasure(subject_email: str, ticket_id: str) -> dict:
+    h = hash_pii(subject_email)
+    borrados = []
 
-Pitfall: missing provenance tags. Solution: add template IDs and context manifests to every AI-assisted change. When provenance is missing, changes are not reproducible. When provenance is present, changes are reproducible.
+    # 1. Localizar eventos de audit que correlacionen
+    with Path("/var/log/ai/audit.jsonl").open() as f:
+        for linea in f:
+            evento = json.loads(linea)
+            if evento.get("subject_hash") == h:
+                # 2. Borrar artefactos físicos (overwrite + delete)
+                for sha in [evento["input"]["sha256"],
+                            evento["output"]["sha256"]]:
+                    archivo = ARTEFACTOS / f"{sha}.enc"
+                    if archivo.exists():
+                        archivo.write_bytes(b"\x00" * archivo.stat().st_size)
+                        archivo.unlink()
+                        borrados.append(sha)
 
-Pitfall: no deletion workflows. Solution: automate deletion and verify it works. When deletion is manual, it is forgotten. When deletion is automated, it is reliable.
+    # 3. Registrar la erasure (evento append-only, nunca se borra)
+    reporte = {
+        "action": "dsar_erasure",
+        "ticket_id": ticket_id,
+        "subject_hash": h,
+        "artefactos_borrados": borrados,
+        "regulation": "GDPR Art. 17",
+    }
+    audit(reporte)
 
-Pitfall: no access controls. Solution: restrict access to retained data based on need. When access is uncontrolled, data can be misused. When access is controlled, misuse is prevented.
+    # 4. Marcar en vendor (si no hay ZDR)
+    # vendor_client.deletion_request(subject_hash=h)   # pseudo-API
 
-Key concepts to remember
-Retention is a security control—less retained data means less risk
-Audit trails must be structured—ensure logs are searchable and complete
-Provenance enables reproducibility—tag prompts, context, and configuration
-Delete by policy—enforce retention windows automatically
-Control access—restrict who can see retained data
-Audit regularly—catch drift before it becomes a problem
-Make provenance automatic—capture it without developer effort
+    return reporte
+```
+
+### Retention sweeper
+
+Un cron job que aplica el schedule:
+
+```python
+import time
+from pathlib import Path
+
+TIERS = {
+    "restricted":   {"prompts": 0,    "outputs": 0,    "metrics": 90},
+    "confidential": {"prompts": 7,    "outputs": 30,   "metrics": 180},
+    "internal":     {"prompts": 30,   "outputs": 90,   "metrics": 365},
+    "public":       {"prompts": 90,   "outputs": 180,  "metrics": None},
+}
+
+def barrer_retencion(base: Path = Path("/var/lib/ai-cache")) -> None:
+    ahora = time.time()
+    for archivo in base.rglob("*.enc"):
+        # Convención de path: {clasif}/{tipo}/{sha}.enc
+        clasif, tipo, _ = archivo.relative_to(base).parts
+        max_dias = TIERS[clasif].get(tipo)
+        if max_dias is None:
+            continue
+        edad_dias = (ahora - archivo.stat().st_mtime) / 86400
+        if edad_dias > max_dias:
+            archivo.write_bytes(b"\x00" * archivo.stat().st_size)
+            archivo.unlink()
+            audit({"action": "retention_delete",
+                   "path": str(archivo),
+                   "age_days": round(edad_dias, 1),
+                   "policy": f"{clasif}/{tipo}:{max_dias}"})
+```
+
+### Retention en entornos multi-tenant
+
+Cada tenant puede tener políticas distintas (regulación distinta, contrato distinto):
+
+```yaml
+retention:
+  default:
+    prompts: 7
+  overrides:
+    tenant_eu_bank:   { prompts: 1,  outputs: 7 }   # banca UE estricta
+    tenant_marketing: { prompts: 30, outputs: 90 }  # permisivo
+    tenant_health:    { prompts: 0,  outputs: 0 }   # HIPAA sin PHI residual
+```
+
+## Errores comunes
+
+- **Guardar todo "por si acaso".** Sin TTL explícito, los prompts crudos acumulan PII durante años, convirtiéndose en un honeypot regulatorio.
+- **Logs crudos sin redacción.** Un audit log con el prompt original anula todo el pipeline de redacción. Guarda **hashes** del input, no el input.
+- **No tamper-evidence.** Un audit log mutable es evidencia débil ante auditoría; cualquier insider puede modificarlo. Usa append-only + HMAC chain o ledger database.
+- **Olvidar los backups.** La política dice "borramos tras 30 días", pero los snapshots nocturnos conservan los prompts 2 años. GDPR Art. 17 aplica también a backups (con excepciones acotadas).
+- **Sin workflow DSAR.** Cuando llega la primera erasure request, no hay forma técnica de localizar y borrar los artefactos. Diseña el DSAR **antes** de recibirlo.
+- **No distinguir tenants.** Aplicar la misma retención a un dataset de salud (HIPAA, 6 años) y a uno de marketing confunde los dos extremos: incumples uno y gastas de más en el otro.
+- **Provenance opcional.** Si el tag es manual, los desarrolladores lo omiten bajo presión. Hazlo obligatorio en el PR template o bloquea el merge.
+- **No verificar la cadena de HMAC** periódicamente. Un audit log corrupto que nadie revisa es tan inútil como no tenerlo.
+- **Confundir soft-delete con delete.** `UPDATE ... SET deleted=1` no cumple Art. 17; hace falta destrucción física o cripto-shredding (destruir la clave de cifrado).
+- **No notificar al vendor.** Si el proveedor no tiene ZDR, borrar tus copias no basta; hay que abrir ticket de deletion con el vendor (OpenAI, Anthropic ofrecen formularios).
+- **Retention de datasets de evaluación.** Los eval sets suelen contener datos reales de incidentes pasados; aplícales la misma política que a prompts.
+
+## Resumen
+
+- **Retención, auditoría y procedencia** son la memoria operativa de un sistema IA: definen qué se guarda, qué pasó y cómo reproducirlo.
+- Las herramientas de IA generan un **shadow dataset** (prompts, outputs, tool calls, telemetría) tan sensible como la BD de producción; gestiónalo con el mismo rigor.
+- **Tiered retention** por clasificación: Restricted se destruye inmediatamente; Public puede guardarse indefinidamente. Alinea TTL con regulación aplicable (GDPR, HIPAA, PCI-DSS).
+- Un **audit log** útil incluye timestamp, actor, hash del input, modelo, provenance, y HMAC chain para tamper-evidence.
+- **Procedencia** = `prompt_template_id` + versión + `context_manifest_id` + modelo + config: es el "lockfile" que permite reproducir un output semanas después.
+- **DSAR workflow** (GDPR Art. 17): hashea PII en el audit, correlaciona por hash, destruye artefactos cifrados, notifica al vendor si no hay ZDR, registra la erasure.
+- **Tamper-evident logs** vía HMAC chain, AWS CloudTrail Lake, GCP Cloud Audit Logs o ledger DBs (QLDB, Immudb) son requisito para evidencia regulatoria.
+- **Retention sweeper** automatizado aplica el schedule sin intervención; manual = olvidado.
+- **Multi-tenant retention** requiere overrides por tenant: salud (HIPAA), banca UE y marketing tienen regímenes distintos.
+- **Provenance como gate**: si el PR no incluye tag, no se mergea. Hazlo obligatorio en PR templates o CI.
+- **Nunca** guardes el prompt crudo en el audit log: guarda el hash + metadatos + copia cifrada en storage separado con TTL propio.

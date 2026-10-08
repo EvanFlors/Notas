@@ -1,121 +1,398 @@
-## Multimodal LLMs & Customizations
-This lesson covers two important advanced topics in LLM applications: multimodal capabilities that enable processing of text, images, and audio, and customization techniques including fine-tuning and distillation. While these can be combined in sophisticated applications, each represents a valuable set of capabilities that can be applied independently.
+# LLMs Multimodales y Técnicas de Personalización
 
-Part 1: Multimodal LLMs - Working with Text, Images, and Audio
-Introduction to Multimodal LLMs
-Imagine a customer service system that can not only read support tickets but also analyze screenshots of error messages, understand flowcharts in technical documentation, and even process audio recordings of frustrated customers explaining their problems.
+## ¿Qué es?
 
-The evolution from text-only to multimodal LLMs represents one of the most significant advances in AI capabilities for developers. While traditional LLMs forced us to describe everything in words, multimodal models can directly process images, audio, and soon video, opening entirely new categories of applications. A code review tool can now analyze both the code diff and screenshots of the running application. A content moderation system can evaluate text posts alongside embedded images. An e-commerce platform can automatically generate product descriptions from photos.
+Esta lección cubre dos ejes complementarios para extender un LLM más allá del uso "caja negra" por API:
 
-This section will teach you how multimodal LLMs work, when to use them, and how to build applications that seamlessly combine text, image, and audio processing. You will learn the practical considerations for working with different modalities, understand the cost and performance implications, and discover how to design systems that leverage these capabilities effectively in production environments.
+1. **Multimodalidad:** modelos que procesan texto, imágenes, audio y video en un espacio de representación compartido, no sólo texto.
+2. **Personalización:** técnicas para adaptar modelos a tu dominio — desde el más barato (**in-context learning**) hasta el más costoso (**full fine-tuning**), pasando por **LoRA/QLoRA**, **instruction tuning**, **RLHF/DPO** y **distillation**.
 
-Understanding Multimodal Architecture
-Multimodal LLMs represent a fundamental evolution in how AI systems process information. Instead of requiring everything to be converted to text first, these models can directly understand and reason about multiple types of input simultaneously.
+### Multimodal LLMs (MLLMs)
 
-The Architecture Behind Multimodality:
+Un **Multimodal LLM** acepta y/o produce señales de más de una modalidad. Arquitectura típica:
 
-Traditional LLMs process sequences of text tokens through transformer architectures. Multimodal models extend this approach by using specialized encoders for different input types. Images are processed through vision transformers or convolutional neural networks that convert visual information into token-like representations. Audio is handled through encoders that transform sound waves into sequences the language model can understand. The key innovation is projecting all these different modalities into a shared representational space where the language model can reason about them together.
+```
+┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+│ Vision Enc.  │   │ Audio Enc.   │   │ Text Tokens  │
+│ (ViT, CLIP)  │   │ (Whisper-like)│   │ (BPE)        │
+└──────┬───────┘   └──────┬───────┘   └──────┬───────┘
+       │ embeddings       │ embeddings       │
+       └────────┬─────────┴──────────────────┘
+                ▼
+       ┌─────────────────────┐
+       │ Projection layer    │  ← proyecta todo a dim. del LLM
+       └──────────┬──────────┘
+                  ▼
+       ┌─────────────────────┐
+       │   LLM (Transformer) │  ← razona sobre el "token stream" unificado
+       └─────────────────────┘
+                  ▼
+            texto generado
+            (y en modelos "any-to-any": imagen, audio)
+```
 
-This shared space allows the model to understand relationships between modalities. It can see that a photo shows a red car and understand when you ask "What color is the vehicle in this image?" The model doesn't just process the image and text separately—it creates unified representations that capture the relationships between visual and linguistic concepts.
+### Personalización — espectro de técnicas
 
-Part 2: Model Customization - Fine-tuning and Distillation
-When GitHub released Copilot, they did not just use GPT out of the box. They fine-tuned the model on billions of lines of code from public repositories, transforming a general-purpose language model into a specialized coding assistant that understands programming patterns, syntax, and best practices across dozens of languages.
+| Técnica | Modifica pesos | Datos típicos | Costo | Cuándo usarla |
+|---|---|---|---|---|
+| **Prompt engineering** | No | 0 | $ | Primer intento, siempre |
+| **Few-shot / in-context learning** | No | 3-20 ejemplos en prompt | $ | Formato específico, baja frecuencia |
+| **RAG** | No | Corpus externo | $$ | Conocimiento fresco / privado |
+| **Prompt tuning / Prefix tuning** | Pocos vectores | 1K-10K ejemplos | $$ | Soft prompts |
+| **LoRA / QLoRA (PEFT)** | ~0.1-1% de los pesos | 1K-100K ejemplos | $$ | Estilo, dominio, formato |
+| **Full fine-tuning (SFT)** | 100% | 10K-1M ejemplos | $$$ | Dominio muy distinto, control total |
+| **RLHF / DPO** | 100% o LoRA | Pares de preferencias | $$$$ | Alineamiento, tono, seguridad |
+| **Distillation** | 100% del student | Outputs del teacher | $$$ | Reducir costo/latencia en producción |
+| **Continual pre-training** | 100% | Billones de tokens de dominio | $$$$$ | Idioma/dominio totalmente nuevo |
 
-These techniques—fine-tuning and distillation; represent two fundamental approaches for customizing large language models to your specific needs. Fine-tuning adapts a pre-trained model to perform better on particular tasks or domains by continuing training on specialized data. Distillation creates smaller, more efficient models by teaching them to mimic the behavior of larger, more capable models. Both techniques can dramatically improve performance for specific use cases while potentially reducing costs and latency.
+## ¿Por qué importa?
 
-This section will teach you when and how to use fine-tuning and distillation, understand the trade-offs involved, and recognize scenarios where these techniques can transform your application's performance. You'll learn the practical considerations for implementing these approaches, the resource requirements involved, and how to evaluate whether the investment is worthwhile for your specific use case.
+**Multimodalidad** abre categorías de aplicaciones imposibles con texto puro:
 
-Understanding Fine-tuning
-Fine-tuning is the process of taking a pre-trained language model and continuing its training on a smaller, specialized dataset that's specific to your domain or task. Rather than training a model from scratch—which would require enormous datasets and computational resources—fine-tuning leverages the general language understanding already learned by the base model and adapts it to your specific needs.
+- Revisión de código + captura de pantalla del error.
+- Moderación de contenido con texto *e* imágenes embebidas.
+- Soporte al cliente que acepta audios de voz y screenshots.
+- Generación de descripciones de producto a partir de fotos.
+- Diagramas, planos, flowcharts, OCR implícito, documentos escaneados.
+- Accesibilidad: describir imágenes a usuarios con discapacidad visual.
 
-The Fine-tuning Process:
+**Personalización** importa porque:
 
-Fine-tuning works by taking a model that already understands language fundamentals and exposing it to examples of your specific task or domain. The model's weights are adjusted slightly to better handle your particular use case while retaining its broader capabilities. This process is much more efficient than training from scratch because the model already has learned language patterns, syntax, and general knowledge—it just needs to learn the nuances of your specific application.
+- Un modelo *generalista* raras veces es óptimo para un dominio con terminología propia (legal, médico, financiero).
+- *Few-shot en el prompt* funciona pero gasta tokens cada request. Fine-tuning internaliza el patrón y **reduce tokens de prompt** → ahorro recurrente.
+- La **latencia** y el **costo** de un modelo pequeño fine-tuneado pueden vencer a un GPT-4 generalista en tareas específicas.
+- Distillation permite migrar un sistema "demo con GPT-4" a producción con un modelo 10× más barato manteniendo 85-95% de la calidad.
+- RLHF/DPO es cómo se alinea el *tono*, la *seguridad* y la *persona* de un asistente.
 
-The quality and quantity of your fine-tuning data determines the success of the process. You need examples that represent the full scope of what you want the model to do, with consistent formatting and high-quality outputs. A customer service fine-tuning dataset might include thousands of customer inquiries paired with ideal responses, covering various scenarios, tones, and resolution approaches.
+**Importante:** antes de fine-tunear, **agota prompt engineering + RAG + few-shot**. En 70% de los casos resuelven el problema sin la complejidad operacional de mantener un modelo custom.
 
-When Fine-tuning Makes Sense:
+## ¿Cómo funciona?
 
-Fine-tuning is most valuable when you have a specific task or domain that differs significantly from general language use. Legal document analysis, medical diagnosis assistance, technical support for specific software products, or industry-specific content generation are all scenarios where fine-tuning can provide substantial improvements over general-purpose models.
+### Arquitectura multimodal — el "truco" del espacio compartido
 
-The technique is particularly effective when you need consistent formatting, specific terminology, or domain expertise that general models lack. A fine-tuned model for financial analysis might understand industry jargon, regulatory requirements, and analytical frameworks that a general model would struggle with.
+Los MLLMs modernos (GPT-4V/4o, Claude 3+, Gemini, LLaVA, Qwen-VL) comparten una receta:
 
-Fine-tuning also makes sense when you need to reduce the amount of context or prompting required for good results. Instead of providing extensive examples and instructions in every prompt, a fine-tuned model can internalize these patterns, reducing token usage and improving response consistency.
+1. **Encoder específico de modalidad** convierte la señal a embeddings.
+   - Imágenes: Vision Transformer (ViT) pre-entrenado (ej. CLIP ViT-L/14) parte la imagen en parches 14×14 y los codifica.
+   - Audio: Whisper encoder o similar convierte espectrograma log-Mel a embeddings temporales.
+2. **Capa de proyección** (típicamente un MLP de 2 capas) mapea esos embeddings a la dimensión del LLM.
+3. **El LLM** recibe la secuencia unificada `[tokens_imagen, tokens_texto]` y la procesa como texto normal.
 
-Types of Fine-tuning:
+El entrenamiento multimodal se hace en dos fases: *alignment* (proyección congelando LLM y encoder) e *instruction tuning* multimodal (ejemplos `imagen + instrucción → respuesta`).
 
-Full fine-tuning adjusts all the model's parameters, providing maximum flexibility but requiring the most computational resources and data. This approach can significantly change model behavior but needs careful management to prevent overfitting or catastrophic forgetting of general capabilities.
+Modelos "**any-to-any**" (GPT-4o, Gemini 2.5) además generan imágenes/audio: añaden decoders de modalidad después del LLM.
 
-Parameter-efficient fine-tuning techniques like LoRA (Low-Rank Adaptation) modify only a small subset of model parameters, making the process much more resource-efficient while still achieving good results. These methods are particularly attractive for organizations with limited computational resources or when you need to maintain multiple specialized versions of a model.
+### In-context learning (ICL) — "aprender" sin cambiar pesos
 
-Instruction fine-tuning focuses specifically on improving how models follow instructions and respond to prompts. This type of fine-tuning can improve response quality, reduce hallucinations, and make models more reliable for production applications.
+Descubrimiento clave de GPT-3: si pones ejemplos en el prompt, el modelo generaliza el patrón para la nueva entrada, **sin entrenamiento**:
 
-Understanding Model Distillation
-Model distillation is a technique for creating smaller, faster models that maintain much of the capability of larger, more expensive models. The process involves training a smaller "student" model to mimic the behavior of a larger "teacher" model, often achieving 80-90% of the teacher's performance while being significantly more efficient.
+```
+Clasifica el sentimiento:
 
-The Distillation Process:
+Texto: "Me encantó el producto"      → positivo
+Texto: "Tardó un mes y llegó roto"   → negativo
+Texto: "Está bien, no es la gran cosa" → neutral
+Texto: "Mejor compra del año"        →
+```
 
-Distillation works by using a large, high-performing model to generate training data for a smaller model. The teacher model processes a large set of inputs, and both its outputs and its internal confidence patterns are used to train the student model. This approach allows the student to learn not just the correct answers but also the teacher's reasoning patterns and uncertainty estimates.
+El modelo responde `positivo` sin que nadie modificara sus pesos. Esto es **few-shot in-context learning**. Variantes:
 
-The key insight behind distillation is that large models often provide rich information beyond just their final outputs. They generate probability distributions over possible responses, confidence scores, and internal representations that capture nuanced understanding. By training smaller models to match these rich outputs rather than just final answers, distillation can transfer much of the teacher's capability to more efficient architectures.
+- **Zero-shot:** sólo la instrucción, 0 ejemplos.
+- **Few-shot:** 1-20 ejemplos.
+- **Chain-of-thought (CoT):** incluir ejemplos de *razonamiento paso a paso* → mejora drástica en tareas lógicas/matemáticas.
 
-When Distillation Makes Sense:
+### Fine-tuning — ajustar los pesos
 
-Distillation is ideal when you need to deploy models at scale where cost and latency matter significantly. If you have a working solution using GPT-4 but need to serve thousands of requests per minute, distilling that capability into a smaller model could reduce costs by 10x or more while maintaining acceptable quality.
+**Supervised Fine-Tuning (SFT):** continuar el pre-training sobre pares `(prompt, respuesta ideal)` curados. Minimiza cross-entropy sólo en los tokens de respuesta.
 
-The technique is particularly valuable for applications with well-defined scope where you can generate comprehensive training data using the teacher model. Customer support classification, content moderation, simple question answering, and structured data extraction are all good candidates for distillation.
+**Parameter-Efficient Fine-Tuning (PEFT):**
 
-Distillation also makes sense when you need to run models in resource-constrained environments. Edge devices, mobile applications, or situations with strict latency requirements often cannot accommodate large models but can benefit from distilled versions.
+- **LoRA (Low-Rank Adaptation, 2021):** congela los pesos originales `W` y aprende dos matrices chicas `A ∈ ℝ^(d×r)`, `B ∈ ℝ^(r×d)` tales que la actualización es `ΔW = BA`. Con rango `r=8-64`, se entrenan **<1% de los parámetros** con calidad casi igual a full fine-tuning.
+- **QLoRA (2023):** combina LoRA con cuantización 4-bit del modelo base. Permite fine-tunear LLaMA 70B en una sola GPU de 48GB.
+- **DoRA, AdaLoRA, VeRA:** variantes más recientes con mejoras marginales.
 
-Quality and Performance Trade-offs:
+**Instruction tuning:** SFT especializado en seguir instrucciones. Datasets famosos: Alpaca, Dolly, FLAN, OpenAssistant, UltraChat.
 
-Distillation inevitably involves trade-offs between model size, speed, and quality. Smaller models process requests faster and cost less to run, but they may struggle with edge cases, complex reasoning, or nuanced understanding that larger models handle well.
+### Alineamiento: RLHF, DPO y Constitutional AI
 
-The extent of these trade-offs depends heavily on your specific use case. Simple, well-defined tasks might see minimal quality degradation from distillation, while complex reasoning tasks might suffer more significant performance drops.
+Un modelo post-SFT sigue instrucciones pero puede generar outputs tóxicos, inseguros o poco útiles. El pipeline estándar:
 
-Comparing Fine-tuning and Distillation
-Understanding when to use fine-tuning versus distillation requires comparing their strengths, limitations, and resource requirements for your specific situation.
+```
+1. SFT        Modelo base + 10-100K pares humanos  →  base de instrucciones
+2. Reward Model
+   Humanos rankean múltiples respuestas al mismo prompt.
+   Se entrena un modelo R(prompt, respuesta) → score.
+3. RLHF (PPO) Fine-tunea el LLM usando R como recompensa, con PPO (Proximal Policy
+              Optimization) y una penalización KL contra el modelo SFT para no
+              divergir demasiado.
+```
 
-Capability Differences:
+**Alternativas modernas:**
 
-Fine-tuning can potentially improve model performance beyond the base model's capabilities by specializing it for specific tasks or domains. If you have high-quality domain-specific data, fine-tuning might achieve better results than the original model on your particular use case.
+- **DPO (Direct Preference Optimization, Rafailov et al. 2023):** elimina el reward model y optimiza una loss cerrada sobre pares `(elegido, rechazado)`. Más estable y barato. Usado por LLaMA 3, Mistral, Qwen, etc.
+- **IPO, KTO, ORPO, SimPO:** variantes posteriores con distintas asunciones.
+- **Constitutional AI (Anthropic):** el modelo critica y revisa sus propias respuestas guiado por una "constitución" de principios. Reduce dependencia de labels humanos.
+- **RLAIF:** reemplaza humanos con otro LLM como juez.
 
-Distillation typically cannot exceed the teacher model's performance and usually achieves somewhat lower quality. However, distilled models can be dramatically more efficient while maintaining acceptable performance levels for many applications.
+### Distillation — modelos grandes enseñan a modelos chicos
 
-Resource Requirements:
+Dos sabores:
 
-Fine-tuning requires significant computational resources for training but uses the same serving infrastructure as the base model. You need GPUs, training time, and expertise, but deployment costs remain similar to the original model.
+- **Response distillation (soft/hard):** el teacher genera respuestas sobre un corpus de prompts; el student se entrena vía SFT sobre esos pares. Simple, muy usado (Alpaca se destiló de GPT-3.5, Zephyr de GPT-4).
+- **Logit distillation:** el student minimiza KL contra la distribución *completa* de logits del teacher. Más eficiente estadísticamente pero requiere acceso a logits (solo con modelos abiertos o APIs que los expongan — OpenAI lo ofrece desde 2024).
 
-Distillation requires computational resources for both generating training data with the teacher model and training the student model. However, the deployment benefits can be substantial, with serving costs potentially 5-10x lower than the teacher model.
+Resultado típico: student 5-10× más chico, 80-95% de la calidad del teacher en el dominio objetivo, 10× más barato en producción.
 
-Data Requirements:
+### Elegir la técnica correcta — árbol de decisión
 
-Fine-tuning needs high-quality examples of your desired task or domain, typically requiring domain expertise to create or curate. The data needs to be diverse, representative, and carefully formatted.
+```
+¿El modelo generalista resuelve el problema con buen prompt?
+├─ SÍ → úsalo
+└─ NO
+   ├─ ¿Falta conocimiento específico/fresco?
+   │  └─ SÍ → RAG
+   ├─ ¿Falta formato/estilo/persona?
+   │  └─ SÍ → few-shot primero, LoRA si es alto volumen
+   ├─ ¿Costo o latencia inaceptables en producción?
+   │  └─ SÍ → distillation a modelo más chico
+   └─ ¿Dominio radicalmente distinto (ej. SQL propietario, idioma raro)?
+      └─ SÍ → fine-tuning o continual pre-training
+```
 
-Distillation can generate its own training data using the teacher model, potentially requiring less human expertise for data creation. However, you still need good input data that represents the full scope of your application's requirements.
+## Ejemplo con código
 
-Economic Considerations and Implementation
-Understanding the economics of fine-tuning and distillation helps determine when these techniques provide sufficient return on investment.
+### 1. GPT-4o con imagen (multimodal input)
 
-Cost-Benefit Analysis:
+```python
+import base64
+from openai import OpenAI
+oai = OpenAI()
 
-Fine-tuning involves upfront costs for data preparation, training infrastructure, and expertise, but may not reduce ongoing serving costs. The benefits come from improved performance, reduced prompting complexity, or capabilities that weren't possible with base models.
+with open("factura.jpg", "rb") as f:
+    img_b64 = base64.b64encode(f.read()).decode()
 
-Distillation has upfront costs for teacher model usage and training infrastructure but can provide substantial ongoing savings through reduced serving costs. The economics often favor distillation for high-volume applications where serving costs dominate.
+r = oai.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Extrae total, fecha e emisor de la factura. Devuelve JSON."},
+            {"type": "image_url",
+             "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}},
+        ],
+    }],
+    max_tokens=300,
+    temperature=0,
+)
+print(r.choices[0].message.content)
+```
 
-Implementation Strategy:
+### 2. Claude 3.5 con imagen
 
-Start by clearly defining your objectives and success metrics. What specific improvements do you need? How will you measure success? What are your constraints around cost, latency, and quality?
+```python
+from anthropic import Anthropic
+ant = Anthropic()
 
-Evaluate your current prompting and system design before investing in fine-tuning or distillation. Sometimes better prompts, few-shot examples, or system architecture changes can achieve your goals more efficiently than model customization.
+r = ant.messages.create(
+    model="claude-3-5-sonnet-latest",
+    max_tokens=400,
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "image",
+             "source": {"type": "base64", "media_type": "image/jpeg", "data": img_b64}},
+            {"type": "text", "text": "¿Qué objetos hay y en qué posiciones?"},
+        ],
+    }],
+)
+print(r.content[0].text)
+```
 
-Consider both direct costs (infrastructure, training) and opportunity costs (developer time, delayed features). Sometimes investing in better prompting or system design provides better returns than model customization.
+### 3. Audio: transcripción con Whisper
 
-Summary
-This lesson covered two powerful but independent techniques for enhancing LLM applications that significantly expand what's possible with modern AI systems. Multimodal capabilities enable processing of text, images, and audio together, while customization techniques like fine-tuning and distillation allow you to adapt models to specific domains or efficiency requirements.
+```python
+with open("audio.mp3", "rb") as f:
+    transcript = oai.audio.transcriptions.create(
+        model="whisper-1",
+        file=f,
+        language="es",
+    )
+print(transcript.text)
+```
 
-Key concepts to remember
-Vision transformers and audio encoders project images and audio into shared representational space with text, enabling unified reasoning across modalities for applications like visual Q&A and content analysis
-Continuing training on specialized datasets adapts pre-trained models to specific tasks or industries, improving performance on domain-specific terminology and requirements while retaining general capabilities
-Training smaller "student" models to mimic larger "teacher" models achieves 80-90% performance while reducing serving costs by 5-10x, ideal for high-volume applications with well-defined scope
-Evaluate better prompting and system design before investing in customization; consider cost-benefit analysis, success metrics, and ongoing maintenance requirements for both multimodal and customization approaches
+### 4. Fine-tuning con LoRA (QLoRA) en HuggingFace
+
+```python
+# pip install transformers peft trl bitsandbytes accelerate datasets
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model
+from trl import SFTTrainer, SFTConfig
+from datasets import load_dataset
+
+modelo_base = "meta-llama/Llama-3.1-8B-Instruct"
+
+# Cuantización 4-bit (QLoRA)
+bnb = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype="bfloat16",
+    bnb_4bit_use_double_quant=True,
+)
+
+tok = AutoTokenizer.from_pretrained(modelo_base)
+model = AutoModelForCausalLM.from_pretrained(modelo_base, quantization_config=bnb, device_map="auto")
+
+# Adaptadores LoRA: solo ~0.5% de los pesos se entrenan
+lora_cfg = LoraConfig(
+    r=16, lora_alpha=32, lora_dropout=0.05,
+    target_modules=["q_proj","k_proj","v_proj","o_proj"],
+    bias="none", task_type="CAUSAL_LM",
+)
+model = get_peft_model(model, lora_cfg)
+model.print_trainable_parameters()  # p.ej. 20M / 8B
+
+# Dataset en formato chat
+ds = load_dataset("json", data_files="mis_ejemplos.jsonl")["train"]
+
+trainer = SFTTrainer(
+    model=model,
+    train_dataset=ds,
+    args=SFTConfig(
+        output_dir="./llama3-lora-soporte",
+        per_device_train_batch_size=4,
+        gradient_accumulation_steps=4,
+        num_train_epochs=3,
+        learning_rate=2e-4,
+        bf16=True,
+        logging_steps=10,
+        save_steps=200,
+    ),
+)
+trainer.train()
+model.save_pretrained("./llama3-lora-soporte")
+```
+
+### 5. DPO (preference optimization) con TRL
+
+```python
+from trl import DPOTrainer, DPOConfig
+# dataset con columnas: prompt, chosen, rejected
+ds_pref = load_dataset("json", data_files="preferencias.jsonl")["train"]
+
+dpo = DPOTrainer(
+    model=model,
+    ref_model=None,       # usa una copia congelada automáticamente
+    args=DPOConfig(
+        output_dir="./llama3-dpo",
+        per_device_train_batch_size=2,
+        num_train_epochs=1,
+        beta=0.1,          # fuerza del regularizador KL
+        learning_rate=5e-7,
+    ),
+    train_dataset=ds_pref,
+    tokenizer=tok,
+)
+dpo.train()
+```
+
+### 6. Fine-tuning gestionado por OpenAI
+
+```python
+# 1. Preparar JSONL con formato chat:
+# {"messages":[{"role":"system","content":"..."},{"role":"user","content":"..."},{"role":"assistant","content":"..."}]}
+
+f = oai.files.create(file=open("train.jsonl","rb"), purpose="fine-tune")
+job = oai.fine_tuning.jobs.create(
+    training_file=f.id,
+    model="gpt-4o-mini-2024-07-18",
+    hyperparameters={"n_epochs": 3},
+)
+print(job.id)   # polling con oai.fine_tuning.jobs.retrieve(job.id)
+```
+
+### 7. Distillation con OpenAI (stored completions)
+
+```python
+# 1. Marcar completions del teacher para almacenarlas
+r_teacher = oai.chat.completions.create(
+    model="gpt-4o",
+    messages=[...],
+    store=True,                 # ← guarda la respuesta
+    metadata={"task": "classify_tickets"},
+)
+# 2. Lanzar un fine-tune del student (gpt-4o-mini) usando esas completions
+job = oai.fine_tuning.jobs.create(
+    model="gpt-4o-mini-2024-07-18",
+    training_file=None,
+    method={
+        "type": "supervised",
+        "supervised": {
+            "hyperparameters": {"n_epochs": 2},
+        },
+    },
+    # ...filtros para seleccionar las stored completions
+)
+```
+
+### 8. Correr un modelo local destilado (Ollama)
+
+```bash
+# instalar ollama (https://ollama.com)
+ollama pull llama3.1:8b
+ollama run llama3.1:8b "¿Qué es LoRA?"
+```
+
+```python
+import requests
+r = requests.post("http://localhost:11434/api/generate", json={
+    "model": "llama3.1:8b",
+    "prompt": "Resume la técnica DPO en 3 frases.",
+    "stream": False,
+    "options": {"temperature": 0.3},
+})
+print(r.json()["response"])
+```
+
+## Comparativa rápida: Fine-tuning vs. Distillation vs. RAG
+
+| Dimensión | RAG | Fine-tuning (LoRA) | Distillation |
+|---|---|---|---|
+| Modifica pesos | No | Sí (parcial) | Sí (del student) |
+| Conocimiento fresco | ✅ fácil | ❌ reentrenar | ❌ |
+| Costo setup | Bajo | Medio | Alto |
+| Costo ongoing | Medio (más tokens input) | Igual al base | **Mucho menor** |
+| Mejora estilo/formato | Parcial | ✅ | ✅ (si teacher ya lo tiene) |
+| Puede superar al modelo base | ❌ | ✅ en dominio | ❌ (acotado por teacher) |
+| Explicabilidad | ✅ (ves las fuentes) | ❌ | ❌ |
+
+Patrón recomendado en producción: **RAG + fine-tuning ligero + distillation** si el volumen lo justifica.
+
+## Errores comunes
+
+- **Fine-tunear cuando bastaba un buen prompt o RAG.** Agrega complejidad operacional (versioning, retraining, drift) sin beneficio. Siempre agota prompt engineering + few-shot + RAG primero.
+- **Dataset de fine-tuning demasiado chico o inconsistente.** <500 ejemplos rara vez ayuda. Inconsistencia en formato enseña inconsistencia al modelo.
+- **Catastrophic forgetting.** Full fine-tuning con pocos datos y alto learning rate hace que el modelo "olvide" habilidades generales. Mitigación: LoRA (congela base), learning rates bajos (1e-5 a 2e-4 para LoRA), mezclar datos generales.
+- **Overfitting al dataset de fine-tuning.** El modelo repite literalmente el training. Monitorea loss en validación y para temprano.
+- **Entrenar el reward model con datos sesgados.** El RLHF amplifica cualquier sesgo de los anotadores. Audita demografía de etiquetadores.
+- **Enviar imágenes de alta resolución sin resize.** GPT-4V y Claude cobran por "tiles": una imagen 4096×4096 puede costar 10× más que una 1024×1024 con calidad igual para OCR.
+- **Mezclar modalidades sin pensar en el orden.** En Claude y GPT, el orden `imagen → texto` suele dar mejores resultados que `texto → imagen`.
+- **Confiar en la "visión" para texto denso.** Para extraer texto de documentos complejos, un OCR tradicional (Tesseract, Textract, Document AI) + LLM texto suele vencer al LLM multimodal puro.
+- **Distillation sin dataset diverso.** Si el teacher sólo vio prompts fáciles, el student falla fuera de distribución. Genera prompts adversariales también.
+- **No evaluar el modelo fine-tuneado contra el base.** A veces el fine-tune empeora. Compara en un *holdout* representativo.
+- **No versionar datasets ni modelos.** Reproducir un entrenamiento de hace 6 meses es imposible sin DVC/MLflow/W&B.
+- **Olvidar costos de GPU.** QLoRA de LLaMA 70B necesita ~48GB VRAM; alquilar una A100 cuesta ~$1-2/hora. Un entrenamiento típico son 10-100 horas.
+- **No usar las APIs gestionadas cuando aplica.** OpenAI/Anthropic/Google ofrecen fine-tuning sin que gestiones GPUs. Si tus datos no son sensibles y el volumen es moderado, es más barato que self-host.
+- **Multimodal con tokens multimodales no contados.** Una imagen puede equivaler a 85-1700 tokens según el modelo y la resolución. Súmalos a tu presupuesto.
+
+## Resumen
+
+- Los **MLLMs** proyectan imagen, audio y texto en un espacio común para que un Transformer único razone sobre todo junto. Habilita Q&A visual, OCR implícito, análisis de audio, descripción de escenas.
+- La personalización de LLMs es un **espectro** que va de prompt engineering (gratis) a continual pre-training (millones de dólares). Elige lo más barato que resuelva el problema.
+- **In-context learning** (zero/few-shot, chain-of-thought) te deja "programar" el modelo sin cambiar pesos — ideal para iterar rápido.
+- **RAG** suele ser el *primer* paso cuando falta conocimiento específico o fresco; es más fácil de mantener que fine-tuning.
+- **LoRA / QLoRA** entrenan <1% de los pesos y logran calidad cercana a full fine-tuning con 10-100× menos cómputo. Es el estándar actual.
+- **SFT → Reward Model → RLHF (PPO)** es el pipeline clásico de alineamiento; **DPO** lo simplifica eliminando el reward model y es ahora el default en modelos abiertos.
+- **Distillation** (teacher grande → student chico) es la vía para llevar un sistema demo con GPT-4 a producción con un modelo 10× más barato manteniendo 85-95% de calidad.
+- **No fine-tunees sin antes agotar prompt + RAG + few-shot.** El 70% de los casos se resuelven ahí.
+- Las APIs gestionadas (OpenAI/Anthropic/Google fine-tuning) ahorran operaciones; el ecosistema abierto (HuggingFace + PEFT + TRL + Axolotl + Unsloth + vLLM + Ollama) ofrece control total.
+- Siempre **evalúa el modelo custom contra el base** en un holdout representativo antes de desplegar — a veces la personalización empeora el resultado.

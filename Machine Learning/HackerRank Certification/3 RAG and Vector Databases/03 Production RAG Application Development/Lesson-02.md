@@ -1,337 +1,384 @@
-## Quality Assurance and Output Validation
+# Quality Assurance y validación de salidas en RAG
 
-In the previous lesson on metadata management and filtering, you learned how to create precise, contextual retrieval systems. But building sophisticated pipelines is only half the battle.
+## ¿Qué es?
 
-When Retrieval-Augmented Generation (RAG) systems are deployed in production, users expect answers they can trust for critical decisions—whether that's financial planning, medical advice, or legal guidance. Incorrect or misleading outputs can cause serious harm.
+**Quality assurance (QA)** en RAG es el conjunto de pruebas, métricas y monitores que garantizan que el sistema entrega respuestas **correctas, fundamentadas y auditables** en producción. No es un test unitario aislado: es una capa continua que corre durante el desarrollo, el deploy y la operación.
 
-This lesson shows you how to implement quality assurance (QA) strategies that ensure your RAG system is reliable. You'll learn:
+Un RAG puede fallar en tres frentes independientes:
 
-The common challenges that degrade output quality
-Metrics for measuring retrieval, generation, and system performance
-How to test both individual components and the entire pipeline
-Automated evaluation frameworks for continuous monitoring
-Techniques to detect hallucinations and improve ranking
-How to monitor quality in real-time
-By the end, you'll know how to transform a prototype into a production-ready RAG application.
-
-Understanding RAG Quality Challenges
-Common Quality Issues
-RAG systems face challenges across retrieval, generation, and system-level operations.
-
-| Problem Type | Example Issues | Impact |
+| Capa | Qué puede fallar | Impacto en el usuario |
 |---|---|---|
-| Retrieval | Irrelevant documents retrieved despite high similarity scores<br>Missing relevant context due to poor chunking<br>Outdated sources ranked above current ones | Weak evidence → incorrect answers |
-| Generation | Hallucinations not supported by context<br>Incomplete answers<br>Contradictions when context conflicts | User confusion, loss of trust |
-| System | Metadata filtering errors<br>Slow response times under load<br>Inconsistent outputs across sessions | Poor user experience, production instability |
+| **Retrieval** | Documentos irrelevantes con alto score, chunking pobre, fuentes obsoletas rankeadas arriba | Evidencia débil → respuesta incorrecta |
+| **Generation** | Alucinaciones no soportadas por el contexto, respuestas incompletas, contradicciones | Confusión, pérdida de confianza |
+| **Sistema** | Errores de filtrado por metadata, latencia alta, inconsistencia entre sesiones | Mala UX, inestabilidad |
 
-Key Quality Metrics
-A good QA strategy relies on metrics that track multiple dimensions:
+QA cubre las tres capas con una estrategia **en capas**: unit tests por componente, evaluación automatizada del pipeline completo, detección de alucinaciones y monitoreo continuo en producción.
 
-Retrieval Metrics
+## ¿Por qué importa?
 
-Precision@K: proportion of relevant documents among top K
-Recall: proportion of all relevant documents retrieved
-MRR (Mean Reciprocal Rank): rewards relevant documents ranked higher
-Generation Metrics
+Un RAG en producción se usa para decisiones **con consecuencias reales**: diagnósticos, consejo financiero, aprobaciones legales, soporte técnico. Una respuesta confidentemente incorrecta puede costar dinero, salud o reputación.
 
-Faithfulness: does the answer stick to retrieved context?
-Answer Relevance: how well it addresses the query
-Context Utilization: evidence usage
-Performance Metrics
+- **Confianza:** una sola alucinación visible destruye meses de adopción. Los usuarios perdonan "no sé"; no perdonan "aquí tienes un número inventado".
+- **Regresiones silenciosas:** actualizar el embedding model, cambiar un prompt o reindexar puede degradar el recall en 20% sin que nadie se entere hasta que llegan los tickets.
+- **Model drift:** los LLMs mejoran, pero también cambian: una respuesta que funcionaba con GPT-4-0613 puede romperse con GPT-4-0125.
+- **Content drift:** la knowledge base crece y se contamina. Lo que ayer tenía Precision@5 = 0.9, hoy puede tener 0.6.
+- **Compliance:** en salud y finanzas, demostrar que mediste calidad es **requisito regulatorio**.
 
-Response Time: latency under typical load
-Error Rate: system crashes or empty outputs
-User Satisfaction: qualitative feedback
-Together, these paint a complete picture of quality.
+Sin QA, un RAG es una lotería: a veces impresiona, a veces humilla, y no sabes cuándo.
 
-Unit Testing RAG Components
-Before testing the whole pipeline, validate each building block. Unit testing helps identify where problems occur by isolating each component.
+## ¿Cómo funciona?
 
-Embedding Quality
-Embedding functions convert text into numerical vectors. These tests ensure embeddings are mathematically valid and consistent across different input types.
+QA en RAG se organiza en cuatro bloques:
 
-```python
-def test_embedding_quality(embedding_function):
-  """Check embeddings are valid and consistent"""
-  texts = ["What is the policy?", "", "A" * 1000]
-  for t in texts:
-      emb = embedding_function(t)
-      assert len(emb) == 384  # Correct dimension
-      assert not any(np.isnan(emb))  # No invalid values
-      assert np.linalg.norm(emb) > 0  # Non-zero vector
+```
+┌───────────────────────────────────────────────────┐
+│ 1. Unit tests por componente                      │
+│    embedding · retriever · generador · filtros    │
+├───────────────────────────────────────────────────┤
+│ 2. Evaluación end-to-end con dataset dorado       │
+│    Precision@K · Recall · MRR · Faithfulness      │
+├───────────────────────────────────────────────────┤
+│ 3. Deteccion de alucinaciones                     │
+│    numericas · entidades · fechas · LLM-as-judge  │
+├───────────────────────────────────────────────────┤
+│ 4. Monitoreo en vivo                              │
+│    latencia · tasa de error · feedback · drift    │
+└───────────────────────────────────────────────────┘
 ```
 
-What this tests: Verifies embeddings have correct dimensions, no invalid numbers, and meaningful vectors for edge cases.
+### Métricas clave
 
-Retrieval Relevance
+**Retrieval:**
+
+| Métrica | Qué mide | Fórmula |
+|---|---|---|
+| **Precision@K** | Fracción de los top-K que son relevantes | `relevantes_en_topK / K` |
+| **Recall@K** | Fracción de los relevantes totales que aparecieron en top-K | `relevantes_en_topK / total_relevantes` |
+| **MRR** | Qué tan arriba está el primer relevante | `mean(1 / rank_del_primer_relevante)` |
+| **nDCG@K** | Calidad del ranking con pesos logarítmicos | normalización de DCG |
+| **Hit Rate** | ¿Al menos un relevante en top-K? | binario |
+
+**Generation (RAGAS y afines):**
+
+| Métrica | Qué mide |
+|---|---|
+| **Faithfulness** | ¿La respuesta se apoya en el contexto? (anti-alucinación) |
+| **Answer Relevance** | ¿Responde la pregunta? |
+| **Context Precision** | ¿El contexto recuperado era útil? |
+| **Context Recall** | ¿Se recuperó todo lo necesario para responder? |
+| **Answer Correctness** | ¿Coincide con el ground truth? |
+
+**Sistema:**
+
+- Latencia (p50, p95, p99)
+- Tasa de error / respuestas vacías
+- Costo por query (tokens de embedding + LLM)
+- CSAT, thumbs up/down del usuario
+
+### Grounding en la validación
+
+Validar grounding = probar que **cada afirmación de la respuesta está respaldada por algún chunk del contexto**. Técnicas:
+
+- **Overlap léxico** (bag of words) — rápido, superficial.
+- **NLI (Natural Language Inference)** — un modelo decide si cada frase de la respuesta es *entailed* por el contexto.
+- **LLM-as-judge** — se le pasa `(contexto, respuesta)` a un LLM evaluador con un prompt tipo *"¿cada afirmación está soportada?"*.
+
+### Unit testing por componente
+
+Antes de testear end-to-end, aisla cada bloque:
+
+- **Embedding:** dimensión correcta, sin NaN, norma > 0, similitud semántica razonable entre pares conocidos.
+- **Retriever:** para una query ancla, retorna el documento ancla en top-K.
+- **Filtros de metadata:** un query con `department=finance` nunca retorna chunks de `department=hr`.
+- **Generador:** dado un contexto que contiene el dato, la respuesta debe contenerlo.
+
+### Golden dataset
+
+Un **dataset dorado** es una colección de 50-500 triples `(query, respuesta_esperada, documentos_fuente)` curada manualmente por expertos del dominio. Es la base para medir regresiones. Reglas:
+
+- Cubrir casos frecuentes **y** edge cases (preguntas ambiguas, fuera de dominio, con negación).
+- Versionarlo en git.
+- Revisarlo trimestralmente para refrescar con queries reales.
+
+### Herramientas
+
+- **RAGAS** — métricas de retrieval + generation con LLM-as-judge, listas para producción.
+- **DeepEval / promptfoo** — frameworks de testing para prompts y pipelines.
+- **TruLens** — tracing y evaluación end-to-end.
+- **LangSmith** / **LlamaIndex Evaluation** — plataformas integradas al framework.
+- **Evidently / WhyLabs / Arize** — monitoreo de drift en producción.
+
+## Ejemplo con código
+
+Pipeline de QA integrado: **unit tests + RAGAS + hallucination detection + monitor en producción + FastAPI con endpoint `/feedback`.**
 
 ```python
-def test_retrieval_relevance(retrieval_function):
-  """Ensure retrieval returns policy documents for queries"""
-  results = retrieval_function("vacation policy")
-  assert any("vacation" in d["content"].lower() for d in results)
-  assert any(d["metadata"]["type"] == "policy" for d in results)
-```
+# requirements:
+#   fastapi uvicorn ragas datasets pandas numpy
+#   langchain-openai sentence-transformers pytest
+#   qdrant-client
 
-What this tests: Confirms searches return documents with relevant content and correct metadata.
-
-Generation Safety
-
-```python
-def test_generation_safety(generate):
-  context = "Employees get 20 vacation days annually"
-  response = generate("How many vacation days?", context)
-  assert "20" in response  # Uses context information
-  assert "error" not in response.lower()  # No error messages
-```
-
-What this tests: Verifies the generator uses context information and does not produce errors.
-
-Integration Testing
-
-```python
-def test_rag_pipeline(rag_pipeline):
-  """Test whole pipeline with realistic scenarios"""
-  response = rag_pipeline.query("What is our vacation policy?")
-  assert "vacation" in response.lower()
-```
-
-What this tests: Ensures the complete pipeline produces relevant responses.
-
-Unit tests catch edge-case failures early, before they cascade through the pipeline. By testing each component separately, you can quickly identify whether problems stem from embedding quality, retrieval relevance, or generation accuracy.
-
-Evaluation Frameworks and Automated Testing
-Automated Quality Assessment
-Manual checks do not scale. For production, you need an automated evaluation loop that continuously tests your RAG system against known good answers.
-
-Automated RAG Evaluation Framework
-
-Below example shows how this framework automatically tests your RAG system by comparing its answers to expected responses. It measures both how relevant the answer is and whether the system retrieved the right source documents.
-
-```python
+import json
+import re
 import statistics
+import time
 from datetime import datetime
+from typing import Any
 
-class RAGEvaluationFramework:
-  def __init__(self):
-      # Test dataset with queries, expected answers, and correct sources
-      self.dataset = [
-          {
-              "query": "How many vacation days do employees receive?",
-              "expected": "20 vacation days annually",  # What a good answer should contain
-              "sources": ["employee_handbook_2024.pdf"],  # Which documents should be found
-              "category": "hr_policy"
-          },
-          {
-              "query": "What was our revenue growth in Q3 vs Q2?",
-              "expected": "15% increase from Q2 to Q3",
-              "sources": ["q3_financial_report.pdf"],
-              "category": "financial"
-          }
-      ]
-
-  def evaluate(self, rag_system):
-      """Test the RAG system against all test cases"""
-      results = []
-      for test in self.dataset:
-          # Ask the RAG system the test question
-          response = rag_system.query(test["query"])
-
-          # Score how well the answer matches what we expect
-          relevance = self._calc_relevance(str(response), test["expected"])
-
-          # Score whether it found the right source documents
-          retrieval = self._calc_retrieval(response.sources, test["sources"])
-
-          # Combine scores (answer quality is weighted more heavily)
-          score = (0.6 * relevance + 0.4 * retrieval)
-          results.append({"query": test["query"], "score": score})
-      return results
-
-  def _calc_relevance(self, response, expected):
-      """Calculate how many expected words appear in the response"""
-      r_words = set(response.lower().split())  # Words in actual response
-      e_words = set(expected.lower().split())   # Words in expected answer
-      return len(r_words & e_words) / len(e_words)  # Fraction of expected words found
-
-  def _calc_retrieval(self, got, expected):
-      """Calculate how many correct sources were retrieved"""
-      return len(set(got) & set(expected)) / max(1, len(expected))
-
-# Mock RAG system for demonstration
-class MockRAG:
-  def query(self, q):
-      class Resp:
-          def __init__(self, text, sources):
-              self.text = text
-              self.sources = sources
-
-          def __str__(self):
-              return self.text
-
-      if "vacation" in q:
-          return Resp("Employees receive 20 vacation days annually",
-                     ["employee_handbook_2024.pdf"])
-      else:
-          return Resp("I don't know", [])
-
-# Run the evaluation
-mock = MockRAG()
-framework = RAGEvaluationFramework()
-results = framework.evaluate(mock)
-print("Evaluation Results:")
-for result in results:
-  print(f"Query: {result['query']}")
-  print(f"Score: {result['score']:.2f}")
-  print()
-```
-
-How This Works:
-
-Test Dataset: Questions with known correct answers and expected source documents
-Relevance Scoring: Word overlap between actual and expected responses
-Retrieval Scoring: Whether the system found the right source documents
-Combined Score: Answer quality (60%) + source accuracy (40%)
-Key Learning Points:
-
-Automated evaluation enables continuous quality monitoring
-Word overlap provides simple but effective relevance measurement
-Source verification ensures proper document usage
-Regular evaluation catches quality degradation early
-Try It: Customize the evaluation dataset with domain-specific queries and adjust scoring weights for your application.
-
-Identifying and Mitigating Hallucinations
-Hallucination Detection Strategies
-Hallucinations occur when language models generate information not supported by retrieved context. This is dangerous because users trust the system's confident-sounding answers.
-
-Common hallucination types:
-
-Specific numbers: "The policy allows 25 days" when context says 20
-Dates and deadlines: "Submit by March 15" when no deadline is mentioned
-Names and titles: "Contact John Smith" when John is not mentioned in context
-Procedures: Adding steps that do not exist in the source material
-
-```python
-def detect_hallucinations(query, context, response):
-  """
-  Check if the response contains information not found in the context.
-  This example focuses on numbers, but can be extended to other data types.
-  """
-  hallucinations = []
-  import re
-
-  # Find all numbers in the response (like "20", "15%", "2024")
-  numbers = re.findall(r"\b\d+\b", response)
-
-  # Check if each number appears in the source context
-  for n in numbers:
-      if n not in context:
-          hallucinations.append(f"Unsupported number: {n}")
-
-  return hallucinations
-
-# Example usage
-context = "Employees receive 20 vacation days per year"
-response = "You get 25 vacation days annually"
-issues = detect_hallucinations("", context, response)
-print(issues)  # Output: ['Unsupported number: 25']
-```
-
-Why This Matters: Even small number discrepancies can have serious consequences—imagine getting wrong dosage information, incorrect financial figures, or wrong policy limits.
-
-Mitigation Strategy
-If context is weak → respond conservatively: "I do not have enough information."
-Use strict prompts: "Answer based ONLY on this context."
-Validate outputs post-generation for unsupported claims.
-Better to admit uncertainty than mislead with confident falsehoods.
-
-Output Quality Assessment Techniques
-Continuous Quality Monitoring
-Production systems need continuous monitoring to catch quality degradation in real-time. Unlike unit tests that run during development, quality monitoring runs live during user interactions.
-
-Why monitoring matters:
-
-Model drift: AI models can degrade over time with new data patterns
-Content changes: Your knowledge base updates may affect response quality
-User behavior shifts: New types of questions may reveal system weaknesses
-
-```python
-class QualityMonitor:
-  def __init__(self):
-      self.history = []  # Store quality assessments over time
-
-  def assess(self, query, context, response):
-      """
-      Assess response quality using multiple simple metrics.
-      Returns 'good' or 'poor' and stores result for trend analysis.
-      """
-      # Check if response length is reasonable (not too short or too long)
-      ok_length = 10 < len(response) < 500
-
-      # Calculate how much of the context was actually used in the response
-      response_words = set(response.split())
-      context_words = set(context.split())
-      context_use = len(response_words & context_words) / max(1, len(context_words))
-
-      # Simple quality assessment: good length + using context effectively
-      overall = "good" if ok_length and context_use > 0.3 else "poor"
-
-      # Store assessment with timestamp for trend tracking
-      self.history.append({
-          "query": query,
-          "quality": overall,
-          "context_usage": context_use,
-          "response_length": len(response)
-      })
-      return overall
-
-  def get_quality_trend(self, last_n=100):
-      """Check if quality is improving, declining, or stable"""
-      if len(self.history) < last_n:
-          return "insufficient_data"
-
-      recent = self.history[-last_n:]
-      good_responses = sum(1 for r in recent if r["quality"] == "good")
-      return good_responses / len(recent)
-
-# Example usage
-monitor = QualityMonitor()
-result = monitor.assess(
-  query="What is the vacation policy?",
-  context="Employees receive 20 vacation days annually",
-  response="You get 20 vacation days per year"
+import numpy as np
+import pandas as pd
+from fastapi import FastAPI
+from pydantic import BaseModel
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from ragas import evaluate
+from ragas.metrics import (
+    faithfulness,
+    answer_relevancy,
+    context_precision,
+    context_recall,
 )
-print(f"Quality: {result}")  # Output: Quality: good
+from datasets import Dataset
+
+# ------------------------------------------------------------
+# 1. UNIT TESTS POR COMPONENTE (pytest-style)
+# ------------------------------------------------------------
+def test_embedding_quality(embed_fn, dim: int = 1536) -> None:
+    """Dimensiones correctas, sin NaN, norma no-cero, sensibilidad semantica."""
+    casos = ["", "a", "A" * 2000, "Que es la politica de vacaciones?"]
+    for texto in casos:
+        v = np.asarray(embed_fn(texto))
+        assert v.shape == (dim,),           f"Dim incorrecta para: {texto!r}"
+        assert not np.isnan(v).any(),       f"NaN en: {texto!r}"
+        assert np.linalg.norm(v) > 0,       f"Norma cero en: {texto!r}"
+
+    # similitud semantica razonable
+    a, b, c = embed_fn("perro"), embed_fn("canino"), embed_fn("ecuaciones diferenciales")
+    sim_ab = _cos(a, b)
+    sim_ac = _cos(a, c)
+    assert sim_ab > sim_ac, "El retriever no distingue conceptos basicos"
+
+
+def _cos(x, y) -> float:
+    x, y = np.asarray(x), np.asarray(y)
+    return float(np.dot(x, y) / (np.linalg.norm(x) * np.linalg.norm(y)))
+
+
+def test_metadata_filter_isolation(retriever) -> None:
+    """Un filtro por departamento NUNCA debe filtrar un chunk de otro."""
+    hits = retriever.search("politica", filters={"department": "finance"}, top_k=20)
+    assert all(h["metadata"]["department"] == "finance" for h in hits)
+
+
+def test_generation_uses_context(generate_fn) -> None:
+    ctx = "La empresa ofrece 22 dias de vacaciones."
+    resp = generate_fn("Cuantos dias de vacaciones?", ctx)
+    assert "22" in resp, "El generador ignoro el contexto"
+
+
+# ------------------------------------------------------------
+# 2. EVALUACION END-TO-END CON RAGAS
+# ------------------------------------------------------------
+GOLDEN_DATASET = [
+    {
+        "question": "Cuantos dias de vacaciones reciben los empleados?",
+        "ground_truth": "20 dias anuales",
+        "contexts": ["Los empleados reciben 20 dias de vacaciones al ano."],
+        "expected_sources": ["employee_handbook_2024.pdf"],
+    },
+    {
+        "question": "Cual fue el crecimiento de ingresos en Q3 vs Q2?",
+        "ground_truth": "15% de incremento Q2 -> Q3",
+        "contexts": ["Los ingresos aumentaron 15% de Q2 a Q3 2024."],
+        "expected_sources": ["q3_financial_report.pdf"],
+    },
+]
+
+
+def run_ragas(rag_system) -> pd.DataFrame:
+    """Corre el golden dataset contra el sistema real y evalua con RAGAS."""
+    records = []
+    for item in GOLDEN_DATASET:
+        resp = rag_system.query(item["question"])
+        records.append({
+            "question":     item["question"],
+            "answer":       resp["answer"],
+            "contexts":     [c["content"] for c in resp["citations"]],
+            "ground_truth": item["ground_truth"],
+        })
+    ds = Dataset.from_list(records)
+    result = evaluate(
+        ds,
+        metrics=[faithfulness, answer_relevancy,
+                 context_precision, context_recall],
+        llm=ChatOpenAI(model="gpt-4o-mini", temperature=0),
+        embeddings=OpenAIEmbeddings(model="text-embedding-3-small"),
+    )
+    return result.to_pandas()
+
+
+# ------------------------------------------------------------
+# 3. DETECCION DE ALUCINACIONES (lexica + LLM-as-judge)
+# ------------------------------------------------------------
+NUMBER_RE = re.compile(r"\b\d+(?:[.,]\d+)?%?\b")
+DATE_RE   = re.compile(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b")
+
+
+def detect_hallucinations_lexical(context: str, response: str) -> list[str]:
+    """Detecta numeros, porcentajes y fechas en la respuesta que no estan en el contexto."""
+    issues = []
+    for n in set(NUMBER_RE.findall(response)):
+        if n not in context:
+            issues.append(f"Numero no respaldado: {n}")
+    for d in set(DATE_RE.findall(response)):
+        if d not in context:
+            issues.append(f"Fecha no respaldada: {d}")
+    return issues
+
+
+JUDGE_PROMPT = """Eres un auditor estricto. Evalua si CADA afirmacion de la respuesta
+esta respaldada por el contexto. Responde en JSON:
+{{"supported": true|false, "unsupported_claims": ["...", "..."]}}
+
+Contexto:
+{context}
+
+Respuesta:
+{response}
+"""
+
+
+def detect_hallucinations_llm(context: str, response: str) -> dict:
+    judge = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    out = judge.invoke(JUDGE_PROMPT.format(context=context, response=response)).content
+    try:
+        return json.loads(out)
+    except json.JSONDecodeError:
+        return {"supported": None, "unsupported_claims": [], "raw": out}
+
+
+# ------------------------------------------------------------
+# 4. MONITOREO CONTINUO EN PRODUCCION
+# ------------------------------------------------------------
+class QualityMonitor:
+    def __init__(self, window: int = 500):
+        self.window = window
+        self.events: list[dict[str, Any]] = []
+
+    def record(self, query: str, context: str, response: str,
+               latency_ms: float, citations: list) -> dict:
+        issues_lex = detect_hallucinations_lexical(context, response)
+        resp_words = set(response.lower().split())
+        ctx_words  = set(context.lower().split())
+        ctx_use = len(resp_words & ctx_words) / max(1, len(resp_words))
+
+        quality = {
+            "timestamp":        datetime.utcnow().isoformat(),
+            "query":            query,
+            "latency_ms":       latency_ms,
+            "response_len":     len(response.split()),
+            "context_usage":    ctx_use,
+            "n_citations":      len(citations),
+            "lexical_issues":   issues_lex,
+            "flagged":          bool(issues_lex) or ctx_use < 0.2,
+        }
+        self.events.append(quality)
+        self.events = self.events[-self.window:]
+        return quality
+
+    def summary(self) -> dict:
+        if not self.events:
+            return {"status": "no_data"}
+        n = len(self.events)
+        return {
+            "window":          n,
+            "p50_latency_ms":  statistics.median(e["latency_ms"] for e in self.events),
+            "p95_latency_ms":  np.percentile([e["latency_ms"] for e in self.events], 95),
+            "flagged_rate":    sum(e["flagged"] for e in self.events) / n,
+            "avg_ctx_usage":   statistics.mean(e["context_usage"] for e in self.events),
+            "avg_citations":   statistics.mean(e["n_citations"] for e in self.events),
+        }
+
+
+# ------------------------------------------------------------
+# 5. FastAPI con /query y /feedback
+# ------------------------------------------------------------
+app = FastAPI()
+monitor = QualityMonitor()
+
+
+class QueryIn(BaseModel):
+    query: str
+
+
+class FeedbackIn(BaseModel):
+    query: str
+    rating: int        # 1-5
+    comment: str = ""
+
+
+@app.post("/query")
+def query_endpoint(payload: QueryIn, rag_system):   # inyecta tu RAG real
+    t0 = time.perf_counter()
+    resp = rag_system.query(payload.query)
+    latency_ms = (time.perf_counter() - t0) * 1000
+    context = "\n".join(c["content"] for c in resp["citations"])
+
+    q = monitor.record(payload.query, context, resp["answer"],
+                       latency_ms, resp["citations"])
+
+    # Guardrail: si hay alucinaciones lexicas, degradar la respuesta
+    if q["flagged"]:
+        resp["answer"] = ("No tengo informacion suficiente para responder con "
+                          "la confianza requerida.")
+        resp["degraded"] = True
+    return resp
+
+
+@app.post("/feedback")
+def feedback_endpoint(payload: FeedbackIn):
+    # En produccion: push a Postgres / Redshift para analizar correlacion
+    # rating vs. metricas del monitor y detectar drift.
+    with open("feedback.jsonl", "a") as f:
+        f.write(payload.model_dump_json() + "\n")
+    return {"ok": True}
+
+
+@app.get("/health/quality")
+def quality_summary():
+    return monitor.summary()
 ```
 
-What this monitors:
+**Qué observar:**
 
-Response length: Catches responses that are too brief or verbose
-Context usage: Ensures responses actually use the retrieved information
-Quality trends: Tracks whether performance improves or degrades over time
-Real-world application: Run this on every user interaction to build a quality dashboard showing system health trends.
+- Los **unit tests** son baratos y detectan regresiones antes de que lleguen al pipeline.
+- **RAGAS** usa un LLM-as-judge para faithfulness y relevancia; combinarlo con el golden dataset da una señal numérica reproducible por commit.
+- La detección léxica de números/fechas es un **primer filtro barato**; el LLM-judge es el segundo pase más caro y preciso.
+- El `QualityMonitor` degrada activamente la respuesta cuando detecta flags, en lugar de dejarla pasar.
+- El endpoint `/feedback` cierra el loop: correlacionar `rating` del usuario con las métricas internas te dice si tus métricas realmente capturan calidad percibida.
 
-Common Pitfalls
-Testing Only Happy Paths: Ignoring malformed inputs or edge cases leads to brittle systems.
+## Errores comunes
 
-Over-Reliance on Automated Metrics: BLEU/ROUGE miss semantic accuracy—combine with human review.
+- **Testear solo el happy path.** Si tu suite no incluye preguntas fuera de dominio, con negación, con nombres propios ambiguos o malformed, el sistema se rompe en producción con la primera query real.
+- **Confiar ciegamente en BLEU/ROUGE.** Son métricas léxicas: una respuesta semánticamente perfecta pero reformulada puede sacar BLEU bajo. Úsalas junto a faithfulness y evaluación humana.
+- **Golden dataset sesgado o estático.** Si lo creó un solo experto, refleja su sesgo. Si no se actualiza, deja de reflejar las queries reales. Refresca trimestralmente con muestras de producción.
+- **Sin baseline.** Mejorar de "F1 = 0.72" a "F1 = 0.74" no significa nada sin saber qué logra un baseline simple (BM25 + GPT-3.5). Mide siempre contra un baseline reproducible.
+- **Monitorear solo uptime.** El sistema puede estar 100% disponible devolviendo basura. Monitorea *calidad*, no solo *disponibilidad*.
+- **Ignorar el feedback del usuario.** `thumbs down` es la señal más barata y la más desperdiciada. Guárdala, correlaciónala con la query, úsala para alimentar el próximo golden dataset.
+- **LLM-as-judge con el mismo modelo generador.** Un modelo rara vez detecta sus propios errores. Usa un modelo *diferente* (y preferentemente más fuerte) como juez.
+- **No controlar temperatura en evaluación.** Si evalúas con `temperature > 0` las métricas tienen ruido run-to-run. Fija `temperature=0` para benchmarks reproducibles.
+- **No versionar el golden dataset ni el prompt.** Reproducir resultados viejos es imposible. Guárdalos en git con tag.
+- **Alertar sin umbrales por severidad.** Alertar en Slack cada vez que `faithfulness < 1.0` genera fatiga. Define tiers: *info / warning / page*.
 
-Poor Evaluation Dataset: Biased or outdated test data skews results.
+## Resumen
 
-No Baseline Comparisons: Without a reference, you can not measure progress.
-
-Monitoring Uptime Only: System may be "live" but producing garbage answers unnoticed.
-
-Summary
-Quality assurance transforms RAG systems from prototypes into production-ready applications users can trust. By implementing testing frameworks, automated evaluation, and continuous monitoring, you ensure consistent delivery of accurate, relevant responses.
-
-The key lies in testing at multiple levels: individual components, integrated pipelines, and real-world usage scenarios. Combined with hallucination detection and quality monitoring, these approaches create robust systems that maintain high standards under production conditions.
-
-In the next lesson, we'll explore advanced ranking and response validation techniques to further enhance your RAG system's reliability and user experience.
-
-Key concepts to remember
-Unit testing each RAG component prevents issues from compounding through the pipeline
-Automated evaluation frameworks enable continuous quality monitoring without manual effort
-Hallucination detection and mitigation are critical for applications where accuracy matters
-Output quality assessment techniques help maintain consistent performance in production
-Continuous quality monitoring helps identify degradation before it affects users
+- QA en RAG no es un test aislado: es una capa continua en **cuatro niveles** — unit tests, evaluación end-to-end, detección de alucinaciones, monitoreo en vivo.
+- Las métricas se agrupan en tres familias: **retrieval** (Precision@K, Recall, MRR, nDCG), **generation** (Faithfulness, Answer Relevance, Context Precision/Recall) y **sistema** (latencia, errores, costo, CSAT).
+- Mantén un **golden dataset** versionado de 50-500 triples `(query, respuesta_esperada, fuentes)` curado por expertos y refrescado trimestralmente.
+- **RAGAS** es el estándar de facto para medir faithfulness y relevancia con LLM-as-judge; combinado con tu dataset dorado te da señal por commit.
+- La **detección de alucinaciones** combina checks léxicos baratos (números, fechas, entidades) + un LLM-judge que valida frase por frase.
+- Siempre que la validación falle, **degrada la respuesta**: mejor "no sé" que un número inventado con confianza.
+- Usa el **LLM-as-judge con un modelo distinto** al generador y con `temperature=0`.
+- Monitoreo en producción debe trackear calidad, no solo uptime: `flagged_rate`, `context_usage`, latencia p95, feedback del usuario.
+- Cierra el loop: correlaciona `thumbs down` con las métricas internas para saber si tus métricas capturan lo que al usuario le importa.
+- Sin baselines no hay progreso: compara siempre contra BM25 + un LLM barato.
+- Versiona el prompt, el modelo, el chunking y el golden dataset — reproducibilidad es parte de la calidad.

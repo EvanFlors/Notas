@@ -1,300 +1,380 @@
-## Monitoring and Evaluation Frameworks
+# Monitoreo y Evaluación en Producción
 
-In the previous lessons, you optimized vector indexing with HNSW and IVF-PQ algorithms, then implemented system-wide performance tuning through caching and load balancing. Now you have a fast, efficient RAG system—but how do you ensure it maintains quality and performance over time in production?
+## ¿Qué es?
 
-Production RAG systems face unique monitoring challenges. Unlike traditional web applications that primarily track uptime and response times, RAG systems must monitor both technical performance metrics (latency, throughput) and quality metrics (relevance, accuracy, user satisfaction). Knowledge bases evolve, user query patterns shift, and model performance can drift—all without code changes.
+El **monitoreo de un sistema RAG en producción** es la práctica de instrumentar, medir y alertar sobre dos planos simultáneos:
 
-This lesson covers essential monitoring strategies for production RAG systems: key performance metrics like Precision@K and recall, implementing feedback loops for continuous improvement, and building alerting systems that detect issues before they impact users.
+1. **Plano técnico:** latencia, throughput, uso de recursos, errores, hit rates.
+2. **Plano de calidad:** precision@k, recall@k, tasas de alucinación, satisfacción de usuario, drift del modelo de embeddings.
 
-Key Performance Metrics for RAG Systems
-Core Monitoring Categories
-RAG systems require specialized metrics beyond traditional application monitoring:
+A diferencia de un microservicio tradicional, donde "200 OK + < 100 ms" basta como señal de salud, un RAG puede devolver respuestas sintácticamente correctas pero **semánticamente incorrectas** (alucinaciones, documentos irrelevantes, contexto obsoleto). Un dashboard que solo mire HTTP 2xx y p95 mentirá: todo parece "verde" mientras los usuarios reciben respuestas malas.
 
-Technical Performance:
+Un sistema completo de monitoreo RAG incluye:
 
-End-to-end query latency and component breakdown
-Vector search recall and precision rates
-Cache hit rates (embedding, search, response caches)
-Resource utilization and error rates
-Quality Metrics:
+| Capa | Qué mide | Herramientas típicas |
+|---|---|---|
+| **Infra** | CPU, RAM, disco, red | Prometheus, Datadog, Grafana |
+| **APM / Tracing** | Latencia por span, errores | OpenTelemetry, Datadog APM, Jaeger |
+| **Métricas RAG** | precision@k, recall@k, hit rates | Langfuse, Arize AI, Phoenix, custom |
+| **Evaluación offline** | LLM-as-judge sobre golden set | RAGAS, DeepEval, TruLens |
+| **Feedback de usuario** | thumbs up/down, dwell time, reformulaciones | Logging aplicativo, Segment |
+| **Alerting** | Umbrales + anomalías | PagerDuty, Opsgenie, Slack |
 
-Response relevance and factual accuracy
-Hallucination detection rates
-User satisfaction scores
-Context utilization effectiveness
-System Health:
+### Fórmulas base
 
-Knowledge base freshness indicators
-Document indexing success rates
-Embedding model drift detection
+**Precision@k:** fracción de los `k` resultados devueltos que son relevantes.
 
-Understanding Precision@K, Recall, and Hit Rate
-These metrics form the foundation of RAG system evaluation:
-
-Precision@K measures the proportion of relevant documents among the top K retrieved results:
-
-```code
-Precision@K = (Relevant documents in top K) / K
+```
+Precision@k = |retrieved_k ∩ relevant| / k
 ```
 
-For example, if your system retrieves 10 documents and 8 are relevant, Precision@10 = 0.8.
+**Recall@k:** fracción de los documentos relevantes totales que fueron devueltos en el top `k`.
 
-Recall@K measures the proportion of all relevant documents found in the top K results:
-
-```code
-Recall@K = (Relevant documents in top K) / (Total relevant documents)
+```
+Recall@k = |retrieved_k ∩ relevant| / |relevant|
 ```
 
-If 20 relevant documents exist and you find 8 in your top 10, Recall@10 = 0.4.
+**MRR (Mean Reciprocal Rank):** promedio del inverso de la posición del primer resultado relevante.
 
-Hit Rate measures cache effectiveness across your system's multiple cache layers:
-
-```code
-Cache Hit Rate = (Cache hits) / (Total cache requests)
+```
+MRR = (1/N) · Σᵢ 1 / rank_i
 ```
 
-RAG Metrics Collection System
+**NDCG@k:** ganancia descontada normalizada; penaliza relevantes que aparecen abajo en el ranking.
 
-Below example demonstrates how to track essential RAG performance metrics in production.
+```
+DCG@k  = Σᵢ₌₁ᵏ (relᵢ) / log₂(i + 1)
+NDCG@k = DCG@k / IDCG@k
+```
+
+**Cache hit rate:**
+
+```
+hit_rate = cache_hits / (cache_hits + cache_misses)
+```
+
+## ¿Por qué importa?
+
+Un RAG en producción **se degrada silenciosamente** por tres mecanismos:
+
+1. **Knowledge drift:** el knowledge base cambia (se añaden docs, se actualizan políticas), pero el modelo de embeddings sigue viejo o los chunks se vuelven inconsistentes.
+2. **Query drift:** los usuarios cambian cómo preguntan (nuevos temas, nuevo vocabulario, idiomas, estacionalidad). Las queries de hoy ya no se parecen a las del golden set de hace 6 meses.
+3. **Embedding model drift:** si actualizas el modelo (`text-embedding-ada-002` → `text-embedding-3-small`), los vectores viejos quedan en otro espacio y el recall colapsa.
+
+Sin monitoreo, estos problemas se detectan por **tickets de soporte**: el peor canal posible, porque llega semanas tarde y solo captura la punta del iceberg. Con monitoreo, se detectan en horas vía alertas sobre precision@k, cache hit rate o rating medio.
+
+### Impacto cuantitativo
+
+| Problema no detectado | Costo típico (empresa mediana) |
+|---|---|
+| p95 sube de 500 ms a 2 s por 1 semana | ~15 % drop en engagement, ~5 % en conversión |
+| Recall@10 baja de 0.95 a 0.80 tras actualización de embeddings | ~30 % respuestas incorrectas o incompletas |
+| Cache invalidado por bug durante 24 h | 10-50× factura de LLM del día |
+| Alucinación no detectada en dominio legal/médico | riesgo regulatorio y reputacional serio |
+
+### Herramientas recomendadas
+
+- **Langfuse** (open source): tracing + evaluación + prompt mgmt enfocado a LLM apps.
+- **Arize AI / Phoenix:** observabilidad ML con detección de drift y embedding analysis.
+- **RAGAS:** librería Python para métricas automáticas de RAG (faithfulness, context precision, answer relevancy).
+- **TruLens:** feedback functions programables.
+- **DeepEval:** test suite estilo pytest para LLMs.
+- **Prometheus + Grafana:** stack base para métricas numéricas y dashboards.
+
+## ¿Cómo funciona?
+
+### 1. Golden dataset
+
+El punto de partida es un **golden set** de 100-1000 pares `(query, documentos_relevantes_ids, respuesta_ideal)` curado manualmente o semi-automáticamente. Es el ground truth contra el que se calcula recall@k, precision@k, NDCG offline y en cada deploy.
+
+```
+golden/
+├── eval_set_v3.jsonl       (query, relevant_doc_ids, ideal_answer, category)
+├── split_by_category.py
+└── reports/
+    └── 2026-10-01_eval.json
+```
+
+### 2. Métricas online (tracing)
+
+Cada request produce un trace con spans por etapa:
+
+```
+request_id = r-abc123
+├── span: embed_query          duration=52 ms   cache_hit=False
+├── span: vector_search        duration=14 ms   k=20  recall_est=0.96
+├── span: rerank               duration=98 ms   model=cohere-rerank-v3
+├── span: llm_generate         duration=287 ms  tokens_in=1240 tokens_out=180
+└── total: 451 ms              user_rating=null
+```
+
+Agregando por ventanas rodantes (5 min, 1 h, 24 h) se calculan p50/p95/p99 por span y por endpoint.
+
+### 3. Feedback loop
+
+Capturar explícito e implícito:
+
+| Tipo | Señal | Interpretación |
+|---|---|---|
+| **Explícito** | 👍 / 👎, rating 1-5, comentario | Ground truth parcial, bajo volumen (~1-5 % de queries) |
+| **Implícito** | copy del texto, click en fuente, reformulación en < 30 s | Alto volumen, ruidoso |
+| **Comportamental** | abandono, timeout, descarga de doc fuente | Útil con A/B testing |
+
+Las reformulaciones (`query_t`, `query_{t+15s}` del mismo user_id) son oro: señalan que la respuesta previa no satisfizo.
+
+### 4. Umbrales y alerting
+
+```
+Métrica                    Warning           Critical          Ventana
+──────────────────────────────────────────────────────────────────────
+p95 latency                > 800 ms          > 2000 ms         5 min
+error_rate                 > 1 %             > 5 %             5 min
+precision@10 (offline)     < 0.85            < 0.75            1 h
+cache_hit_rate (query)     < 15 %            < 5 %             15 min
+avg_user_rating            < 3.5             < 3.0             1 h
+recall_regression          > 5 % drop        > 15 % drop       deploy gate
+hallucination_rate         > 3 %             > 10 %            1 h
+embedding_drift (KL div)   > 0.1             > 0.3             1 día
+```
+
+**Reglas de higiene:**
+- Usar **ventanas rodantes** para evitar falsas alarmas por spikes transitorios.
+- **Cooldown** entre alertas (10-30 min) para evitar fatiga.
+- **Runbook** linkeado en cada alerta: pasos concretos de diagnóstico.
+- Separar canales: críticas → PagerDuty; warnings → Slack; info → dashboard.
+
+### 5. Evaluación automática: LLM-as-judge
+
+Para dominios sin golden set exhaustivo, se usa un LLM potente (ej. GPT-4o, Claude) como juez con prompts estructurados:
+
+```
+Faithfulness: ¿cada afirmación de la respuesta se puede verificar
+              en el contexto recuperado?  → 0.0 a 1.0
+
+Answer relevancy: ¿la respuesta aborda la pregunta?  → 0.0 a 1.0
+
+Context precision: ¿los chunks recuperados son relevantes
+                   a la pregunta?  → 0.0 a 1.0
+```
+
+RAGAS las implementa en una línea. Calibrar vs. humanos sobre 100-200 ejemplos antes de confiar en estas métricas.
+
+## Ejemplo con código
+
+### 1. Métricas de recall@k y precision@k contra golden set
 
 ```python
-import time
-import statistics
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from collections import defaultdict, deque
+import json, numpy as np
+from statistics import mean
 
-@dataclass
-class QueryMetrics:
-  """Essential metrics for a single query execution"""
-  query_id: str
-  timestamp: datetime
-  total_latency_ms: float
-  retrieved_count: int
-  relevance_score: float  # 0.0 to 1.0
-  cache_hits: Dict[str, bool]  # {cache_type: hit_status}
-  error_type: Optional[str] = None
+def precision_at_k(retrieved_ids, relevant_ids, k=10):
+    top = retrieved_ids[:k]
+    return len(set(top) & set(relevant_ids)) / k
 
-class RAGMetricsCollector:
-  """Streamlined metrics collection for RAG systems"""
+def recall_at_k(retrieved_ids, relevant_ids, k=10):
+    if not relevant_ids:
+        return 0.0
+    top = retrieved_ids[:k]
+    return len(set(top) & set(relevant_ids)) / len(relevant_ids)
 
-  def __init__(self, retention_hours: int = 24):
-      self.retention_hours = retention_hours
-      self.metrics_history: deque = deque()
-      self.relevance_threshold = 0.7
+def mrr(retrieved_ids, relevant_ids):
+    for i, doc_id in enumerate(retrieved_ids, 1):
+        if doc_id in relevant_ids:
+            return 1.0 / i
+    return 0.0
 
-  def record_query(self, metrics: QueryMetrics) -> None:
-      """Record metrics for a single query"""
-      self.metrics_history.append(metrics)
-      self._cleanup_old_data()
+def ndcg_at_k(retrieved_ids, relevant_ids, k=10):
+    gains = [1.0 if d in relevant_ids else 0.0 for d in retrieved_ids[:k]]
+    dcg = sum(g / np.log2(i + 2) for i, g in enumerate(gains))
+    ideal = sorted(gains, reverse=True)
+    idcg = sum(g / np.log2(i + 2) for i, g in enumerate(ideal))
+    return dcg / idcg if idcg > 0 else 0.0
 
-  def _cleanup_old_data(self) -> None:
-      """Remove data older than retention period"""
-      cutoff_time = datetime.now() - timedelta(hours=self.retention_hours)
-      while (self.metrics_history and
-             self.metrics_history[0].timestamp < cutoff_time):
-          self.metrics_history.popleft()
+# Evaluación sobre el golden set
+with open("golden/eval_set_v3.jsonl") as f:
+    golden = [json.loads(l) for l in f]
 
-  def calculate_precision_at_k(self, k: int = 10) -> float:
-      """Calculate Precision@K based on relevance scores"""
-      if not self.metrics_history:
-          return 0.0
+results = {"p@10": [], "r@10": [], "mrr": [], "ndcg@10": []}
+for item in golden:
+    retrieved = rag_system.retrieve(item["query"], k=20)
+    retrieved_ids = [doc.id for doc in retrieved]
+    rel = set(item["relevant_doc_ids"])
+    results["p@10"].append(precision_at_k(retrieved_ids, rel, 10))
+    results["r@10"].append(recall_at_k(retrieved_ids, rel, 10))
+    results["mrr"].append(mrr(retrieved_ids, rel))
+    results["ndcg@10"].append(ndcg_at_k(retrieved_ids, rel, 10))
 
-      successful_queries = [m for m in self.metrics_history
-                          if m.error_type is None]
-
-      if not successful_queries:
-          return 0.0
-
-      precision_scores = []
-      for metrics in successful_queries:
-          # Simulate precision calculation (example calculation for demo)
-          relevant_docs = min(k, max(1,
-              int(metrics.retrieved_count * metrics.relevance_score)))
-          precision = relevant_docs / k
-          precision_scores.append(precision)
-
-      return statistics.mean(precision_scores)
-
-  def calculate_cache_hit_rate(self, cache_type: str = 'overall') -> float:
-      """Calculate hit rate for specified cache type"""
-      if not self.metrics_history:
-          return 0.0
-
-      successful_queries = [m for m in self.metrics_history
-                          if m.error_type is None]
-
-      if cache_type == 'overall':
-          total_hits = sum(sum(m.cache_hits.values())
-                         for m in successful_queries)
-          total_attempts = sum(len(m.cache_hits)
-                             for m in successful_queries)
-          return total_hits / total_attempts if total_attempts > 0 else 0.0
-      else:
-          hits = sum(1 for m in successful_queries
-                    if m.cache_hits.get(cache_type, False))
-          return hits / len(successful_queries) if successful_queries else 0.0
-
-  def get_performance_summary(self) -> Dict[str, Any]:
-      """Get comprehensive performance summary"""
-      if not self.metrics_history:
-          return {"error": "No data available"}
-
-      successful_queries = [m for m in self.metrics_history
-                          if m.error_type is None]
-
-      latencies = [m.total_latency_ms for m in successful_queries]
-
-      return {
-          "total_queries": len(self.metrics_history),
-          "success_rate": len(successful_queries) / len(self.metrics_history),
-          "avg_latency_ms": statistics.mean(latencies) if latencies else 0,
-          "p95_latency_ms": statistics.quantiles(latencies, n=20)[18] if len(latencies) >= 20 else 0,
-          "precision_at_10": self.calculate_precision_at_k(10),
-          "cache_hit_rate": self.calculate_cache_hit_rate('overall'),
-          "avg_relevance": statistics.mean([m.relevance_score for m in successful_queries]) if successful_queries else 0
-      }
-
-# Example usage
-def demonstrate_metrics():
-  """Demonstrate metrics collection"""
-  import random
-
-  collector = RAGMetricsCollector()
-
-  # Simulate query metrics (example data for demonstration)
-  for i in range(50):
-      query_type = random.choice(['fast', 'slow', 'error'])
-
-      if query_type == 'fast':
-          latency = random.uniform(100, 300)
-          relevance = random.uniform(0.8, 0.95)
-          cache_hits = {'embedding': True, 'search': True, 'response': False}
-          error = None
-      elif query_type == 'slow':
-          latency = random.uniform(800, 1500)
-          relevance = random.uniform(0.6, 0.85)
-          cache_hits = {'embedding': False, 'search': False, 'response': False}
-          error = None
-      else:  # error
-          latency = random.uniform(5000, 8000)
-          relevance = 0.0
-          cache_hits = {'embedding': False, 'search': False, 'response': False}
-          error = 'timeout'
-
-      metrics = QueryMetrics(
-          query_id=f"query_{i:03d}",
-          timestamp=datetime.now(),
-          total_latency_ms=latency,
-          retrieved_count=random.randint(3, 10),
-          relevance_score=relevance,
-          cache_hits=cache_hits,
-          error_type=error
-      )
-
-      collector.record_query(metrics)
-
-  # Get summary
-  summary = collector.get_performance_summary()
-
-  print("=== RAG System Performance Summary ===")
-  print(f"Success Rate: {summary['success_rate']:.1%}")
-  print(f"Average Latency: {summary['avg_latency_ms']:.1f}ms")
-  print(f"P95 Latency: {summary['p95_latency_ms']:.1f}ms")
-  print(f"Precision@10: {summary['precision_at_10']:.3f}")
-  print(f"Cache Hit Rate: {summary['cache_hit_rate']:.1%}")
-  print(f"Average Relevance: {summary['avg_relevance']:.3f}")
-
-# Run demonstration
-demonstrate_metrics()
+print({k: round(mean(v), 3) for k, v in results.items()})
+# → {'p@10': 0.78, 'r@10': 0.91, 'mrr': 0.82, 'ndcg@10': 0.86}
 ```
 
-Key Learning Points:
+### 2. Collector de métricas con ventana rodante
 
-Precision@K measures retrieval accuracy while Recall@K measures completeness
-Cache hit rates directly impact both latency and computational costs
-Rolling time windows provide more stable metrics than point-in-time measurements
-Combining technical and quality metrics gives a complete system health picture
-Try It: Modify the relevance threshold and observe how it affects precision calculations. Experiment with different cache hit patterns to see their impact on overall performance.
+```python
+import time, statistics
+from dataclasses import dataclass, field
+from collections import deque
+from datetime import datetime, timedelta
+from typing import Optional, Dict
 
-Implementing Feedback Loops and Continuous Improvement
-User Feedback Integration
-User feedback provides ground truth data that's essential for measuring and improving RAG system quality. Unlike automated metrics, user feedback reveals whether responses actually solve user problems.
+@dataclass
+class QueryTrace:
+    query_id: str
+    ts: datetime
+    total_ms: float
+    retrieve_ms: float
+    rerank_ms: float
+    llm_ms: float
+    k_retrieved: int
+    cache_hits: Dict[str, bool]
+    user_rating: Optional[int] = None   # 1-5
+    error: Optional[str] = None
 
-Types of Feedback:
+class MetricsCollector:
+    def __init__(self, retention_h: int = 24):
+        self.retention = timedelta(hours=retention_h)
+        self.traces: deque = deque()
 
-Explicit feedback: Ratings, thumbs up/down, text comments
-Implicit feedback: Click-through rates, session duration, query refinements
-Behavioral signals: Document downloads, follow-up questions, task completion
-Query Pattern Issues:
+    def record(self, t: QueryTrace):
+        self.traces.append(t)
+        self._gc()
 
-Procedural queries ("How do I...") with low ratings → Improve step-by-step guidance
-Policy queries with inconsistent feedback → Review document completeness
-Technical queries with high abandonment → Add examples and clarifications
-Response Quality Patterns:
+    def _gc(self):
+        cutoff = datetime.utcnow() - self.retention
+        while self.traces and self.traces[0].ts < cutoff:
+            self.traces.popleft()
 
-Short responses with negative feedback → Provide more comprehensive answers
-Long responses with low engagement → Improve structure and readability
-Uncertain responses ("I am not sure...") → Improve confidence thresholds
+    def _ok(self):
+        return [t for t in self.traces if t.error is None]
 
-Continuous Improvement Process
-Pattern Analysis Steps:
+    def summary(self) -> Dict:
+        ok = self._ok()
+        if not ok:
+            return {"error": "no data"}
+        lat = [t.total_ms for t in ok]
+        ratings = [t.user_rating for t in ok if t.user_rating is not None]
+        hits_query = sum(1 for t in ok if t.cache_hits.get("query"))
+        hits_emb = sum(1 for t in ok if t.cache_hits.get("embedding"))
+        n = len(ok)
+        return {
+            "n": n,
+            "success_rate": n / len(self.traces),
+            "p50_ms": statistics.median(lat),
+            "p95_ms": statistics.quantiles(lat, n=20)[18] if n >= 20 else None,
+            "p99_ms": statistics.quantiles(lat, n=100)[98] if n >= 100 else None,
+            "cache_hit_query": hits_query / n,
+            "cache_hit_embedding": hits_emb / n,
+            "avg_rating": statistics.mean(ratings) if ratings else None,
+            "rating_n": len(ratings),
+        }
+```
 
-Categorize feedback by query type (procedural, policy, technical)
-Calculate metrics for each category (average rating, negative feedback rate)
-Identify problems where negative feedback exceeds 30% threshold (example threshold)
-Generate actions specific to problematic patterns
-Track improvements through follow-up metrics
+### 3. LLM-as-judge con RAGAS
 
-Production Monitoring and Alerting Systems
+```python
+from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy, context_precision
+from datasets import Dataset
 
-Alert Configuration for RAG Systems
-Effective alerting requires carefully configured thresholds that balance sensitivity with noise reduction. Different metrics require different alerting strategies:
+samples = {
+    "question":    [t.query for t in traces],
+    "answer":      [t.answer for t in traces],
+    "contexts":    [[c.text for c in t.contexts] for t in traces],
+    "ground_truth":[t.golden_answer for t in traces],   # opcional
+}
+ds = Dataset.from_dict(samples)
 
-Latency Alerts:
+report = evaluate(
+    ds,
+    metrics=[faithfulness, answer_relevancy, context_precision],
+)
+print(report)
+# faithfulness: 0.87   answer_relevancy: 0.91   context_precision: 0.78
+```
 
-Warning: Average latency > 1000ms over 5 minutes (example threshold)
-Critical: Average latency > 3000ms over 2 minutes (example threshold)
-P95 latency: > 5000ms indicates system stress (example threshold)
-Quality Alerts:
+### 4. Alerting con umbrales
 
-Warning: Precision@10 < 0.8 over 30 minutes (example threshold)
-Critical: Success rate < 95% over 5 minutes (example threshold)
-Cache performance: Hit rate < 30% indicates inefficient caching (example threshold)
-Business Impact Alerts:
+```python
+class AlertManager:
+    def __init__(self, cooldown_s: int = 1800):
+        self.last_fired: Dict[str, float] = {}
+        self.cooldown = cooldown_s
 
-Critical: User satisfaction score < 2.0 (1-5 scale) (example threshold)
-Warning: Query volume spike > 200% of baseline (example threshold)
+    def check(self, metrics: Dict):
+        rules = [
+            ("p95_latency_critical", metrics.get("p95_ms", 0) > 2000, "critical"),
+            ("p95_latency_warning",  metrics.get("p95_ms", 0) > 800,  "warning"),
+            ("low_hit_rate",         metrics.get("cache_hit_query", 1) < 0.05, "warning"),
+            ("low_rating",           (metrics.get("avg_rating") or 5) < 3.0,   "critical"),
+            ("success_rate_low",     metrics.get("success_rate", 1) < 0.95,    "critical"),
+        ]
+        now = time.time()
+        for name, firing, sev in rules:
+            if not firing:
+                continue
+            if now - self.last_fired.get(name, 0) < self.cooldown:
+                continue
+            self.notify(name, sev, metrics)
+            self.last_fired[name] = now
 
-Alert Best Practices
-Threshold Configuration:
+    def notify(self, name, sev, metrics):
+        # integrar con PagerDuty / Slack / Opsgenie
+        print(f"[{sev.upper()}] {name}   context={metrics}")
+```
 
-Set latency alerts based on user experience requirements (e.g., 1s warning, 3s critical - example values)
-Use time windows to prevent false alarms from temporary spikes
-Implement cooldown periods to avoid alert fatigue
-Notification Strategy:
+### 5. Detección de drift del embedding
 
-Critical alerts: Email + Slack + PagerDuty for immediate response
-Warning alerts: Slack notifications for team awareness
-Info alerts: Dashboard metrics for trend monitoring
+```python
+import numpy as np
+from scipy.stats import entropy
 
-Common Pitfalls and Best Practices
-Alert Fatigue Prevention: Configure appropriate thresholds and cooldown periods to avoid notification overload. Focus on actionable alerts that require immediate response.
+def kl_divergence(p_hist, q_hist, eps=1e-10):
+    p = p_hist + eps; q = q_hist + eps
+    p /= p.sum(); q /= q.sum()
+    return float(entropy(p, q))
 
-Baseline Establishment: Establish performance baselines during stable periods to enable detection of gradual degradation over time.
+def embedding_drift(ref_embs: np.ndarray, cur_embs: np.ndarray, bins: int = 50):
+    """
+    Mide drift por dimensión promediando la KL divergence entre
+    histogramas de embeddings de referencia vs. tráfico actual.
+    """
+    kls = []
+    for d in range(ref_embs.shape[1]):
+        lo = min(ref_embs[:, d].min(), cur_embs[:, d].min())
+        hi = max(ref_embs[:, d].max(), cur_embs[:, d].max())
+        p, _ = np.histogram(ref_embs[:, d], bins=bins, range=(lo, hi))
+        q, _ = np.histogram(cur_embs[:, d], bins=bins, range=(lo, hi))
+        kls.append(kl_divergence(p.astype(float), q.astype(float)))
+    return float(np.mean(kls))
 
-Context-Rich Alerts: Include relevant context, suggested actions, and runbook links in alert messages to enable faster incident response.
+# Umbral típico: > 0.1 warning, > 0.3 critical → retrain / re-embedding
+```
 
-Feedback Loop Integration: Combine automated monitoring with user feedback analysis to catch issues that technical metrics might miss.
+## Errores comunes
 
-Summary
-Effective monitoring and evaluation frameworks are essential for maintaining production RAG systems. This requires tracking both technical metrics (latency, cache performance) and quality metrics (precision, recall, user satisfaction) while implementing intelligent alerting that balances sensitivity with actionability.
+- **Mirar solo métricas técnicas** (latencia, 2xx). El RAG puede estar devolviendo respuestas malas con 200 OK y p95 óptimo. Siempre acompañar con métricas de calidad.
+- **No tener golden set** o tener uno estático y pequeño. Sin ground truth no sabes si un cambio mejora o empeora el sistema. Mantener el golden set vivo y añadir ejemplos reales continuamente.
+- **Confiar ciegamente en LLM-as-judge** sin calibrarlo contra humanos. Los jueces LLM tienen sesgos (prefieren respuestas largas, estructura markdown). Validar con muestras humanas antes de alertar sobre ellos.
+- **Alertar por el promedio.** La media esconde outliers. Alertar siempre por p95/p99 y tasas (error rate, hallucination rate).
+- **No monitorear recall tras updates del índice.** HNSW degrada con deletes; actualizar embeddings cambia el espacio. Correr evaluación offline en el pipeline de deploy como gate.
+- **Alert fatigue.** Umbrales demasiado agresivos y sin cooldown → el equipo ignora las alertas. Mejor pocas alertas accionables con runbook claro.
+- **No capturar feedback del usuario** o capturarlo sin link al `request_id`. Sin trazabilidad el feedback es inútil.
+- **Perder trazabilidad end-to-end.** Un request debe tener `request_id` único propagado desde el frontend hasta la DB vectorial y el LLM. Sin esto, debuggear incidentes es imposible.
+- **No separar métricas por segmento** (idioma, categoría, tenant). El promedio global puede estar bien mientras un tenant importante sufre. Dashboards segmentados por `tenant_id` y `category`.
+- **No warmear caches ni calentar índices tras deploy.** p99 se dispara durante 10-30 min post-deploy; monitorear "deploy p99" como métrica aparte.
+- **Confundir drift de datos con drift de modelo.** Si cambia el patrón de queries (data drift) la métrica cae por razones legítimas; si cambia la relación query↔respuesta (concept drift) hay que re-evaluar los chunks o fine-tunear.
+- **No versionar prompts, modelos, índices.** Al debuggear "¿por qué ayer funcionaba?", si no sabes qué versión del prompt + embedding model + index estaba desplegada, estás ciego. Linkar `version` en cada trace.
 
-Key components include comprehensive metrics collection, pattern-based feedback analysis, and threshold-based alerting systems. By combining automated monitoring with user feedback loops, teams can proactively maintain system performance and continuously improve user experience.
+## Resumen
 
-Key concepts to remember
-Monitor both technical performance and quality metrics specific to RAG systems
-Use Precision@K and Recall@K to measure retrieval effectiveness
-Implement feedback loops to identify systematic quality issues
-Configure alert thresholds that balance sensitivity with noise reduction
+- Monitorear un RAG requiere **dos planos**: técnico (latencia, errores, hit rates) y de calidad (precision@k, recall@k, faithfulness, satisfacción).
+- Las **fórmulas base** son `Precision@k`, `Recall@k`, `MRR` y `NDCG@k`; se calculan contra un **golden set** curado y versionado.
+- El **tracing distribuido** (OpenTelemetry, Langfuse) con `request_id` end-to-end es la base de la observabilidad; sin él no se puede debuggear.
+- **Métricas en ventana rodante** y por **percentiles (p50/p95/p99)** son obligatorias; los promedios mienten.
+- El **feedback de usuario** (explícito, implícito, comportamental) cierra el loop y es la única señal realmente alineada con el valor entregado.
+- **LLM-as-judge** (RAGAS, TruLens, DeepEval) escala la evaluación automática, pero debe calibrarse contra humanos.
+- El **alerting efectivo** usa warning/critical, cooldowns, runbooks y canales separados; alert fatigue mata equipos.
+- Monitorear **drift**: de queries, del knowledge base y del modelo de embeddings. KL divergence es un buen punto de partida.
+- Siempre tener un **gate de evaluación offline** en el pipeline de deploy: si recall@10 cae > 5 %, bloquear el deploy.
+- Herramientas típicas: **Langfuse / Arize / Phoenix** (RAG-specific), **Prometheus + Grafana** (infra), **RAGAS / DeepEval** (eval), **PagerDuty / Opsgenie** (alerting).
+- Regla de oro: lo que no se mide, se degrada. Y en RAG, se degrada en silencio.

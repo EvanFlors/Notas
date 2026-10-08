@@ -1,360 +1,299 @@
-## Self-RAG and Adaptive Systems
+# Self-RAG, CRAG y Agentic RAG
 
-In the previous lesson on hybrid and multi-modal RAG systems, you learned to combine different retrieval approaches and handle diverse content types. While these systems significantly improve retrieval capabilities, they still follow a static approach: retrieve documents, then generate responses without considering whether retrieval was necessary or successful.
+## ¿Qué es?
 
-Traditional RAG systems suffer from two fundamental limitations: they always retrieve regardless of query complexity, and they can not self-assess the quality of their retrieval or generation steps. Simple questions like "What is the capital of France?" do not require document retrieval, while complex queries might need multiple retrieval attempts with refined search strategies.
+**Self-RAG** (Self-Reflective Retrieval-Augmented Generation, Asai et al. 2023) es un patrón donde el LLM emite **reflection tokens** especiales que deciden, durante la generación, si recuperar documentos, si son relevantes, si la respuesta está soportada y si es útil. El modelo no solo genera: también **se evalúa a sí mismo** paso a paso.
 
-This lesson introduces Self-RAG (Self-Reflective Retrieval-Augmented Generation) and adaptive systems that make dynamic decisions about when to retrieve, how to validate their outputs, and how to iteratively improve through feedback loops. These systems represent the cutting edge of intelligent information retrieval, capable of self-assessment and continuous improvement. The next lesson will explore enterprise security and compliance considerations for these advanced systems.
+**CRAG** (Corrective Retrieval-Augmented Generation, Yan et al. 2024) agrega una capa de **corrección**: un evaluador ligero clasifica cada chunk recuperado como `Correct` / `Incorrect` / `Ambiguous`, y en los dos últimos casos dispara una re-escritura de query o una búsqueda web de fallback.
 
-Self-RAG Architecture and Dynamic Retrieval
-Understanding Self-RAG Components
-Self-RAG extends traditional RAG with reflection tokens that enable self-evaluation of decisions and outputs. The system uses four key mechanisms: Retrieve (decides if retrieval is needed), ISREL (Is Relevant) (evaluates passage relevance), ISSUP (Is Supported) (checks response support), and ISUSE (Is Useful) (assesses response quality).
+**Agentic RAG** eleva el patrón a un **agente** con herramientas: el LLM planea, elige entre múltiples retrievers (vector, grafo, SQL, web), ejecuta sub-queries, verifica resultados y decide cuándo parar. Es RAG orquestado por un loop ReAct.
 
-This self-reflection enables dynamic behavior where systems adapt retrieval strategies based on query complexity and knowledge confidence.
+| Patrón | Decide retrieve? | Verifica relevancia? | Verifica soporte? | Re-query? | Multi-herramienta? |
+|---|---|---|---|---|---|
+| Naive RAG | No (siempre) | No | No | No | No |
+| Self-RAG | Sí (reflection token) | Sí (ISREL) | Sí (ISSUP) | Opcional | No |
+| CRAG | Sí | Sí (evaluador externo) | Sí | Sí (web fallback) | A veces |
+| Agentic RAG | Sí (planner LLM) | Sí | Sí | Sí (loop) | Sí (vector + KG + API + SQL) |
 
-Self-RAG System with Reflection Tokens
+### Reflection tokens de Self-RAG
 
-Below example demonstrates how to build a Self-RAG system that makes dynamic retrieval decisions and validates its outputs through reflection mechanisms.
+| Token | Significado | Valores |
+|---|---|---|
+| `Retrieve` | ¿Necesito buscar? | `Yes` / `No` / `Continue` |
+| `ISREL` | ¿Este pasaje es relevante? | `Relevant` / `Irrelevant` |
+| `ISSUP` | ¿Mi respuesta está soportada? | `Fully` / `Partially` / `No support` |
+| `ISUSE` | ¿La respuesta es útil al usuario? | `5` (muy útil) a `1` (inútil) |
+
+## ¿Por qué importa?
+
+El RAG clásico siempre recupera, aunque la pregunta sea "hola, ¿cómo estás?". Eso quema latencia (200-800 ms por retrieval), tokens (cada chunk cuesta) y, peor, **puede empeorar la respuesta** cuando el retrieval es ruidoso: el LLM se ancla en chunks irrelevantes y aluncina citas.
+
+Los problemas que Self-RAG / CRAG / agentic RAG resuelven:
+
+- **Over-retrieval:** preguntas de sentido común se responden mejor sin contexto.
+- **Under-retrieval:** una sola pasada no basta para preguntas multi-hop ("¿Qué CEO de qué empresa dijo X en qué año?").
+- **Alucinaciones silenciosas:** el LLM responde con confianza aunque el contexto no soporte la respuesta.
+- **Degradación por ruido:** chunks irrelevantes en el prompt bajan la calidad.
+
+Impacto medible: en el paper original de Self-RAG, mejoró **+10-20 puntos de factualidad** sobre RAG estándar en benchmarks de QA abierto. CRAG mostró ganancias similares con menor costo computacional al usar un evaluador T5 pequeño.
+
+## ¿Cómo funciona?
+
+### Self-RAG en 6 pasos
+
+1. **Decisión de recuperar.** El modelo emite `[Retrieve=Yes/No]` tras leer la query.
+2. **Recuperación** (si aplica): top-k chunks del índice vectorial/híbrido.
+3. **Evaluación de relevancia** por chunk: `[ISREL=Relevant/Irrelevant]`.
+4. **Generación** condicionada a los chunks relevantes.
+5. **Evaluación de soporte**: `[ISSUP=Fully/Partially/No]` cotejando la respuesta contra los chunks.
+6. **Evaluación de utilidad**: `[ISUSE=1..5]` sobre la respuesta final.
+
+Si `ISSUP` es bajo → se re-escribe la query (pseudo-relevance feedback) y se repite.
+
+### CRAG en 3 pasos
+
+1. **Retrieve** inicial.
+2. **Evaluate** cada chunk con un modelo liviano (T5-large o LLM barato) → acción:
+   - `Correct` → *knowledge refinement* (descompone chunks en "strips", filtra irrelevantes).
+   - `Incorrect` → *web search* como fallback (ej. Tavily, Serper).
+   - `Ambiguous` → combina ambos.
+3. **Generate** con el conocimiento refinado.
+
+### Agentic RAG
+
+Un agente ReAct con herramientas:
+
+```
+Thought: Esto requiere datos financieros y una política interna.
+Action: query_sql(table="revenue", quarter="Q3-2024")
+Observation: 12.4M USD
+Thought: Ahora necesito el umbral de aprobación.
+Action: vector_search(query="umbral aprobación capex", tenant="acme")
+Observation: "Capex > 10M requiere aprobación del CFO..."
+Thought: Puedo responder.
+Final Answer: ...
+```
+
+### Pseudo-relevance feedback
+
+Técnica de IR clásica (años 90) que vuelve a brillar en RAG: después de un primer retrieve, se asume que los top-k son relevantes, se extraen términos frecuentes nuevos y se expande la query original. Útil cuando la query inicial es corta o ambigua.
+
+## Ejemplo con código
+
+### Self-RAG con decision gates
 
 ```python
-import re
-import numpy as np
-from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass
+from __future__ import annotations
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Protocol, List
 
-class ReflectionToken(Enum):
-  RETRIEVE_YES = "RETRIEVE_YES"
-  RETRIEVE_NO = "RETRIEVE_NO"
-  ISREL_RELEVANT = "ISREL_RELEVANT"
-  ISREL_IRRELEVANT = "ISREL_IRRELEVANT"
-  ISSUP_SUPPORTED = "ISSUP_SUPPORTED"
-  ISSUP_PARTIAL = "ISSUP_PARTIAL"
-  ISSUP_UNSUPPORTED = "ISSUP_UNSUPPORTED"
-  ISUSE_USEFUL = "ISUSE_USEFUL"
-  ISUSE_UNCLEAR = "ISUSE_UNCLEAR"
+class Retrieve(Enum):
+    YES = "yes"; NO = "no"; CONTINUE = "continue"
 
-@dataclass
-class RetrievalCandidate:
-  content: str
-  relevance_score: float
-  source: str
+class ISREL(Enum):
+    RELEVANT = "relevant"; IRRELEVANT = "irrelevant"
+
+class ISSUP(Enum):
+    FULLY = "fully"; PARTIALLY = "partially"; NO = "no_support"
 
 @dataclass
-class GenerationResult:
-  response: str
-  reflection_tokens: List[ReflectionToken]
-  confidence_score: float
-  retrieved_docs: List[RetrievalCandidate]
+class Trace:
+    query: str
+    retrieve: Retrieve | None = None
+    chunks: List[str] = field(default_factory=list)
+    isrel: List[ISREL] = field(default_factory=list)
+    answer: str = ""
+    issup: ISSUP | None = None
+    iterations: int = 0
 
-class SelfRAGSystem:
-  """Self-Reflective RAG system with dynamic retrieval and validation"""
+class LLM(Protocol):
+    def classify(self, system: str, user: str) -> str: ...
+    def generate(self, prompt: str) -> str: ...
+    def rewrite(self, query: str, hint: str) -> str: ...
 
-  def __init__(self, knowledge_threshold: float = 0.7):
-      self.knowledge_threshold = knowledge_threshold
-      self.document_store = {}
-      self.query_patterns = {
-          'factual': ['what is', 'who is', 'when did', 'where is'],
-          'complex': ['how to', 'explain', 'compare', 'analyze'],
-          'definitional': ['define', 'meaning of', 'definition']
-      }
+def decide_retrieve(query: str, llm: LLM) -> Retrieve:
+    label = llm.classify(
+        system="Responde solo 'yes' o 'no'. ¿Esta pregunta requiere buscar en documentos?",
+        user=query,
+    )
+    return Retrieve.YES if label.strip().lower() == "yes" else Retrieve.NO
 
-  def _classify_query_complexity(self, query: str) -> Tuple[str, float]:
-      """Classify query complexity and estimate knowledge confidence"""
-      query_lower = query.lower()
+def score_relevance(query: str, chunk: str, llm: LLM) -> ISREL:
+    label = llm.classify(
+        system="Responde solo 'relevant' o 'irrelevant'.",
+        user=f"Pregunta: {query}\nPasaje: {chunk}",
+    )
+    return ISREL.RELEVANT if "relevant" in label.lower() else ISREL.IRRELEVANT
 
-      # Simple pattern matching for demonstration
-      for pattern_type, patterns in self.query_patterns.items():
-          if any(pattern in query_lower for pattern in patterns):
-              if pattern_type == 'factual':
-                  return pattern_type, 0.8  # High confidence for factual queries
-              elif pattern_type == 'definitional':
-                  return pattern_type, 0.7  # Medium confidence
-              else:
-                  return pattern_type, 0.4  # Low confidence for complex queries
+def score_support(answer: str, chunks: list[str], llm: LLM) -> ISSUP:
+    label = llm.classify(
+        system="Responde 'fully', 'partially' o 'no'.",
+        user=f"Respuesta: {answer}\nContexto: {' '.join(chunks)}",
+    )
+    return {"fully": ISSUP.FULLY, "partially": ISSUP.PARTIALLY}.get(
+        label.strip().lower(), ISSUP.NO
+    )
 
-      return 'unknown', 0.3  # Low confidence for unknown patterns
+def self_rag(query: str, retriever, llm: LLM, max_iter: int = 2) -> Trace:
+    trace = Trace(query=query)
+    trace.retrieve = decide_retrieve(query, llm)
 
-  def _should_retrieve(self, query: str) -> Tuple[bool, ReflectionToken]:
-      """Decide whether retrieval is necessary based on query and confidence"""
-      query_type, confidence = self._classify_query_complexity(query)
+    if trace.retrieve is Retrieve.NO:
+        trace.answer = llm.generate(query)
+        return trace
 
-      # Simple factual queries with high confidence do not need retrieval
-      if confidence > self.knowledge_threshold and query_type == 'factual':
-          return False, ReflectionToken.RETRIEVE_NO
+    current_query = query
+    for i in range(max_iter):
+        trace.iterations = i + 1
+        raw = retriever.search(current_query, top_k=8)
+        trace.isrel = [score_relevance(query, c.text, llm) for c in raw]
+        trace.chunks = [c.text for c, r in zip(raw, trace.isrel) if r is ISREL.RELEVANT]
 
-      # Complex queries or low confidence require retrieval
-      return True, ReflectionToken.RETRIEVE_YES
+        if not trace.chunks:
+            # Ningún chunk relevante → reescribe query
+            current_query = llm.rewrite(query, hint="usa sinónimos y términos técnicos")
+            continue
 
-  def _retrieve_documents(self, query: str, top_k: int = 3) -> List[RetrievalCandidate]:
-      """Simulate document retrieval with relevance scoring"""
-      # Mock document store for demonstration
-      mock_docs = [
-          "Self-RAG uses reflection tokens to evaluate retrieval necessity and response quality.",
-          "Traditional RAG systems always retrieve documents regardless of query complexity.",
-          "Adaptive systems can improve through iterative feedback and query refinement.",
-          "Vector databases store embeddings for semantic similarity search.",
-          "Machine learning models require training data and computational resources."
-      ]
+        prompt = f"Contexto:\n{chr(10).join(trace.chunks)}\n\nPregunta: {query}"
+        trace.answer = llm.generate(prompt)
+        trace.issup = score_support(trace.answer, trace.chunks, llm)
 
-      # Simple keyword-based relevance for demonstration
-      candidates = []
-      for i, doc in enumerate(mock_docs):
-          # Calculate basic relevance score
-          query_words = set(query.lower().split())
-          doc_words = set(doc.lower().split())
-          relevance = len(query_words.intersection(doc_words)) / len(query_words.union(doc_words))
+        if trace.issup is ISSUP.FULLY:
+            return trace
+        # Soporte parcial o ninguno → reescribe y reintenta
+        current_query = llm.rewrite(query, hint=f"la respuesta anterior fue '{trace.answer[:80]}'")
 
-          if relevance > 0.1:  # Basic threshold
-              candidates.append(RetrievalCandidate(
-                  content=doc,
-                  relevance_score=relevance,
-                  source=f"doc_{i}"
-              ))
-
-      # Sort by relevance and return top_k
-      candidates.sort(key=lambda x: x.relevance_score, reverse=True)
-      return candidates[:top_k]
-
-  def _evaluate_relevance(self, query: str, documents: List[RetrievalCandidate]) -> List[ReflectionToken]:
-      """Evaluate if retrieved documents are relevant to the query"""
-      relevance_tokens = []
-
-      for doc in documents:
-          # Simple relevance check based on score threshold
-          if doc.relevance_score > 0.3:
-              relevance_tokens.append(ReflectionToken.ISREL_RELEVANT)
-          else:
-              relevance_tokens.append(ReflectionToken.ISREL_IRRELEVANT)
-
-      return relevance_tokens
-
-  def _generate_response(self, query: str, documents: List[RetrievalCandidate]) -> str:
-      """Generate response based on query and retrieved documents"""
-      if not documents:
-          return f"Based on my knowledge, I can provide a general answer to: {query}"
-
-      # Simple response generation using retrieved documents
-      response = f"Based on the retrieved information: "
-      for doc in documents[:2]:  # Use top 2 documents
-          response += f"{doc.content} "
-
-      return response.strip()
-
-  def _evaluate_support(self, response: str, documents: List[RetrievalCandidate]) -> ReflectionToken:
-      """Evaluate if response is supported by retrieved documents"""
-      if not documents:
-          return ReflectionToken.ISSUP_UNSUPPORTED
-
-      # Simple support evaluation based on content overlap
-      response_words = set(response.lower().split())
-      doc_words = set()
-      for doc in documents:
-          doc_words.update(doc.content.lower().split())
-
-      overlap_ratio = len(response_words.intersection(doc_words)) / len(response_words)
-
-      if overlap_ratio > 0.6:
-          return ReflectionToken.ISSUP_SUPPORTED
-      elif overlap_ratio > 0.3:
-          return ReflectionToken.ISSUP_PARTIAL
-      else:
-          return ReflectionToken.ISSUP_UNSUPPORTED
-
-  def _evaluate_utility(self, query: str, response: str) -> ReflectionToken:
-      """Evaluate overall utility and quality of the response"""
-      # Simple utility evaluation based on response length and query coverage
-      if len(response) < 20:
-          return ReflectionToken.ISUSE_UNCLEAR
-
-      query_words = set(query.lower().split())
-      response_words = set(response.lower().split())
-      coverage = len(query_words.intersection(response_words)) / len(query_words)
-
-      if coverage > 0.4:
-          return ReflectionToken.ISUSE_USEFUL
-      else:
-          return ReflectionToken.ISUSE_UNCLEAR
-
-  def process_query(self, query: str) -> GenerationResult:
-      """Main Self-RAG processing pipeline with reflection"""
-      reflection_tokens = []
-
-      # Step 1: Decide whether to retrieve
-      should_retrieve, retrieve_token = self._should_retrieve(query)
-      reflection_tokens.append(retrieve_token)
-
-      retrieved_docs = []
-      if should_retrieve:
-          # Step 2: Retrieve documents
-          retrieved_docs = self._retrieve_documents(query)
-
-          # Step 3: Evaluate relevance
-          relevance_tokens = self._evaluate_relevance(query, retrieved_docs)
-          reflection_tokens.extend(relevance_tokens)
-
-      # Step 4: Generate response
-      response = self._generate_response(query, retrieved_docs)
-
-      # Step 5: Evaluate support
-      support_token = self._evaluate_support(response, retrieved_docs)
-      reflection_tokens.append(support_token)
-
-      # Step 6: Evaluate utility
-      utility_token = self._evaluate_utility(query, response)
-      reflection_tokens.append(utility_token)
-
-      # Calculate confidence based on reflection tokens
-      positive_tokens = [
-          ReflectionToken.ISREL_RELEVANT,
-          ReflectionToken.ISSUP_SUPPORTED,
-          ReflectionToken.ISUSE_USEFUL
-      ]
-      confidence = sum(1 for token in reflection_tokens if token in positive_tokens) / max(1, len([t for t in reflection_tokens if 'ISREL' in t.value or 'ISSUP' in t.value or 'ISUSE' in t.value]))
-
-      return GenerationResult(
-          response=response,
-          reflection_tokens=reflection_tokens,
-          confidence_score=confidence,
-          retrieved_docs=retrieved_docs
-      )
-
-# Demonstration
-self_rag = SelfRAGSystem()
-
-# Test different query types
-test_queries = [
-  "What is Self-RAG?",  # Should retrieve
-  "Define machine learning",  # May not retrieve if high confidence
-  "How to implement adaptive systems?"  # Should retrieve
-]
-
-for query in test_queries:
-  print(f"\nQuery: '{query}'")
-  result = self_rag.process_query(query)
-
-  print(f"Response: {result.response}")
-  print(f"Confidence: {result.confidence_score:.2f}")
-  print(f"Reflection Tokens: {[token.value for token in result.reflection_tokens]}")
-  print(f"Retrieved {len(result.retrieved_docs)} documents")
+    return trace
 ```
 
-Key Learning Points:
-
-Self-RAG systems make dynamic decisions about when retrieval is necessary
-Reflection tokens enable self-assessment of retrieval relevance and response quality
-Confidence scoring helps identify when additional retrieval or refinement is needed
-Different query types require different retrieval strategies and validation approaches
-Try It: Modify the knowledge_threshold parameter and observe how it affects retrieval decisions for different query types. Test with threshold values of 0.5, 0.7, and 0.9.
-
-Pseudo-Relevance Feedback and Query Refinement
-Iterative Query Improvement
-Pseudo-relevance feedback uses top-retrieved documents to extract terms that improve subsequent queries. This technique enhances Self-RAG systems by informing query refinement strategies based on initial retrieval results.
+### CRAG con evaluador y fallback web
 
 ```python
-# Step 1: Find helpful terms from retrieved documents
-def find_helpful_terms(documents, original_query):
-  """Find new terms from good documents to improve the query"""
-  helpful_terms = []
+from typing import Literal
 
-  # Look at documents that seem relevant
-  for doc in documents:
-      if doc.relevance_score > 0.3:  # Only use relevant docs
-          # Split document into words
-          doc_words = doc.content.lower().split()
-          query_words = original_query.lower().split()
+Verdict = Literal["correct", "incorrect", "ambiguous"]
 
-          # Find words in the document that are not in our query
-          for word in doc_words:
-              if word not in query_words and len(word) > 2:
-                  helpful_terms.append(word)
+def crag_evaluate(query: str, chunk: str, light_llm) -> Verdict:
+    """Un modelo barato (T5-large, GPT-4o-mini) juzga cada chunk."""
+    prompt = (
+        f"Query: {query}\nPassage: {chunk}\n"
+        "Classify as 'correct', 'incorrect' or 'ambiguous' (one word)."
+    )
+    out = light_llm.generate(prompt).strip().lower()
+    return out if out in ("correct", "incorrect", "ambiguous") else "ambiguous"
 
-  # Return the 3 most common new terms
-  from collections import Counter
-  common_terms = Counter(helpful_terms).most_common(3)
-  return [term for term, count in common_terms]
+def strip_knowledge(chunk: str) -> list[str]:
+    """Descompone chunk en 'strips' (frases) para filtrado fino."""
+    return [s.strip() for s in chunk.split(". ") if len(s.strip()) > 20]
 
-# Step 2: Try to improve the query if first attempt was not good enough
-def improve_query_if_needed(original_query):
-  """Try the query, and if it is not good enough, add helpful terms"""
-  # First attempt
-  result = search_with_query(original_query)
+def crag(query: str, retriever, web_search, llm, light_llm) -> str:
+    chunks = retriever.search(query, top_k=5)
+    verdicts = [crag_evaluate(query, c.text, light_llm) for c in chunks]
 
-  # If result is good enough (confidence > 0.7), we are done
-  if result.confidence_score > 0.7:
-      return result
+    corrects = [c for c, v in zip(chunks, verdicts) if v == "correct"]
+    incorrects_count = sum(1 for v in verdicts if v == "incorrect")
 
-  # If not good enough, find helpful terms and try again
-  helpful_terms = find_helpful_terms(result.documents, original_query)
-  improved_query = original_query + " " + " ".join(helpful_terms)
+    knowledge: list[str] = []
+    if corrects:
+        for c in corrects:
+            # Refinamiento: strips relevantes solamente
+            strips = strip_knowledge(c.text)
+            knowledge.extend(s for s in strips if crag_evaluate(query, s, light_llm) == "correct")
 
-  # Try with improved query
-  return search_with_query(improved_query)
+    if incorrects_count >= len(chunks) // 2:
+        # Mayoría ruidosa → busca en web
+        web_results = web_search(query)
+        knowledge.extend(web_results)
+
+    context = "\n".join(knowledge) or "(sin contexto confiable)"
+    return llm.generate(f"Contexto:\n{context}\n\nPregunta: {query}")
 ```
 
-Key Learning Points:
-
-Pseudo-relevance feedback improves query specificity through term extraction from relevant documents
-Iterative refinement enables adaptive systems to improve retrieval quality automatically
-Confidence thresholds determine when additional refinement iterations are beneficial
-Query expansion must balance specificity with maintaining original query intent
-
-Advanced Feedback Loops and Continuous Learning
-Implementation of Learning Mechanisms
-Adaptive systems implement feedback loops for continuous improvement based on user interactions and performance metrics. These mechanisms learn from retrieval patterns to enhance future performance.
+### Agentic RAG con herramientas múltiples
 
 ```python
-# Learn from user feedback to improve the system
-def learn_from_feedback(query_type, user_was_happy, system_memory):
-  """Adjust how the system behaves based on whether users were satisfied"""
+from typing import Callable, Dict, Any
 
-  # Get current success rate for this type of query (default: 50%)
-  current_success_rate = system_memory.get(query_type, 0.5)
+TOOLS: Dict[str, Callable[..., Any]] = {}
 
-  # Update success rate: if user was happy, increase it slightly
-  if user_was_happy:
-      new_success_rate = current_success_rate + 0.1 * (1 - current_success_rate)
-  else:
-      new_success_rate = current_success_rate - 0.1 * current_success_rate
+def tool(name: str):
+    def deco(fn): TOOLS[name] = fn; return fn
+    return deco
 
-  # Remember this new success rate
-  system_memory[query_type] = new_success_rate
+@tool("vector_search")
+def vector_search(query: str, tenant_id: str, k: int = 5) -> list[dict]:
+    return hybrid_retriever.search(query, tenant_id=tenant_id, top_k=k)
 
-  # Adjust system behavior based on success patterns
-  if new_success_rate > 0.8:
-      # If we are doing well, be more confident (retrieve less often)
-      return "be_more_confident"
-  elif new_success_rate < 0.4:
-      # If we are struggling, be more careful (retrieve more often)
-      return "be_more_careful"
-  else:
-      # Normal performance, use default behavior
-      return "use_normal_settings"
+@tool("graph_search")
+def graph_search(entities: list[str], tenant_id: str) -> list[dict]:
+    return graphrag.local_search_raw(entities, tenant_id=tenant_id)
+
+@tool("sql_query")
+def sql_query(sql: str, tenant_id: str) -> list[dict]:
+    # SIEMPRE con filtro de tenant inyectado por el adapter, no por el LLM
+    return db.exec_safely(sql, tenant_id=tenant_id)
+
+def agent_loop(query: str, tenant_id: str, llm, max_steps: int = 6) -> str:
+    transcript = [f"User: {query}"]
+    for step in range(max_steps):
+        plan = llm.generate(
+            "Decide una acción. Herramientas: " + ", ".join(TOOLS) +
+            "\nFormato: Action: <name>(<json_args>) | FinalAnswer: <text>\n" +
+            "\n".join(transcript)
+        )
+        if plan.startswith("FinalAnswer:"):
+            return plan.removeprefix("FinalAnswer:").strip()
+
+        name, args = parse_action(plan)      # tu parser
+        args.setdefault("tenant_id", tenant_id)   # RBAC forzado
+        obs = TOOLS[name](**args)
+        transcript.append(f"Action: {name}({args})\nObservation: {obs}")
+
+    return "No pude responder dentro del presupuesto de pasos."
 ```
 
-Common Pitfalls and Best Practices
-Over-Complex Reflection Logic: Implementing too many reflection tokens or overly complex validation logic can introduce latency and reduce system reliability. Start with essential reflection tokens (RETRIEVE, ISREL, ISSUP) and add complexity only when needed.
+### Observabilidad con LangSmith
 
-Inadequate Confidence Thresholds: Setting confidence thresholds too high or too low can lead to poor retrieval decisions. Monitor system performance and adjust thresholds based on actual query patterns and user satisfaction metrics.
+```python
+import os, uuid
+from langsmith import Client, traceable
 
-Ignoring Query Context: Self-RAG systems should consider query context and user intent, not just individual query complexity. Simple queries in complex domains may still require retrieval, while complex queries in well-covered domains might not.
+os.environ["LANGSMITH_PROJECT"] = "rag-prod"
+ls = Client()
 
-Poor Feedback Loop Design: Implementing feedback loops without proper validation can lead to system degradation over time. Ensure feedback mechanisms include safeguards against adversarial inputs and maintain system stability.
+@traceable(run_type="chain", name="self_rag")
+def answered(query: str, user_id: str, tenant_id: str) -> dict:
+    trace = self_rag(query, retriever, llm)
+    # Audit log mínimo (ver Lesson-03 para schema completo)
+    ls.create_feedback(
+        run_id=uuid.uuid4(),
+        key="issup",
+        value=trace.issup.value if trace.issup else "none",
+    )
+    return {"answer": trace.answer, "iterations": trace.iterations}
+```
 
-Reflection Token Overhead: Reflection tokens add computational overhead to generation. Balance the benefits of self-assessment with performance requirements, especially for high-throughput applications.
+## Errores comunes
 
-Summary
-Self-RAG and adaptive systems introduce intelligence and self-awareness to retrieval-augmented generation. These systems evaluate their own performance, make dynamic retrieval decisions, and continuously improve through feedback mechanisms.
+- **Reflection tokens de más.** Encadenar 7 evaluaciones por chunk multiplica latencia y costo sin mejorar precision. Empieza con `Retrieve + ISSUP`; añade `ISREL` solo si el retrieval es ruidoso.
+- **Umbral de confianza arbitrario.** `confidence > 0.7` sin calibración empírica suele dar peores resultados que el baseline. Fija umbrales con el golden set y curvas ROC.
+- **El LLM se auto-evalúa (sin segundo modelo).** El mismo modelo que generó la respuesta tiende a aprobarla. Usa un *judge* distinto (idealmente más grande o especializado) o un cross-encoder.
+- **Loops infinitos de reescritura.** Sin `max_iter`, un agente puede entrar en bucle re-queryando para siempre. Pon tope duro de iteraciones y presupuesto de tokens.
+- **Fallback web sin dominio allowlist.** CRAG con web search abierta trae ruido, SEO spam y posible prompt injection desde páginas atacantes. Filtra por dominios confiables (`stackoverflow.com`, docs oficiales, etc.).
+- **Agente escribe el `tenant_id`.** NUNCA dejes que el LLM elija el filtro de tenant: inyéctalo en el adapter de la herramienta. De lo contrario, un prompt injection pide `tenant_id=*` y filtras datos.
+- **Sin audit trail por paso.** Un agente ReAct hace 5-10 llamadas por query. Si no logueas cada `(action, args, observation)`, debuggear quejas es imposible y violas trazabilidad regulatoria.
+- **No evaluar Self-RAG con Ragas.** Añadir reflexión *puede* empeorar las métricas si está mal implementado. Mide `faithfulness` y `answer_relevancy` antes/después.
+- **Pseudo-relevance feedback expandiendo con stopwords.** Extraer "los", "de", "que" no ayuda. Filtra por POS (sustantivos, verbos) o por IDF alto.
+- **Confundir Self-RAG con fine-tuning obligatorio.** El paper original fine-tunea Llama con tokens especiales, pero el patrón se puede *simular* con prompts estructurados sobre GPT-4o o Claude sin entrenar nada.
 
-Reflection tokens enable multi-layered validation of retrieval necessity, document relevance, response support, and overall utility. This approach significantly improves response quality and reduces hallucinations compared to traditional RAG systems.
+## Resumen
 
-Pseudo-relevance feedback and iterative query refinement adapt search strategies based on initial results, leading to more precise information retrieval. Combined with continuous learning mechanisms, these systems improve over time through user interactions and successful retrieval patterns.
-
-The next lesson explores enterprise security and compliance considerations for deploying these advanced RAG systems in production environments.
-
-Key concepts to remember
-Self-RAG systems use reflection tokens to evaluate and validate their own retrieval and generation decisions
-Dynamic retrieval decisions improve efficiency by avoiding unnecessary retrieval for simple queries
-Pseudo-relevance feedback enables iterative query refinement and improved retrieval accuracy
-Adaptive learning mechanisms allow systems to improve continuously based on user feedback and performance patterns
-Multi-layered validation through reflection significantly reduces hallucinations and improves response quality
+- **Self-RAG** (2023) introduce *reflection tokens* para decidir si recuperar, si los chunks son relevantes, si hay soporte y si la respuesta es útil.
+- **CRAG** (2024) añade un evaluador externo que etiqueta chunks como `correct/incorrect/ambiguous` y dispara reescritura o búsqueda web.
+- **Agentic RAG** convierte el pipeline en un agente ReAct con múltiples herramientas (vector, grafo, SQL, web); el LLM planea los pasos.
+- **Pseudo-relevance feedback** reescribe la query usando términos de los top-k iniciales; útil para queries cortas o ambiguas.
+- Beneficios demostrados: **menos alucinaciones, menos retrieval innecesario, +10-20 puntos de factualidad** en QA abierto.
+- Costos: **más latencia, más tokens, más complejidad operacional**. Mide con Ragas / LangSmith antes y después.
+- Reglas de oro: evaluador ≠ generador; `max_iter` siempre; **nunca** dejes que el LLM elija el `tenant_id`; audit log por cada acción del agente.
+- En producción, Self-RAG y CRAG se combinan con la higiene empresarial de la Lesson-03: RBAC, PII redaction, encryption y rollback plan.

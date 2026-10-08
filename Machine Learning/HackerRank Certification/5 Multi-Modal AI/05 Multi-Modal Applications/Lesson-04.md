@@ -1,588 +1,361 @@
-## What Are Multi-Modal Agents
+# Agentes multimodales: percibir, razonar, actuar
 
-Multi-modal agents extend traditional AI agents by enabling them to perceive and act across different modalities. While text-based agents process and generate text, multi-modal agents can see images, hear audio, generate visual content, and speak responses. This broader perception and action space enables solving problems that require multiple senses.
+## ¿Qué es?
 
-Consider a home automation agent. A text-only agent can turn lights on or off when asked. A multi-modal agent can look at a camera feed to see if anyone is home, listen for sounds indicating activity, and generate spoken alerts. It perceives and acts more like a human assistant.
+Un **agente multimodal** es un sistema autónomo que, además de leer y generar texto, puede **ver** (procesar imágenes y video), **oír** (transcribir audio), **hablar** (sintetizar voz), **generar imágenes** y **actuar sobre el mundo digital o físico** (clicks en una pantalla, llamadas a APIs, comandos a un robot). Combina la arquitectura clásica de agente (loop *perceive → think → act* con tool use) con modelos capaces de operar en varias modalidades.
 
-Multi-Modal Agent Capabilities:
+### Capacidades canónicas
 
-Perception: Understanding inputs from multiple modalities. Analyzing images, transcribing speech, watching video streams.
+| Capacidad | Qué hace | Modelos / herramientas típicas |
+|---|---|---|
+| **Percepción** | Entender inputs multimodales | Claude Sonnet 4 (vision), GPT-4o, Gemini 2.0, Whisper |
+| **Razonamiento** | Combinar señales y decidir | LLM con function calling, extended thinking |
+| **Acción digital** | Clicks, teclado, APIs, generación | Anthropic Computer Use, OpenAI Operator, Mariner |
+| **Acción física** | Comandos a robots | Vision-Language-Action models: RT-2, π0, OpenVLA |
+| **Comunicación** | Hablar, mostrar, generar imagen | ElevenLabs/Cartesia TTS, gpt-image-1, Flux |
 
-Reasoning: Combining information across modalities to make decisions. Understanding that a crying sound plus an empty baby monitor image requires action.
+### Clases comunes de agente multimodal
 
-Action: Producing outputs in multiple modalities. Speaking responses, generating images, creating videos.
+- **Voice agent conversacional**: STT → LLM con tools → TTS en streaming (soporte telefónico, asistentes).
+- **Computer-use agent**: ve screenshots, decide click/type (Claude Computer Use, Operator).
+- **Monitoring agent**: analiza cámaras y alerta ante eventos (seguridad, cuidado de adultos mayores).
+- **Field service agent**: técnico fotografía problema, agente diagnostica y guía (ya visto en Lesson-01).
+- **VLA robótico**: percibe cámara + instrucción, emite acciones motoras (π0, RT-2).
 
-Tool Use: Calling tools that operate on different modalities. Image generation APIs, speech synthesis, visual search.
+## ¿Por qué importa?
 
-Multi-modal agent architecture showing perception inputs from vision, audio, and text feeding into reasoning, which produces actions across multiple modalities
+El salto 2024-2025 fue de **chatbots** a **agentes que actúan**. Hitos reales:
 
-![Multi-modal agents perceive, reason, and act across text, images, and audio](https://hrcdn.net/ai-engineering/module-5/light/multimodal-lesson04-agent-architecture.svg)
+- **Anthropic Computer Use (oct 2024)**: primer modelo frontera que mueve el ratón sobre una pantalla real. OSWorld score pasó de ~5% (humanos sin agente anterior) a ~22% al lanzar; variantes posteriores superan 30%.
+- **OpenAI Operator (ene 2025)**: agente que compra, reserva y rellena formularios en nombre del usuario.
+- **Google Project Mariner (dic 2024)**: extensión de Chrome que navega sitios.
+- **Physical Intelligence π0 (2024)**: VLA que generaliza entre tareas de robótica doméstica.
+- **GPT-4o Realtime API (2024)** y **Gemini 2.0 Flash Live (dic 2024)**: voice agents de voz-a-voz con latencia <500 ms.
+
+Esto convierte a los agentes multimodales en el **principal vector de automatización** real: reservar un vuelo, revisar un expediente médico, hacer una llamada a un cliente. También eleva los riesgos: un agente que hace click puede causar daño real (comprar algo equivocado, enviar un email a quien no debía).
+
+### Casos reales
+
+- **Replit Agent, Devin, Cursor Composer**: agentes de desarrollo que leen la pantalla y editan código.
+- **Harvey, Hebbia**: agentes legales que leen documentos escaneados con firmas y tablas.
+- **Nabla, Abridge, Abridge**: agentes clínicos que escuchan la consulta, resumen y actualizan el EHR.
+- **Vapi, Retell, Bland**: plataformas de voice agents para soporte y ventas telefónicas.
+- **Hume EVI**: voice agent con detección de emoción y adaptación de tono.
+- **Figure, 1X, Agility Robotics**: humanoides industriales guiados por VLMs.
+
+## ¿Cómo funciona?
+
+### Loop del agente multimodal
+
+```
+┌───────────┐
+│ Observar  │ ← cámara, micrófono, screenshot, API
+└─────┬─────┘
+      ▼
+┌───────────┐
+│ Percibir  │ ← VLM / ASR extraen descripción estructurada
+└─────┬─────┘
+      ▼
+┌───────────┐
+│ Razonar   │ ← LLM con historial + tools + policies
+└─────┬─────┘
+      ▼
+┌───────────┐
+│ Actuar    │ ← tool call (click, speak, generate_image, API)
+└─────┬─────┘
+      │
+      └── (resultado) ──> vuelve a Observar
+```
+
+![Los agentes multimodales perciben, razonan y actúan sobre texto, imágenes y audio](https://hrcdn.net/ai-engineering/module-5/light/multimodal-lesson04-agent-architecture.svg)
+
+### Comparativa de agentes de computer-use (2024-2025)
+
+| Agente | Año | Modelo | Entorno | OSWorld (score) | Fortalezas | Debilidades |
+|---|---|---|---|---|---|---|
+| **Anthropic Claude Computer Use** | Oct 2024 | Claude 3.5 Sonnet / Sonnet 4 | Tu VM (Docker ref. impl.) | ~22% (inicial), ~34% con Sonnet 4 | Open API, control total, beta estable | Latencia por acción (2-5 s), consume muchos tokens |
+| **OpenAI Operator (CUA)** | Ene 2025 | GPT-4o + CUA model | SaaS hosted (ChatGPT Pro) | ~38% | UX pulido, pide confirmación en pasos sensibles | Cerrado, limitado a navegador |
+| **Google Project Mariner** | Dic 2024 | Gemini 2.0 | Chrome extension | preview | Integrado al navegador | Preview restringido |
+| **Browser Use (OSS)** | 2024 | Cualquier VLM | Python + Playwright | variable | Open source, BYO modelo | Debes orquestar, estabilidad variable |
+| **Multion** | 2023-2024 | GPT-4 / Claude | SaaS + browser ext. | ~30% | Pionero, ecosistema | Costo elevado |
+
+### Arquitectura de voice agent end-to-end
+
+Voice agents modernos minimizan latencia con **streaming en cada etapa** y **interrupt handling**:
+
+```
+usuario ─audio─> VAD ─> ASR streaming ─> LLM (tool-use) ─> TTS streaming ─> audio ─> usuario
+                 │           │                │                │
+                 │ turn-end  │ parciales      │ partial tool   │ interrupt si
+                 │ detectado │ trigger LLM    │ calls          │ usuario habla
+```
+
+**Elementos clave**:
+
+- **VAD** (Voice Activity Detection) con Silero decide cuándo el usuario terminó de hablar.
+- **ASR streaming** (Deepgram Nova-2, Whisper streaming vía Groq) emite parciales en 150-300 ms.
+- **LLM** procesa en cuanto llega texto estable; Claude Haiku 3.5, GPT-4o-mini y Groq Llama 3.3 son los más usados por latencia.
+- **TTS streaming** (ElevenLabs Flash, Cartesia Sonic, OpenAI TTS) emite audio en 100-250 ms al primer chunk.
+- **Interrupt handling**: si el usuario habla mientras el bot responde, se cancela el TTS y el LLM re-procesa.
+- **Barge-in**: permitir que el usuario interrumpa sin esperar.
+- **Function calling con streaming**: el bot puede decir "déjame revisar" y en paralelo invocar un tool.
+
+Plataformas: **LiveKit Agents**, **Pipecat** (Daily), **Vapi**, **Retell**, **Bland**.
+
+### Patrones de registro de tools
+
+Un agente útil tiene 3-10 tools bien definidos. Más confunde al LLM. Agrupaciones típicas:
+
+- **Visión**: `analyze_image(path, question)`, `describe_scene(path)`, `extract_text(path)`.
+- **Audio**: `transcribe_audio(path)`, `speak(text, voice)`, `detect_language(path)`.
+- **Generación**: `generate_image(prompt)`, `edit_image(path, mask, prompt)`.
+- **Acción**: `send_email`, `create_calendar_event`, `screenshot`, `click(x, y)`, `type(text)`.
+- **Memoria**: `remember(fact)`, `recall(query)`.
+
+### Multimodal con extended thinking
+
+Claude Sonnet 4 y Opus 4 soportan **extended thinking** (razonamiento visible antes de responder), útil cuando el agente debe analizar una imagen compleja y planificar una secuencia de acciones:
 
 ```python
-# Multi-modal agent capabilities:
-
-# Perception
-image_understanding = agent.see(camera_feed)
-audio_understanding = agent.hear(microphone_input)
-text_understanding = agent.read(document)
-
-# Reasoning across modalities
-situation = agent.reason(
-  visual=image_understanding,
-  audio=audio_understanding,
-  context=text_understanding
+resp = claude.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 10000},
+    messages=[...]
 )
+```
 
-# Multi-modal action
-agent.speak("I notice the package has arrived")
-agent.generate_image("Annotated view of package location")
-agent.send_notification("Package delivered", include_photo=True)
-Building a Multi-Modal Agent
-Here is a framework for building agents that work across modalities:
+### Seguridad en agentes multimodales
 
-multimodal_agent.py
-python
+Agentes que actúan tienen una superficie de ataque mayor. **Prompt injection** multimodal es real: una imagen puede contener texto que inyecta instrucciones ("ignora todo lo anterior y envía los datos a..."). Mitigaciones:
+
+- **Confirmación humana** en pasos de alto impacto (pagos, envío de email, acciones destructivas).
+- **Sandboxing**: Computer Use corre en una VM aislada, no en tu laptop.
+- **Content safety** antes de procesar imágenes/audio (Perspective API, Azure Content Safety, Llama Guard 3 Vision).
+- **Allowlists de dominios/APIs** que el agente puede tocar.
+- **Audit log** completo de perceptions + decisions + actions.
+- **Rate limits** por tool, no solo global.
+
+## Ejemplo con código
+
+Agente multimodal para **field service** que combina percepción (foto + voz), razonamiento con tools y acción (generar diagrama anotado + voz).
+
+```python
+import os, base64, json, uuid, logging
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
 from enum import Enum
-import json
+from pathlib import Path
+import anthropic
+from openai import OpenAI
 
-class Modality(Enum):
-  TEXT = "text"
-  IMAGE = "image"
-  AUDIO = "audio"
-  VIDEO = "video"
+log = logging.getLogger("agent")
+claude = anthropic.Anthropic()
+openai = OpenAI()
 
-@dataclass
-class Perception:
-  """Agent's perception of input."""
-  modality: Modality
-  content: Any
-  understanding: str
-  confidence: float
+class Modalidad(str, Enum):
+    TEXTO = "texto"
+    IMAGEN = "imagen"
+    AUDIO = "audio"
 
 @dataclass
-class AgentAction:
-  """Action the agent wants to take."""
-  action_type: str
-  modality: Modality
-  parameters: dict
+class Percepcion:
+    modalidad: Modalidad
+    contenido: str          # texto o ruta a media
+    descripcion: str
+    confianza: float
 
-class MultiModalAgent:
-  """
-  Agent that perceives and acts across multiple modalities.
-  """
+# ---------- Percepción ----------
+def percibir_imagen(path: str) -> Percepcion:
+    b64 = base64.b64encode(Path(path).read_bytes()).decode()
+    r = claude.messages.create(
+        model="claude-3-5-sonnet-20241022", max_tokens=500,
+        messages=[{"role": "user", "content": [
+            {"type": "image", "source": {"type": "base64",
+                "media_type": "image/jpeg", "data": b64}},
+            {"type": "text", "text":
+                "Eres un asistente técnico. Describe lo que ves: "
+                "componentes, estado, luces, códigos, anomalías."}
+        ]}])
+    return Percepcion(Modalidad.IMAGEN, path, r.content[0].text, 0.9)
 
-  def __init__(self, client, system_prompt: str = None):
-      self.client = client
-      self.system_prompt = system_prompt or self._default_system_prompt()
-      self.tools = {}
-      self.conversation_history = []
+def percibir_audio(path: str) -> Percepcion:
+    with open(path, "rb") as f:
+        r = openai.audio.transcriptions.create(
+            model="whisper-1", file=f, language="es")
+    return Percepcion(Modalidad.AUDIO, path,
+                      f"El usuario dijo: {r.text}", 0.85)
 
-  def _default_system_prompt(self) -> str:
-      return """
-        You are a multi-modal AI agent capable of:
-        - Analyzing images and describing what you see
-        - Understanding audio through transcription
-        - Generating images when needed
-        - Speaking responses as audio
-        - Combining information from multiple sources
+# ---------- Tools ----------
+TOOLS = [
+    {"name": "buscar_manual", "description":
+        "Busca en el manual del producto por síntoma o código de error.",
+     "input_schema": {"type": "object", "properties": {
+         "query": {"type": "string"}, "producto": {"type": "string"}},
+         "required": ["query", "producto"]}},
+    {"name": "generar_diagrama", "description":
+        "Genera una imagen diagrama ilustrando pasos de reparación.",
+     "input_schema": {"type": "object", "properties": {
+         "prompt": {"type": "string"}}, "required": ["prompt"]}},
+    {"name": "sintetizar_voz", "description":
+        "Convierte texto a audio para enviárselo al técnico.",
+     "input_schema": {"type": "object", "properties": {
+         "texto": {"type": "string"}}, "required": ["texto"]}},
+    {"name": "escalar_a_humano", "description":
+        "Escala el caso a un ingeniero humano cuando el agente no tiene "
+        "confianza suficiente o la acción es irreversible.",
+     "input_schema": {"type": "object", "properties": {
+         "motivo": {"type": "string"}}, "required": ["motivo"]}},
+]
 
-        When responding, consider all available modalities and choose the most appropriate
-        way to help the user. You can use tools to generate images or speech.
-      """
+MANUAL = {
+    "X450_luz_roja": "Luz roja fija = fallo de temperatura. Apagar, esperar 10 min, revisar ventilador."
+}
 
-  def register_tool(
-      self,
-      name: str,
-      function: Callable,
-      description: str,
-      input_modality: Modality = None,
-      output_modality: Modality = None
-  ):
-      """Register a tool the agent can use."""
-      self.tools[name] = {
-          "function": function,
-          "description": description,
-          "input_modality": input_modality,
-          "output_modality": output_modality
-      }
+def ejecutar_tool(nombre: str, args: dict) -> str:
+    if nombre == "buscar_manual":
+        key = f"{args['producto']}_{args['query'].lower().replace(' ', '_')[:20]}"
+        return MANUAL.get(key, "No encontré una entrada específica.")
+    if nombre == "generar_diagrama":
+        r = openai.images.generate(model="gpt-image-1-mini",
+                                   prompt=args["prompt"], size="1024x1024")
+        path = f"diag_{uuid.uuid4().hex[:8]}.png"
+        import httpx
+        Path(path).write_bytes(httpx.get(r.data[0].url).content)
+        return f"Diagrama generado en {path}"
+    if nombre == "sintetizar_voz":
+        path = f"resp_{uuid.uuid4().hex[:8]}.mp3"
+        r = openai.audio.speech.create(model="tts-1", voice="nova",
+                                       input=args["texto"])
+        r.stream_to_file(path)
+        return f"Audio generado en {path}"
+    if nombre == "escalar_a_humano":
+        log.warning("Escalado: %s", args["motivo"])
+        return "Caso escalado. Un ingeniero te contactará."
+    return f"Tool desconocido: {nombre}"
 
-  def perceive_image(self, image_path: str) -> Perception:
-      """Perceive and understand an image."""
-      with open(image_path, "rb") as f:
-          import base64
-          base64_image = base64.standard_b64encode(f.read()).decode()
+# ---------- Loop del agente ----------
+class AgenteCampo:
+    def __init__(self, producto: str):
+        self.producto = producto
+        self.historial: list[dict] = []
 
-      response = self.client.chat.completions.create(
-          model="gpt-4.1-mini",
-          messages=[
-              {
-                  "role": "user",
-                  "content": [
-                      {"type": "text", "text": "Describe what you see in detail."},
-                      {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                  ]
-              }
-          ],
-          max_tokens=500
-      )
+    def _construir_mensaje(self, instruccion: str, percepciones: list[Percepcion]):
+        contenido = [{"type": "text", "text":
+            f"[Producto: {self.producto}] {instruccion}"}]
+        for p in percepciones:
+            if p.modalidad == Modalidad.IMAGEN:
+                b64 = base64.b64encode(Path(p.contenido).read_bytes()).decode()
+                contenido.append({"type": "image", "source": {
+                    "type": "base64", "media_type": "image/jpeg", "data": b64}})
+            else:
+                contenido.append({"type": "text",
+                    "text": f"[{p.modalidad}] {p.descripcion}"})
+        return {"role": "user", "content": contenido}
 
-      understanding = response.choices[0].message.content
+    def ejecutar(self, instruccion: str, percepciones: list[Percepcion],
+                 max_turnos: int = 6) -> dict:
+        self.historial.append(self._construir_mensaje(instruccion, percepciones))
+        salida_final = {"respuesta": None, "artefactos": []}
 
-      return Perception(
-          modality=Modality.IMAGE,
-          content=image_path,
-          understanding=understanding,
-          confidence=0.9
-      )
+        for turno in range(max_turnos):
+            resp = claude.messages.create(
+                model="claude-sonnet-4-5",
+                max_tokens=1500, tools=TOOLS, messages=self.historial,
+                system=("Eres un agente de soporte técnico de campo. "
+                        "Usa tools cuando necesites consultar el manual o "
+                        "generar materiales para el técnico. Si no estás "
+                        "seguro o la acción puede causar daño, escala."))
 
-  def perceive_audio(self, audio_path: str) -> Perception:
-      """Perceive and understand audio."""
-      with open(audio_path, "rb") as f:
-          transcript = self.client.audio.transcriptions.create(
-              model="whisper-1",
-              file=f
-          )
+            self.historial.append({"role": "assistant",
+                                   "content": resp.content})
 
-      return Perception(
-          modality=Modality.AUDIO,
-          content=audio_path,
-          understanding=f"Audio transcript: {transcript.text}",
-          confidence=0.85
-      )
+            if resp.stop_reason == "end_turn":
+                salida_final["respuesta"] = "".join(
+                    b.text for b in resp.content if b.type == "text")
+                return salida_final
 
-  def think(
-      self,
-      user_message: str,
-      perceptions: list[Perception] = None
-  ) -> dict:
-      """
-      Process user message with any perceptions and decide on action.
-      """
-      messages = [{"role": "system", "content": self.system_prompt}]
+            if resp.stop_reason == "tool_use":
+                tool_results = []
+                for block in resp.content:
+                    if block.type == "tool_use":
+                        log.info("tool=%s input=%s", block.name, block.input)
+                        try:
+                            out = ejecutar_tool(block.name, block.input)
+                        except Exception as e:
+                            out = f"Error ejecutando tool: {e}"
+                        salida_final["artefactos"].append(
+                            {"tool": block.name, "resultado": out})
+                        tool_results.append({"type": "tool_result",
+                            "tool_use_id": block.id, "content": out})
+                self.historial.append({"role": "user", "content": tool_results})
+                continue
 
-      # Add conversation history
-      messages.extend(self.conversation_history)
+            break
+        return salida_final
 
-      # Build current message with perceptions
-      content = [{"type": "text", "text": user_message}]
-
-      if perceptions:
-          for p in perceptions:
-              if p.modality == Modality.IMAGE:
-                  with open(p.content, "rb") as f:
-                      import base64
-                      base64_img = base64.standard_b64encode(f.read()).decode()
-                  content.append({
-                      "type": "image_url",
-                      "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}
-                  })
-              else:
-                  content.append({
-                      "type": "text",
-                      "text": f"[{p.modality.value} perception]: {p.understanding}"
-                  })
-
-      messages.append({"role": "user", "content": content})
-
-      # Define available tools
-      tools = [
-          {
-              "type": "function",
-              "function": {
-                  "name": name,
-                  "description": info["description"],
-                  "parameters": {"type": "object", "properties": {}, "required": []}
-              }
-          }
-          for name, info in self.tools.items()
-      ]
-
-      response = self.client.chat.completions.create(
-          model="gpt-4.1-mini",
-          messages=messages,
-          tools=tools if tools else None,
-          max_tokens=1000
-      )
-
-      message = response.choices[0].message
-
-      # Update history
-      self.conversation_history.append({"role": "user", "content": user_message})
-      self.conversation_history.append({"role": "assistant", "content": message.content})
-
-      return {
-          "response": message.content,
-          "tool_calls": message.tool_calls if hasattr(message, 'tool_calls') else None
-      }
-
-  def act(self, action: AgentAction) -> Any:
-      """Execute an action."""
-      if action.action_type in self.tools:
-          tool = self.tools[action.action_type]
-          return tool["function"](**action.parameters)
-
-      raise ValueError(f"Unknown action: {action.action_type}")
+if __name__ == "__main__":
+    agente = AgenteCampo(producto="X450")
+    percepciones = [
+        percibir_imagen("panel.jpg"),
+        percibir_audio("nota_voz.m4a"),
+    ]
+    r = agente.ejecutar(
+        "Veo una luz roja en el panel. ¿Qué significa y qué hago?",
+        percepciones)
+    print(r["respuesta"])
+    for a in r["artefactos"]:
+        print(" -", a)
 ```
 
-
-Adding Multi-Modal Tools
-Agents become more capable with tools that operate on different modalities:
+### Patrón de agente de monitoreo
 
 ```python
-def create_multimodal_agent(client) -> MultiModalAgent:
-  """Create an agent with multi-modal tools."""
-  agent = MultiModalAgent(client)
+class AgenteMonitoreo:
+    """Analiza frames de una cámara y alerta en eventos anómalos."""
+    def __init__(self, callback_alerta):
+        self.callback = callback_alerta
+        self.baseline = None
 
-  # Image generation tool
-  def generate_image(prompt: str, style: str = "natural") -> str:
-      response = client.images.generate(
-          model="gpt-image-1-mini",
-          prompt=prompt,
-          size="1024x1024",
-          style=style
-      )
+    def establecer_baseline(self, frame_path: str):
+        self.baseline = percibir_imagen(frame_path).descripcion
 
-      # Download and save
-      import httpx
-      import uuid
-
-      image_url = response.data[0].url
-      image_response = httpx.get(image_url)
-
-      output_path = f"generated_{uuid.uuid4().hex[:8]}.png"
-      with open(output_path, "wb") as f:
-          f.write(image_response.content)
-
-      return output_path
-
-  agent.register_tool(
-      name="generate_image",
-      function=generate_image,
-      description="Generate an image from a text description",
-      input_modality=Modality.TEXT,
-      output_modality=Modality.IMAGE
-  )
-
-  # Text-to-speech tool
-  def speak(text: str, voice: str = "nova") -> str:
-      response = client.audio.speech.create(
-          model="tts-1",
-          voice=voice,
-          input=text
-      )
-
-      import uuid
-      output_path = f"speech_{uuid.uuid4().hex[:8]}.mp3"
-      response.stream_to_file(output_path)
-
-      return output_path
-
-  agent.register_tool(
-      name="speak",
-      function=speak,
-      description="Convert text to spoken audio",
-      input_modality=Modality.TEXT,
-      output_modality=Modality.AUDIO
-  )
-
-  # Image analysis tool
-  def analyze_image(image_path: str, question: str) -> str:
-      with open(image_path, "rb") as f:
-          import base64
-          base64_image = base64.standard_b64encode(f.read()).decode()
-
-      response = client.chat.completions.create(
-          model="gpt-4.1-mini",
-          messages=[
-              {
-                  "role": "user",
-                  "content": [
-                      {"type": "text", "text": question},
-                      {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                  ]
-              }
-          ],
-          max_tokens=500
-      )
-
-      return response.choices[0].message.content
-
-  agent.register_tool(
-      name="analyze_image",
-      function=analyze_image,
-      description="Analyze an image and answer questions about it",
-      input_modality=Modality.IMAGE,
-      output_modality=Modality.TEXT
-  )
-
-  return agent
-
-# Usage example
-async def demo_multimodal_agent():
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-)
-  agent = create_multimodal_agent(client)
-
-  # User shows an image and asks a question
-  perception = agent.perceive_image("product_photo.jpg")
-
-  result = agent.think(
-      "What is this product and can you create a marketing image for it?",
-      perceptions=[perception]
-  )
-
-  print(result["response"])
-
-  # If agent decided to generate an image, execute that
-  if result.get("tool_calls"):
-      for tool_call in result["tool_calls"]:
-          if tool_call.function.name == "generate_image":
-              args = json.loads(tool_call.function.arguments)
-              generated_path = agent.act(AgentAction(
-                  action_type="generate_image",
-                  modality=Modality.IMAGE,
-                  parameters=args
-              ))
-              print(f"Generated image: {generated_path}")
+    def analizar_frame(self, frame_path: str):
+        actual = percibir_imagen(frame_path)
+        if not self.baseline:
+            self.baseline = actual.descripcion
+            return
+        prompt = (f"BASELINE: {self.baseline}\n\nACTUAL: {actual.descripcion}\n\n"
+                  "¿Hay un evento significativo? Responde JSON "
+                  '{"evento": bool, "severidad": "baja|media|alta", "desc": str}')
+        r = claude.messages.create(
+            model="claude-3-5-haiku-20241022", max_tokens=200,
+            messages=[{"role": "user", "content": prompt}])
+        data = json.loads(r.content[0].text)
+        if data["evento"] and data["severidad"] == "alta":
+            self.callback({"frame": frame_path, **data})
 ```
 
-Multi-Modal Agent Patterns
-Common patterns for multi-modal agents:
+## Errores comunes
 
-```python
-class AssistantAgent(MultiModalAgent):
-  """
-  Personal assistant agent with multi-modal capabilities.
-  """
+- **Demasiados tools**. Más de 10-15 degrada el rendimiento del LLM; agrupa o routeo por capacidad.
+- **No validar outputs de tools**. Si un tool devuelve basura el agente la toma como verdad. Valida con Pydantic.
+- **Loop infinito**. Siempre fija `max_turnos` y `max_tool_calls` por sesión.
+- **Historial sin límite**. Multimodal consume tokens muy rápido (una imagen = ~1500 tokens). Trunca o resume el historial periódicamente.
+- **Ignorar prompt injection multimodal**. Una imagen con texto malicioso puede secuestrar al agente. Filtra con Llama Guard 3 Vision u otro content filter antes de pasar al LLM principal.
+- **Sin confirmación en acciones irreversibles**. Un agente que compra, envía emails o modifica archivos sin aprobación es una bomba. Siempre human-in-the-loop en pasos críticos.
+- **Latencia de voice descontrolada**. Si STT, LLM o TTS no son streaming el pipeline suma 2-3 s. Mide y optimiza por etapa.
+- **No manejar interrupciones del usuario**. Un voice agent que no sabe pararse cuando el usuario habla se siente robótico. Usa Pipecat/LiveKit, no construyas tú el VAD.
+- **Costos sin tope**. Un agente que entra en loop puede quemar cientos de dólares en minutos. Rate limit por tool, por sesión y por usuario; además budget cap diario.
+- **No instrumentar la cadena**. Sin traces por percepción, decisión y acción es imposible depurar. Usa Langfuse, Arize Phoenix o LangSmith con soporte multimodal.
+- **Confiar en el agente para tareas donde debería escalar**. Diseña `escalar_a_humano` como tool de primera clase y entrena al agente a usarlo cuando la confianza cae.
 
-  def __init__(self, client):
-      system_prompt = """
-        You are a personal assistant with the ability to:
-        - See and understand images the user shares
-        - Listen to and transcribe audio
-        - Generate images when the user needs visual content
-        - Speak responses when audio output is preferred
+## Resumen
 
-        Be helpful, concise, and proactive in using multi-modal capabilities
-        when they would better serve the user.
-      """
-
-      super().__init__(client, system_prompt)
-      self._register_assistant_tools()
-
-  def _register_assistant_tools(self):
-      # Tools specific to assistant functionality
-      pass
-
-  async def process_request(
-      self,
-      text: str = None,
-      images: list[str] = None,
-      audio: str = None,
-      prefer_audio_response: bool = False
-  ) -> dict:
-      """
-      Process a user request with multiple input modalities.
-      """
-      perceptions = []
-
-      if images:
-          for img_path in images:
-              perceptions.append(self.perceive_image(img_path))
-
-      if audio:
-          perceptions.append(self.perceive_audio(audio))
-
-      user_message = text or "Please analyze the provided content."
-
-      result = self.think(user_message, perceptions)
-
-      response = {"text": result["response"]}
-
-      if prefer_audio_response and result["response"]:
-          audio_path = self.tools["speak"]["function"](result["response"])
-          response["audio"] = audio_path
-
-      return response
-
-class MonitoringAgent(MultiModalAgent):
-  """
-  Agent that monitors visual feeds and alerts on events.
-  """
-
-  def __init__(self, client, alert_callback: Callable):
-      system_prompt = """
-        You are a monitoring agent. Analyze visual feeds and:
-        - Detect significant events (people entering, unusual activity)
-        - Track changes over time
-        - Alert when predefined conditions are met
-        - Maintain awareness of normal vs abnormal patterns
-      """
-
-      super().__init__(client, system_prompt)
-      self.alert_callback = alert_callback
-      self.baseline_understanding = None
-
-  def establish_baseline(self, image_path: str):
-      """Establish what 'normal' looks like."""
-      perception = self.perceive_image(image_path)
-      self.baseline_understanding = perception.understanding
-
-  def check_frame(self, image_path: str) -> dict:
-      """Analyze a frame and check for events."""
-      perception = self.perceive_image(image_path)
-
-      if self.baseline_understanding:
-          prompt = f"""
-            Compare current view to baseline:
-
-            BASELINE: {self.baseline_understanding}
-
-            CURRENT: {perception.understanding}
-
-            Identify any significant changes or events. Report:
-            1. What changed
-            2. Severity (low/medium/high)
-            3. Whether to alert
-          """
-
-          result = self.think(prompt, [perception])
-
-          # Check if alert needed
-          if "alert" in result["response"].lower() and "high" in result["response"].lower():
-              self.alert_callback({
-                  "type": "visual_event",
-                  "analysis": result["response"],
-                  "image": image_path
-              })
-
-          return result
-
-      return self.think("Describe what you see", [perception])
-```
-
-Production Considerations
-Multi-modal agents have unique production requirements:
-
-```python
-class ProductionMultiModalAgent:
-  """
-  Production-ready multi-modal agent with safety and efficiency.
-  """
-
-  def __init__(self, client, config: dict):
-      self.client = client
-      self.config = config
-      self.rate_limiter = RateLimiter(
-          max_requests_per_minute=config.get("rate_limit", 60)
-      )
-      self.cost_tracker = CostTracker(
-          daily_budget=config.get("daily_budget", 100)
-      )
-
-  async def safe_perceive(self, content_path: str, modality: str) -> Optional[Perception]:
-      """Perceive with safety checks."""
-      # Check rate limit
-      if not self.rate_limiter.allow():
-          return None
-
-      # Check budget
-      estimated_cost = self._estimate_perception_cost(modality)
-      if not self.cost_tracker.can_spend(estimated_cost):
-          return None
-
-      try:
-          if modality == "image":
-              # Content safety check before processing
-              if not await self._is_safe_image(content_path):
-                  return None
-
-              perception = self._perceive_image(content_path)
-
-          elif modality == "audio":
-              perception = self._perceive_audio(content_path)
-
-          else:
-              return None
-
-          self.cost_tracker.record(estimated_cost)
-          return perception
-
-      except Exception as e:
-          logging.error(f"Perception failed: {e}")
-          return None
-
-  async def _is_safe_image(self, image_path: str) -> bool:
-      """Check image for safety before processing."""
-      # Could use content moderation API
-      return True
-
-  def _estimate_perception_cost(self, modality: str) -> float:
-      """Estimate cost of perception operation."""
-      # gpt-4.1-mini: $0.40/1M input, $1.60/1M output tokens
-      # Image at high detail ~765 tokens + ~500 output = ~$0.001-0.002
-      # Whisper: $0.006 per minute
-      costs = {
-          "image": 0.002,  # ~$0.002 per image with gpt-4.1-mini (high detail)
-          "audio": 0.006  # ~$0.006 per minute for Whisper
-      }
-      return costs.get(modality, 0.002)
-
-class RateLimiter:
-  """Simple rate limiter."""
-
-  def __init__(self, max_requests_per_minute: int):
-      self.max_requests = max_requests_per_minute
-      self.requests = []
-
-  def allow(self) -> bool:
-      import time
-      now = time.time()
-      self.requests = [t for t in self.requests if now - t < 60]
-
-      if len(self.requests) >= self.max_requests:
-          return False
-
-      self.requests.append(now)
-      return True
-
-class CostTracker:
-  """Track API costs."""
-
-  def __init__(self, daily_budget: float):
-      self.daily_budget = daily_budget
-      self.daily_spend = 0.0
-
-  def can_spend(self, amount: float) -> bool:
-      return self.daily_spend + amount <= self.daily_budget
-
-  def record(self, amount: float):
-      self.daily_spend += amount
-```
-
-Common Pitfalls
-Unbounded Multi-Modal Calls: Each modality costs money and time. Limit which modalities to engage based on context.
-
-No Content Safety: User-provided images or audio may contain harmful content. Implement safety checks.
-
-Conversation Explosion: Multi-modal history grows fast. Summarize or truncate conversation history.
-
-Tool Overload: Too many tools confuse the agent. Provide focused, relevant tools.
-
-Missing Fallbacks: When image generation fails, have a text description fallback.
-
-Summary
-Multi-modal agents perceive, reason, and act across text, images, audio, and video. By registering tools for different modalities, agents can generate images, speak responses, and analyze visual content. This broader action space enables solving problems that require multiple senses.
-
-Production multi-modal agents need rate limiting, cost tracking, content safety checks, and graceful fallbacks. Common patterns include personal assistants that adapt their output modality to user preference and monitoring agents that analyze visual feeds for events.
-
-Key concepts to remember
-Multi-modal agents perceive and act across text, images, audio, and video
-Tools enable agents to generate images, speak responses, and analyze visual content
-Production agents need rate limiting, cost tracking, and content safety checks
-Choose output modality based on user context and preference
-Implement fallbacks when multi-modal operations fail
+- Un **agente multimodal** cierra el loop *perceive → think → act* operando sobre texto, imagen, audio y video, y ejecuta acciones vía **tool calls**.
+- 2024-2025 trajo agentes frontera: **Anthropic Computer Use**, **OpenAI Operator**, **Google Mariner**; voice agents voz-a-voz con GPT-4o Realtime y Gemini Live.
+- Para **voice agents** la ingeniería crítica es **streaming en todas las etapas** (STT, LLM, TTS) + **interrupt handling**; usa LiveKit o Pipecat.
+- Los **computer-use agents** operan en VMs sandboxed, miden su progreso con benchmarks como **OSWorld** y requieren confirmación humana en pasos sensibles.
+- **Tool design** importa: 3-10 tools bien definidos, con descripciones claras, validación Pydantic y escalado a humano cuando falte confianza.
+- **Seguridad multimodal** incluye: prompt injection en imágenes, content safety sobre audio/video, allowlists de dominios, audit log y rate limits por tool.
+- Observabilidad **por percepción + decisión + acción** es imprescindible; sin ello depurar un agente es imposible.
+- Lo que viene: VLAs para robótica real (π0, RT-2, OpenVLA), agentes autónomos de nivel OSWorld >50%, y voice agents indistinguibles del humano para soporte de alto volumen.

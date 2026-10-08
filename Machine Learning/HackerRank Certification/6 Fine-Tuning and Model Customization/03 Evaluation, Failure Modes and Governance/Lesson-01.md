@@ -1,239 +1,342 @@
-## Evaluation and Catastrophic Forgetting
+# Evaluación de modelos fine-tuned y catastrophic forgetting
 
-After fine-tuning your customer support chatbot, you need to know: did it actually improve? Many teams skip proper evaluation and deploy models that perform worse than the base model or fail in production. Worse, fine-tuning can cause catastrophic forgetting: your model might excel at customer support but lose its ability to handle general tasks it could do before.
+## ¿Qué es?
 
-Evaluation is critical for understanding whether fine-tuning actually improved your model. Pre-fine-tuning evaluation establishes baselines so you can measure improvement. Post-fine-tuning evaluation validates that fine-tuning achieved its goals and didn't introduce regressions. Catastrophic forgetting occurs when fine-tuning causes models to lose previously learned general capabilities, making them worse at tasks they handled before fine-tuning.
+La **evaluación de un modelo fine-tuned** es el proceso sistemático de medir si el ajuste fino **realmente mejoró** el modelo en la tarea objetivo **sin degradar** las capacidades generales que ya tenía el modelo base. No es un paso opcional: es la única forma de distinguir entre un modelo que funciona y uno que *parece* funcionar en una demo.
 
-In this lesson, you will learn to design comprehensive evaluation frameworks for your customer support chatbot, establish baselines, compare pre/post fine-tuning performance, and prevent catastrophic forgetting that could degrade your model's general capabilities.
+Un buen framework de evaluación responde cuatro preguntas:
 
-Pre-Fine-Tuning Evaluation
-Establishing baseline performance before fine-tuning enables you to measure improvement and identify specific areas where fine-tuning should focus.
+| Pregunta | Qué mide | Herramienta típica |
+|---|---|---|
+| ¿Mejoró en la tarea objetivo? | Accuracy, F1, ROUGE, pass@k | Test set propio del dominio |
+| ¿Perdió capacidades base? | MMLU, HumanEval, GSM8K pre y post | `lm-evaluation-harness` |
+| ¿Produce outputs diversos? | Distinct-n, self-BLEU, entropía | Scripts custom + LLM-as-judge |
+| ¿Es seguro y sin sesgos? | TruthfulQA, ToxiGen, BBQ | HELM, Giskard |
 
-Why Baseline Evaluation Matters
+**Catastrophic forgetting** (olvido catastrófico) es el fenómeno descrito por McCloskey y Cohen (1989) donde una red neuronal, al aprender una tarea nueva, **sobrescribe** los pesos que codificaban el conocimiento previo. En LLMs modernos se manifiesta como: haces fine-tuning de Llama 3.1 para SQL y, de pronto, el modelo responde peor en francés o resuelve mal problemas de matemáticas que antes acertaba.
 
-Before fine-tuning your customer support chatbot, evaluate the base model (e.g., Llama-2-7b-chat) on your target tasks. This establishes what the model can do "out of the box" and helps you identify where fine-tuning should focus.
+> **Definición operacional:** hay catastrophic forgetting si el modelo fine-tuned pierde más del 5-10% de rendimiento en al menos un benchmark de capacidades base (MMLU, HumanEval, GSM8K, MGSM) respecto al modelo base, incluso si mejoró en la tarea objetivo.
 
-Baseline Metrics for Customer Support Chatbot
+### Benchmarks estándar para capacidades base
 
-For your customer support chatbot, evaluate the base model on key tasks: ticket classification, response generation, and information extraction.
+| Benchmark | Qué mide | Formato | Métrica | Año |
+|---|---|---|---|---|
+| **MMLU** | Conocimiento general multidisciplinario (57 materias) | 4-way multiple choice | Accuracy | 2020 |
+| **HumanEval** | Generación de código Python | 164 problemas con tests | pass@1, pass@10 | 2021 |
+| **GSM8K** | Razonamiento matemático escolar | 8.5K problemas verbales | Exact match | 2021 |
+| **HellaSwag** | Sentido común / finalizar oración | 4-way multiple choice | Accuracy | 2019 |
+| **TruthfulQA** | Resistencia a mentiras populares | Generación + MC | % respuestas verídicas | 2021 |
+| **ARC-Challenge** | Razonamiento científico | MC complejo | Accuracy | 2018 |
+| **MGSM** | GSM8K traducido a 10 idiomas | Exact match | Accuracy por idioma | 2022 |
+| **BBH** (Big-Bench Hard) | 23 tareas difíciles de BIG-bench | Variable | Accuracy promedio | 2022 |
+| **HELM** | Suite holística (precisión + robustez + sesgo + eficiencia) | Multi-tarea | Dashboard multidimensional | 2022 |
+| **MT-Bench** | Diálogo multi-turno evaluado por GPT-4 | 80 preguntas abiertas | Score 1-10 | 2023 |
 
-```python
-# Pre-Fine-Tuning Baseline Evaluation
-# Evaluate base model to establish baseline performance
+### Jerarquía de evaluaciones
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import json
-import torch
-
-# Load base model and test dataset
-base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
-with open("data/customer_support_test.json", "r") as f:
-  test_dataset = json.load(f)
-
-# Evaluate on key tasks
-def evaluate_classification(model, tokenizer, test_examples):
-  """Evaluate ticket classification accuracy"""
-  correct = total = 0
-  for example in test_examples:
-      if example.get("task") != "classify":
-          continue
-      prompt = f"Classify this support ticket: {example['input']}"
-      inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)
-      with torch.no_grad():
-          outputs = model.generate(**inputs, max_new_tokens=50, do_sample=False)
-      prediction = tokenizer.decode(outputs[0], skip_special_tokens=True)
-      if example["output"].lower() in prediction.lower():
-          correct += 1
-      total += 1
-  return {"accuracy": correct / total if total > 0 else 0, "correct": correct, "total": total}
-
-# Evaluate and save baseline metrics
-classification_baseline = evaluate_classification(base_model, tokenizer, test_dataset)
-baseline_metrics = {"classification_accuracy": classification_baseline["accuracy"]}
-
-with open("baseline_metrics.json", "w") as f:
-  json.dump(baseline_metrics, f, indent=2)
-
-print(f"Baseline Classification Accuracy: {classification_baseline['accuracy']:.2%}")
+```
+Evaluación completa de un modelo fine-tuned
+├── (1) Métricas de la tarea objetivo         ← ¿mejoró en lo que querías?
+│       └── Test set in-domain, held-out
+├── (2) Regresión de capacidades base          ← ¿no rompió nada?
+│       └── MMLU, HumanEval, GSM8K, TruthfulQA
+├── (3) Diversidad y calidad de generación     ← ¿no colapsó el output?
+│       └── Distinct-n, self-BLEU, LLM-as-judge
+├── (4) Robustez y adversarial                 ← ¿aguanta prompts raros?
+│       └── Paraphrase tests, jailbreaks, inyecciones
+└── (5) Seguridad, sesgo y toxicidad           ← ¿es responsable publicarlo?
+        └── BBQ, ToxiGen, Detoxify, red-teaming
 ```
 
-Identifying Improvement Opportunities
+## ¿Por qué importa?
 
-Analyze baseline performance to identify specific areas where fine-tuning should focus. Look for:
+Un modelo que no evalúas correctamente es un **pasivo oculto**. Casos reales que han ocurrido en producción:
 
-Low performance on specific categories: If your chatbot performs poorly on "billing" tickets but well on "shipping" tickets, focus fine-tuning on billing examples.
-Systematic errors: Patterns where the model consistently fails (e.g., always misclassifying urgent tickets as non-urgent).
-Edge cases: Unusual scenarios where the model fails (e.g., tickets with multiple issues, very long tickets, or tickets with technical jargon).
-Use confusion matrices, per-category accuracy metrics, and error analysis to identify these patterns. This helps you prioritize which types of examples to include in your fine-tuning dataset.
+- Un equipo hace fine-tune para clasificar tickets de soporte y pasa de 72% a 94% de accuracy. Lo despliega. Semanas después descubre que el modelo contesta en inglés incluso cuando el cliente escribe en español: fine-tune en datos exclusivamente en inglés **borró** el bilingüismo.
+- Un modelo fine-tuned para generar SQL mejora de 60% a 88% en el benchmark interno. Pero el equipo nunca lo evaluó en MMLU y el modelo perdió 15 puntos en razonamiento general: ya no puede explicar las consultas que genera.
+- Un chatbot entrenado con DPO para "ser más útil" aprende que respuestas más **largas** reciben mejor reward. En producción produce párrafos innecesarios y aumenta costos de inferencia 3x sin mejorar la satisfacción del usuario. Esto es **reward hacking**.
 
-Test Set Design
+### Costo de no evaluar bien
 
-Design test sets that represent production scenarios. For your customer support chatbot, include diverse ticket types, edge cases, and balanced category distribution.
+| Falla | Costo de negocio | Prevención |
+|---|---|---|
+| Catastrophic forgetting | El modelo deja de cubrir casos de uso adyacentes | Eval de regresión en MMLU/HumanEval/GSM8K |
+| Mode collapse | Outputs repetitivos, baja diversidad, UX pobre | Distinct-n, self-BLEU, muestreo manual |
+| Reward hacking | Métrica de proxy mejora, calidad real baja | Human eval + LLM-as-judge con rúbrica |
+| Data contamination | Benchmarks inflados, falso sentido de mejora | Decontamination (n-gram overlap vs. train) |
+| Overfitting a estilo | El modelo imita formato pero no razonamiento | Eval en paraphrases y out-of-distribution |
 
-Post-Fine-Tuning Evaluation
-Post-fine-tuning evaluation validates that fine-tuning achieved its goals and identifies any regressions or new issues.
+### Contexto regulatorio
 
-Comparing Fine-Tuned Model to Baseline
+- **EU AI Act** (en vigor desde **agosto 2024**, aplicable a modelos de propósito general desde **agosto 2025**): obliga a documentar evaluaciones de modelos de "riesgo sistémico" (>10²⁵ FLOPs de entrenamiento), reportar incidentes y mantener trazabilidad.
+- **NIST AI RMF 1.0** (enero 2023): framework voluntario pero adoptado como estándar de facto por el gobierno de EE.UU.; exige las funciones *Govern, Map, Measure, Manage*.
+- **Anthropic Responsible Scaling Policy** y las **Preparedness Frameworks** de otros labs: evaluaciones obligatorias de capacidades peligrosas antes de desplegar modelos frontier.
+- **Model Cards** (Mitchell et al., 2019): estándar académico, hoy incorporado por HuggingFace, Google, Meta.
 
-Evaluate your fine-tuned customer support chatbot using the same metrics as baseline evaluation to enable fair comparison.
+## ¿Cómo funciona?
 
-```python
-# Post-Fine-Tuning Evaluation
-# Compare fine-tuned model to baseline
+### Metodología de evaluación en 5 fases
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel
-import json
-
-# Load fine-tuned model and baseline metrics
-base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
-fine_tuned_model = PeftModel.from_pretrained(base_model, "./chatbot_lora_adapter")
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
-with open("baseline_metrics.json", "r") as f:
-  baseline_metrics = json.load(f)
-
-# Evaluate fine-tuned model (reuse evaluation function from baseline)
-fine_tuned_classification = evaluate_classification(fine_tuned_model, tokenizer, test_dataset)
-
-# Calculate improvements
-improvement = fine_tuned_classification["accuracy"] - baseline_metrics["classification_accuracy"]
-print(f"Classification: {baseline_metrics['classification_accuracy']:.2%} -> {fine_tuned_classification['accuracy']:.2%} ({improvement:+.2%})")
-
-# Check if improvement meets threshold
-meets_threshold = improvement > 0.05
-print(f"{'✅' if meets_threshold else '⚠️'} Model {'meets' if meets_threshold else 'does not meet'} improvement threshold")
+```
+┌──────────────────────────────────────────────────────────────┐
+│  FASE 0: Baseline                                            │
+│    Evaluar el modelo base en: tarea objetivo + benchmarks    │
+│    base + benchmarks de seguridad. Congelar resultados.      │
+├──────────────────────────────────────────────────────────────┤
+│  FASE 1: Fine-tune                                           │
+│    Entrenar (LoRA/QLoRA/full FT) con logging de val loss.    │
+├──────────────────────────────────────────────────────────────┤
+│  FASE 2: Eval in-domain                                      │
+│    Test set held-out del dominio. Comparar vs. baseline.     │
+├──────────────────────────────────────────────────────────────┤
+│  FASE 3: Eval de regresión                                   │
+│    Re-correr MMLU, HumanEval, GSM8K, HellaSwag, TruthfulQA.  │
+│    Alertar si cualquier benchmark cae > 5-10%.               │
+├──────────────────────────────────────────────────────────────┤
+│  FASE 4: Diversidad + seguridad                              │
+│    Distinct-n, self-BLEU, toxicidad, sesgo, red-teaming.     │
+├──────────────────────────────────────────────────────────────┤
+│  FASE 5: Reporte                                             │
+│    Model card + decisión go/no-go documentada.               │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-Regression Detection
+### Catastrophic forgetting: mecanismo
 
-Detect regressions where fine-tuning degraded performance on important metrics or scenarios. This is critical: sometimes fine-tuning improves one metric but hurts another.
+Durante backpropagation, el gradiente de la pérdida en la tarea nueva empuja a los pesos `θ` hacia una región del espacio que minimiza esa pérdida específica. Si la tarea nueva es muy diferente a la distribución de pre-entrenamiento, esta región **no coincide** con la región donde los pesos codificaban las capacidades previas. En términos de Kirkpatrick et al. (2017, *Elastic Weight Consolidation*):
 
-Compare each metric between baseline and fine-tuned models. If a metric decreases by more than 2-5% (depending on your threshold), that's a regression. For example, if classification accuracy improved from 75% to 92% but response quality dropped from 80% to 78%, you have a regression in response quality that needs investigation.
+```
+L_total(θ) = L_nueva(θ)  +  λ · Σᵢ Fᵢ · (θᵢ - θ*ᵢ)²
+             └ tarea FT ┘   └── ancla a pesos previos ────┘
+```
 
-Check regressions at multiple levels:
+Donde `Fᵢ` es la Fisher Information Matrix diagonal (importancia de cada peso para la tarea previa). Esto se traduce prácticamente en:
 
-Metric-level: Overall accuracy, F1 score, response quality
-Category-level: Performance on specific ticket categories (shipping, billing, product issues)
-Scenario-level: Performance on edge cases or specific customer types
-If regressions are detected, investigate the cause. Common causes include: overfitting to specific patterns, imbalanced training data, or training for too many epochs.
+- **PEFT (LoRA/QLoRA)** mitiga el forgetting porque el modelo base queda **congelado**; solo se entrenan adaptadores de baja dimensionalidad (<1% de parámetros).
+- **Rehearsal / replay**: mezclar 10-20% de ejemplos del pre-entrenamiento (o de un corpus general como The Pile) con la tarea nueva.
+- **Lower learning rate**: `1e-5` a `2e-4` en vez de `1e-3`.
+- **Fewer epochs**: 1-3 épocas suele bastar; más incrementa el forgetting.
+- **Early stopping** basado en benchmarks base, no solo en val loss de la tarea.
 
-Catastrophic Forgetting
-Catastrophic forgetting occurs when fine-tuning causes models to lose previously learned general capabilities, making them perform worse on tasks they handled before fine-tuning. Your customer support chatbot might excel at support tasks but lose its ability to handle general conversation or other tasks.
+### Mode collapse
 
-What is Catastrophic Forgetting?
+El modelo converge a producir **un conjunto reducido de respuestas** que maximizan la métrica de entrenamiento. Síntomas:
 
-Imagine your base model could handle general questions, code generation, and creative writing. After fine-tuning it for customer support, it might become excellent at support tickets but struggle with general questions it could answer before. This is catastrophic forgetting: the model "forgot" its general capabilities.
+- Baja **entropía** del output a temperatura fija.
+- Alto **self-BLEU** (muchas respuestas parecidas entre sí).
+- Bajo **distinct-n** (pocos n-gramas únicos).
+- "Me as a language model" repetido en RLHF mal calibrado.
 
-Identifying Catastrophic Forgetting
+### Reward hacking
 
-Signs of catastrophic forgetting include:
+En RLHF/DPO/RLAIF, el modelo descubre atajos para maximizar el reward sin resolver la tarea:
 
-Fine-tuned model performs worse than base model on general tasks
-Model loses capabilities in areas not covered by fine-tuning data
-Performance on original tasks degrades significantly
-Model becomes overly specialized and loses flexibility
+- Respuestas más **largas** (si el annotator humano confunde longitud con calidad).
+- Uso excesivo de **bullet points** o markdown.
+- **Sycophancy**: estar siempre de acuerdo con el usuario (Perez et al., 2022).
+- Rechazar preguntas inofensivas para parecer "seguro".
+
+### Data contamination
+
+Si el modelo base ya vio el benchmark durante pre-entrenamiento, el score es inflado. Detección estándar:
+
+- **n-gram overlap**: buscar 13-gramas del test set en el corpus de entrenamiento (Brown et al., GPT-3).
+- **Canary strings**: insertar frases únicas en el training y buscarlas en outputs.
+- **Timestamp check**: usar benchmarks publicados *después* del cutoff del modelo (ej. LiveBench, SWE-Bench Verified).
+
+### Herramientas estándar
+
+| Herramienta | Mantenedor | Para qué sirve |
+|---|---|---|
+| **lm-evaluation-harness** | EleutherAI | Suite estándar: >200 tareas (MMLU, HellaSwag, ARC, GSM8K, HumanEval, TruthfulQA) |
+| **HELM** | Stanford CRFM | Evaluación holística: accuracy + robustez + sesgo + toxicidad + eficiencia |
+| **BIG-bench / BBH** | Google + colaboradores | 200+ tareas creativas y de razonamiento |
+| **MT-Bench / Chatbot Arena** | LMSYS | Evaluación por LLM-judge y por humanos (ELO) |
+| **Giskard** | Giskard AI | Tests de sesgo, robustez e injection para LLMs |
+| **Detoxify** | Unitary | Clasificador de toxicidad (6 categorías) |
+| **Weights & Biases** | W&B | Logging de experimentos, comparación de runs |
+| **TruLens** | TruEra | Observabilidad y eval en producción |
+
+## Ejemplo con código
+
+### 1. Evaluación con `lm-evaluation-harness`
 
 ```python
-# Detecting Catastrophic Forgetting
-# Check if fine-tuning degraded general capabilities
+# pip install lm-eval accelerate
+# Evalúa un modelo fine-tuned en los benchmarks estándar y compara con el base
+import subprocess
+import json
+from pathlib import Path
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel
-import torch
+BASE  = "meta-llama/Llama-3.1-8B-Instruct"
+FTUN  = "./outputs/llama31-8b-sql-lora"      # adaptador LoRA mergeado
+TASKS = "mmlu,hellaswag,arc_challenge,gsm8k,truthfulqa_mc2,humaneval"
 
-# Load both models
-base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
-fine_tuned_model = PeftModel.from_pretrained(
-  AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf"),
-  "./chatbot_lora_adapter"
-)
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
+def run_harness(model_path: str, out_dir: str) -> dict:
+    """Lanza lm-eval y devuelve resultados en formato dict."""
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "lm_eval",
+        "--model", "hf",
+        "--model_args", f"pretrained={model_path},dtype=bfloat16",
+        "--tasks", TASKS,
+        "--batch_size", "auto",
+        "--output_path", out_dir,
+    ]
+    subprocess.run(cmd, check=True)
+    # lm-eval guarda results_*.json
+    result_file = next(Path(out_dir).rglob("results_*.json"))
+    return json.loads(result_file.read_text())["results"]
 
-# Test on general tasks (not customer support related)
-general_tasks = [
-  "Explain quantum computing in simple terms.",
-  "Write a Python function to reverse a string.",
-  "What are the main themes in Shakespeare's Hamlet?"
+base_res = run_harness(BASE, "evals/base")
+ft_res   = run_harness(FTUN, "evals/ft")
+
+# Reporte de regresión
+print(f"{'Benchmark':<20} {'Base':>8} {'FT':>8} {'Δ':>8}  Status")
+print("-" * 60)
+THRESHOLD = -0.05  # 5 pp de caída = regresión
+for task in ["mmlu", "hellaswag", "arc_challenge", "gsm8k",
+             "truthfulqa_mc2", "humaneval"]:
+    b = base_res[task].get("acc,none") or base_res[task].get("pass@1,create_test")
+    f = ft_res[task].get("acc,none")   or ft_res[task].get("pass@1,create_test")
+    delta = f - b
+    flag  = "FAIL" if delta < THRESHOLD else "OK"
+    print(f"{task:<20} {b:>8.3f} {f:>8.3f} {delta:>+8.3f}  {flag}")
+```
+
+### 2. Test de regresión de capacidades (ejemplo multilenguaje)
+
+```python
+# Caso: fine-tune en SQL en inglés. ¿Rompimos el francés?
+from transformers import pipeline
+
+pipe_base = pipeline("text-generation", model=BASE, device_map="auto")
+pipe_ft   = pipeline("text-generation", model=FTUN, device_map="auto")
+
+french_probe = [
+    ("Traduis en français: 'The meeting is at 3pm'",
+     "La réunion est à 15h"),
+    ("Explique en français ce qu'est l'entropie en 2 phrases.", None),
+    ("Résous: 23 * 17 = ?",   "391"),
 ]
 
-def evaluate_general_capability(model, tokenizer, prompts):
-  """Evaluate model on general tasks"""
-  scores = []
-  for prompt in prompts:
-      inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)
-      with torch.no_grad():
-          outputs = model.generate(**inputs, max_new_tokens=100, do_sample=True, temperature=0.7)
-      response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-      # Simple quality check (in practice, use LLM-as-Judge or human eval)
-      scores.append(1.0 if 20 < len(response) < 500 else 0.5)
-  return sum(scores) / len(scores) if scores else 0
+def answers_in_french(text: str) -> bool:
+    french_markers = {" le ", " la ", " les ", " est ", " une ", " de "}
+    return any(m in text.lower() for m in french_markers)
 
-# Compare general capabilities
-base_score = evaluate_general_capability(base_model, tokenizer, general_tasks)
-fine_tuned_score = evaluate_general_capability(fine_tuned_model, tokenizer, general_tasks)
-degradation = (base_score - fine_tuned_score) / base_score if base_score > 0 else 0
-
-print(f"Base Model: {base_score:.2f}, Fine-Tuned: {fine_tuned_score:.2f}")
-if degradation > 0.15:
-  print(f"⚠️ Catastrophic forgetting detected ({degradation:.1%} degradation)")
-else:
-  print(f"✅ General capabilities preserved")
+for prompt, expected in french_probe:
+    b = pipe_base(prompt, max_new_tokens=80, do_sample=False)[0]["generated_text"]
+    f = pipe_ft(prompt,   max_new_tokens=80, do_sample=False)[0]["generated_text"]
+    print(f"PROMPT: {prompt}")
+    print(f"  BASE french={answers_in_french(b)} | FT french={answers_in_french(f)}")
 ```
 
-Preventing Catastrophic Forgetting
+### 3. Detección de mode collapse (diversidad del output)
 
-Prevent catastrophic forgetting through several strategies:
+```python
+from collections import Counter
+import math
 
-Use PEFT (LoRA/QLoRA): PEFT preserves most base model weights, reducing forgetting. This is why we used LoRA for your customer support chatbot.
+def distinct_n(texts: list[str], n: int = 2) -> float:
+    """Fracción de n-gramas únicos sobre el total."""
+    all_ngrams, uniq = 0, set()
+    for t in texts:
+        toks = t.split()
+        ngrams = list(zip(*[toks[i:] for i in range(n)]))
+        all_ngrams += len(ngrams)
+        uniq.update(ngrams)
+    return len(uniq) / max(all_ngrams, 1)
 
-Include General Examples: Mix general examples (10-20%) with task-specific examples during training. For example, if you have 2000 support tickets, include 200-400 general examples (Q&A, summarization, general conversation) to help the model retain general capabilities.
+def self_bleu(texts: list[str]) -> float:
+    """Mide cuánto se parecen las respuestas entre sí. Alto = colapso."""
+    from sacrebleu import corpus_bleu
+    scores = []
+    for i, hyp in enumerate(texts):
+        refs = [texts[:i] + texts[i+1:]]
+        scores.append(corpus_bleu([hyp], refs).score)
+    return sum(scores) / len(scores)
 
-Lower Learning Rates: Use lower learning rates (e.g., 1e-4 instead of 2e-4) to cause smaller weight updates, preserving general capabilities.
+def entropy(texts: list[str]) -> float:
+    counts = Counter(w for t in texts for w in t.split())
+    total  = sum(counts.values())
+    return -sum((c/total) * math.log2(c/total) for c in counts.values())
 
-Regularization: Use weight decay (0.01) and dropout to help preserve base model knowledge.
+# Pedimos 50 respuestas distintas a la misma pregunta con temperature=0.9
+prompt = "Dame un consejo breve para aprender programación."
+samples_base = [pipe_base(prompt, max_new_tokens=40, do_sample=True,
+                          temperature=0.9)[0]["generated_text"] for _ in range(50)]
+samples_ft   = [pipe_ft(prompt,   max_new_tokens=40, do_sample=True,
+                        temperature=0.9)[0]["generated_text"] for _ in range(50)]
 
-Fewer Epochs: Train for fewer epochs (2-3 instead of 5+) to prevent over-specialization that causes forgetting.
+for name, s in [("BASE", samples_base), ("FT", samples_ft)]:
+    print(f"{name}: distinct-2={distinct_n(s,2):.3f}  "
+          f"self-BLEU={self_bleu(s):.1f}  entropy={entropy(s):.2f}")
+# Si FT tiene distinct-2 mucho menor y self-BLEU mucho mayor -> mode collapse.
+```
 
-When preparing mixed training data, randomly sample 10-20% general examples and combine them with your task-specific examples. Shuffle the combined dataset to ensure the model sees both types throughout training.
+### 4. Suite integrada: pre + post con reporte go/no-go
 
-Why PEFT Helps
+```python
+import json
+from dataclasses import dataclass, asdict
 
-PEFT (LoRA/QLoRA) is particularly effective at preventing catastrophic forgetting because:
+@dataclass
+class EvalReport:
+    task_metric: dict         # métricas in-domain
+    base_regression: dict     # Δ en benchmarks base
+    diversity: dict           # distinct-n, self-BLEU
+    safety: dict              # toxicidad, sesgo
+    verdict: str              # "SHIP", "BLOCK", "REVIEW"
 
-It only trains a small number of adapter parameters (typically less than 1% of model weights)
-Base model weights remain frozen, preserving all original knowledge
-Adapters can be easily removed, restoring the original model
-This is why we used LoRA for your customer support chatbot: it allows task-specific learning while preserving general capabilities.
+def decide(report: EvalReport, thresholds: dict) -> str:
+    if any(d < thresholds["regression"] for d in report.base_regression.values()):
+        return "BLOCK: regresión en capacidades base"
+    if report.diversity["distinct_2"] < thresholds["min_distinct"]:
+        return "REVIEW: posible mode collapse"
+    if report.safety["toxicity_rate"] > thresholds["max_toxicity"]:
+        return "BLOCK: toxicidad por encima del umbral"
+    if report.task_metric["improvement"] < thresholds["min_improvement"]:
+        return "REVIEW: la mejora in-domain no justifica el riesgo"
+    return "SHIP"
 
-Evaluation Best Practices
-Use Representative Test Sets: Test sets should reflect production scenarios with diverse examples and edge cases. For your customer support chatbot, include various ticket types, urgency levels, and customer tones.
+thresholds = {
+    "regression":      -0.05,
+    "min_distinct":     0.30,
+    "max_toxicity":     0.02,
+    "min_improvement":  0.05,
+}
 
-Evaluate Multiple Metrics: Use multiple metrics to get a complete picture. No single metric captures all aspects of performance. For customer support, evaluate classification accuracy, response quality, response time, and customer satisfaction.
+report = EvalReport(
+    task_metric    = {"accuracy": 0.91, "baseline": 0.74, "improvement": 0.17},
+    base_regression= {"mmlu": -0.02, "humaneval": -0.01, "gsm8k": -0.08},
+    diversity      = {"distinct_2": 0.42, "self_bleu": 24.1},
+    safety         = {"toxicity_rate": 0.004, "bias_gap": 0.03},
+    verdict        = "",
+)
+report.verdict = decide(report, thresholds)
+print(json.dumps(asdict(report), indent=2))
+```
 
-Compare Systematically: Always compare fine-tuned models against baselines using the same test sets and metrics. This ensures fair comparison and accurate measurement of improvement.
+## Errores comunes
 
-Monitor General Capabilities: Ensure fine-tuning does not degrade general model capabilities that may be needed. Your chatbot might need to handle general questions occasionally.
+- **No evaluar capacidades base post fine-tuning.** El error más común. Shipping del modelo asumiendo que "si mejoró en lo mío, lo demás seguirá igual". Casi nunca es cierto. Siempre corre al menos MMLU + GSM8K + HumanEval antes y después.
+- **Usar benchmarks contaminados.** Si tu training data vino scraped de internet, es muy probable que contenga MMLU o GSM8K. Decontamina con n-gram overlap o usa benchmarks post-cutoff (LiveBench, SWE-Bench Verified, MMLU-Pro).
+- **Confundir mejora en val loss con mejora real.** Val loss baja no implica outputs mejores: puede ser overfitting al formato. Evalúa con métricas de tarea, no solo loss.
+- **Un solo seed de evaluación.** Benchmarks con muestreo tienen varianza; corre al menos 3 seeds y reporta media ± std.
+- **Ignorar diversidad del output.** Un modelo con 95% de accuracy pero que siempre responde lo mismo es inútil en diálogo. Mide distinct-n y self-BLEU.
+- **Confiar ciegamente en LLM-as-judge.** GPT-4-judge tiene sesgos (prefiere respuestas largas, su propio estilo, posiciones específicas). Rota jueces, aleatoriza orden, calibra con human eval en una muestra.
+- **No separar eval set del dev set.** Si tuneas hiperparámetros contra el mismo set que reportas, estás overfiteando a la métrica.
+- **Olvidar la distribución de producción.** Tu test set interno rara vez refleja el tráfico real. Añade *eval en producción* con muestreo + labeling asíncrono.
+- **Interpretar diferencias pequeñas como significativas.** 0.5 pp en MMLU es ruido. Usa intervalos de confianza (bootstrap) o tests de significancia.
+- **No versionar el benchmark.** MMLU v1 vs v2, HumanEval+ vs HumanEval original dan números distintos. Fija versión en el reporte.
 
-Document Evaluation Results: Keep detailed records of evaluation results to track improvements and regressions over time. This helps with debugging and future improvements.
+## Resumen
 
-Common Pitfalls
-Evaluating on Training Data: Testing on training data gives inflated metrics. Always use held-out test sets that the model has never seen.
-
-Ignoring Regressions: Focusing only on improvements while ignoring regressions leads to models that fail in production. Always check for regressions.
-
-Single Metric Focus: Relying on a single metric misses important aspects of performance. Use multiple metrics for comprehensive evaluation.
-
-No Baseline Comparison: Fine-tuning without baseline comparison makes it impossible to know if improvements are real. Always establish and compare to baselines.
-
-Ignoring Catastrophic Forgetting: Not checking general capabilities leads to discovering forgetting only after deployment. Always evaluate general capabilities.
-
-Summary
-Comprehensive evaluation is essential for successful fine-tuning. Pre-fine-tuning evaluation establishes baselines and identifies improvement opportunities. Post-fine-tuning evaluation validates improvements and detects regressions. Catastrophic forgetting occurs when fine-tuning causes models to lose general capabilities. Prevent it with PEFT, lower learning rates, mixed training data, and regular evaluation of general capabilities.
-
-Key concepts to remember
-Baseline Evaluation - Establish baseline metrics before fine-tuning to measure improvement
-Multiple Metrics - Use task-specific and general metrics for comprehensive evaluation
-Regression Detection - Identify where fine-tuning degraded performance
-Catastrophic Forgetting - Loss of general capabilities after fine-tuning
-Prevention Strategies - Use PEFT, lower learning rates, mixed training data, and monitor general capabilities
+- Evaluar un modelo fine-tuned requiere **cinco frentes**: tarea objetivo, regresión en capacidades base, diversidad, seguridad y reporte.
+- Los **benchmarks estándar** (MMLU, HumanEval, GSM8K, HellaSwag, TruthfulQA) son el mínimo para detectar regresiones; `lm-evaluation-harness` los corre todos.
+- **Catastrophic forgetting** aparece cuando el fine-tune empuja los pesos lejos de las regiones que codificaban capacidades previas. Se mitiga con **PEFT**, learning rates bajos, pocas épocas y mezcla de ejemplos generales (10-20%).
+- **Mode collapse** se detecta con distinct-n, self-BLEU y entropía del output. **Reward hacking** se detecta cuando una métrica proxy mejora pero la calidad humana no.
+- **Data contamination** infla scores: valida con n-gram overlap o usa benchmarks post-cutoff del modelo.
+- La **decisión de desplegar** (go/no-go) debe basarse en umbrales explícitos de regresión, no en intuición ni en la métrica que te gusta más.
+- La **EU AI Act** (en vigor desde agosto 2024) y **NIST AI RMF** elevan la evaluación de "buena práctica" a **requisito regulatorio** para modelos de propósito general.
+- Un modelo que no se evalúa correctamente es un pasivo oculto: tarde o temprano te pasa factura en producción.

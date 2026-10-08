@@ -1,89 +1,80 @@
-## Quiz: Privacy and IP Protection in AI Tools
+# Quiz: Privacidad y Protección de IP en Herramientas de IA
 
-Privacy and IP Protection in AI Tools
-Your organization is rolling out AI coding tools across multiple teams. You must protect proprietary code, prevent prompt logs from storing sensitive data, and meet privacy requirements without blocking developer productivity.
+Tu organización está desplegando herramientas de IA para programación en múltiples equipos. Debes proteger el código propietario, impedir que los logs de prompts almacenen datos sensibles y cumplir con los requisitos de privacidad sin frenar la productividad de los desarrolladores.
 
+---
 
-Which set of leak paths is most common in AI development tools?
+**1. ¿Cuál es el conjunto de rutas de fuga más común en las herramientas de desarrollo con IA?**
 
-Model size, temperature, and token limit.
+- Tamaño del modelo, temperatura y límite de tokens.
+- **Contenido del prompt, context retrieval y logs de telemetría.** ✅
+- Uso de CPU, uso de memoria y latencia de red.
+- Errores de sintaxis, fallos de lint y pruebas unitarias.
 
-Prompt content, context retrieval, and telemetry logs.
+**Explicación:** Las tres rutas canónicas por las que información sensible escapa de forma no intencionada son: (1) el **contenido del prompt** que el desarrollador pega explícitamente, (2) el **context retrieval** que la herramienta ejecuta automáticamente (archivos abiertos, variables de entorno, repos) y (3) la **telemetría** invisible (métricas, stack traces, muestras de prompts enviadas al vendor para "mejorar el producto"). Las otras opciones son métricas de performance o de calidad de código, no rutas de exposición de datos.
 
-CPU usage, memory usage, and network latency.
+---
 
-Syntax errors, lint failures, and unit tests.
-Correct Answer!
-These are the primary routes for unintended data exposure.
+**2. ¿Cuál es la regla por defecto más segura para secretos en flujos de trabajo con IA?**
 
-What is the safest default rule for secrets in AI workflows?
+- Permitir secretos si la herramienta es interna.
+- Permitir secretos solo cuando se depuran problemas de producción.
+- **Nunca permitir que los secretos entren en prompts o logs de herramientas.** ✅
+- Permitir secretos si tienen vida corta.
 
-Allow secrets if the tool is internal.
+**Explicación:** Los secretos (API keys, tokens, passwords, certificados) son la categoría de **más alto riesgo** porque conceden acceso directo a sistemas. Una sola fuga puede comprometer infra entera. Las excepciones ("solo interno", "solo si es corto", "solo en debug") son el camino a los incidentes: la clasificación debe ser **absoluta y automática**. Herramientas como gitleaks, trufflehog o Presidio deben bloquear secretos antes del request, independientemente de la justificación.
 
-Allow secrets only when debugging production issues.
+---
 
-Never allow secrets to enter prompts or tool logs.
+**3. ¿Por qué es importante la clasificación de datos para el uso de herramientas de IA?**
 
-Allow secrets if they are short-lived.
-Correct Answer!
-Secrets are the highest-risk data category and should be blocked.
+- Ayuda a elegir la mejor arquitectura de modelo.
+- **Define qué puede compartirse y qué debe redactarse.** ✅
+- Reemplaza la necesidad de redacción.
+- Elimina la necesidad de logs de auditoría.
 
-Why is data classification important for AI tool use?
+**Explicación:** La clasificación (Public, Internal, Confidential, Restricted) convierte una política vaga como "no compartas datos sensibles" en reglas **enforceables automáticamente**: Restricted bloquea, Confidential exige redacción, Internal permite con precaución, Public no requiere control. Sin clasificación, cada desarrollador decide ad-hoc bajo presión y las decisiones son inconsistentes. La clasificación **habilita** la redacción y la auditoría; no las reemplaza.
 
-It helps choose the best model architecture.
+---
 
-It defines what can be shared and what must be redacted.
+**4. ¿Qué enfoque de retención balancea mejor utilidad y riesgo?**
 
-It replaces the need for redaction.
+- Guardar todos los prompts para siempre para maximizar el análisis futuro.
+- **Conservar los prompts crudos poco tiempo y almacenar métricas agregadas por más tiempo.** ✅
+- Borrar todos los logs inmediatamente, incluso para incident response.
+- Guardar solo outputs, no inputs.
 
-It eliminates the need for audit logs.
-Correct Answer!
-Classification turns vague policy into enforceable rules.
+**Explicación:** La **retención por tiers basada en riesgo** es el patrón correcto: los prompts crudos contienen la mayor concentración de PII y rara vez son útiles después de una semana (TTL corto), mientras que las métricas agregadas (latencia, tokens, tasa de error) son valiosas para analytics y contienen poco dato sensible (TTL largo). Guardar todo acumula riesgo sin beneficio; borrar todo inmediatamente destruye la capacidad de incident response; guardar solo outputs pierde la mitad de la historia (los outputs sin inputs son irreproducibles).
 
-Which retention approach best balances utility and risk?
+---
 
-Store all prompts forever to maximize future analysis.
+**5. ¿Por qué el provenance tagging es valioso para los cambios asistidos por IA?**
 
-Keep raw prompts briefly, store aggregated metrics longer.
+- Mejora directamente la precisión del modelo.
+- **Permite reproducir y auditar las decisiones posteriormente.** ✅
+- Elimina la necesidad de aprobaciones.
+- Permite almacenar datos sensibles indefinidamente.
 
-Delete all logs immediately, even for incident response.
+**Explicación:** Un **provenance tag** (prompt template ID + versión, context manifest ID, nombre y config del modelo, timestamp, actor) funciona como el `package-lock.json` de la IA: permite **reproducir** exactamente cómo se generó un output semanas después, lo cual es esencial para debugging, incident response y evidencia de cumplimiento ante auditores. No mejora la precisión del modelo (el modelo ya corrió) ni cambia las políticas de aprobación o retención.
 
-Store only outputs, not inputs.
-Correct Answer!
-Risk-based retention preserves useful signals while minimizing exposure.
+---
 
-Why is provenance tagging valuable for AI-assisted changes?
+**6. ¿Qué afirmación describe mejor el cumplimiento regulatorio para herramientas de IA?**
 
-It improves model accuracy directly.
+- El cumplimiento es un asunto puramente legal y no afecta a la ingeniería.
+- El cumplimiento se maneja mejor después del despliegue.
+- **El cumplimiento se vuelve accionable cuando se implementa como controles técnicos.** ✅
+- El cumplimiento solo es relevante para vendors externos.
 
-It enables you to reproduce and audit decisions later.
+**Explicación:** Regulaciones como **GDPR, HIPAA, CCPA y EU AI Act** se traducen en controles técnicos concretos: redacción (data minimization Art. 5), retención automática con TTL (storage limitation), scoped permissions (access control), structured audit logs (accountability), DSAR handlers (right to erasure Art. 17), routing por región (residencia). Tratar compliance como legal-only lleva a retrofits de emergencia; tratarlo como requisito de ingeniería desde el día 1 lo convierte en features testeables en CI. Herramientas internas también están sujetas (uso interno no exime de GDPR).
 
-It eliminates the need for approvals.
+---
 
-It allows sensitive data to be stored indefinitely.
-Correct Answer!
-Provenance links outputs to prompts, context, and configuration.
+**7. ¿Cuándo debe ocurrir la redacción en los flujos de trabajo con IA?**
 
-Which statement best describes compliance for AI tools?
+- Después de que los prompts se envían al modelo.
+- **Antes de que cualquier dato sensible abandone el límite del sistema.** ✅
+- Solo cuando se programa una auditoría de cumplimiento.
+- Solo para herramientas externas, no para las internas.
 
-Compliance is a legal-only concern and does not affect engineering.
-
-Compliance is best handled after deployment.
-
-Compliance becomes actionable when it is implemented as technical controls.
-
-Compliance is only relevant for external vendors.
-Correct Answer!
-Controls like redaction, retention, and access policies make compliance real.
-
-When should redaction happen in AI workflows?
-
-After prompts are sent to the model.
-
-Before any sensitive data leaves the system boundary.
-
-Only when a compliance audit is scheduled.
-
-Only for external tools, not internal ones.
-Correct Answer!
-Redaction must happen before outbound requests or logging.
+**Explicación:** La redacción debe ocurrir **antes del request HTTP**, idealmente en un proxy que intercepta la salida. Si el prompt ya salió al vendor, el dato ya está en sus logs, caches y potencialmente training data: la política falló. Herramientas internas son igual de peligrosas (logs internos siguen cruzando límites de confianza entre equipos). La auditoría programada es demasiado tarde: cuando el auditor pregunta, ya hay fuga histórica. El patrón correcto es **pipeline determinístico** (Presidio + policy as code) que redacta antes de cualquier egress.

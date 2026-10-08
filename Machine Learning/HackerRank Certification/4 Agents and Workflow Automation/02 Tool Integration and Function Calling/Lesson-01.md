@@ -1,166 +1,338 @@
-## What is Function Calling?
-Your code review agent understands pull requests perfectly. When you ask it to check for security issues, it describes exactly what vulnerabilities to look for. But description is not action. You want the agent to actually call your security scanner, fetch the PR diff, and post comments—not just talk about doing so.
+# Function Calling: El puente del pensamiento a la acción
 
-Function calling is what makes this possible. It transforms a language model from a text generator into an action taker, outputting structured requests that your code can execute against real systems.
+## ¿Qué es?
 
-In this lesson, you will learn how function calling works, how to implement it with major LLM providers, and when to use it versus simpler approaches.
+**Function calling** (o **tool use** en terminología de Anthropic) es el mecanismo que transforma un modelo de lenguaje de un **generador de texto** en un **tomador de acciones**. En vez de solo producir prosa, el modelo emite **solicitudes estructuradas** (típicamente JSON) para ejecutar funciones específicas con parámetros tipados, que tu código ejecuta contra sistemas reales.
 
-By the end, you will understand the mechanism that connects agent reasoning to real-world actions—the foundation for building agents that do not just think but act.
+La idea clave es la **separación entre intención y ejecución**:
 
-The Bridge from Thought to Action
-Function calling is the mechanism that transforms a language model from a text generator into an action taker. Instead of just producing natural language responses, the model can output structured requests to execute specific functions with precise parameters. This capability bridges the gap between understanding what needs to be done and actually doing it.
+- El **modelo** decide qué función llamar y con qué parámetros (razonamiento).
+- Tu **código** ejecuta la función y devuelve el resultado (acción).
 
-When you ask a traditional LLM "Review this pull request for security issues," it generates text describing what a review might look like. When you ask an LLM with function calling the same question, it can output a structured call like ```analyze_code_security(pr_number=1247, focus=["injection", "auth"])``` that your system executes against real code.
-
-The key insight is that function calling separates intent from execution. The model determines what function to call and with what parameters. Your code handles the actual execution. This separation provides control, safety, and flexibility that direct LLM actions cannot achieve.
-
-Consider a code review agent. Without function calling, you might try to parse natural language output: "I would check the authentication module for SQL injection." With function calling, you get structured output: ```{"function": "analyze_code_security", "arguments": {"files": ["auth.py"], "vulnerability_types": ["sql_injection"]}}```. The structured format is unambiguous, parseable, and directly executable.
-
-Function calling is not a single feature but a protocol between your application and the LLM. You describe available functions, the model selects and parameterizes them, and you execute the results. This protocol enables reliable tool use in production systems.
-
-How Function Calling Works
-The function calling workflow has four distinct phases: definition, selection, execution, and response integration.
-
-Definition is where you describe available functions to the model. Each function needs a name, description, and parameter schema. For a code review agent, you might define:
+Un LLM tradicional, ante la pregunta *"Revisa el PR #1247 por problemas de seguridad"*, produce texto describiendo lo que haría. Un LLM con function calling emite:
 
 ```json
-{
-"name": "get_pr_diff",
-"description": "Retrieves the code diff for a pull request, showing all changed lines",
-"parameters": {
-  "type": "object",
-  "properties": {
-    "pr_number": {
-      "type": "integer",
-      "description": "The pull request number to fetch"
-    },
-    "file_filter": {
-      "type": "string",
-      "description": "Optional glob pattern to filter files (e.g., '*.py')"
-    }
-  },
-  "required": ["pr_number"]
-}
-}
+{"name": "analyze_code_security", "arguments": {"pr_number": 1247, "focus": ["injection", "auth"]}}
 ```
 
-This schema tells the model exactly what the function does, what parameters it accepts, and which are required. The quality of these definitions directly affects how well the model uses the tools.
+Ese JSON es inequívoco, parseable y directamente ejecutable.
 
-Selection is where the model decides which function to call based on the user's request and available functions. Given "Check PR 1247 for Python security issues," the model reasons that it needs the code diff first, selects ```get_pr_diff```, and provides appropriate arguments: ```{"pr_number": 1247, "file_filter": "*.py"}```.
+### Breve historia
 
-The model might also decide that no function call is needed. If the user asks "What security issues should I look for in authentication code?", the model can respond directly with information rather than calling a function.
+| Fecha | Hito |
+|---|---|
+| Marzo 2023 | OpenAI lanza *plugins* para ChatGPT (precursor de tool use) |
+| Junio 2023 | OpenAI introduce **function calling** en `gpt-3.5-turbo-0613` y `gpt-4-0613` |
+| Nov 2023 | OpenAI renombra el parámetro `functions` a `tools` y añade **parallel tool calls** |
+| Mayo 2024 | Anthropic lanza **tool use** en GA para Claude 3 (Haiku, Sonnet, Opus) |
+| 2024 | Google habilita **function calling** en Gemini; Mistral, Llama 3.1 y Qwen suman soporte |
+| 2024-2025 | **MCP (Model Context Protocol)** de Anthropic estandariza la exposición de herramientas |
 
-Execution is your responsibility. The model outputs a function call request; you parse it, validate the parameters, execute the actual function, and capture the result. This is where your code interacts with real systems—GitHub APIs, security scanners, databases.
+### No es una sola feature: es un protocolo
 
-Response integration feeds the function result back to the model. The model receives the execution output and uses it to continue reasoning or formulate a final response. After receiving the diff, the model might call ```analyze_code_security``` with the relevant code, then synthesize findings into a coherent review.
+Function calling no es un botón mágico. Es un **protocolo de tres pasos** entre tu aplicación y el LLM:
 
-This workflow can repeat multiple times. Complex tasks require multiple function calls, each building on previous results. The model orchestrates these calls to achieve the user's goal.
+1. Tú **describes** las herramientas disponibles (nombre, descripción, schema de parámetros).
+2. El modelo **selecciona y parametriza** una (o varias) herramientas.
+3. Tú **ejecutas** la herramienta y le devuelves el resultado al modelo.
 
-![The function calling workflow: from definition to response integration](https://hrcdn.net/ai-engineering/module-4/light/tool-integration-lesson01-workflow.svg)
+## ¿Por qué importa?
 
-Function Calling vs Traditional Approaches
-Before function calling became a native LLM capability, developers used various workarounds to enable tool use. Understanding these alternatives clarifies why function calling is preferred.
+Antes de function calling nativo, construir un agente requería hacks frágiles:
 
-Prompt-based parsing instructs the model to output in a specific format that you parse. You might prompt: "When you need to call a function, output JSON like: ```{function: name, args: \{...\}}```". This works but is fragile. The model might not follow the format perfectly, might include extra text, or might format JSON incorrectly. You need robust parsing and error handling.
+- **Prompt-based parsing:** le pedías al modelo *"responde en JSON con este formato"* y rezabas. El modelo añadía backticks, prosa, comas sobrantes.
+- **ReAct text parsing:** parseabas líneas tipo `Action: get_pr_diff(1247)` con regex. Un espacio extra y todo fallaba.
+- **Few-shot con parsing manual:** cadenas de ejemplos para enseñar el formato, consumiendo tokens.
 
-ReAct-style text parsing uses the Thought/Action/Observation format from the previous submodule. The model outputs "Action: ```get_pr_diff(1247)```" and you parse that text. This is more readable but still requires text parsing with all its ambiguity.
+Function calling nativo resuelve esto porque el modelo está **entrenado** (fine-tuned) para emitir llamadas que validan contra tu schema. Ventajas:
 
-Native function calling is built into the model's API. You pass function definitions as structured data, and the model returns function calls as structured data. No parsing of natural language output required. The model is trained to produce valid function calls that match your schemas.
+| Dimensión | Prompt parsing | Function calling nativo |
+|---|---|---|
+| Fiabilidad del formato | ~85-95% | ~99%+ |
+| Validación automática | Manual con try/except | API valida tipos y requeridos |
+| Múltiples llamadas en paralelo | Muy difícil | Soportado nativamente |
+| Separación prompt / herramientas | Mezcladas | Parámetros distintos |
+| Reproducibilidad | Baja | Alta |
 
-The advantages of native function calling are significant:
+### Cuándo usar function calling
 
-Reliability: The model produces properly formatted output because it is trained to do so. You do not need to handle malformed JSON or unexpected text.
+- **Acciones estructuradas:** interactuar con APIs, bases de datos, sistemas de archivos.
+- **Salidas precisas:** necesitas un entero `1247`, no `"PR #1247"`.
+- **Auditabilidad:** logs limpios de qué quiso hacer el modelo, útil para compliance.
+- **Agentes multi-paso:** cada paso es una tool call registrada.
 
-Validation: The API can validate that function calls match defined schemas before returning them. Invalid parameter types or missing required fields get caught automatically.
+### Cuándo saltárselo
 
-Clarity: Function definitions are separate from prompts. You can modify available tools without changing prompt text. The model clearly distinguishes between when it is responding with text versus requesting a function call.
+- **Conversación pura:** explicar, resumir, charlar. Añadir tools solo gasta tokens.
+- **Transformaciones simples de texto:** extraer puntos clave de un párrafo no requiere tool.
+- **Un solo call determinista:** si la respuesta siempre es la misma función, llámala tú directamente sin preguntarle al modelo.
 
-Parallel calling: Some APIs support the model requesting multiple function calls simultaneously. "Check security and test coverage" can become two parallel calls rather than sequential.
+## ¿Cómo funciona?
 
-Most production agent systems use native function calling when available. The reliability and structure justify any additional complexity in setup.
+El workflow tiene cuatro fases bien delimitadas:
 
-![Function calling approaches: from fragile parsing to native structured output](https://hrcdn.net/ai-engineering/module-4/light/tool-integration-lesson01-comparison.svg)
+```
+┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+│  DEFINICIÓN │ → │  SELECCIÓN  │ → │  EJECUCIÓN  │ → │  RESPUESTA  │
+│  (schemas)  │   │   (modelo)  │   │  (tu código)│   │ (modelo usa)│
+└─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘
+       ↑                                                       │
+       └───────────────── loop hasta terminar ─────────────────┘
+```
 
-Provider-Specific Implementations
-Different LLM providers implement function calling with varying syntax and capabilities. Understanding these differences helps you build portable agent systems.
+![Workflow de function calling](https://hrcdn.net/ai-engineering/module-4/light/tool-integration-lesson01-workflow.svg)
 
-OpenAI uses a ```tools``` parameter with function definitions and returns ```tool_calls``` in the response. Functions are defined with JSON Schema for parameters. The model can request multiple tool calls in a single response.
+### 1. Definición
+
+Describes cada herramienta con **JSON Schema**. Mínimo necesitas:
+
+- `name`: identificador snake_case único.
+- `description`: qué hace, cuándo usarla, qué devuelve.
+- `parameters`: tipos y requeridos siguiendo JSON Schema Draft-7.
+
+### 2. Selección
+
+El modelo lee el prompt del usuario y las descripciones de las tools, y decide. Puede:
+
+- Llamar **una** herramienta.
+- Llamar **varias en paralelo** (si el provider lo soporta).
+- **No llamar ninguna** y responder directamente con texto.
+
+### 3. Ejecución
+
+Es tu responsabilidad. Tú:
+
+1. Parseas los argumentos JSON.
+2. Validas (ya sea con JSON Schema, Pydantic, o manual).
+3. Ejecutas la función real (API call, DB query, etc.).
+4. Capturas el resultado o el error.
+
+### 4. Integración de respuesta
+
+Devuelves el resultado al modelo con un rol especial (`tool` en OpenAI, bloque `tool_result` en Anthropic). El modelo lo lee y continúa razonando: puede llamar otra tool, o producir la respuesta final.
+
+### Function calling vs enfoques tradicionales
+
+![Comparación de enfoques](https://hrcdn.net/ai-engineering/module-4/light/tool-integration-lesson01-comparison.svg)
+
+### Function calling en OpenAI, Anthropic y Gemini
+
+Los tres grandes convergen en la idea pero difieren en sintaxis:
+
+| Dimensión | OpenAI | Anthropic | Google Gemini |
+|---|---|---|---|
+| Parámetro | `tools=[{"type": "function", ...}]` | `tools=[{"name", "description", "input_schema"}]` | `tools=[{"function_declarations": [...]}]` |
+| Schema de params | `parameters` (JSON Schema) | `input_schema` (JSON Schema) | `parameters` (OpenAPI subset) |
+| Respuesta del modelo | `message.tool_calls[]` | `content` con bloques `tool_use` | `candidates[0].content.parts` con `function_call` |
+| ID de llamada | `tool_call.id` | `tool_use.id` | implícito por orden |
+| Resultado de vuelta | `role: "tool"` con `tool_call_id` | bloque `tool_result` con `tool_use_id` | `role: "function"` con `function_response` |
+| Parallel calls | Sí (default) | Sí (configurable) | Sí |
+| Forzar herramienta | `tool_choice={"type": "function", "function": {"name": ...}}` | `tool_choice={"type": "tool", "name": ...}` | `tool_config={"function_calling_config": {"mode": "ANY"}}` |
+| Stop condition | `finish_reason: "tool_calls"` | `stop_reason: "tool_use"` | `finishReason: "STOP"` |
+
+## Ejemplo con código
+
+### OpenAI SDK
 
 ```python
-response = client.chat.completions.create(
-  model="gpt-4",
-  messages=[{"role": "user", "content": "Review PR 1247 for security issues"}],
-  tools=[{
-      "type": "function",
-      "function": {
-          "name": "analyze_code_security",
-          "description": "Scan code files for security vulnerabilities",
-          "parameters": {
-              "type": "object",
-              "properties": {
-                  "pr_number": {"type": "integer"},
-                  "severity_threshold": {"type": "string", "enum": ["low", "medium", "high"]}
-              },
-              "required": ["pr_number"]
-          }
-      }
-  }]
+import json
+from openai import OpenAI
+
+client = OpenAI()
+
+# 1. Definir herramientas
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": (
+                "Obtiene el clima actual para una ciudad. Devuelve "
+                "temperatura en Celsius y condición (soleado, lluvia, etc.). "
+                "Úsala cuando el usuario pregunte por clima o temperatura."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {
+                        "type": "string",
+                        "description": "Nombre de la ciudad, ej. 'Buenos Aires'",
+                    },
+                    "units": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "Unidades de temperatura. Default: celsius",
+                    },
+                },
+                "required": ["city"],
+            },
+        },
+    }
+]
+
+# 2. Primera llamada: el modelo decide
+messages = [{"role": "user", "content": "¿Qué temperatura hace en CDMX?"}]
+resp = client.chat.completions.create(
+    model="gpt-4o",
+    messages=messages,
+    tools=tools,
 )
 
-# Check if model requested a function call
-if response.choices[0].message.tool_calls:
-  tool_call = response.choices[0].message.tool_calls[0]
-  function_name = tool_call.function.name
-  arguments = json.loads(tool_call.function.arguments)
+msg = resp.choices[0].message
+messages.append(msg)  # el assistant con tool_calls
+
+# 3. Ejecutar las llamadas
+def get_weather(city: str, units: str = "celsius") -> dict:
+    # En producción: llamar a OpenWeather, etc.
+    return {"city": city, "temp": 22, "units": units, "condition": "soleado"}
+
+for call in msg.tool_calls:
+    args = json.loads(call.function.arguments)
+    result = get_weather(**args)
+    messages.append(
+        {
+            "role": "tool",
+            "tool_call_id": call.id,
+            "content": json.dumps(result),
+        }
+    )
+
+# 4. Segunda llamada: el modelo integra el resultado
+final = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+print(final.choices[0].message.content)
 ```
 
-Anthropic uses a similar ```tools``` parameter with XML-style tool definitions. Claude returns tool use in a ```tool_use``` content block with structured arguments.
+### Anthropic SDK (tool use)
 
-Open-source models vary widely. Some support function calling natively through their APIs (like Llama via certain providers), while others require prompt-based approaches. Libraries like LangChain and LlamaIndex abstract these differences.
+```python
+import anthropic
 
-The core concepts remain consistent across providers: you define functions, the model selects and parameterizes them, you execute and return results. Build abstraction layers in your code to handle provider-specific syntax while keeping your business logic portable.
+client = anthropic.Anthropic()
 
-When to Use Function Calling
-Function calling is powerful but not always necessary. Understanding when it adds value helps you make appropriate architectural decisions.
+tools = [
+    {
+        "name": "get_weather",
+        "description": (
+            "Obtiene el clima actual para una ciudad. Devuelve temperatura "
+            "en Celsius y condición. Úsala cuando el usuario pregunte por clima."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string", "description": "Nombre de la ciudad"},
+                "units": {
+                    "type": "string",
+                    "enum": ["celsius", "fahrenheit"],
+                    "description": "Unidades. Default: celsius",
+                },
+            },
+            "required": ["city"],
+        },
+    }
+]
 
-Use function calling when you need structured actions. If the agent must interact with external systems—APIs, databases, file systems—function calling provides the structure for reliable interaction. A code review agent that needs to fetch PR details, run security scans, and post comments requires function calling to interact with GitHub and security tools.
+messages = [{"role": "user", "content": "¿Qué temperatura hace en CDMX?"}]
 
-Use function calling when outputs must be precise. If you need specific data formats, exact parameter values, or unambiguous action requests, function calling enforces structure. Asking the model to "output the PR number" might get "PR #1247" or "pull request 1247" or "1247". Function calling with a typed parameter guarantees you get the integer 1247.
+resp = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    tools=tools,
+    messages=messages,
+)
 
-Use function calling when you need auditability. Function calls create clear records of what actions were requested. For compliance, debugging, or monitoring, having structured logs of every tool invocation is valuable. You know exactly what the model tried to do, not just what text it generated.
+# resp.stop_reason == "tool_use"
+# resp.content es una lista de bloques: text, tool_use, ...
+tool_results = []
+for block in resp.content:
+    if block.type == "tool_use":
+        args = block.input
+        result = get_weather(**args)  # misma función
+        tool_results.append(
+            {
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": json.dumps(result),
+            }
+        )
 
-Skip function calling for pure conversation. If the agent only needs to discuss, explain, or generate text, function calling adds unnecessary complexity. An agent answering "What security issues should I look for?" does not need tools—it needs knowledge.
+messages.append({"role": "assistant", "content": resp.content})
+messages.append({"role": "user", "content": tool_results})
 
-Skip function calling for simple transformations. If you just need the model to reformat data or extract information from text, direct prompting is simpler. Extracting key points from a code review discussion does not require function calling.
+final = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    tools=tools,
+    messages=messages,
+)
+print(final.content[0].text)
+```
 
-Consider hybrid approaches. Many agents use function calling for actions but direct generation for explanations. The code review agent calls functions to analyze code, then generates natural language summaries of findings. Both capabilities work together.
+### Parallel tool calls
 
-Common Pitfalls
-Function calling introduces failure modes that differ from traditional LLM applications. Being aware of these helps you build more robust systems.
+Cuando el usuario pregunta *"compara el clima de CDMX y Buenos Aires"*, un buen modelo emite **dos** tool calls en la misma respuesta. Ejecútalas concurrentemente:
 
-Over-eager function calling happens when the model calls functions unnecessarily. Asked "What does the ```get_pr_diff``` function do?", the model might call the function instead of explaining it. Mitigation: include instructions about when to call functions versus when to respond directly.
+```python
+import asyncio
 
-Parameter hallucination occurs when the model invents parameter values. Asked to review "the latest PR," the model might guess a PR number rather than asking for clarification. Mitigation: make the model acknowledge when it lacks required information, and validate parameters against known values when possible.
+async def exec_call(call):
+    args = json.loads(call.function.arguments)
+    # cada tool puede ser I/O-bound (HTTP)
+    return call.id, await get_weather_async(**args)
 
-Function selection errors happen when the model picks the wrong function for the task. With many similar functions, the model might confuse ```analyze_code_security``` with ```analyze_code_quality```. Mitigation: write distinct, clear descriptions; consider reducing the number of available functions for specific tasks.
+async def run_parallel(tool_calls):
+    results = await asyncio.gather(*(exec_call(c) for c in tool_calls))
+    return results
+```
 
-Infinite loops can occur if the model keeps calling functions without making progress. It might repeatedly call ```get_pr_diff``` with the same parameters expecting different results. Mitigation: track function call history, implement maximum iteration limits, and detect repeated identical calls.
+Esto reduce la latencia de `N * t` a `max(t)`.
 
-Context overflow happens when function results are too large. A PR diff with thousands of lines might exceed context limits. Mitigation: design functions to return summarized or paginated results; implement truncation strategies.
+### Forzar tool choice
 
-Understanding these pitfalls prepares you for robust implementation. Function calling is reliable but not foolproof—your system design must account for edge cases.
+A veces quieres **obligar** al modelo a llamar una herramienta específica:
 
-Summary
-Function calling enables LLMs to interact with external systems through structured requests rather than natural language parsing. The workflow involves defining available functions with schemas, letting the model select and parameterize calls, executing those calls in your code, and feeding results back to the model.
+```python
+# OpenAI
+client.chat.completions.create(
+    model="gpt-4o",
+    messages=messages,
+    tools=tools,
+    tool_choice={"type": "function", "function": {"name": "get_weather"}},
+)
 
-Native function calling from LLM providers is more reliable than prompt-based parsing approaches. Different providers have varying syntax, but the core concepts are consistent. Function calling is most valuable when you need structured actions, precise outputs, or auditability.
+# Anthropic
+client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    tools=tools,
+    tool_choice={"type": "tool", "name": "get_weather"},
+    messages=messages,
+)
+```
 
-Common pitfalls include over-eager calling, parameter hallucination, selection errors, infinite loops, and context overflow. Awareness of these failure modes guides robust system design.
+Opciones adicionales:
 
-Key Takeaways:
+- `"auto"` (default): el modelo decide.
+- `"required"` / `"any"`: obliga a llamar alguna, pero el modelo elige cuál.
+- `"none"`: desactiva tool calling para esta llamada.
 
-Function calling separates intent (what to do) from execution (how to do it), giving you control over actual system interactions
-The workflow is: define functions → model selects and parameterizes → you execute → feed results back
-Native function calling is more reliable than parsing natural language output
-Use function calling for structured actions and precise outputs; skip it for pure conversation
-Design for common pitfalls: hallucinated parameters, wrong function selection, and infinite loops
+## Errores comunes
+
+- **Over-eager function calling.** Ante *"¿qué hace `get_weather`?"* el modelo invoca la función en vez de explicarla. Mitigación: añade al system prompt *"si el usuario pregunta por metadatos de una herramienta, descríbela en texto; no la invoques"*.
+- **Alucinación de parámetros.** Ante *"revisa el último PR"* el modelo inventa `pr_number=1`. Mitigación: haz que el modelo pida clarificación (en la description) o valida contra valores conocidos antes de ejecutar.
+- **Confundir dos tools similares.** `analyze_security` vs `analyze_quality` con descripciones vagas. Mitigación: descripciones distintivas, menos tools por sesión, nombres claros.
+- **Loops infinitos.** El modelo llama `get_pr_diff(1247)` cinco veces esperando resultado distinto. Mitigación: `max_iterations` duro, detección de calls repetidos idénticos, logging.
+- **Context overflow por resultados gigantes.** Un diff de 50k líneas destruye el contexto. Mitigación: trunca, pagina, resume antes de devolver.
+- **Olvidar devolver el resultado.** Si no envías `tool_result` después de un `tool_use` en Anthropic, el API falla con `400 invalid_request_error`.
+- **IDs desalineados.** En Anthropic cada `tool_result` debe referenciar el `tool_use_id` exacto. Mezclar IDs genera errores silenciosos de atribución.
+- **Pensar que function calling ejecuta la función.** El modelo **no** ejecuta nada; solo emite JSON. Tú ejecutas.
+
+## Resumen
+
+- **Function calling** convierte LLMs en agentes capaces de accionar sistemas reales mediante solicitudes estructuradas.
+- Separa **intención** (modelo) de **ejecución** (tu código), dándote control, seguridad y auditabilidad.
+- El protocolo tiene cuatro fases: **definir → seleccionar → ejecutar → integrar**.
+- **OpenAI** (jun 2023), **Anthropic tool use** (may 2024) y **Gemini** comparten la idea pero varían en sintaxis; conviene una capa de abstracción si soportas múltiples providers.
+- Soporta **parallel tool calls** (varias funciones en una sola respuesta) y **forced tool choice** (obligar una herramienta).
+- Usa function calling cuando necesitas **acciones estructuradas, salidas precisas o auditabilidad**; evítalo para conversación pura.
+- Diseña contra los pitfalls clásicos: alucinación de parámetros, loops infinitos, context overflow y confusión entre tools similares.
+- Es la base para construir **agentes autónomos**, orquestar **workflows** y conectar LLMs al mundo real.

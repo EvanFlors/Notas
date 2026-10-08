@@ -1,75 +1,95 @@
-Content Management and Optimization
-This quiz evaluates your understanding of token limits, pricing optimization, chunking strategies, prompt chaining, and context management. You'll need to solve cost-optimization problems, design effective chunking strategies, and architect multi-step prompt chains for complex tasks.
+# Quiz: Gestión y Optimización de Contenido
 
+Este quiz evalúa tu comprensión de límites de tokens, optimización de precios, estrategias de chunking, prompt chaining y gestión de contexto. Resolverás problemas de optimización de costos, diseñarás estrategias de chunking efectivas y diseñarás cadenas de prompts multi-paso para tareas complejas.
 
-Your document analysis application processes research papers averaging 15,000 tokens each. Initial implementation uses GPT-5 ($0.025 input/$0.05 output per 1M tokens) for all processing. After analyzing usage patterns, you find 70% of tasks involve simple section extraction that could use GPT-5 mini ($0.0008 input/$0.0012 per 1M tokens), while only 30% require complex reasoning. What optimization strategy provides the best cost-quality balance?
+---
 
-Switch entirely to GPT-5 mini to maximize cost savings across all tasks
+### Pregunta 1
 
-Implement dynamic model selection routing simple tasks to GPT-5 mini and complex tasks to GPT-5
+Tu aplicación de análisis de documentos procesa artículos de investigación de 15,000 tokens cada uno en promedio. La implementación inicial usa **GPT-5** ($0.025 input / $0.05 output por 1M tokens) para todo el procesamiento. Tras analizar patrones de uso descubres que el 70% de las tareas son extracciones simples de sección que podrían usar **GPT-5 mini** ($0.0008 input / $0.0012 por 1M tokens), mientras que solo el 30% requiere razonamiento complejo. ¿Qué estrategia de optimización ofrece el mejor balance costo/calidad?
 
-Use Claude Sonnet 4 for all tasks since larger context windows eliminate chunking needs
+- Cambiar completamente a GPT-5 mini para maximizar ahorros en todas las tareas.
+- **Implementar selección dinámica de modelo enrutando tareas simples a GPT-5 mini y complejas a GPT-5.**
+- Usar Claude Sonnet 4 para todas las tareas porque el context window mayor elimina la necesidad de chunking.
+- Implementar chunking agresivo para bajar todos los papers a menos de 2,000 tokens para procesamiento más barato.
 
-Implement aggressive chunking to reduce all papers below 2,000 tokens for cheaper processing
-Correct Answer!
-Routes simple tasks (70%) to GPT-5 mini and complex tasks to GPT-5, optimizing both quality and cost.
+**Respuesta correcta:** Implementar selección dinámica de modelo.
 
-You built a customer support chatbot that references a 50-page product manual. Users report the bot cannot answer questions about troubleshooting steps that appear in later sections of the manual. Your current implementation truncates the manual at the token limit. Which chunking strategy best solves this problem?
+**Explicación:** El 70% de tareas simples enviadas a GPT-5 mini ahorra ~97% en esos casos sin degradar calidad (son extracciones triviales). El 30% complejo mantiene la calidad de GPT-5. Cambiar todo a mini sacrifica calidad en el 30% crítico; usar Sonnet 4 para todo multiplica el costo; el chunking agresivo rompe la coherencia del paper. El **model routing** es el patrón óptimo cuando la carga de trabajo es heterogénea.
 
-Increase context window size to fit the entire manual in one prompt
+---
 
-Use simple truncation but start from the end of the document instead
+### Pregunta 2
 
-Implement keyword density analysis to prioritize chunks most relevant to the user query
+Construiste un chatbot de soporte que referencia un manual de producto de 50 páginas. Los usuarios reportan que el bot no puede responder preguntas sobre pasos de troubleshooting que aparecen en secciones posteriores del manual. Tu implementación actual **trunca el manual al llegar al límite de tokens**. ¿Qué estrategia de chunking resuelve mejor el problema?
 
-Split the manual into equal-sized chunks and process all chunks for every query
-Correct Answer!
-Keyword density prioritizes sections relevant to user queries, retrieving specific content within token limits regardless of document position.
+- Aumentar el context window para meter el manual completo en un solo prompt.
+- Usar truncation simple pero empezando desde el final del documento en vez del inicio.
+- **Implementar keyword density analysis para priorizar los chunks más relevantes a la query del usuario.**
+- Partir el manual en chunks del mismo tamaño y procesarlos todos en cada query.
 
-Your legal document analysis chain has three steps: extract key clauses, analyze risk factors, generate recommendations. The third step sometimes produces generic recommendations that do not align with specific risks identified in step two. What is the most likely cause and solution?
+**Respuesta correcta:** Implementar keyword density analysis.
 
-Step three needs more examples in few-shot prompting to show proper recommendation patterns
+**Explicación:** El problema no es el tamaño total sino **qué** porción se envía. Priorizar por keyword density (o mejor aún, por similitud semántica con embeddings) recupera la sección relevante sin importar su posición física en el documento. Aumentar el context es caro y sufre *Lost in the Middle*; truncar desde el final solo invierte el bug; procesar todos los chunks en cada query es inviable económicamente. La solución correcta es **retrieval relevante**, no fuerza bruta.
 
-Inadequate context management between steps—step three is not receiving sufficient detail from step two
+---
 
-The chain should use conditional branching based on risk severity rather than sequential processing
+### Pregunta 3
 
-Token limits are causing truncation of step two output before it reaches step three
-Correct Answer!
-Misaligned outputs indicate inadequate context passing. Step three needs detailed risk findings from step two for specific recommendations.
+Tu cadena de análisis de documentos legales tiene tres pasos: **extraer cláusulas clave**, **analizar factores de riesgo**, **generar recomendaciones**. El tercer paso a veces produce recomendaciones genéricas que no se alinean con los riesgos específicos identificados en el paso dos. ¿Cuál es la causa más probable y la solución?
 
-Your financial reporting system processes 10,000 transaction records daily, generating analysis reports. Current implementation sends all records to Claude Sonnet 4 in a single call at $3 input/$15 output per million tokens. Each report costs approximately $8.50. Your manager wants to reduce costs by 60% while maintaining report quality. Which approach is most viable?
+- El paso tres necesita más ejemplos en few-shot prompting para mostrar patrones de recomendación.
+- **Gestión inadecuada del contexto entre pasos: el paso tres no recibe suficiente detalle del paso dos.**
+- La cadena debería usar branching condicional según la severidad del riesgo en vez de procesamiento secuencial.
+- Los límites de tokens están truncando el output del paso dos antes de que llegue al paso tres.
 
-Switch to GPT-5 mini for all processing to minimize per-token costs
+**Respuesta correcta:** Gestión inadecuada del contexto entre pasos.
 
-Reduce the number of transactions analyzed per report from 10,000 to 4,000
+**Explicación:** Outputs desalineados en una cadena casi siempre indican **pérdida de contexto entre eslabones**. Si el paso 3 recibe un resumen muy comprimido o solo las conclusiones del paso 2 sin los detalles concretos, no puede personalizar las recomendaciones. Few-shot no soluciona la falta de inputs; branching condicional es ortogonal; truncation sería un error distinto (produciría errores de API o cortes evidentes, no genericidad). La solución es **pasar los riesgos con detalle estructurado** (p.ej. JSON con `{riesgo, severidad, cláusula_fuente, impacto}`) al paso 3.
 
-Use aggressive chunking to process transactions in smaller batches with GPT-5 mini
+---
 
-Implement caching for common transaction patterns and use GPT-5 mini for initial categorization, Claude Sonnet 4 for complex analysis only
-Correct Answer!
-Caching common patterns, GPT-5 mini for categorization, and Claude Sonnet 4 for complex analysis only achieves 60% cost reduction while preserving quality.
+### Pregunta 4
 
-Your research paper analysis system chunks documents by splitting every 2,000 tokens without regard to document structure. Users complain that analysis misses connections between related findings spread across multiple sections. Which document-aware strategy would most improve analysis quality?
+Tu sistema de reportes financieros procesa 10,000 registros de transacciones diarios generando reportes de análisis. La implementación actual envía todos los registros a **Claude Sonnet 4** en una sola llamada a $3 input / $15 output por millón de tokens. Cada reporte cuesta aproximadamente $8.50. Tu manager quiere reducir costos en 60% manteniendo la calidad. ¿Qué enfoque es más viable?
 
-Reduce chunk size to 1,000 tokens to create more granular processing
+- Cambiar a GPT-5 mini para todo el procesamiento para minimizar costo por token.
+- Reducir el número de transacciones analizadas por reporte de 10,000 a 4,000.
+- Usar chunking agresivo para procesar transacciones en lotes pequeños con GPT-5 mini.
+- **Implementar caching para patrones de transacciones comunes y usar GPT-5 mini para categorización inicial, Claude Sonnet 4 solo para análisis complejo.**
 
-Add 20% overlap between chunks to prevent boundary information loss
+**Respuesta correcta:** Caching + arquitectura híbrida (mini para categorizar, Sonnet solo para análisis complejo).
 
-Chunk by semantic sections (Introduction, Methods, Results) while preserving complete section content
+**Explicación:** Es la combinación de tres técnicas que suman: (1) **prompt caching** reutiliza prefijos estables con 90% de descuento, (2) **model routing** envía trabajo barato a GPT-5 mini, (3) **Sonnet 4 solo en lo complejo**. Cambiar todo a mini sacrifica la calidad del análisis financiero; reducir transacciones degrada el reporte directamente; chunking agresivo sin un buen router no reduce lo suficiente. La arquitectura híbrida con cache logra 60-70% de ahorro conservando la calidad del output final.
 
-Implement priority-based selection to include only the most important sections
-Correct Answer!
-Semantic section chunking keeps related findings together, preserving relationships that token-based splitting destroys.
+---
 
-You are designing a prompt chain for competitor analysis. The chain should: identify competitors, analyze their features, assess pricing, evaluate marketing, then synthesize findings. During testing, the synthesis step takes too long and sometimes times out. What architectural change best addresses this issue?
+### Pregunta 5
 
-Convert the sequential chain into a branching chain where feature, pricing, and marketing analysis happen in parallel after competitor identification
+Tu sistema de análisis de papers chunkea documentos partiendo cada 2,000 tokens sin considerar la estructura del documento. Los usuarios se quejan de que el análisis **pierde conexiones entre hallazgos relacionados** distribuidos en múltiples secciones. ¿Qué estrategia document-aware mejoraría más la calidad?
 
-Reduce the number of competitors analyzed in the first step to speed up subsequent analysis
+- Reducir el tamaño del chunk a 1,000 tokens para procesamiento más granular.
+- Añadir 20% de overlap entre chunks para prevenir pérdida de información en bordes.
+- **Chunkear por secciones semánticas (Introduction, Methods, Results) preservando el contenido completo de cada sección.**
+- Implementar selección por prioridad para incluir solo las secciones más importantes.
 
-Combine all analysis steps into a single comprehensive prompt to eliminate chain overhead
+**Respuesta correcta:** Chunking por secciones semánticas.
 
-Add conditional logic to skip marketing analysis when feature and pricing analysis are sufficient
-Correct Answer!
-Parallel processing of independent tracks (features, pricing, marketing) significantly reduces execution time while maintaining information completeness.
+**Explicación:** La causa raíz es que el chunking arbitrario por tokens **rompe la estructura lógica** del paper, separando resultados de la metodología que los explica. Chunkear por secciones semánticas mantiene unidos los hallazgos con su contexto (Methods con Results, por ejemplo). Reducir el tamaño empeora el problema; añadir overlap mitiga bordes pero no resuelve la fragmentación semántica; priority-based descarta información potencialmente útil. La solución correcta es **respetar las fronteras naturales del documento** (document-aware chunking).
+
+---
+
+### Pregunta 6
+
+Estás diseñando una cadena de prompts para análisis de competidores. La cadena debe: identificar competidores, analizar sus features, evaluar pricing, evaluar marketing, y luego sintetizar hallazgos. Durante las pruebas, el paso de síntesis tarda demasiado y a veces hace timeout. ¿Qué cambio arquitectónico aborda mejor el problema?
+
+- **Convertir la cadena secuencial en branching donde el análisis de features, pricing y marketing ocurran en paralelo tras la identificación de competidores.**
+- Reducir el número de competidores analizados en el primer paso para acelerar los subsiguientes.
+- Combinar todos los pasos en un único prompt comprehensivo para eliminar overhead de la cadena.
+- Añadir lógica condicional para saltar el análisis de marketing cuando features y pricing son suficientes.
+
+**Respuesta correcta:** Convertir la cadena en branching paralela.
+
+**Explicación:** Features, pricing y marketing son **tracks independientes** una vez identificados los competidores: no hay dependencia entre ellos. Paralelizarlos con `asyncio.gather` reduce la latencia end-to-end (de la suma a la máxima individual). Reducir competidores sacrifica cobertura; combinar todo en un prompt reproduce el problema original de atención dispersa y hace imposible el debug; saltar marketing elimina información valiosa. El patrón **map → branch → reduce** es el canónico para este tipo de análisis multi-dimensional.
+
+---

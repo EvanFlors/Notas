@@ -1,73 +1,226 @@
-## Ground Truth Collection Strategies
+# Monitoreo de Desempeño del Modelo y Triggers de Reentrenamiento
 
-Monitoring model performance requires knowing if predictions are correct. This requires ground truth labels for production predictions. Collecting these labels is one of the hardest challenges in production ML systems because ground truth often arrives with significant delay or may not be available at all.
+## ¿Qué es?
 
-Immediate ground truth is rare but valuable when available. A spam detection model gets ground truth when users mark emails as spam or not spam. A content moderation model gets ground truth when human moderators review flagged content. These labels arrive quickly (minutes to hours) and enable fast feedback on model performance. If you have immediate ground truth, exploit it fully for monitoring and retraining.
+El **monitoreo de desempeño del modelo** es la práctica de medir, de forma continua y en producción, qué tan bien un modelo cumple su objetivo real de negocio: precisión, recall, calidad de la respuesta, utilidad para el usuario. Es la contraparte "de calidad" del monitoreo de infraestructura.
 
-Delayed ground truth is more common. A loan default prediction model gets ground truth months or years later when loans mature. A customer churn prediction model gets ground truth when subscription renewal dates arrive. A medical diagnosis model gets ground truth when patient outcomes become known. This delay makes real-time performance monitoring impossible. You must use proxy metrics or sampling strategies while waiting for labels.
+La dificultad central es que, en la mayoría de sistemas, **no se conoce la verdad (ground truth) en el momento de la predicción**. Un modelo de fraude predice ahora, pero sabremos si acertó dentro de 2-3 semanas. Un LLM responde ahora, pero sabremos si fue útil cuando el usuario regrese... o no regrese.
 
-Sampling strategies collect ground truth for a subset of predictions. Rather than labeling all predictions (expensive and time-consuming), label a representative sample. Random sampling provides unbiased estimates. Stratified sampling (sample equally from different prediction classes) provides better estimates for imbalanced datasets. If your fraud model predicts fraud on 1 percent of transactions, random sampling might miss fraud cases. Stratified sampling ensures you label enough fraud predictions to measure performance.
+El **trigger de reentrenamiento** es la decisión automática o semi-automática de volver a entrenar el modelo cuando se cumplen ciertas condiciones: drift sostenido, caída de métrica proxy, llegada de un volumen suficiente de nuevos datos etiquetados, etc.
 
-Human labeling provides ground truth when automatic labels are unavailable. Hire labelers to review model predictions and assign correct labels. This is expensive but essential for models without natural ground truth feedback. Quality control is critical: multiple labelers per example, labeler agreement metrics, and periodic calibration ensure label quality.
+## ¿Por qué importa?
 
-Active learning selects which examples to label for maximum value. Rather than randomly sampling, choose examples where the model is uncertain, where the model disagrees with other models, or where the model prediction seems unusual. These informative examples provide more insight per labeled example than random samples.
+- Un modelo sin medición de performance es un modelo que **nadie puede defender**: no se sabe si está mejorando, degradando o estable.
+- La **frecuencia óptima de reentrenamiento** depende del dominio: fraude puede necesitar diario, recomendación semanal, clasificación médica trimestral. Reentrenar poco pierde dinero; reentrenar demasiado desperdicia cómputo y arriesga inestabilidad.
+- La **calibración** importa tanto como la precisión: un modelo que dice "0.9 de probabilidad" pero acierta el 60% engaña a cualquier sistema downstream que use ese score (p. ej. para priorizar alertas o decidir thresholds).
 
-Natural experiments sometimes provide ground truth. A recommendation model's ground truth is whether users engage with recommended items. However, you only know engagement for recommended items, not for items you did not recommend. A/B tests that randomly show different recommendations provide unbiased ground truth by comparing engagement rates between experimental conditions.
+## ¿Cómo funciona?
 
+### Fuentes de ground truth
 
-Proxy Metrics When Ground Truth Is Delayed
-When ground truth is delayed or unavailable, proxy metrics provide earlier signals of model health. Proxies are imperfect but valuable indicators that correlate with true performance.
+| Fuente | Latencia | Costo | Calidad |
+|---|---|---|---|
+| Feedback explícito del usuario (ratings, correcciones) | Minutos | Bajo | Alta pero sesgada |
+| Feedback implícito (clicks, dwell time, retención) | Minutos | Nulo | Media, requiere interpretación |
+| Verificación posterior (chargebacks, cancelaciones) | Días a semanas | Nulo | Muy alta |
+| Etiquetado humano (annotators) | Horas a días | Alto | Alta pero costosa |
+| Reglas de negocio / expert systems | Instantáneo | Bajo | Variable |
+| LLM-as-judge | Segundos | Medio | Buena para evaluación continua |
 
-Confidence scores provide a proxy for correctness. Well-calibrated models assign higher confidence to correct predictions than incorrect predictions. Monitoring average confidence over time can reveal degradation. If average confidence drops from 0.9 to 0.7, the model is less certain. This might indicate performance problems even without labels.
+En la práctica se combinan varias: feedback implícito en tiempo real para alertas tempranas, muestreo con etiquetado humano para auditoría, y LLM-as-judge para evaluaciones automáticas de calidad en LLMs.
 
-However, confidence scores can be misleading. Some models are overconfident (high confidence on wrong predictions). Some are underconfident. Calibration curves show the relationship between confidence and accuracy. For a well-calibrated model, predictions with 90 percent confidence are correct 90 percent of the time. Monitoring calibration helps interpret confidence scores.
+### Métricas proxy mientras llegan los labels
 
-Consistency metrics track whether the model produces stable predictions for similar inputs. If you show the same user the same content twice, do you get the same recommendation? If prediction results vary wildly for similar inputs, something is wrong. Consistency does not guarantee correctness but inconsistency suggests problems.
+Cuando el ground truth tarda, hay que apoyarse en **proxies**:
 
-Business metrics often correlate with model performance. For a recommendation model, click-through rate, purchase rate, or user engagement correlate with recommendation quality. For a fraud detection model, manual review rates or chargebacks correlate with detection accuracy. Monitoring these business metrics provides faster feedback than waiting for labels.
+- **Confianza del modelo**: si la distribución de probabilidades predichas se vuelve más plana, el modelo "sabe menos".
+- **Distribución de outputs**: si la clase "aprobado" sube del 85% al 95%, hay señal de problema.
+- **Tasa de intervención humana**: en loops human-in-the-loop, aumentos en override son proxy de calidad bajando.
+- **Comportamiento del usuario**: en LLM chatbots, tasa de "regenerate", longitud de la sesión, abandono.
 
-The challenge with business metrics is confounding factors. Click-through rates might drop due to model degradation, seasonal changes, marketing campaigns, or UI changes. Disentangling model performance from other factors requires careful analysis and sometimes A/B testing.
+### Degradation detection
 
-User feedback provides qualitative signals. Complaints, support tickets, or explicit feedback (thumbs up/down) indicate user satisfaction. Increases in negative feedback might indicate model problems. This signal is noisy and biased (users who bother to provide feedback are not representative) but valuable as an early warning.
+Hay dos regímenes:
 
-Comparison with baseline models or rules provides relative performance signals. If a simple rule-based system achieves certain business metrics and your ML model achieves worse metrics, something is wrong even without ground truth labels. The baseline provides a sanity check.
+1. **Degradación lenta** (semanas o meses): típica de drift gradual. Se detecta comparando métricas móviles en ventanas largas.
+2. **Degradación súbita** (horas o días): típica de deploys, cambios upstream del proveedor, bugs en pipelines de features. Se detecta con alertas sobre deltas rápidos.
 
-Monitoring prediction diversity ensures models do not collapse into degenerate behavior. A recommendation model should recommend diverse items, not the same item to everyone. Sudden decreases in diversity might indicate model problems. Similarly, sudden increases (random predictions) also indicate problems.
+### Calibración
 
+Un modelo está **bien calibrado** si cuando dice "70% probabilidad", acierta el 70% de las veces. Se mide con:
 
-Detecting Degradation and Triggering Retraining
-Performance degradation happens gradually. Detecting it early enables proactive response before significant business impact. This requires monitoring trends, setting appropriate thresholds, and automating responses.
+- **Reliability diagram**: eje x = probabilidad predicha binned, eje y = frecuencia real observada; la diagonal perfecta es `y = x`.
+- **Expected Calibration Error (ECE)**: promedio ponderado de la diferencia entre confianza y precisión por bin.
+- **Brier score**: error cuadrático medio sobre probabilidades.
 
-Trend analysis looks beyond single metrics to patterns over time. Is error rate increasing? Is confidence decreasing? Trends reveal degradation that might not yet breach absolute thresholds. A linear trend of increasing error rate suggests future problems even if current error rate is acceptable.
+Técnicas correctivas: **Platt scaling** (regresión logística sobre scores) y **isotonic regression** (más flexible, requiere más datos).
 
-A production-ready performance monitoring system tracks model metrics in real-time, detects degradation through multiple signals, and automatically recommends retraining when performance drops below acceptable thresholds.
+### Pipeline de reentrenamiento automatizado
 
-Statistical process control charts like control charts or CUSUM (cumulative sum control chart) detect when metrics deviate from expected patterns. These methods are more sophisticated than simple thresholds and can detect subtle shifts earlier.
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Trigger: PSI > 0.25  OR  accuracy < baseline - 3%        │
+│    OR  N nuevos labels disponibles  OR  cron semanal        │
+├─────────────────────────────────────────────────────────────┤
+│ 2. Snapshot de datos: últimas N semanas, versionado DVC     │
+├─────────────────────────────────────────────────────────────┤
+│ 3. Entrenamiento + validación cruzada                       │
+├─────────────────────────────────────────────────────────────┤
+│ 4. Evaluación offline vs. baseline (champion / challenger)  │
+├─────────────────────────────────────────────────────────────┤
+│ 5. Shadow deploy (predice en paralelo sin servir)           │
+├─────────────────────────────────────────────────────────────┤
+│ 6. Canary (5% → 25% → 100%) con guardrails                  │
+├─────────────────────────────────────────────────────────────┤
+│ 7. Promoción o rollback automático                          │
+└─────────────────────────────────────────────────────────────┘
+```
 
-Baseline comparison provides context for metrics. Compare current performance to historical performance during similar conditions (same day of week, similar traffic patterns, similar user demographics). Deviations from historical baselines suggest problems. For example, conversion rates are always lower on weekends, so compare weekend performance to past weekends rather than weekdays.
+### LLM-as-judge para evaluación continua
 
-Anomaly detection algorithms automatically identify unusual metric patterns. Machine learning approaches can learn normal patterns and flag deviations. This scales better than manually setting thresholds for dozens or hundreds of metrics.
+Para LLMs sin ground truth, se usa un modelo más fuerte (o el mismo con prompt distinto) para evaluar en una rúbrica: relevancia, factualidad, tono, completitud. Es rápido y escalable, pero requiere calibración contra evaluaciones humanas para evitar sesgos del juez.
 
-Performance degradation thresholds should be tied to business impact. If 1 percent decrease in accuracy costs $10,000 per month, that is your threshold. If 5 percent decrease is tolerable, set thresholds accordingly. Thresholds should reflect risk tolerance and cost of retraining versus cost of degraded performance.
+## Ejemplo con código
 
-Retraining triggers define when to retrain models. Options include scheduled retraining (monthly regardless of performance), threshold-based retraining (retrain when performance drops below thresholds), or drift-based retraining (retrain when data drift exceeds limits). Many systems use combinations: scheduled retraining as baseline plus threshold-based retraining for emergencies.
+### Trackeo de performance con Langfuse y LLM-as-judge
 
-Automated retraining pipelines execute retraining when triggered. The pipeline fetches recent training data, trains a new model, validates performance, and potentially deploys if validation succeeds. Automation reduces the time from degradation detection to recovery but requires mature infrastructure.
+```python
+from langfuse import Langfuse
+import openai, json
 
-Validation before deployment prevents deploying worse models. Just because a model is newer does not mean it is better. Validate new models thoroughly before replacing production models. Compare new model performance to current model performance on a hold-out set. Deploy only if the new model is meaningfully better.
+lf = Langfuse()
 
-Performance monitoring dashboards should show current performance, trends, comparison to baselines, and time since last retraining. This provides context for decision-making about whether to retrain and when.
+RUBRIC = """Evalúa la respuesta en una escala 1-5 según:
+- Relevancia a la pregunta
+- Factualidad verificable con el contexto
+- Claridad
+Devuelve JSON: {"score": int, "reason": str}
+"""
 
-Documentation of performance changes provides historical context. When performance degrades, document what changed in data or external factors. When retraining improves performance, document by how much and what data was used. This creates institutional memory about model behavior over time.
+def judge(question: str, context: str, answer: str) -> dict:
+    resp = openai.chat.completions.create(
+        model="gpt-4o",
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": RUBRIC},
+            {"role": "user", "content":
+             f"Pregunta: {question}\nContexto: {context}\nRespuesta: {answer}"},
+        ],
+    )
+    return json.loads(resp.choices[0].message.content)
 
-Summary
-Model performance monitoring requires ground truth labels which often arrive with significant delay. Strategies include immediate feedback when available, sampling for delayed labels, and human labeling when necessary. When ground truth is delayed, proxy metrics like confidence scores, consistency, business metrics, and user feedback provide earlier signals.
+def score_recent_traces(hours: int = 1):
+    traces = lf.get_traces(from_timestamp=f"-{hours}h", tags=["prod"])
+    for t in traces:
+        verdict = judge(t.input["question"], t.metadata["context"], t.output)
+        lf.score(
+            trace_id=t.id,
+            name="llm_judge_quality",
+            value=verdict["score"],
+            comment=verdict["reason"],
+        )
+```
 
-Detecting performance degradation requires monitoring trends, comparing to baselines, and using anomaly detection to identify unusual patterns. Retraining triggers based on performance thresholds or drift metrics enable automated responses to degradation.
+### Detección de degradación con ventanas móviles
 
-Key concepts to remember
-Ground Truth Challenges - Labels often arrive with delay; sampling and human labeling strategies provide labels for performance monitoring
-Proxy Signals - Confidence scores and business metrics provide earlier signals of degradation when ground truth is delayed
-Trend Detection - Trend analysis and baseline comparison detect gradual degradation before absolute thresholds are breached
-Automated Response - Automated retraining triggered by performance thresholds enables systems to recover from degradation
-Validation Gates - Validate new models before deployment to ensure they are actually better than current models
+```python
+import pandas as pd
+import numpy as np
+
+def check_degradation(scores_df: pd.DataFrame,
+                      metric: str = "accuracy",
+                      baseline: float = 0.92,
+                      long_window: str = "7D",
+                      short_window: str = "1D",
+                      threshold: float = 0.03) -> dict:
+    scores_df = scores_df.set_index("timestamp").sort_index()
+    long_ma  = scores_df[metric].rolling(long_window).mean().iloc[-1]
+    short_ma = scores_df[metric].rolling(short_window).mean().iloc[-1]
+
+    status = "ok"
+    if short_ma < baseline - threshold:
+        status = "degraded_absolute"
+    elif short_ma < long_ma - threshold:
+        status = "degraded_relative"
+
+    return {
+        "status": status,
+        "short": float(short_ma),
+        "long": float(long_ma),
+        "baseline": baseline,
+    }
+```
+
+### Calibración con Platt scaling
+
+```python
+from sklearn.linear_model import LogisticRegression
+from sklearn.calibration import calibration_curve
+import matplotlib.pyplot as plt
+
+# raw_scores: probabilidades crudas del modelo
+# y_true:     etiquetas reales (0/1)
+calibrator = LogisticRegression()
+calibrator.fit(raw_scores.reshape(-1, 1), y_true)
+calibrated = calibrator.predict_proba(raw_scores.reshape(-1, 1))[:, 1]
+
+frac_pos, mean_pred = calibration_curve(y_true, calibrated, n_bins=10)
+plt.plot(mean_pred, frac_pos, marker="o", label="calibrated")
+plt.plot([0, 1], [0, 1], "--", label="perfect")
+plt.xlabel("Probabilidad predicha"); plt.ylabel("Frecuencia observada")
+plt.legend(); plt.savefig("calibration.png")
+```
+
+### Pipeline de reentrenamiento con guardrails
+
+```python
+from mlflow import MlflowClient
+import mlflow
+
+def promote_if_better(candidate_run_id: str, metric: str = "f1"):
+    client = MlflowClient()
+    cand = client.get_run(candidate_run_id).data.metrics[metric]
+
+    prod = client.get_latest_versions("fraud-detector", stages=["Production"])[0]
+    prod_metric = client.get_run(prod.run_id).data.metrics[metric]
+
+    if cand < prod_metric + 0.005:  # mínimo 0.5 pp de mejora para promover
+        print(f"Candidato {cand:.4f} no supera a prod {prod_metric:.4f}; no promover")
+        return False
+
+    client.transition_model_version_stage(
+        name="fraud-detector",
+        version=client.create_model_version(
+            "fraud-detector",
+            source=f"runs:/{candidate_run_id}/model",
+            run_id=candidate_run_id,
+        ).version,
+        stage="Production",
+        archive_existing_versions=True,
+    )
+    return True
+```
+
+## Errores comunes
+
+- **No capturar ground truth sistemáticamente**: sin labels, no hay forma de validar que el modelo funcione.
+- **Usar accuracy como única métrica** en datasets desbalanceados: 99% accuracy en fraude puede significar que nunca detectas nada.
+- **Reentrenar sin validación offline**: desplegar un modelo nuevo porque "los datos cambiaron" sin verificar que mejora.
+- **Ignorar la calibración**: usar scores crudos para thresholds de negocio cuando el modelo está mal calibrado.
+- **No comparar con un baseline (champion/challenger)**: no basta con "el nuevo es bueno"; tiene que ser **mejor que el actual** por un margen que supere el ruido.
+- **No usar shadow mode o canary**: desplegar 0→100% y descubrir el bug con tráfico real.
+- **Confiar ciegamente en LLM-as-judge**: el juez tiene sus propios sesgos (favorece respuestas largas, propio estilo); calibrar contra humanos.
+- **Reentrenar demasiado frecuentemente**: añade varianza, dificulta el debugging y encarece operaciones.
+- **No versionar datos de entrenamiento**: imposible reproducir el modelo prod cuando algo falla.
+- **Mezclar métricas proxy con métricas finales** sin aclarar cuál es cuál: el equipo pierde confianza en los números.
+
+## Resumen
+
+- La **ground truth** es escasa, tardía y costosa; estrategias combinadas (explícito, implícito, humano, LLM-judge) son la norma.
+- Mientras llega el label real, las **métricas proxy** (confianza, distribución de outputs, comportamiento del usuario) permiten alertas tempranas.
+- Hay dos regímenes de degradación: **lenta** (drift) y **súbita** (deploy, upstream); se detectan con ventanas móviles distintas.
+- La **calibración** es tan importante como la precisión; Platt scaling e isotonic regression la corrigen.
+- Un **pipeline de reentrenamiento maduro** incluye trigger, snapshot versionado, champion/challenger, shadow, canary y rollback automático.
+- **Shadow deployment** y **canary release** son la red de seguridad entre un modelo entrenado y uno sirviendo tráfico completo.
+- **LLM-as-judge** escala la evaluación de calidad en sistemas LLM, pero requiere calibración humana periódica para no incorporar sesgos del juez.
+- La frecuencia de reentrenamiento es un **hiperparámetro de negocio**: lo determina la velocidad del drift y el costo del fallo, no la moda.

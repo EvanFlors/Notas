@@ -1,129 +1,367 @@
-## REST APIs versus gRPC for Model Serving
+# REST APIs versus gRPC for Model Serving
 
-Choosing the right protocol for your model serving API affects performance, developer experience, and integration complexity. REST and gRPC are the two dominant choices, each with distinct characteristics and tradeoffs.
+## ¿Qué es?
 
-REST APIs use HTTP with JSON payloads, making them universally accessible and developer-friendly. Any client that speaks HTTP can call your model. Web browsers, mobile apps, and other services integrate easily. JSON is human-readable, making debugging straightforward. You can test endpoints with curl or Postman. This accessibility makes REST the default choice for most model serving scenarios.
+**Model serving** es la capa que expone un modelo entrenado como un servicio consumible por otros sistemas. Dos decisiones determinan la arquitectura:
 
-Consider a sentiment analysis API. You send a POST request with JSON containing the text to analyze. The server returns JSON with the sentiment label and confidence score. The entire interaction is readable and debuggable. Any developer familiar with REST APIs can integrate with your model without learning new protocols or tools.
+1. **El protocolo** por el que el cliente habla con el servidor: REST (HTTP/1.1 + JSON) o gRPC (HTTP/2 + Protocol Buffers).
+2. **El framework** que carga el modelo, administra batching, versionado y métricas: FastAPI, vLLM, TGI, Triton, TorchServe, TensorFlow Serving, Ray Serve, BentoML, SageMaker, Modal, Replicate.
 
-Here is a production-ready FastAPI model server with validation, health checks, and error handling:
+### REST vs gRPC
+
+| Dimensión | REST + JSON | gRPC + Protobuf |
+|---|---|---|
+| Transport | HTTP/1.1 | HTTP/2 (multiplex, streaming) |
+| Serialización | Texto (JSON) | Binario (Protobuf) |
+| Overhead típico | 2-10 KB | 200 B - 2 KB |
+| Latencia relativa | 1x | 0.3-0.5x |
+| Debug | curl, Postman, logs legibles | grpcurl, binario |
+| Soporte browser | Nativo | gRPC-Web (proxy) |
+| Multi-lenguaje | Universal | Bueno en top 10, limitado fuera |
+| Streaming bidireccional | No (SSE/WebSocket workarounds) | Nativo |
+| Mejor para | APIs públicas, prototipos | Internal services, alto throughput |
+
+### Frameworks de serving
+
+- **FastAPI:** framework web Python async. Máxima flexibilidad, mínimo overhead; ideal para custom serving. No incluye batching automático.
+- **vLLM:** servidor especializado en LLMs con **PagedAttention** y continuous batching. Expone API OpenAI-compatible. Throughput 10-24x TGI vanilla para LLMs.
+- **TGI (Text Generation Inference, Hugging Face):** servidor de LLMs con tensor parallelism, speculative decoding y Flash Attention. Muy maduro, menos performante que vLLM en muchos casos.
+- **Triton Inference Server (NVIDIA):** multi-framework (PyTorch, TF, ONNX, TensorRT), dynamic batching, ensembles, concurrent model execution. Es el estándar enterprise.
+- **Ray Serve:** serving distribuido sobre Ray. Autoscaling nativo, Python-first, grafos de deployment.
+- **BentoML:** empaqueta modelo + código + deps en un "bento" portable con builds reproducibles y auto-generación de Docker + K8s manifests.
+- **TorchServe / TensorFlow Serving:** servers oficiales de cada framework. Soportan model archives, versioning y batching.
+- **Modal / Replicate:** PaaS serverless para modelos; sin manejar infra, pay-per-second.
+- **SageMaker Endpoints (AWS):** managed serving con autoscaling, multi-model endpoints y shadow deployments integrados.
+
+## ¿Por qué importa?
+
+El protocolo y el framework son la **superficie de contacto** entre tu modelo y el mundo. Decisiones malas aquí tienen efecto multiplicador:
+
+- **Protocolo lento** → cada ms de serialización x N millones de requests/día = horas de cómputo y latencia perceptible.
+- **Framework sin dynamic batching** → GPU al 15% de utilización; estás pagando 7x lo necesario.
+- **Sin health/readiness checks** → el load balancer envía traffic a pods aún cargando modelos → errores 500 masivos.
+- **Sin circuit breakers ni rate limits** → una dependencia caída (feature store, auth) tumba todo el stack en cadena.
+- **Framework incorrecto para el workload** → usar FastAPI puro para LLMs es 10-20x más lento que vLLM.
+
+## ¿Cómo funciona?
+
+### FastAPI básico con validación y health checks
 
 ```python
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
+import torch, time, logging
 
-app = FastAPI(title="ML Model API", version="1.0.0")
+app = FastAPI(title="Sentiment API", version="1.3.0")
+log = logging.getLogger("uvicorn")
 
-# Request/Response schemas with validation
-class PredictionRequest(BaseModel):
-  text: str = Field(..., min_length=1, max_length=10000)
+model, tokenizer = None, None
+MODEL_VERSION = "sentiment-roberta-v1.3.0"
 
-class PredictionResponse(BaseModel):
-  prediction: str
-  confidence: float = Field(..., ge=0.0, le=1.0)
-  model_version: str
+class PredictIn(BaseModel):
+    text: str = Field(..., min_length=1, max_length=10_000)
 
-# Model state
-model_loaded = True
-model_version = "v1.2.0"
+class PredictOut(BaseModel):
+    label: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    model_version: str
+    latency_ms: float
 
-@app.get("/health")
-async def health_check():
-  """Health check endpoint for load balancer."""
-  return {"status": "healthy" if model_loaded else "unhealthy"}
+@app.on_event("startup")
+async def load_model():
+    global model, tokenizer
+    tokenizer = AutoTokenizer.from_pretrained("/models/roberta")
+    model = torch.jit.load("/models/roberta_scripted.pt").cuda().eval()
+    # Warmup: elimina cold start en el primer request real
+    for _ in range(5):
+        _ = model(tokenizer("warmup", return_tensors="pt").input_ids.cuda())
+    torch.cuda.synchronize()
+    log.info("Model ready: %s", MODEL_VERSION)
 
-@app.get("/ready")
-async def readiness_check():
-  """Readiness check for Kubernetes - returns 503 if not ready."""
-  if not model_loaded:
-      raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-  return {"status": "ready", "model_version": model_version}
+@app.get("/health")  # liveness
+def health():
+    return {"status": "healthy"}
 
-@app.post("/predict", response_model=PredictionResponse)
-async def predict(request: PredictionRequest):
-  """Make prediction on input text."""
-  if not model_loaded:
-      raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+@app.get("/ready")   # readiness
+def ready():
+    if model is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE)
+    return {"status": "ready", "version": MODEL_VERSION}
 
-  # Run model inference (replace with actual model call)
-  prediction, confidence = run_inference(request.text)
-
-  return PredictionResponse(
-      prediction=prediction,
-      confidence=confidence,
-      model_version=model_version
-  )
-
-# Run with: uvicorn app:app --host 0.0.0.0 --port 8000
+@app.post("/predict", response_model=PredictOut)
+def predict(req: PredictIn):
+    if model is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE)
+    t0 = time.perf_counter()
+    tokens = tokenizer(req.text, return_tensors="pt", truncation=True, max_length=512)
+    with torch.no_grad():
+        logits = model(tokens.input_ids.cuda())
+        probs = torch.softmax(logits, dim=-1)[0]
+    idx = probs.argmax().item()
+    return PredictOut(
+        label=["negative", "neutral", "positive"][idx],
+        confidence=probs[idx].item(),
+        model_version=MODEL_VERSION,
+        latency_ms=(time.perf_counter() - t0) * 1000,
+    )
 ```
 
-This FastAPI server includes production essentials: request validation with Pydantic, health checks for load balancers, readiness checks for Kubernetes, error handling, and automatic API documentation at ```/docs```.
+### vLLM OpenAI-compatible server
 
-However, REST with JSON has performance limitations. JSON parsing adds overhead. Each request requires serializing data to JSON, sending it over HTTP, deserializing on the server, processing, serializing the result to JSON, and deserializing on the client. For small payloads and infrequent requests, this overhead is negligible. For high-throughput systems with large payloads, it becomes significant.
+```bash
+# Lanza un servidor compatible con el SDK oficial de OpenAI
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Llama-3.1-70B-Instruct \
+    --tensor-parallel-size 4 \
+    --max-model-len 32768 \
+    --gpu-memory-utilization 0.92 \
+    --dtype bfloat16 \
+    --enable-prefix-caching \
+    --port 8000
+```
 
-gRPC uses HTTP/2 with Protocol Buffers for more efficient communication. Protocol Buffers are binary format that is faster to serialize and deserialize than JSON. HTTP/2 supports multiplexing multiple requests over a single connection and bidirectional streaming. These features make gRPC significantly faster than REST for high-throughput scenarios.
+```python
+# Cliente - usa el SDK de OpenAI sin cambios
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="not-needed")
 
-The same sentiment analysis API using gRPC might be 2-5x faster than REST, especially with large text inputs. The binary encoding is more compact, reducing network transfer time. The faster serialization reduces CPU usage on both client and server. For systems handling thousands of requests per second, these savings matter.
+resp = client.chat.completions.create(
+    model="meta-llama/Llama-3.1-70B-Instruct",
+    messages=[{"role": "user", "content": "Explica RAG en 3 líneas"}],
+    max_tokens=256,
+)
+print(resp.choices[0].message.content)
+```
 
-The tradeoff is complexity. gRPC requires generated client code from protocol buffer definitions. You cannot simply use curl to test endpoints. Debugging is harder because payloads are binary. Browser support is limited. Integration requires more effort compared to REST. For internal services where both client and server are under your control, this complexity is manageable. For public APIs, it might be prohibitive.
+### Ray Serve con autoscaling
 
-Language support matters. REST works with any language that has an HTTP library, which is essentially every language. gRPC has good support for major languages (Python, Go, Java, C++) but limited support for some less common languages. If clients might use diverse languages, REST provides better compatibility.
+```python
+from ray import serve
+from fastapi import FastAPI
 
-Most production ML serving systems use REST for external APIs and gRPC for internal high-throughput services. Your recommendation API facing web clients uses REST because accessibility matters. Your internal service that scores millions of items uses gRPC because performance matters. This hybrid approach balances developer experience and performance.
+api = FastAPI()
 
+@serve.deployment(
+    num_replicas="auto",
+    autoscaling_config={
+        "min_replicas": 2,
+        "max_replicas": 20,
+        "target_ongoing_requests": 5,   # escala si > 5 reqs/replica
+        "upscale_delay_s": 30,
+        "downscale_delay_s": 300,
+    },
+    ray_actor_options={"num_gpus": 1},
+    max_ongoing_requests=10,
+)
+@serve.ingress(api)
+class Classifier:
+    def __init__(self):
+        self.model = torch.jit.load("/models/clf.pt").cuda().eval()
 
-Model Serving Frameworks and Tools
-Building model serving infrastructure from scratch is complex. Fortunately, specialized frameworks handle much of the complexity, allowing you to focus on model logic rather than infrastructure concerns.
+    @api.post("/predict")
+    async def predict(self, text: str):
+        with torch.no_grad():
+            return {"score": float(self.model(encode(text)).item())}
 
-TensorFlow Serving is purpose-built for serving TensorFlow models. It handles model loading, versioning, batching, and monitoring out of the box. You export your TensorFlow model in SavedModel format, point TensorFlow Serving at the directory, and it automatically serves the model via REST and gRPC. When you deploy a new model version, TensorFlow Serving loads it alongside the old version and switches traffic seamlessly.
+serve.run(Classifier.bind(), route_prefix="/")
+```
 
-The batching feature is particularly valuable. TensorFlow Serving automatically batches multiple concurrent requests to maximize GPU utilization. You configure a maximum batch size and timeout. Requests arriving within the timeout window are batched together, processed efficiently, and results returned to individual callers. This transparent batching dramatically improves throughput without code changes.
+### NVIDIA Triton: dynamic batching declarativo
 
-TorchServe provides similar capabilities for PyTorch models. You package your model with custom preprocessing and postprocessing code into a model archive. TorchServe handles the serving infrastructure, including REST and gRPC endpoints, model versioning, metrics collection, and logging. The architecture is similar to TensorFlow Serving but designed for the PyTorch ecosystem.
+```protobuf
+# model_repository/sentiment/config.pbtxt
+name: "sentiment"
+backend: "pytorch"
+max_batch_size: 32
+input  [ { name: "input_ids" data_type: TYPE_INT64 dims: [ 512 ] } ]
+output [ { name: "logits"    data_type: TYPE_FP32 dims: [ 3 ] } ]
+dynamic_batching {
+    preferred_batch_size: [ 8, 16, 32 ]
+    max_queue_delay_microseconds: 50000   # 50ms max wait
+}
+instance_group [ { count: 2, kind: KIND_GPU } ]
+```
 
-For framework-agnostic serving, FastAPI combined with custom code provides maximum flexibility. FastAPI is a modern Python web framework that is fast, well-documented, and integrates easily with ML libraries. You write Python code that loads your model, defines API endpoints, and handles requests. This approach works with any ML framework and gives you complete control over request handling logic.
+Triton junta hasta 32 requests concurrentes esperando máx. 50 ms, los procesa en una sola llamada a la GPU, y devuelve las respuestas individualmente. Sin tocar código del modelo.
 
-The FastAPI approach is simpler for getting started and easier to customize but requires more code for features like batching and model versioning that specialized frameworks provide automatically. For rapid prototyping or unique requirements, FastAPI is excellent. For production systems serving standard models at scale, specialized frameworks save significant development time.
+### SageMaker endpoint con boto3
 
-NVIDIA Triton Inference Server is an enterprise-grade option supporting multiple frameworks (TensorFlow, PyTorch, ONNX, TensorRT) in a single server. Triton provides advanced features like dynamic batching, model ensembles, and concurrent model execution. It is optimized for NVIDIA GPUs and includes monitoring and metrics. For organizations with diverse models and serious performance requirements, Triton provides comprehensive capabilities.
+```python
+import boto3, json
 
-Cloud provider solutions like AWS SageMaker, Google AI Platform, and Azure Machine Learning include managed serving infrastructure. You upload your model, configure instance types and scaling policies, and the platform handles everything else. These solutions work well if you are already invested in a cloud ecosystem and value managed services over infrastructure control.
+sm = boto3.client("sagemaker")
+sm.create_model(
+    ModelName="sentiment-v1-3-0",
+    PrimaryContainer={
+        "Image": "763104351884.dkr.ecr.us-east-1.amazonaws.com/pytorch-inference:2.3.0-gpu",
+        "ModelDataUrl": "s3://my-models/sentiment-v1.3.0.tar.gz",
+    },
+    ExecutionRoleArn="arn:aws:iam::...:role/SageMakerRole",
+)
 
-The choice depends on your requirements and constraints. For a small team deploying a few models, FastAPI might be the fastest path to production. For a team at scale with many models, TensorFlow Serving or TorchServe provides better operational efficiency. For maximum performance and flexibility, Triton is worth the learning curve.
+sm.create_endpoint_config(
+    EndpointConfigName="sentiment-prod-cfg",
+    ProductionVariants=[{
+        "VariantName": "v130", "ModelName": "sentiment-v1-3-0",
+        "InitialInstanceCount": 2, "InstanceType": "ml.g5.xlarge",
+        "InitialVariantWeight": 1.0,
+    }],
+)
+sm.create_endpoint(EndpointName="sentiment-prod", EndpointConfigName="sentiment-prod-cfg")
 
-Load Balancing and Concurrent Request Handling
-Serving a single model from one server is straightforward. Serving high-volume traffic reliably requires load balancing, health checks, and strategies for handling concurrent requests.
+# Invocar
+runtime = boto3.client("sagemaker-runtime")
+resp = runtime.invoke_endpoint(
+    EndpointName="sentiment-prod",
+    ContentType="application/json",
+    Body=json.dumps({"text": "excellent product"}),
+)
+print(json.loads(resp["Body"].read()))
+```
 
-Load balancing distributes incoming requests across multiple model servers. This provides redundancy (if one server fails, others continue), higher throughput (multiple servers handle more requests), and better resource utilization (spread load evenly). Without load balancing, a single server handles all traffic and becomes a bottleneck and single point of failure.
+### Cliente gRPC
 
-The simplest load balancing uses round-robin: distribute requests to servers in order. Server 1, Server 2, Server 3, Server 1, and so on. This works well when all servers have similar capacity and requests have similar costs. However, some requests might be more expensive than others (larger inputs, harder predictions), causing uneven load.
+```python
+# Después de compilar protobufs: python -m grpc_tools.protoc ...
+import grpc, inference_pb2, inference_pb2_grpc
 
-Least-connections load balancing sends requests to the server currently handling the fewest active requests. This balances load more effectively when request costs vary. If Server 1 is busy with a slow request while Server 2 is idle, new requests go to Server 2. This prevents overloading busy servers.
+channel = grpc.insecure_channel("model-server:50051", options=[
+    ("grpc.max_send_message_length", 100 * 1024 * 1024),
+    ("grpc.keepalive_time_ms", 30_000),
+])
+stub = inference_pb2_grpc.PredictorStub(channel)
+resp = stub.Predict(inference_pb2.PredictRequest(text="great movie"), timeout=1.0)
+print(resp.label, resp.confidence)
+```
 
-Health checks ensure load balancers only send traffic to healthy servers. The load balancer periodically queries each server (every 10 seconds, for example). If a server fails to respond or returns an error, the load balancer stops sending traffic to it. When the server recovers and passes health checks, traffic resumes. This automatic failure handling is essential for reliable systems.
+### Patrones de robustez
 
-Health check endpoints should verify that the model is loaded and functional, not just that the server is running. A simple implementation returns 200 OK if the model can make a prediction on test input. This catches failures like corrupted models, out of memory errors, or dependency problems that would otherwise cause failed predictions.
+- **Dynamic batching:** `max_batch_size=32`, `max_queue_delay=50ms`. Balance latencia/throughput.
+- **Connection pooling cliente:** reusa HTTP/gRPC channels, evita handshakes TCP+TLS por request.
+- **Timeouts cliente y servidor:** típico 1-5 s para inferencia, 100 ms para feature lookup.
+- **Rate limiting:** por API key, token bucket o sliding window con Redis.
+- **Circuit breaker:** abre al 50% error rate con mín. 20 requests; cerrado tras 30 s con probes.
+- **Graceful shutdown:** SIGTERM → stop accepting → drena in-flight → exit (K8s terminationGracePeriodSeconds=60).
 
-Connection pooling on clients improves performance by reusing connections rather than creating new ones for each request. Establishing a TCP connection, TLS handshake, and HTTP connection for each request adds significant overhead. Connection pools maintain persistent connections that handle multiple requests. This reduces latency and improves throughput.
+### Tabla comparativa de frameworks
 
-Concurrent request handling allows a single server to process multiple requests simultaneously. For IO-bound operations like database queries, concurrency is straightforward using async programming or threading. For compute-bound operations like model inference on GPUs, concurrency requires batching. The model server queues incoming requests and processes them in batches to maximize GPU utilization.
+| Framework | Workload ideal | Autoscaling | Dyn. batching | OpenAI API | Multi-model | GPU utilization típica |
+|---|---|---|---|---|---|---|
+| FastAPI puro | Prototipos, custom | Manual | No | No | Manual | 20-40% |
+| vLLM | LLMs | Externo (K8s) | Continuous | Sí | No | 70-90% |
+| TGI | LLMs | Externo | Sí | Parcial | No | 60-80% |
+| Triton | Multi-framework prod | Externo | Sí (configurable) | No | Sí | 70-90% |
+| Ray Serve | Grafos, Python-first | Nativo | Sí | No | Sí | 50-80% |
+| BentoML | DevEx, portabilidad | Externo | Sí | No | Sí | 50-75% |
+| TorchServe | PyTorch estándar | Externo | Sí | No | Sí | 50-70% |
+| TF Serving | TensorFlow estándar | Externo | Sí | No | Sí | 50-70% |
+| Modal | Serverless rápido | Nativo | Limitado | No | Sí | Variable |
+| Replicate | Demos públicas | Nativo | Limitado | No | Sí | Variable |
+| SageMaker | Managed AWS | Nativo | Sí | No | Sí (MME) | 50-75% |
 
-Implementing dynamic batching requires balancing latency and throughput. Larger batches improve throughput but increase latency because requests wait for the batch to fill. Smaller batches reduce latency but decrease throughput. A typical strategy uses a maximum batch size (32) and maximum wait time (50ms). The server collects requests for up to 50ms or until 32 requests arrive, whichever comes first, then processes the batch.
+### Fórmulas útiles
 
-Timeouts prevent slow requests from consuming resources indefinitely. Set timeouts on both client and server. The client timeout specifies how long to wait for a response before giving up. The server timeout specifies how long to process a request before canceling it. Reasonable timeouts (a few seconds) prevent cascading failures and resource exhaustion.
+**Throughput de LLM:**
 
-Rate limiting protects servers from overload. You might limit each API key to 1,000 requests per minute or limit overall server load to 10,000 requests per second. When limits are exceeded, return 429 Too Many Requests. This prevents abuse and ensures fair resource allocation. Implementing rate limiting using tools like Redis makes it efficient and scalable.
+```
+tokens_por_segundo = batch_size × promedio_tokens_por_request / tiempo_batch_s
+```
 
-Circuit breakers detect when a downstream service is failing and stop sending requests temporarily. If your model server depends on a feature service that starts failing, a circuit breaker detects the failures and returns errors immediately rather than waiting for timeouts. After a cooldown period, the circuit breaker allows test requests to check if the service recovered. This pattern prevents cascading failures.
+**Utilización de GPU:**
 
-Summary
-Model serving architecture choices include REST versus gRPC for API protocols, specialized frameworks like TensorFlow Serving or general frameworks like FastAPI, and careful design of load balancing and concurrent request handling. REST provides accessibility and ease of integration while gRPC provides performance for high-throughput scenarios.
+```
+GPU_util = tiempo_activo_inferencia / tiempo_total_wallclock
+# Objetivo: >70% para no desperdiciar. Si <40%, aumenta concurrencia o batch.
+```
 
-Specialized serving frameworks handle batching, versioning, and monitoring automatically, saving development time. Load balancing with health checks provides redundancy and higher throughput. Dynamic batching, connection pooling, timeouts, rate limiting, and circuit breakers are essential patterns for reliable, performant serving infrastructure.
+**Replicas necesarias:**
 
-Key concepts to remember
-REST versus gRPC - REST APIs provide universal accessibility and ease of debugging while gRPC provides 2-5x better performance for high-throughput scenarios
-Specialized Frameworks - TensorFlow Serving and TorchServe provide automatic batching, versioning, and monitoring, reducing custom infrastructure code
-High Availability - Load balancing with health checks ensures high availability by distributing traffic and routing around failed servers
-Dynamic Batching - Dynamic batching balances latency and throughput by collecting multiple requests before GPU processing
-Production Safeguards - Timeouts, rate limiting, and circuit breakers are essential for reliable serving under varying load conditions
+```
+replicas = ceil( (peak_rps × latencia_promedio_s) / max_concurrent_por_replica × safety_factor )
+# safety_factor típico: 1.3 - 1.5
+```
+
+## Ejemplo con código
+
+Un stack completo real-time con FastAPI + circuit breaker + rate limit + Prometheus:
+
+```python
+from fastapi import FastAPI, Request, HTTPException
+from prometheus_client import Counter, Histogram, make_asgi_app
+import pybreaker, redis.asyncio as redis, time
+
+app = FastAPI()
+app.mount("/metrics", make_asgi_app())
+
+REQS = Counter("requests_total", "", ["endpoint", "status"])
+LAT = Histogram("latency_seconds", "", ["endpoint"],
+                buckets=[0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5])
+
+breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=30)
+rds = redis.Redis(host="redis", decode_responses=True)
+
+async def check_rate_limit(api_key: str, limit: int = 1000, window: int = 60):
+    key = f"rl:{api_key}:{int(time.time() // window)}"
+    count = await rds.incr(key)
+    if count == 1:
+        await rds.expire(key, window)
+    if count > limit:
+        raise HTTPException(429, "Rate limit exceeded")
+
+@app.middleware("http")
+async def observability(request: Request, call_next):
+    t0 = time.perf_counter()
+    response = await call_next(request)
+    LAT.labels(request.url.path).observe(time.perf_counter() - t0)
+    REQS.labels(request.url.path, response.status_code).inc()
+    return response
+
+@breaker
+async def call_feature_store(user_id: str):
+    """Protegido por circuit breaker: si feature store cae, falla rápido."""
+    ...
+
+@app.post("/predict")
+async def predict(req: dict, request: Request):
+    await check_rate_limit(request.headers.get("x-api-key", "anon"))
+    try:
+        features = await call_feature_store(req["user_id"])
+    except pybreaker.CircuitBreakerError:
+        # Graceful degradation: usa features default + modelo fallback
+        return {"score": 0.5, "degraded": True}
+    return {"score": run_inference(features)}
+```
+
+## Errores comunes
+
+- **Elegir gRPC "porque es rápido" sin medir.** Para payloads pequeños y 100 req/s, REST+JSON cuesta ~1 ms extra: insignificante. Solo justifica gRPC si pasa de 1000 req/s o payloads multi-MB.
+- **FastAPI puro para LLMs.** Sin continuous batching, un LLM-7B rinde ~5-15 req/s; con vLLM el mismo hardware da 100-300 req/s.
+- **No warmup del modelo.** La primera inferencia JIT-compila kernels CUDA y tarda 5-30 s. Los primeros 100 requests dan timeouts.
+- **No health y readiness checks separados.** K8s manda traffic con liveness OK pero modelo aún cargando → 503s en cadena.
+- **GPU OOM sin graceful degradation.** Un input muy grande revienta memoria y mata el pod. Mitiga con `torch.cuda.empty_cache()`, límites de tokens y batching defensivo.
+- **Sin circuit breaker a dependencias.** Si feature store cae, cada request espera 30 s de timeout, el pool se agota, cascada total.
+- **Rate limit en memoria sin Redis compartido.** Con N replicas, cada una tiene su propio contador → N × limit permitido en realidad.
+- **Logging sincrónico pesado.** `logger.info(json.dumps(huge_payload))` en cada request mata la latencia. Logea asíncrono y muestreado.
+- **No versionar en path (/v1/predict).** Un breaking change rompe todos los clientes. Siempre versionar.
+- **No implementar graceful shutdown.** Deployment rolling mata pods a mitad de inferencia → requests perdidos. Captura SIGTERM y drena in-flight.
+
+## Contexto industrial
+
+- **OpenAI y Anthropic** sirven sus APIs con stacks propietarios inspirados en Triton + vLLM. La API es REST, pero internamente usan gRPC entre servicios.
+- **Hugging Face Inference Endpoints** usan TGI por default; permiten elegir vLLM para throughput extremo.
+- **Together AI, Anyscale, Fireworks** operan vLLM a escala con continuous batching + speculative decoding.
+- **Google** usa TensorFlow Serving + Triton para producción interna; Vertex AI expone endpoints managed.
+- **Meta** opera stacks propios (fbgemm, AITemplate) con gRPC entre servicios internos.
+- **Netflix** usa Metaflow + custom serving para batch; TensorFlow Serving para real-time.
+- **Pinterest y Lyft** son usuarios heavy de Envoy + gRPC entre microservicios.
+
+## Resumen
+
+- **REST** gana en accesibilidad y debug; **gRPC** gana en throughput y payloads grandes. Hybrid (REST externo, gRPC interno) es común en producción.
+- Los **frameworks especializados** (vLLM, TGI, Triton, Ray Serve) resuelven batching, versionado, autoscaling y métricas que escribir a mano cuesta meses.
+- **vLLM** es el estándar actual para LLMs open-source; **Triton** para multi-framework enterprise.
+- **Dynamic batching** y **continuous batching** son la diferencia entre 20% y 90% de utilización GPU.
+- Toda API de producción necesita: validación (Pydantic), health/readiness checks, timeouts, rate limiting, circuit breakers, graceful shutdown, métricas Prometheus y logging estructurado.
+- **Warmup del modelo** en startup elimina el cold start y evita 503s durante autoscaling.
+- Mide siempre: **p50/p95/p99 latencia**, **throughput**, **GPU utilization**, **error rate**, **circuit breaker state**.
+- La elección final depende de: tamaño del modelo (LLM → vLLM), ecosistema (AWS → SageMaker), control deseado (K8s → Triton/Ray) y DevEx (BentoML, Modal).

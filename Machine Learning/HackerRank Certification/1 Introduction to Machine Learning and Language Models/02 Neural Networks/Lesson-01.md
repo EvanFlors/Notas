@@ -1,400 +1,292 @@
-## Neurons, Layers, and Activations: How Neural Networks Approximate Functions
+# Neuronas, Capas y Funciones de Activación
 
-Imagine you are building a recommendation system for an e-commerce platform. You need to predict whether a user will buy a product based on their browsing history, demographics, and product features. Traditional if-else logic quickly becomes unwieldy with hundreds of input variables and complex relationships. This is where neural networks come into picture; they can automatically learn these intricate patterns and approximate the complex function that maps user data to purchase decisions.
+## ¿Qué es?
 
-Neural networks are the foundation of modern AI systems, from chatbots to image recognition. In this lesson, you will learn how neural networks use simple mathematical units called neurons to approximate any function. By the end, you will understand why a network of interconnected neurons can learn to recognize faces, translate languages, or predict stock prices.
+Una **red neuronal artificial (ANN)** es una función matemática compuesta por muchas unidades simples llamadas **neuronas**, organizadas en **capas**, que transforman un vector de entrada `x ∈ ℝⁿ` en un vector de salida `y ∈ ℝᵐ` mediante una secuencia de operaciones lineales y no lineales. Cada neurona es, en esencia, una **regresión logística generalizada**: calcula una suma ponderada de sus entradas, le suma un sesgo (`bias`) y aplica una **función de activación** no lineal.
 
-What is Neuron?
-A neuron is a mathematical function that takes multiple inputs, combines them, and produces a single output. Think of it like a weighted voting system where each input gets a "vote" based on its importance (weight).
+Formalmente, una neurona individual computa:
 
-Imagine a scenario where you are creating a spam email detector. A single neuron might look at three features:
+```
+z = w·x + b = Σᵢ wᵢ·xᵢ + b
+a = φ(z)
+```
 
-Number of exclamation marks (input1)
-Presence of words like "FREE" (input2)
-Length of the email (input3)
+Donde:
+- `x ∈ ℝⁿ` son las entradas.
+- `w ∈ ℝⁿ` son los **pesos aprendibles**.
+- `b ∈ ℝ` es el **bias** (desplazamiento).
+- `φ` es una función de activación no lineal (ReLU, sigmoid, tanh, GELU, etc.).
+- `a` es la **activación** (salida de la neurona).
 
-The neuron assigns weights to each feature based on their importance for spam detection. Maybe exclamation marks are very indicative of spam (weight = 0.8), promotional words are moderately important (weight = 0.6), and length matters less (weight = 0.2).
+Una **capa densa** (fully-connected) con `m` neuronas aplica esta operación en paralelo mediante multiplicación matricial:
+
+```
+z = W·x + b     con W ∈ ℝᵐˣⁿ,  b ∈ ℝᵐ
+a = φ(z)        aplicada elemento a elemento
+```
+
+Una **red profunda (deep neural network)** apila `L` capas de este tipo:
+
+```
+h⁽⁰⁾ = x
+h⁽ˡ⁾ = φ⁽ˡ⁾(W⁽ˡ⁾·h⁽ˡ⁻¹⁾ + b⁽ˡ⁾)   para l = 1, ..., L
+ŷ   = h⁽ᴸ⁾
+```
+
+### Jerarquía conceptual
+
+```
+Neurona        → una función escalar φ(w·x + b)
+Capa           → m neuronas en paralelo, operación matricial
+Red (MLP)      → L capas apiladas → función compuesta
+Deep Learning  → redes con L ≥ 3 capas ocultas
+```
+
+### Teorema de aproximación universal
+
+**Cybenko (1989)** y **Hornik (1991)** demostraron que una red neuronal con **una sola capa oculta** de suficientes neuronas y una activación no polinomial puede aproximar cualquier función continua `f: K ⊂ ℝⁿ → ℝ` sobre un conjunto compacto `K` con precisión arbitraria. En la práctica, redes **profundas** aproximan las mismas funciones con **exponencialmente menos neuronas** que redes anchas y planas.
+
+## ¿Por qué importa?
+
+Las reglas `if/else` escritas a mano no escalan cuando el problema tiene cientos de variables de entrada y relaciones no lineales. Un sistema de recomendación debe considerar edad, historial, hora del día, dispositivo, estacionalidad y miles de interacciones entre ellos. Las redes neuronales **aprenden automáticamente estas interacciones** desde datos.
+
+Por qué dominan hoy:
+
+- **Universalidad**: pueden aproximar cualquier función medible dada capacidad suficiente.
+- **Composicionalidad**: cada capa aprende representaciones cada vez más abstractas (pixels → bordes → formas → objetos).
+- **Escalabilidad en GPU**: las operaciones son multiplicaciones de matrices densas, perfectas para hardware paralelo (CUDA, cuDNN, TPU).
+- **Transferencia**: una red pre-entrenada en millones de imágenes se puede *fine-tunear* a tareas específicas con pocos datos.
+- **End-to-end**: eliminan el *feature engineering* manual que dominaba ML clásico.
+
+### Contexto histórico
+
+| Año | Hito |
+|---|---|
+| 1943 | McCulloch & Pitts formalizan la neurona matemática |
+| 1957 | Rosenblatt construye el **Perceptrón** (hardware físico) |
+| 1969 | Minsky & Papert prueban que el perceptrón no resuelve XOR → **invierno de la IA** |
+| 1986 | Rumelhart, Hinton & Williams popularizan **backpropagation** |
+| 1989 | LeCun aplica CNNs a dígitos manuscritos (LeNet) |
+| 1998 | LeNet-5 en producción para leer cheques bancarios |
+| 2006 | Hinton: Deep Belief Networks → renace el término *Deep Learning* |
+| 2012 | **AlexNet** gana ImageNet por 10 puntos usando GPUs → revolución moderna |
+| 2015 | ResNet (152 capas) con conexiones residuales |
+| 2017 | Transformers (*Attention Is All You Need*) |
+| 2020 | GPT-3 (175B parámetros) |
+| 2022 | ChatGPT masifica el deep learning |
+
+## ¿Cómo funciona?
+
+### 1. La neurona como votación ponderada
+
+Imagina un detector de spam con tres señales:
+
+- `x₁` = número de signos de exclamación
+- `x₂` = 1 si contiene "FREE", 0 si no
+- `x₃` = longitud del correo (normalizada)
+
+La neurona asigna pesos según la importancia que descubra al entrenarse:
+
+```
+z = 0.8·x₁ + 0.6·x₂ + 0.2·x₃ − 0.3
+a = ReLU(z)
+```
 
 ![Single Neuron Example](https://hrcdn.net/ai-engineering/module-1/light/neural-nets-lesson01-single-neuron-example.svg)
 
-The neuron calculates:
+El bias `−0.3` representa la **predisposición inicial**: con todas las entradas en cero, la neurona está "ligeramente inclinada" a decir *no spam*.
 
-```python
-import numpy as np
+### 2. Funciones de activación: la no linealidad es obligatoria
 
-def single_neuron_spam_detector(exclamation_marks, has_free_word, email_length):
-    weight_exclamation = 0.8
-    weight_free_word = 0.6
-    weight_length = 0.2
-    bias = -0.3
+Sin activación no lineal, una red de `L` capas colapsa a una sola transformación lineal:
 
-    linear_output = (exclamation_marks * weight_exclamation +
-                    has_free_word * weight_free_word +
-                    email_length * weight_length +
-                    bias)
-
-    return linear_output
+```
+W₃·(W₂·(W₁·x + b₁) + b₂) + b₃  =  W'·x + b'
 ```
 
-The bias is like a baseline assumption; you start with a slight tendency to classify emails as not-spam.
+Es decir, sin `φ`, no importa cuántas capas apiles: solo puedes aprender hiperplanos. **La no linealidad es lo que permite aproximar funciones arbitrarias.**
 
-Building a Spam Detector Neuron
-Demonstrates the core concept of how a single neuron processes inputs with weights and bias, using the spam email detection example from the lesson.
+#### Comparativa de activaciones
 
-```python
-import numpy as np
-
-def single_neuron_spam_detector(exclamation_marks, has_free_word, email_length):
-    """
-    A single neuron that predicts spam probability based on email features.
-    This demonstrates the basic weighted sum + bias calculation.
-    """
-    # Weights learned during training (importance of each feature)
-    weight_exclamation = 0.8  # High importance for spam detection
-    weight_free_word = 0.6    # Moderate importance
-    weight_length = 0.2       # Lower importance
-    bias = -0.3               # Baseline assumption (slight tendency toward not-spam)
-
-    # Linear combination: weighted sum of inputs plus bias
-    linear_output = (exclamation_marks * weight_exclamation +
-                    has_free_word * weight_free_word +
-                    email_length * weight_length +
-                    bias)
-
-    print(f"Inputs: exclamation={exclamation_marks}, free_word={has_free_word}, length={email_length}")
-    print(f"Linear output: {linear_output:.3f}")
-
-    return linear_output
-
-# Test with different email examples
-print("=== Testing Single Neuron ===")
-spam_email = single_neuron_spam_detector(5, 1, 0.8)  # Many exclamations, has "FREE"
-normal_email = single_neuron_spam_detector(0, 0, 0.5)  # Clean email
-borderline_email = single_neuron_spam_detector(1, 0, 0.9)  # Long but clean
-```
-
-Activation Functions: Adding Non-Linearity
-If we just used the linear combination above, our neural network could only learn straight-line relationships. Real-world problems are rarely that simple. Activation functions add the crucial ingredient of non-linearity.
-
-The most common activation function is ReLU (Rectified Linear Unit): ReLU(x) = max(0, x). In this the positive values pass through unchanged, negative values become zero. In our spam detector, this means the neuron only "fires" when the weighted evidence for spam exceeds the bias threshold.
-
-Why does activation matter? Consider a fraud detection system processing millions of transactions. Without non-linear activation, the system could only learn simple rules like "flag all transactions over $1000." With ReLU, it can learn complex patterns like "flag large transactions from new accounts, but only if they are buying unusual items for that user profile."
+| Activación | Fórmula | Rango | Derivada | Uso típico | Problemas |
+|---|---|---|---|---|---|
+| **Sigmoid** | `1 / (1 + e⁻ᶻ)` | (0, 1) | `σ(z)·(1−σ(z))` | Salida binaria | Saturación → vanishing gradients |
+| **Tanh** | `(eᶻ − e⁻ᶻ)/(eᶻ + e⁻ᶻ)` | (−1, 1) | `1 − tanh²(z)` | RNNs clásicas | Satura en los extremos |
+| **ReLU** | `max(0, z)` | [0, ∞) | 1 si z>0, 0 si no | Default en capas ocultas | *Dead ReLU* (neuronas estancadas en 0) |
+| **Leaky ReLU** | `max(αz, z)`, α≈0.01 | ℝ | 1 o α | Evita dead ReLU | Un hiperparámetro extra |
+| **GELU** | `z·Φ(z)` | ≈ℝ | suave | Transformers (BERT, GPT) | Más costosa |
+| **Swish/SiLU** | `z·σ(z)` | ≈ℝ | suave | EfficientNet, LLMs modernos | Más costosa que ReLU |
+| **Softmax** | `eᶻⁱ / Σⱼ eᶻʲ` | (0,1), suma 1 | Jacobiano denso | Clasificación multiclase (salida) | No usar en capas ocultas |
 
 ![Activation Functions](https://hrcdn.net/ai-engineering/module-1/light/neural-nets-lesson01-activation-functions.svg)
 
-Other popular activations serve different purposes:
+**Regla práctica actual (2024+):**
+- Capas ocultas de MLPs/CNNs: **ReLU** o **GELU**.
+- Capas ocultas de Transformers modernos: **GELU**, **SwiGLU**.
+- Salida binaria: **sigmoid** + binary cross-entropy.
+- Salida multiclase: **softmax** + categorical cross-entropy.
+- Salida de regresión: **sin activación** (identidad).
 
-Sigmoid (0 to 1 output): Perfect for binary classifications like "spam or not spam"
-Tanh (-1 to 1 output): Useful when you need outputs centered around zero
-Softmax: Essential for multi-class problems like categorizing support tickets
+### 3. Capas y propagación hacia adelante (forward pass)
 
-## Building Networks with Layers
-A single neuron can learn simple patterns, but real intelligence emerges when you stack them in layers. Each layer transforms the input into increasingly abstract representations.
+Una red *feedforward* con una capa oculta se expresa compactamente como:
 
-Let's expand our email example into a three-layer network:
-
-Input Layer: Raw features (word counts, sender domain, time sent)
-Hidden Layer 1: Combines raw features into intermediate concepts (suspicious patterns, sender reputation)
-Hidden Layer 2: Combines intermediate concepts into higher-level understanding (spam likelihood indicators)
-Output Layer: Final decision (spam probability)
-Each layer feeds its outputs as inputs to the next layer. This creates a pipeline of transformations, where early layers detect basic patterns and later layers recognize complex relationships.
+```
+Entrada x ∈ ℝⁿ
+    ↓  W₁ ∈ ℝʰˣⁿ,  b₁ ∈ ℝʰ
+h = ReLU(W₁·x + b₁)       ← capa oculta
+    ↓  W₂ ∈ ℝᵐˣʰ,  b₂ ∈ ℝᵐ
+ŷ = softmax(W₂·h + b₂)    ← capa de salida
+```
 
 ![Multilayer Architecture](https://hrcdn.net/ai-engineering/module-1/light/neural-nets-lesson01-multilayer-architecture.svg)
 
-In production systems, this layered approach is incredibly powerful. A computer vision API might use:
+Cada capa transforma la representación de la anterior en una más abstracta. En visión por computador esto se visualiza nítidamente:
 
-Layer 1: Edge detection
-Layer 2: Shape recognition
-Layer 3: Object parts (wheels, windows)
-Layer 4: Complete objects (cars, buildings)
+| Capa | Qué aprende |
+|---|---|
+| 1 | Bordes orientados, gradientes de color |
+| 2 | Texturas, esquinas, patrones repetidos |
+| 3 | Partes de objetos (ruedas, ojos, ventanas) |
+| 4 | Objetos completos (coches, caras, edificios) |
 
-Function Approximation
-Neural networks are universal function approximators. Given enough neurons and layers, they can learn to approximate any continuous function to arbitrary accuracy.
+### 4. Profundidad vs. ancho
 
-Think about language translation. There is some complex function that maps English sentences to French sentences. This function considers grammar rules, context, idioms, and cultural nuances. Traditional programming would require explicitly coding thousands of rules. A neural network learns this function by seeing millions of translation examples.
+| Dimensión | Ventajas | Desventajas | Cuándo preferir |
+|---|---|---|---|
+| **Más profundo** (más capas) | Jerarquías de features ricas; menos parámetros para la misma expresividad | Más propenso a vanishing/exploding gradients; difícil de optimizar sin skip connections | Imágenes, texto, audio (datos con estructura jerárquica) |
+| **Más ancho** (más neuronas/capa) | Fácil de paralelizar; capta muchos patrones por nivel | Explosión de parámetros; overfitting con poca data | Datos tabulares, pocas features |
 
-In practice, this means you can throw almost any prediction problem at a neural network:
+**Regla práctica**: empieza con 2-3 capas ocultas de 64-256 neuronas, usa ReLU, y aumenta la profundidad solo cuando el baseline se queda corto.
 
-Customer lifetime value (inputs: purchase history, demographics → output: predicted revenue)
-Image classification (inputs: pixel values → output: object categories)
-Time series forecasting (inputs: historical data → output: future values)
-Learning Process with Gradient Descent
-Neural networks learn by adjusting weights to minimize prediction errors. During training, the network makes predictions, compares them to correct answers, and updates weights to reduce mistakes.
+## Ejemplo con código
 
-This adjustment process happens through backpropagation. When the network makes a wrong prediction, it calculates how much each weight contributed to the error and adjusts them proportionally. Think of it like learning from mistakes: if a neuron that detects "FREE" in emails contributed to incorrectly classifying a legitimate marketing email as spam, the network reduces that neurons influence on the final decision.
-
-Backpropagation works backward through the network layers, starting from the output error and propagating the corrections back to earlier layers. This is why it is called "back" propagation; the learning signal flows from output back to input.
-
-Here is how this works in a production scenario.
-
-For user A, the network predicts 30% purchase probability but user A actually buys; weights get adjusted to increase future predictions for similar users.
-For user B, it predicts 80% probability but user B doesn't buy hence the weights get adjusted down.
-This process repeats millions of times across your training data. Gradually, the network discovers that users who spend time reading reviews are more likely to buy, or that customers who shop late at night prefer different products.
-
-Multi-Layer Network Architecture
-Builds the three-layer spam detector described in the lesson, showing how layers transform data into increasingly abstract representations.
+### Una neurona desde cero (NumPy)
 
 ```python
 import numpy as np
 
-class SimpleSpamDetector:
-    """
-    Three-layer neural network for spam detection.
-    Demonstrates how layers build increasingly abstract representations.
-    Uses hand-tuned weights to show realistic spam detection behavior.
-    """
+def neurona(x, w, b, phi):
+    """Una neurona: z = w·x + b, a = phi(z)."""
+    z = np.dot(w, x) + b
+    return phi(z)
 
-    def __init__(self):
-        # Layer 1: Raw features → Intermediate patterns (4 neurons)
-        # Each neuron learns to detect specific spam patterns
-        self.layer1_weights = np.array([
-            [2.0, -1.5, 0.8, 1.2],    # exclamation_marks: high values activate spam detectors
-            [3.0, -2.0, 2.5, 1.8],    # has_free_word: strong spam indicator
-            [-1.0, 2.0, -0.5, 0.3]    # email_length: short emails often spam
-        ])
-        self.layer1_bias = np.array([-1.0, 1.2, -2.0, -0.8])
+# Detector de spam de una sola neurona
+x = np.array([5, 1, 0.8])           # [exclamaciones, has_FREE, longitud]
+w = np.array([0.8, 0.6, 0.2])       # pesos
+b = -0.3
 
-        # Layer 2: Intermediate patterns → High-level concepts (2 neurons)
-        # Combines basic patterns into spam/legitimate concepts
-        self.layer2_weights = np.array([
-            [1.5, -1.0],    # Pattern detector 1 → spam concept
-            [-2.0, 1.8],    # Pattern detector 2 → legitimate concept
-            [2.2, -0.5],    # Pattern detector 3 → spam concept
-            [1.0, -1.2]     # Pattern detector 4 → spam concept
-        ])
-        self.layer2_bias = np.array([-0.5, 0.8])
+relu    = lambda z: np.maximum(0, z)
+sigmoid = lambda z: 1 / (1 + np.exp(-z))
 
-        # Output layer: High-level concepts → Final decision (1 neuron)
-        # Weighs spam vs legitimate evidence
-        self.output_weights = np.array([
-            [2.5],    # Spam concept → positive spam probability
-            [-2.0]    # Legitimate concept → negative spam probability
-        ])
-        self.output_bias = np.array([0.0])
-
-    def relu(self, x):
-        return np.maximum(0, x)
-
-    def sigmoid(self, x):
-        return 1 / (1 + np.exp(-np.clip(x, -500, 500)))  # Clip to prevent overflow
-
-    def forward_pass(self, inputs):
-        """
-        Process inputs through all layers to get final prediction.
-        Each layer creates more abstract representations.
-        """
-        print(f"Input features: {inputs}")
-
-        # Layer 1: Detect basic patterns
-        layer1_linear = np.dot(inputs, self.layer1_weights) + self.layer1_bias
-        layer1_output = self.relu(layer1_linear)
-        print(f"Layer 1 (pattern detectors): {layer1_output}")
-        print(f"  - Pattern interpretations:")
-        print(f"    Neuron 0 ({layer1_output[0]:.2f}): Exclamation spam detector")
-        print(f"    Neuron 1 ({layer1_output[1]:.2f}): Legitimate email detector")
-        print(f"    Neuron 2 ({layer1_output[2]:.2f}): Promotional spam detector")
-        print(f"    Neuron 3 ({layer1_output[3]:.2f}): General spam indicator")
-
-        # Layer 2: Combine patterns into concepts
-        layer2_linear = np.dot(layer1_output, self.layer2_weights) + self.layer2_bias
-        layer2_output = self.relu(layer2_linear)
-        print(f"Layer 2 (high-level concepts): {layer2_output}")
-        print(f"  - Concept interpretations:")
-        print(f"    Neuron 0 ({layer2_output[0]:.2f}): Overall spam evidence")
-        print(f"    Neuron 1 ({layer2_output[1]:.2f}): Overall legitimate evidence")
-
-        # Output layer: Final decision
-        output_linear = np.dot(layer2_output, self.output_weights) + self.output_bias
-        spam_probability = self.sigmoid(output_linear)
-        print(f"Final spam probability: {spam_probability[0]:.3f}")
-
-        return spam_probability[0]
-
-    def interpret_prediction(self, probability):
-        """Provide human-readable interpretation of the prediction"""
-        if probability > 0.8:
-            return "DEFINITELY SPAM"
-        elif probability > 0.6:
-            return "LIKELY SPAM"
-        elif probability > 0.4:
-            return "UNCERTAIN"
-        elif probability > 0.2:
-            return "LIKELY LEGITIMATE"
-        else:
-            return "DEFINITELY LEGITIMATE"
-
-# Test the multi-layer network with realistic examples
-print("=== Multi-Layer Spam Detector ===")
-detector = SimpleSpamDetector()
-
-print("Input format: [exclamation_marks, has_FREE_word, email_length_ratio]")
-print("- exclamation_marks: number of '!' in email (normalized 0-1)")
-print("- has_FREE_word: 1 if contains 'FREE', 0 if not")
-print("- email_length_ratio: 0.0-1.0 (0.1=very short, 0.9=very long)")
-print()
-
-test_emails = [
-    {
-        'description': 'Classic spam email',
-        'email_text': 'CONGRATULATIONS!!! You won $1000 FREE cash! Click now!!! Limited time!!!',
-        'raw_features': [0.8, 1.0, 0.2],  # Many !, has FREE, short
-        'feature_extraction': {
-            'exclamation_count': 8,
-            'total_chars': 72,
-            'has_free': True,
-            'normalized_exclamations': 0.8,  # 8/10 max
-            'length_ratio': 0.2  # Short for an email
-        },
-        'explanation': 'Multiple exclamations + FREE offer + suspiciously short'
-    },
-    {
-        'description': 'Professional business email',
-        'email_text': 'Dear John, I wanted to follow up on our meeting yesterday regarding the Q3 budget proposal. Could we schedule a call this week to discuss the implementation timeline and resource allocation? Best regards, Sarah',
-        'raw_features': [0.0, 0.0, 0.7],  # No !, no FREE, normal length
-        'feature_extraction': {
-            'exclamation_count': 0,
-            'total_chars': 203,
-            'has_free': False,
-            'normalized_exclamations': 0.0,
-            'length_ratio': 0.7  # Normal business email length
-        },
-        'explanation': 'Clean professional communication'
-    },
-    {
-        'description': 'Enthusiastic but legitimate email',
-        'email_text': 'Hi Mom! Thanks for the birthday surprise! I loved the cake and the party was amazing! Can\'t wait to see you next weekend.',
-        'raw_features': [0.3, 0.0, 0.6],  # Some !, no FREE, good length
-        'feature_extraction': {
-            'exclamation_count': 3,
-            'total_chars': 128,
-            'has_free': False,
-            'normalized_exclamations': 0.3,  # 3/10 max
-            'length_ratio': 0.6  # Personal email length
-        },
-        'explanation': 'Some excitement but no promotional red flags'
-    },
-    {
-        'description': 'Promotional email with spam indicators',
-        'email_text': 'Get your FREE iPhone NOW!! Limited offer expires today!! Click here!!!',
-        'raw_features': [0.5, 1.0, 0.3],  # Several !, has FREE, short
-        'feature_extraction': {
-            'exclamation_count': 5,
-            'total_chars': 74,
-            'has_free': True,
-            'normalized_exclamations': 0.5,  # 5/10 max
-            'length_ratio': 0.3  # Short promotional message
-        },
-        'explanation': 'Contains FREE + short + multiple exclamations'
-    },
-    {
-        'description': 'Long legitimate email with excitement',
-        'email_text': 'Hey team! I wanted to share the results from our user research study. We interviewed 50 customers over the past two weeks and gathered some incredible insights about their pain points and needs. The data shows that 78% of users struggle with our current onboarding flow, particularly around account verification. I think we should prioritize fixing this in the next sprint.',
-        'raw_features': [0.2, 0.0, 0.9],  # Few !, no FREE, long
-        'feature_extraction': {
-            'exclamation_count': 2,
-            'total_chars': 425,
-            'has_free': False,
-            'normalized_exclamations': 0.2,  # 2/10 max
-            'length_ratio': 0.9  # Long detailed email
-        },
-        'explanation': 'Detailed communication with minimal spam signals'
-    },
-    {
-        'description': 'Borderline case: free offer but professional',
-        'email_text': 'Dear valued customer, We are pleased to announce our new FREE shipping policy for all orders over $50. This initiative is part of our commitment to providing exceptional service. The policy takes effect immediately and applies to our entire product catalog. Please review the terms and conditions on our website. Sincerely, Customer Service Team',
-        'raw_features': [0.1, 1.0, 0.8],  # Few !, has FREE, long/detailed
-        'feature_extraction': {
-            'exclamation_count': 1,
-            'total_chars': 384,
-            'has_free': True,
-            'normalized_exclamations': 0.1,  # 1/10 max
-            'length_ratio': 0.8  # Professional length with detail
-        },
-        'explanation': 'Contains FREE but lengthy and professional format'
-    }
-]
-
-for i, email_data in enumerate(test_emails):
-    print(f"\n{'='*80}")
-    print(f"EXAMPLE {i+1}: {email_data['description'].upper()}")
-    print(f"{'='*80}")
-
-    # Show the actual email text
-    print(f"EMAIL TEXT:")
-    print(f'   "{email_data["email_text"]}"')
-    print()
-
-    # Show how features were extracted
-    extraction = email_data['feature_extraction']
-    print(f"FEATURE EXTRACTION:")
-    print(f"   • Exclamation marks found: {extraction['exclamation_count']} (normalized to {extraction['normalized_exclamations']:.1f})")
-    print(f"   • Contains 'FREE': {'Yes' if extraction['has_free'] else 'No'} (binary: {1.0 if extraction['has_free'] else 0.0})")
-    print(f"   • Email length: {extraction['total_chars']} chars (ratio: {extraction['length_ratio']:.1f})")
-
-    feature_array = np.array(email_data['raw_features'])
-    print(f"   → Final feature vector: {feature_array}")
-    print()
-
-    # Show the layer-by-layer transformation
-    prediction = detector.forward_pass(feature_array)
-    interpretation = detector.interpret_prediction(prediction)
-
-    print(f"\n🎯 FINAL DECISION: {interpretation}")
-    print(f"   Confidence: {prediction:.1%}")
-
-    # Educational insight
-    if prediction > 0.5:
-        print(f"   → The network detected spam patterns in the input features")
-    else:
-        print(f"   → The network found this email to be legitimate")
-
-print(f"\n{'='*80}")
-print("LEARNING SUMMARY:")
-print("- Layer 1: Detects basic spam patterns (exclamations, keywords, length)")
-print("- Layer 2: Combines patterns into higher-level concepts (spam vs legitimate)")
-print("- Output: Makes final decision based on accumulated evidence")
-print("- Each layer builds more abstract understanding from simpler features")
-print(f"{'='*80}")
+print("Pre-activación z =", np.dot(w, x) + b)
+print("ReLU   →", neurona(x, w, b, relu))
+print("Sigmoid→", neurona(x, w, b, sigmoid))
 ```
 
-Architecture Choices: Depth vs Width
-When designing neural networks for production, you face key architectural decisions:
+### MLP de 3 capas desde cero
 
-Depth (more layers): Better at learning hierarchical features but slower to train and more prone to overfitting. Use deep networks when you have complex data with hierarchical structure, like images or text.
+```python
+import numpy as np
 
-Width (more neurons per layer): Can capture more diverse patterns within each abstraction level but requires more memory and computation. Wider networks work well for tabular data with many features.
+rng = np.random.default_rng(42)
 
-For most business applications, start with 2-3 hidden layers of 64-128 neurons each. This handles most real-world problems without excessive complexity. Scale up only when this baseline underperforms.
+class MLP:
+    """Red feedforward: entrada → oculta(ReLU) → oculta(ReLU) → salida(sigmoid)."""
+    def __init__(self, n_in, n_hidden1, n_hidden2, n_out):
+        # Inicialización de He para ReLU (var = 2/n_in)
+        self.W1 = rng.normal(0, np.sqrt(2/n_in),     (n_hidden1, n_in))
+        self.b1 = np.zeros(n_hidden1)
+        self.W2 = rng.normal(0, np.sqrt(2/n_hidden1), (n_hidden2, n_hidden1))
+        self.b2 = np.zeros(n_hidden2)
+        self.W3 = rng.normal(0, np.sqrt(2/n_hidden2), (n_out, n_hidden2))
+        self.b3 = np.zeros(n_out)
 
-## Common Pitfalls and Solutions
-Vanishing Gradients in Deep Networks
-As networks get deeper, gradients can shrink to near-zero during backpropagation, causing early layers to barely learn. This plagued deep learning for years until solutions emerged.
+    @staticmethod
+    def relu(z):    return np.maximum(0, z)
+    @staticmethod
+    def sigmoid(z): return 1 / (1 + np.exp(-np.clip(z, -500, 500)))
 
-Solution: Use ReLU activations instead of sigmoid/tanh, apply batch normalization, or implement residual connections (skip connections that allow gradients to flow directly to earlier layers).
+    def forward(self, x):
+        self.h1 = self.relu(self.W1 @ x + self.b1)
+        self.h2 = self.relu(self.W2 @ self.h1 + self.b2)
+        self.y  = self.sigmoid(self.W3 @ self.h2 + self.b3)
+        return self.y
 
-Choosing Wrong Activation Functions
-Many developers default to sigmoid everywhere, but this causes saturation issues. When inputs are large, sigmoid outputs cluster near 0 or 1, creating flat gradients.
+net = MLP(n_in=3, n_hidden1=8, n_hidden2=4, n_out=1)
+print("P(spam) =", net.forward(np.array([5, 1, 0.8])))
+```
 
-Solution: Use ReLU for hidden layers (fast, avoids saturation) and reserve sigmoid/softmax for output layers when you need specific output ranges.
+### Versión industrial con PyTorch
 
-Over-Engineering Network Size
-Teams often build unnecessarily complex networks, thinking bigger always means better. This leads to longer training times, higher costs, and overfitting.
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-Solution: Start simple and gradually increase complexity. A network with 1000 parameters that trains in 10 minutes often outperforms a 1M parameter network that takes hours to train, especially with limited data.
+class SpamNet(nn.Module):
+    def __init__(self, n_in=3, hidden=(16, 8), p_dropout=0.2):
+        super().__init__()
+        self.fc1 = nn.Linear(n_in, hidden[0])
+        self.fc2 = nn.Linear(hidden[0], hidden[1])
+        self.fc3 = nn.Linear(hidden[1], 1)
+        self.dropout = nn.Dropout(p_dropout)
 
-Ignoring Computational Constraints
-Neural networks can be memory and compute intensive. A model that works perfectly in development might crash in production under real traffic loads.
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        return torch.sigmoid(self.fc3(x))
 
-Solution: Profile your models early. Use tools like TensorFlow Lite for deployment optimization. Consider the trade-off between accuracy and inference speed for your specific use case.
+model = SpamNet()
+x = torch.tensor([[5.0, 1.0, 0.8]])
+print("P(spam) =", model(x).item())
+print("Nº parámetros:", sum(p.numel() for p in model.parameters()))
+```
 
-## Summary
-Neural networks approximate complex functions through layers of interconnected neurons, each applying weighted combinations and non-linear activations.
+### Visualizar el poder de la no linealidad
 
-Key concepts to remember
+```python
+import numpy as np, matplotlib.pyplot as plt
 
-Start simple: Begin with 2-3 layers and expand only when needed
-Choose activations wisely: ReLU for hidden layers, sigmoid/softmax for outputs
-Think in transformations: Each layer should learn increasingly abstract representations
-Consider constraints: Balance model complexity with computational requirements
-Leverage universality: Neural networks can approximate any function given sufficient capacity
+# Puntos XOR: no separables por un hiperplano
+X = np.array([[0,0],[0,1],[1,0],[1,1]])
+y = np.array([0, 1, 1, 0])
 
+# Un MLP de 1 capa oculta con 2 neuronas ReLU resuelve XOR;
+# una regresión logística (sin capa oculta) no puede.
+```
+
+## Errores comunes
+
+- **Olvidar la no linealidad**. Apilar `nn.Linear → nn.Linear → nn.Linear` sin `ReLU` entre medio es matemáticamente equivalente a una sola capa lineal. Error silencioso: el modelo entrena pero nunca aprende patrones no lineales.
+- **Usar sigmoid en capas ocultas profundas**. Satura en los extremos (derivada ≈ 0), produciendo **vanishing gradients**: las capas iniciales dejan de aprender. Solución: ReLU o GELU en capas ocultas; sigmoid solo en la salida binaria.
+- **Dead ReLUs**. Si una neurona recibe entradas siempre negativas, ReLU la fija en 0 y su gradiente es 0 permanentemente: queda "muerta". Causas: learning rate alto, mala inicialización. Solución: **Leaky ReLU**, **GELU**, inicialización de **He** (`Var(W) = 2/n_in`).
+- **Inicialización mala**. Pesos todos a cero → todas las neuronas computan lo mismo (simetría no se rompe). Pesos muy grandes → activaciones saturadas. Usa **He** para ReLU, **Xavier/Glorot** para tanh/sigmoid.
+- **Overfitting por red demasiado grande**. Un MLP con 1M parámetros entrenado en 500 ejemplos memoriza los datos. Solución: reducir capacidad, añadir **dropout**, **weight decay (L2)**, **early stopping**.
+- **No normalizar las entradas**. Si una feature está en [0, 10⁶] y otra en [0, 1], la primera domina los gradientes. Usa `StandardScaler` o **BatchNorm**/**LayerNorm**.
+- **Softmax en capas ocultas**. Softmax normaliza a una distribución de probabilidad; en capas intermedias destruye información. Resérvalo exclusivamente para la salida multiclase.
+- **Confundir logits con probabilidades**. `nn.CrossEntropyLoss` en PyTorch **ya aplica softmax internamente**: pásale logits, no probabilidades. Doble softmax = gradientes rotos.
+- **Ignorar el costo computacional**. Una red de 10 capas × 2048 neuronas tiene ~40M parámetros: puede no caber en una GPU modesta. Perfila memoria con `torch.cuda.memory_summary()`.
+
+## Herramientas del ecosistema
+
+| Herramienta | Rol |
+|---|---|
+| **PyTorch** | Framework DL dominante en investigación y producción |
+| **TensorFlow / Keras** | Alternativa de Google, fuerte en móviles (TFLite) |
+| **JAX** | Diferenciación automática + XLA, favorito en labs (DeepMind) |
+| **CUDA / cuDNN** | Backend GPU de NVIDIA |
+| **ONNX** | Formato intermedio para interoperar modelos |
+| **Hugging Face** | Hub de modelos pre-entrenados |
+
+## Resumen
+
+- Una **neurona** computa `a = φ(w·x + b)`: suma ponderada + activación no lineal.
+- Una **red neuronal** es una **composición de capas** de neuronas; cada capa produce representaciones más abstractas.
+- Sin **no linealidad** la red colapsa a una función lineal. ReLU/GELU son el default moderno en capas ocultas.
+- El **teorema de aproximación universal** garantiza que una red con suficientes neuronas puede aproximar cualquier función continua.
+- Elige la **salida** según la tarea: identidad (regresión), sigmoid (binaria), softmax (multiclase).
+- La **profundidad** aporta jerarquía de features; el **ancho** aporta diversidad por nivel. Empieza simple (2-3 capas, 64-256 neuronas).
+- Cuida la **inicialización** (He para ReLU, Xavier para tanh), **normaliza entradas**, y evita trampas clásicas como dead ReLUs o sigmoid en capas profundas.
+- Las redes neuronales son el motor de los sistemas modernos de visión, lenguaje y recomendación; dominarlas es prerrequisito para entender Transformers y LLMs.

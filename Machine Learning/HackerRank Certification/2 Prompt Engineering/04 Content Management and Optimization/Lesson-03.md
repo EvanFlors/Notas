@@ -1,239 +1,364 @@
-## Prompt Chaining for Complex Tasks
-When you ask an AI to analyze your company's quarterly performance, generate a marketing strategy, and create implementation timelines all in one prompt, you often get shallow results that miss critical details. This happens because even the most powerful AI models have limits on how much complexity they can handle effectively in a single interaction. The solution lies in prompt chaining—a technique that breaks complex tasks into manageable, sequential steps where each AI response becomes the foundation for the next prompt.
+# Prompt Chaining para Tareas Complejas
 
-Think of prompt chaining like conducting an orchestra. Instead of asking every musician to play their part simultaneously without coordination, you guide each section through their performance in the right sequence, building toward a harmonious final result. In this lesson, you will learn how to design and implement prompt chains that handle complex business problems, technical analysis, and multi-step workflows that single prompts simply cannot manage effectively.
+## ¿Qué es?
 
-Breaking Down Complex Tasks into Manageable Steps
-The foundation of effective prompt chaining starts with task decomposition—understanding how to break a large, complex goal into logical, sequential steps that an AI can handle individually. This process requires you to think like both a project manager and a systems architect, identifying natural breakpoints where one task's output becomes another's input.
+**Prompt chaining** es la técnica de descomponer una tarea compleja en una **secuencia de prompts más pequeños**, donde la salida de uno alimenta a los siguientes. En vez de pedirle al modelo "analiza el trimestre, diseña la estrategia y arma el plan de ejecución" en un solo tiro —y obtener resultados superficiales—, se encadenan pasos especializados, cada uno con un objetivo único.
 
-Consider a real-world scenario where you need to create a comprehensive competitor analysis for your product. A single prompt asking for "a complete competitor analysis" will produce generic, surface-level results. However, breaking this into a chain reveals the underlying complexity: first identify direct competitors, then analyze their product features, evaluate their pricing strategies, assess their marketing approaches, and finally synthesize findings into actionable insights.
+Formalmente, una cadena es una función composicional:
 
-The key to successful decomposition lies in identifying dependencies between steps. Some tasks must happen sequentially because later steps depend on earlier results, while others can potentially run in parallel. For the competitor analysis example, you must identify competitors before you can analyze their features, but once you have the competitor list, feature analysis and pricing research could happen simultaneously.
-
-Each step in your chain should have a clear, single focus. When a prompt tries to accomplish multiple objectives, it dilutes the AI's attention and reduces the quality of each component. Instead of asking "analyze competitor pricing and suggest our pricing strategy," break this into two distinct prompts: one for competitor pricing analysis and another for strategic recommendations based on that analysis.
-
-Sequential Chaining for Linear Workflows
-Sequential chaining forms the backbone of most prompt chains, where each step builds directly on the previous result. This linear approach works exceptionally well for processes that naturally follow a logical progression, such as research analysis, content creation, or problem-solving workflows.
-
-Here is how sequential chaining works in practice for creating a technical documentation workflow:
-
-```python
-# Step 1: Initial Analysis
-prompt_1 = """
-Analyze this API endpoint and identify:
-- Core functionality
-- Required parameters
-- Return data structure
-- Potential error conditions
-
-API: GET /users/{user_id}/orders
-"""
-
-# Step 2: Structure Planning (uses Step 1 output)
-prompt_2 = """
-Based on this API analysis: {step_1_output}
-
-Create a documentation outline that includes:
-- Overview section structure
-- Parameter documentation format
-- Example requests and responses
-- Error handling documentation
-"""
-
-# Step 3: Content Generation (uses Step 2 output)
-prompt_3 = """
-Using this documentation outline: {step_2_output}
-
-Write the complete API documentation following the structure.
-Include code examples and clear explanations for developers.
-"""
+```
+resultado = f_n ∘ f_{n-1} ∘ … ∘ f_1 (input_inicial)
 ```
 
-The power of sequential chaining becomes evident when you compare results. A single prompt asking for "complete API documentation" might produce technically accurate but poorly structured content. The three-step chain ensures comprehensive analysis, logical organization, and polished final output.
+donde cada `f_i` es una llamada al LLM con un prompt distinto, y el estado intermedio (`output_i`) se pasa como contexto a `f_{i+1}`.
 
-Sequential chains excel in scenarios where quality compounds—where better input at each stage produces significantly better final results. This makes them ideal for content creation, data analysis, strategic planning, and any workflow where thoroughness matters more than speed.
+Hay tres topologías básicas:
 
-Branching Chains for Parallel Analysis
-Branching chains split a single input into multiple parallel analysis paths, allowing you to examine different aspects of a problem simultaneously before reconvening for synthesis. This approach proves invaluable when you need comprehensive analysis from multiple perspectives or when different expertise domains apply to the same problem.
+| Tipo | Forma | Cuándo usarla |
+|---|---|---|
+| **Secuencial** | A → B → C | Flujo lineal donde cada paso depende del anterior |
+| **Branching (paralela)** | A → {B, C, D} → E | Perspectivas independientes que se sintetizan |
+| **Condicional** | A → (si X: B, sino: C) | El camino depende del resultado intermedio |
 
-Consider analyzing a potential business acquisition. After initial data gathering, you can branch into parallel tracks: financial analysis, market position assessment, operational evaluation, and cultural fit analysis. Each branch can proceed independently, diving deep into its specific domain without being constrained by the others.
+### Relación con otros conceptos
 
-The implementation requires careful planning of the branch points and eventual synthesis. Your initial prompt might identify key data and context, then subsequent prompts tackle each specialized analysis:
+- **Chain-of-Thought (CoT):** razonar en voz alta dentro de **un solo** prompt. Chaining es "CoT entre llamadas".
+- **Agentes:** chains con bucle + herramientas + memoria. Chaining es el ancestro directo.
+- **LangChain Expression Language (LCEL), LangGraph, DSPy:** frameworks modernos para expresar cadenas como grafos.
 
-Financial analysis branch focuses on revenue trends, cost structures, and profitability metrics. Market analysis examines competitive positioning, market share, and growth potential. Operational analysis evaluates processes, systems, and scalability. Cultural analysis assesses team dynamics, values alignment, and integration challenges.
+## ¿Por qué importa?
+
+Porque los LLMs tienen **atención finita**: cuando un solo prompt mezcla análisis, decisión y redacción, la calidad de cada subtarea cae. Chaining importa cuando:
+
+- La tarea tiene **más de 3-4 subtareas distintas** (síntoma: tu prompt pasa de 400 palabras).
+- Los pasos requieren **modelos diferentes** (clasificar barato, razonar caro).
+- Necesitas **validar y reintentar** pasos intermedios.
+- Hay **ramas condicionales** basadas en el contenido (si es queja → escalar, si es pregunta → responder).
+- Quieres **paralelizar** análisis independientes para reducir latencia.
+
+### Ventajas concretas
+
+| Ventaja | Impacto |
+|---|---|
+| Mejor calidad por paso | Cada prompt tiene un objetivo único, no se dispersa |
+| Debug granular | Puedes inspeccionar el output de cada eslabón |
+| Modelo apropiado por paso | Mini para clasificación, grande para síntesis |
+| Reintento selectivo | Falló el paso 3, no re-corres 1 y 2 |
+| Guardrails incrementales | Validas entre pasos antes de propagar errores |
+
+### El costo: latencia y acumulación de errores
+
+- **Latencia:** 5 llamadas secuenciales ≈ 5× la latencia de una. Mitiga con branches paralelos y streaming.
+- **Error propagation:** si cada paso tiene 95% de éxito, 5 pasos secuenciales dan 0.95⁵ ≈ **77%**. Añade validadores.
+
+## ¿Cómo funciona?
+
+### 1. Descomposición de tareas
+
+Toda cadena nace de una **descomposición** correcta. Reglas:
+
+- Cada paso tiene **una** responsabilidad clara ("extraer entidades", no "extraer y clasificar").
+- Identifica **dependencias**: qué paso necesita qué output.
+- Lo que es **independiente** → paraleliza en branches.
+- El output de cada paso debe tener **formato estructurado** (JSON, lista, markdown) para que el siguiente lo consuma sin ambigüedad.
+
+### 2. Patrones de orquestación
+
+| Patrón | Uso típico |
+|---|---|
+| **Sequential pipeline** | Resumir → traducir → corregir estilo |
+| **Map-reduce** | Procesar N chunks en paralelo, luego sintetizar |
+| **Router** | Clasificar intent, enviar al handler apropiado |
+| **Reflection** | Generar → criticar → refinar |
+| **Debate** | Dos agentes argumentan, un juez decide |
+| **Plan-and-execute** | LLM-planner genera plan, LLM-worker ejecuta pasos |
+
+### 3. Validación entre pasos
+
+```
+Paso i → Output_i → Validador(Output_i) → ¿OK?
+                                          ├─ sí → Paso i+1
+                                          └─ no → reintentar / fallback
+```
+
+Validadores comunes:
+
+- **Schema:** `pydantic.ValidationError` sobre JSON esperado.
+- **Semántica:** "¿el output cita las fuentes requeridas?" vía regex o LLM-judge.
+- **Business rules:** "el monto no puede ser negativo".
+- **Guardrails libraries:** NeMo Guardrails, Guardrails AI.
+
+### 4. Context management entre eslabones
+
+El error más común es pasar **todo** el output del paso anterior al siguiente. Mejor:
+
+- Pasa **solo lo necesario** (ej. la lista de IDs, no el reasoning completo).
+- **Resume** outputs largos antes de propagar.
+- Mantén un **"estado"** separado del "mensaje" (patrón LangGraph).
+
+## Ejemplo con código
+
+### Pipeline secuencial: análisis de API → documentación
 
 ```python
-# Example: Business Acquisition Analysis Chain
 from openai import OpenAI
+client = OpenAI()
 
-# Initial data gathering prompt
-initial_prompt = """
-Analyze this acquisition target company data and extract key information for detailed analysis:
+def llm(prompt: str, modelo: str = "gpt-5-mini", temp: float = 0.2) -> str:
+    r = client.chat.completions.create(
+        model=modelo, temperature=temp,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return r.choices[0].message.content
 
-Company: TechStartup Inc.
-Revenue (3 years): $2M, $4.5M, $7.2M
-Employees: 45 people across engineering, sales, marketing
-Market: B2B SaaS for small businesses
-Competition: 3 major competitors, fragmented market
-Technology: Python/React stack, cloud-native
+# Paso 1: Análisis estructural
+def paso1_analizar(endpoint: str) -> str:
+    return llm(f"""Analiza este endpoint y devuelve JSON con:
+- functionality: str
+- parameters: list[{{name, type, required}}]
+- response_schema: dict
+- error_cases: list[str]
 
-Extract and organize: financial metrics, market position, operational structure, and team composition.
-Format as structured data for further analysis.
-"""
+Endpoint: {endpoint}""")
 
-# Financial analysis branch
-financial_prompt = """
-Based on the initial analysis, conduct deep financial evaluation:
+# Paso 2: Esquema de documentación
+def paso2_outline(analisis: str) -> str:
+    return llm(f"""Dado este análisis:
+{analisis}
 
-Focus on:
-- Revenue growth sustainability and patterns
-- Cost structure and margin trends
-- Cash flow and profitability trajectory
-- Valuation implications and financial risks
+Produce un outline markdown con secciones: Overview, Parameters, Examples, Errors.""")
 
-Provide specific recommendations on financial viability.
-"""
+# Paso 3: Redacción final
+def paso3_redactar(outline: str, analisis: str) -> str:
+    return llm(f"""Escribe la documentación completa siguiendo este outline:
+{outline}
 
-# Market analysis branch
-market_prompt = """
-Using the company data, analyze market position:
+Datos técnicos:
+{analisis}
 
-Evaluate:
-- Competitive differentiation and moat strength
-- Market size and growth potential
-- Customer acquisition and retention metrics
-- Threats from established competitors
+Incluye ejemplos curl y respuestas JSON.""", modelo="gpt-5")
 
-Assess market opportunity and competitive risks.
-"""
-
-# Synthesis prompt (will be dynamically constructed with actual results)
-
-# Execute the chain - each step uses output from previous steps
-client = OpenAI(
-api_key="API_KEY",
-base_url="BASE_URL",
-)
-
-initial_result = client.chat.completions.create(
-  model="gpt-5-mini",
-  messages=[{"role": "user", "content": initial_prompt}]
-)
-
-# Extract the structured data from initial analysis
-initial_data = initial_result.choices[0].message.content
-
-# Financial analysis uses the structured data from step 1
-financial_prompt_with_data = f"""
-{financial_prompt}
-
-Use this structured company data from initial analysis:
-{initial_data}
-"""
-
-client = OpenAI(
-api_key="API_KEY",
-base_url="BASE_URL",
-)
-
-financial_result = client.chat.completions.create(
-  model="gpt-5-mini",
-  messages=[{"role": "user", "content": financial_prompt_with_data}]
-)
-
-# Market analysis also uses the structured data from step 1
-market_prompt_with_data = f"""
-{market_prompt}
-
-Use this structured company data from initial analysis:
-{initial_data}
-"""
-
-client = OpenAI(
-api_key="API_KEY",
-base_url="BASE_URL",
-)
-
-market_result = client.chat.completions.create(
-  model="gpt-5-mini",
-  messages=[{"role": "user", "content": market_prompt_with_data}]
-)
-
-# Synthesis combines outputs from both analysis branches
-synthesis_prompt_with_results = f"""
-Integrate insights from financial and market analyses:
-
-Financial findings:
-{financial_result.choices[0].message.content}
-
-Market findings:
-{market_result.choices[0].message.content}
-
-Synthesize:
-- How do financial trends align with market position?
-- What risks emerge from cross-analysis?
-- Overall acquisition recommendation with rationale
-- Key integration priorities if proceeding
-
-Provide executive summary with clear go/no-go recommendation.
-"""
-
-client = OpenAI(
-api_key="API_KEY",
-base_url="BASE_URL",
-)
-
-final_synthesis = client.chat.completions.create(
-  model="gpt-5-mini",
-  messages=[{"role": "user", "content": synthesis_prompt_with_results}]
-)
-
-print("=== ACQUISITION ANALYSIS COMPLETE ===")
-print(final_synthesis.choices[0].message.content)
+# Orquestación
+endpoint = "GET /users/{user_id}/orders"
+analisis = paso1_analizar(endpoint)
+outline  = paso2_outline(analisis)
+doc      = paso3_redactar(outline, analisis)
+print(doc)
 ```
 
-The final synthesis prompt must skillfully weave together insights from all branches, identifying patterns, conflicts, and integration points across the different analyses. This synthesis step often reveals insights that no single-branch analysis could uncover, such as how operational inefficiencies might explain financial performance trends or how cultural factors might impact market expansion plans.
-
-Conditional Chaining Based on Intermediate Results
-Conditional chaining adds intelligence to your workflows by branching into different paths based on intermediate results. This dynamic approach allows your chains to adapt to findings, pursue different strategies based on data, or escalate to more detailed analysis when initial results warrant deeper investigation.
-
-The power of conditional chaining emerges in diagnostic workflows, quality assurance processes, and adaptive content creation. For example, when analyzing customer feedback, your initial sentiment analysis might reveal predominantly negative sentiment, triggering a detailed complaint categorization chain. Alternatively, mixed sentiment might trigger a balanced analysis chain, while positive sentiment leads to success factor identification.
-
-Implementation requires building decision logic into your prompts. Your intermediate analysis prompt should output clear indicators that subsequent prompts can evaluate:
+### Branching: análisis de adquisición empresarial
 
 ```python
-# Decision-making prompt structure
-analysis_prompt = """
-Analyze this customer feedback data and categorize the overall sentiment.
-Output format:
-SENTIMENT: [POSITIVE/NEGATIVE/MIXED]
-CONFIDENCE: [HIGH/MEDIUM/LOW]
-KEY_THEMES: [list main themes]
+import asyncio
+from openai import AsyncOpenAI
 
-If NEGATIVE + HIGH confidence: recommend complaint analysis
-If POSITIVE + HIGH confidence: recommend success factor analysis
-If MIXED or LOW confidence: recommend balanced analysis
-"""
+aclient = AsyncOpenAI()
+
+async def allm(prompt: str, modelo: str = "gpt-5-mini") -> str:
+    r = await aclient.chat.completions.create(
+        model=modelo, temperature=0.3,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return r.choices[0].message.content
+
+async def pipeline_adquisicion(datos_empresa: str) -> dict:
+    # Paso 1: estructurar datos
+    estructurado = await allm(f"Extrae métricas financieras, mercado, equipo:\n{datos_empresa}")
+
+    # Paso 2: ramas en paralelo
+    financiera, mercado, operaciones = await asyncio.gather(
+        allm(f"Análisis financiero profundo:\n{estructurado}"),
+        allm(f"Análisis de posición de mercado:\n{estructurado}"),
+        allm(f"Análisis operacional y escalabilidad:\n{estructurado}"),
+    )
+
+    # Paso 3: síntesis con modelo potente
+    sintesis = await allm(f"""Integra estos tres análisis en una recomendación go/no-go:
+
+[FINANZAS]
+{financiera}
+
+[MERCADO]
+{mercado}
+
+[OPERACIONES]
+{operaciones}
+
+Devuelve: executive summary, riesgos, prioridades de integración, recomendación.""",
+        modelo="gpt-5")
+
+    return {"financiera": financiera, "mercado": mercado,
+            "operaciones": operaciones, "sintesis": sintesis}
+
+# resultado = asyncio.run(pipeline_adquisicion(datos))
 ```
 
-The conditional logic then routes to appropriate specialized chains based on these structured outputs. This approach prevents wasted analysis on irrelevant paths while ensuring that significant findings trigger appropriate deeper investigation.
+Latencia: con 4 llamadas, secuencial ≈ 20s; con el branching de 3 paralelas, ≈ 10s.
 
-Common Pitfalls and Solutions
-The most frequent mistake in prompt chaining is creating overly complex chains that attempt to handle every possible scenario. Start with simple, linear chains and add complexity only when simpler approaches prove insufficient. Complex branching and conditional logic should solve specific problems, not demonstrate technical sophistication.
+### Conditional chaining: router de soporte
 
-Another common pitfall involves inadequate context management between chain steps. Each prompt needs sufficient context to produce quality results, but too much context can overwhelm the AI's attention. Strike a balance by including essential information from previous steps while summarizing or omitting less relevant details.
+```python
+import json
 
-Failing to validate intermediate results leads to error propagation, where mistakes compound throughout the chain. Implement validation checkpoints, especially after critical analysis steps, to catch errors before they affect downstream processing.
+def paso_router(mensaje_usuario: str) -> dict:
+    out = llm(f"""Clasifica el mensaje y devuelve JSON:
+{{"intent": "complaint|question|feature_request|billing",
+  "sentiment": "negative|neutral|positive",
+  "urgency": "low|medium|high"}}
 
-Over-relying on AI outputs without human review creates risks in production environments. Build in appropriate human checkpoints for high-stakes chains, and always test your chains thoroughly with various inputs before deploying them for important work.
+Mensaje: {mensaje_usuario}""")
+    return json.loads(out)
 
-Summary
-Prompt chaining transforms AI from a single-shot problem solver into a sophisticated workflow engine capable of handling complex, multi-step challenges. By breaking large tasks into manageable components, you unlock AI capabilities that single prompts cannot achieve.
+def handle_complaint(msg, meta):   return llm(f"Escribe respuesta empática y escala a humano:\n{msg}", modelo="gpt-5")
+def handle_question(msg, meta):    return llm(f"Responde con hechos y cita docs:\n{msg}")
+def handle_billing(msg, meta):     return llm(f"Deriva a sistema de billing con JSON de acción:\n{msg}")
 
-Key concepts to remember
-Task Decomposition is Foundation - Break complex goals into logical, sequential steps with clear dependencies
-Sequential Chains for Linear Workflows - Sequential chains work best for linear workflows where each step builds on the previous result
-Branching for Parallel Analysis - Branching chains enable parallel analysis of different problem aspects before synthesis
-Conditional Chaining Adds Intelligence - Conditional chaining adapts workflow paths based on intermediate findings
-Validation Prevents Failures - Validation and error handling prevent quality degradation and cascading failures
-Start Simple - Start simple and add complexity only when needed to solve specific problems
+ROUTER = {
+    "complaint": handle_complaint,
+    "question":  handle_question,
+    "billing":   handle_billing,
+}
+
+def responder(msg: str) -> str:
+    meta = paso_router(msg)
+    if meta["urgency"] == "high":
+        return handle_complaint(msg, meta)   # bypass: urgencias siempre a humano
+    return ROUTER.get(meta["intent"], handle_question)(msg, meta)
+```
+
+### Reflection loop: generar → criticar → refinar
+
+```python
+def generar_refinar(tarea: str, iteraciones: int = 2) -> str:
+    draft = llm(f"Escribe un primer borrador de:\n{tarea}")
+    for _ in range(iteraciones):
+        critica = llm(f"""Critica este borrador señalando errores factuales,
+ambigüedades y mejoras concretas:
+
+{draft}""", modelo="gpt-5")
+        draft = llm(f"""Reescribe el borrador aplicando esta crítica.
+
+Borrador:
+{draft}
+
+Crítica:
+{critica}""")
+    return draft
+```
+
+### Validación entre pasos con Pydantic
+
+```python
+from pydantic import BaseModel, ValidationError
+
+class AnalisisAPI(BaseModel):
+    functionality: str
+    parameters: list[dict]
+    response_schema: dict
+    error_cases: list[str]
+
+def paso1_con_validacion(endpoint: str, max_reintentos: int = 3) -> AnalisisAPI:
+    for intento in range(max_reintentos):
+        try:
+            raw = paso1_analizar(endpoint)
+            return AnalisisAPI.model_validate_json(raw)
+        except ValidationError as e:
+            if intento == max_reintentos - 1:
+                raise
+            # Reintenta pasando el error como contexto
+            endpoint = f"{endpoint}\n\nIntento anterior falló: {e}. Devuelve JSON válido."
+```
+
+### Prompt versioning (LangSmith / Langfuse / hash local)
+
+```python
+import hashlib, json, datetime
+
+class RegistroPrompts:
+    def __init__(self, path="prompts.jsonl"):
+        self.path = path
+
+    def registrar(self, nombre: str, template: str, metadata: dict | None = None) -> str:
+        version_hash = hashlib.sha256(template.encode()).hexdigest()[:12]
+        registro = {
+            "nombre": nombre,
+            "version": version_hash,
+            "template": template,
+            "metadata": metadata or {},
+            "ts": datetime.datetime.utcnow().isoformat(),
+        }
+        with open(self.path, "a") as f:
+            f.write(json.dumps(registro) + "\n")
+        return version_hash
+
+reg = RegistroPrompts()
+v = reg.registrar("router_soporte_v2", "Clasifica el mensaje...", {"owner": "support-team"})
+# Guarda el `v` junto con cada trace para poder reproducir después.
+```
+
+En producción se usa **LangSmith** (Hub de prompts versionados con A/B testing nativo), **Langfuse** (open source, versiones + eval), **Promptfoo** (benchmark CLI entre versiones), **Helicone** (observabilidad por prompt_id).
+
+### A/B testing de prompts con Promptfoo
+
+```yaml
+# promptfooconfig.yaml
+prompts:
+  - "promptA.txt"
+  - "promptB.txt"
+providers:
+  - openai:gpt-5-mini
+tests:
+  - vars:
+      pregunta: "¿Cómo reseteo mi contraseña?"
+    assert:
+      - type: contains
+        value: "ajustes"
+      - type: llm-rubric
+        value: "La respuesta es empática y menciona pasos concretos"
+  - vars:
+      pregunta: "No puedo iniciar sesión"
+    assert:
+      - type: latency
+        threshold: 2000
+```
+
+Ejecuta `npx promptfoo eval` y obtienes tabla comparativa de calidad, costo y latencia por versión.
+
+## Errores comunes
+
+- **Cadenas demasiado largas.** 10 pasos secuenciales = latencia alta y acumulación de errores (0.95¹⁰ ≈ 60% success). Empieza con 2-3 pasos.
+- **Pasar demasiado contexto entre pasos.** Reenviar el output completo del paso 1 al paso 5 multiplica tokens. Pasa solo lo necesario o resume.
+- **No validar outputs intermedios.** Un JSON malformado del paso 2 revienta todo el resto. Usa Pydantic + reintento con feedback.
+- **Prompts hardcodeados sin versionar.** No puedes comparar "antes vs. después" ni reproducir regresiones. Usa LangSmith/Langfuse o al menos un hash local.
+- **Mismo modelo caro para todos los pasos.** Clasifica con `gpt-5-mini` ($0.0008/MTok), sintetiza con `gpt-5` ($0.025/MTok). Ahorro típico: 70%.
+- **Ramas paralelas secuenciales.** Si usas `asyncio.gather` mal (o requests sync), pierdes el beneficio. Mide latencia end-to-end.
+- **Síntesis sin estructurar las ramas.** Si cada rama devuelve prosa libre, la síntesis se vuelve resumen de resúmenes. Pide formato estructurado (JSON, bullets) a cada rama.
+- **No instrumentar la cadena.** Sin tracing (LangSmith, Langfuse, OpenTelemetry) no puedes debuggear por qué el paso 4 es lento o caro.
+- **Sobre-ingeniería prematura.** Si un prompt bien hecho con CoT funciona, no armes una chain de 5 pasos "porque es más elegante".
+- **Olvidar human-in-the-loop en decisiones críticas.** Para finanzas, salud o legal, añade checkpoints de aprobación humana entre ramas.
+
+## Herramientas del ecosistema
+
+| Herramienta | Para qué |
+|---|---|
+| **LangChain / LCEL** | Expresar chains como pipes (`prompt | model | parser`) |
+| **LangGraph** | Chains como grafos con estado y ciclos |
+| **DSPy** | Chains optimizables programáticamente |
+| **LangSmith** | Tracing, versionado y A/B de prompts |
+| **Langfuse** | Alternativa open-source a LangSmith |
+| **Promptfoo** | Benchmark CLI de calidad y costo entre versiones |
+| **Helicone** | Observabilidad de costos y latencia por prompt_id |
+| **Guardrails AI / NeMo Guardrails** | Validación semántica entre pasos |
+
+## Resumen
+
+- **Prompt chaining** descompone tareas complejas en pasos pequeños y especializados; sube calidad y permite debug granular.
+- Tres topologías: **secuencial** (A→B→C), **branching paralela** (A→{B,C}→D), **condicional** (ramas según resultado).
+- Cada paso debe tener **una** responsabilidad y producir **output estructurado** para el siguiente.
+- Usa **modelos distintos por paso**: mini para clasificar, grande para sintetizar; ahorro típico 50-70%.
+- Las ramas independientes se **paralelizan** con `asyncio.gather` para cortar latencia.
+- **Valida outputs intermedios** con Pydantic o guardrails; sin validación, errores se propagan y multiplican.
+- **Versiona todos los prompts** (hash local, LangSmith, Langfuse); sin versiones no hay reproducibilidad ni A/B.
+- Haz **A/B testing** con Promptfoo o LangSmith para medir calidad, costo y latencia por versión.
+- Instrumenta tracing extremo a extremo (LangSmith, Langfuse, Helicone) desde el día uno.
+- Empieza simple: 2-3 pasos secuenciales. Añade branching, condicionales o reflection solo cuando los datos lo justifiquen.

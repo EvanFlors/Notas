@@ -1,205 +1,267 @@
-## XML and Alternative Formats
-When developers first encounter structured output requirements, JSON often seems like the universal solution. However, production systems reveal scenarios where XML, CSV, and markdown formats provide superior solutions to specific challenges. Understanding when and how to use these alternative formats transforms good AI applications into robust systems that handle diverse data requirements with appropriate tools.
+# XML y Formatos Alternativos
 
-This lesson explores the practical implementation of XML, CSV, and markdown output generation, focusing on real-world scenarios where these formats excel beyond JSON capabilities. You will learn to evaluate format requirements, implement robust parsers, and handle the unique challenges each format presents in production environments.
+## ¿Qué es?
 
-When XML Makes Perfect Sense
-XML provides hierarchical structure with rich metadata capabilities that JSON cannot match efficiently. While JSON focuses on data exchange, XML was designed for document representation with semantic meaning embedded in both structure and attributes.
+Aunque JSON domina la integración entre servicios web, existen **otros formatos estructurados** donde un LLM puede escribir con ventajas concretas: **XML** para documentos ricos con metadatos, **CSV** para tablas de alto volumen y **Markdown** para contenido que humanos editarán. Elegir el formato correcto es parte del diseño de la salida estructurada, no un detalle estético.
 
-Consider a document management system processing legal contracts. JSON would struggle to preserve styling information, document structure, and metadata relationships that are crucial for compliance systems. XML naturally handles these requirements through attributes, namespaces, and hierarchical relationships.
+El principio es simple: **el formato sigue a la estructura del dato**. Datos tabulares → CSV. Documentos jerárquicos con metadatos y espacios de nombres → XML. Contenido semi-estructurado para humanos → Markdown. Datos de API para otro servicio → JSON.
+
+| Formato | Fuerte en | Débil en | Soporte en LLMs |
+|---|---|---|---|
+| JSON | Interop, APIs, nested data | Metadatos por nodo, comentarios | Nativo (JSON mode, schemas) |
+| XML | Metadatos, namespaces, estándares (HL7, XBRL) | Verbosidad, tokens | Prompting + validación externa |
+| CSV | Tablas grandes, Excel, bulk import | Jerarquía, escape de comillas | Prompting cuidadoso |
+| Markdown | Humanos + máquinas, docs | Validación estricta | Excelente (los LLMs están entrenados en toneladas) |
+| YAML | Config legible | Indentación frágil, ambigüedades (`yes` → bool) | Bueno pero riesgoso |
+| TOML | Config de aplicación | Jerarquía profunda | Decente |
+
+## ¿Por qué importa?
+
+Un sistema de **historia clínica electrónica** debe conservar la jerarquía del documento, atributos de confidencialidad por nodo (`confidential="HIPAA"`), y cumplir estándares (HL7 FHIR). Forzarlo a JSON pierde la noción de atributo vs. elemento y rompe la validación XSD del receptor. Un **reporte financiero trimestral** de 50 000 filas en JSON pagaría tokens repetidos por cada clave; en CSV cuesta la mitad y abre directo en Excel. Un **generador de documentación de API** que emite Markdown se integra con GitHub, MkDocs y VS Code sin un parser dedicado.
+
+Elegir mal el formato se paga en: **tokens**, **errores de parseo**, **incompatibilidad con herramientas aguas abajo** y **experiencia del usuario final**.
+
+### Cuándo elegir cada uno
+
+- **XML** cuando el consumidor es un sistema regulado (HL7, XBRL, OFX, SEPA) o cuando necesitas **atributos por nodo** (`<diagnosis code="E11.9" confidence="0.92"/>`).
+- **CSV** cuando los datos son **planos y voluminosos** y los consumen Excel, pandas, BI tools, o un `COPY FROM` de PostgreSQL.
+- **Markdown** cuando el output es **leído por humanos** pero vive en Git, se publica en una wiki o se procesa con un parser estándar (`markdown-it`, `remark`).
+- **YAML/TOML** para generar **archivos de configuración** (CI, Kubernetes, pyproject.toml).
+
+## ¿Cómo funciona?
+
+### XML con atributos y namespaces
+
+XML distingue entre **elementos** (contenido jerárquico) y **atributos** (metadatos del nodo). Los **namespaces** (`xmlns:hl7="..."`) evitan colisiones cuando mezclas vocabularios. Validar un XML contra un **XSD** garantiza conformidad estructural; validar con **Schematron** permite reglas de negocio ("si `age > 65` entonces `riskLevel` requerido").
+
+Flujo típico:
+1. Prompt que describe la estructura y los atributos requeridos.
+2. Parseo con `xml.etree.ElementTree` o, mejor, **`lxml`** para XSD y XPath.
+3. Validación contra XSD.
+4. Repair pass si falla (ver sección de errores).
+
+### CSV con cuidado del escape
+
+El estándar práctico es **RFC 4180**. Las trampas son el **delimitador** (coma vs. punto y coma en locales europeos), el **escape de comillas** dentro de campos y los **saltos de línea embebidos**. Nunca generes CSV con `",".join(...)`: usa `csv.writer` para producir y `csv.reader` para validar.
+
+### Markdown y dialectos
+
+El Markdown "oficial" (CommonMark) no incluye tablas ni bloques de código con lenguaje; esos vienen de **GitHub Flavored Markdown (GFM)**. Si tu consumidor es GitHub, MkDocs o Docusaurus, exige GFM explícitamente en el prompt. Para validar, parsea con `markdown-it-py` y comprueba la presencia de headings, tablas o bloques esperados.
+
+### Multi-formato en una sola respuesta
+
+Un patrón común es pedir **Markdown que embeba bloques de código JSON o CSV**:
+
+```markdown
+## Resumen
+...prosa para humanos...
+
+```json
+{"metric": "revenue", "value": 1234.56}
+```
+```
+
+Permite tener prosa + datos estructurados en el mismo output; procesas la parte formal con una regex sobre code fences.
+
+## Ejemplo con código
+
+### 1. Generar XML con atributos y validar
 
 ```python
-# Medical records system using XML for rich metadata
 from openai import OpenAI
-from xml.etree import ElementTree as ET
+from lxml import etree
+
+client = OpenAI()
+
+prompt = """Genera un expediente médico en XML con:
+- Elemento raíz <PatientRecord xmlns:hl7="urn:hl7-org:v3">
+- Atributos: id, confidential="HIPAA", timestamp (ISO 8601)
+- Sub-elementos <Demographics>, <Allergies>, <Medications>, <Diagnoses>
+- Cada <Diagnosis> con atributos code (ICD-10) y confidence (0-1)
+
+Paciente: Juan Pérez, 45 años, DOB 1979-03-15.
+Alergias: Penicilina. Medicación: Lisinopril 10mg/día. Diagnóstico: hipertensión."""
+
+resp = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": prompt}],
+)
+xml_text = resp.choices[0].message.content.strip()
+
+# Parseo robusto
+try:
+    root = etree.fromstring(xml_text.encode("utf-8"))
+except etree.XMLSyntaxError as e:
+    print(f"XML inválido: {e}")
+    raise
+
+# Validación contra XSD (si lo tienes)
+# schema = etree.XMLSchema(etree.parse("patient.xsd"))
+# schema.assertValid(root)
+
+for dx in root.iter("Diagnosis"):
+    print(dx.get("code"), dx.get("confidence"), dx.text)
+```
+
+### 2. Función de "repair" para XML malformado
+
+```python
+import re
+from lxml import etree
+
+def repair_xml(xml_text: str) -> etree._Element | str:
+    """Intenta parsear; si falla, aplica heurísticas comunes."""
+    try:
+        return etree.fromstring(xml_text.encode("utf-8"))
+    except etree.XMLSyntaxError:
+        pass
+
+    # Elimina caracteres no imprimibles
+    cleaned = re.sub(r"[^\x09\x0A\x0D\x20-\x7E -￿]", "", xml_text)
+    # Escapa & huérfanos (no parte de &amp; &lt; &gt; &quot; &apos; o &#...;)
+    cleaned = re.sub(r"&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)", "&amp;", cleaned)
+    # Cierra tag raíz si quedó abierto por truncamiento
+    try:
+        return etree.fromstring(cleaned.encode("utf-8"))
+    except etree.XMLSyntaxError:
+        return xml_text  # devuélvelo crudo para inspección manual
+```
+
+### 3. Generar CSV y validar con `csv.reader`
+
+```python
+import csv, io
+from openai import OpenAI
+
+client = OpenAI()
+
+prompt = """Genera un reporte financiero trimestral en CSV estricto RFC 4180:
+- Primera fila: encabezados exactos: quarter,revenue,expenses,profit,margin_pct
+- Fechas en formato YYYY-Qn (ej: 2024-Q3)
+- Moneda con 2 decimales, sin signo $
+- NO incluyas texto fuera del CSV, ni ```csv fences
+
+Datos: Q1-Q4 2024, revenue 150K/160K/170K/180K, costos 120K/125K/130K/135K."""
+
+resp = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": prompt}],
+)
+csv_text = resp.choices[0].message.content.strip()
+
+reader = csv.reader(io.StringIO(csv_text))
+rows = list(reader)
+
+# Validaciones
+assert rows[0] == ["quarter", "revenue", "expenses", "profit", "margin_pct"], \
+    f"Encabezados incorrectos: {rows[0]}"
+assert all(len(r) == 5 for r in rows[1:]), "Filas con número de columnas distinto"
+
+for r in rows[1:]:
+    # Validación de tipos
+    float(r[1]); float(r[2]); float(r[3]); float(r[4])
+
+print(f"CSV válido: {len(rows)-1} filas")
+```
+
+### 4. Markdown con tablas y validación estructural
+
+```python
+from openai import OpenAI
 import re
 
-def generate_patient_record_xml(patient_data, medical_history):
-  prompt = f"""
-Generate a complete patient medical record in XML format.
+client = OpenAI()
 
-Patient Information:
-{patient_data}
+prompt = """Genera documentación en Markdown (GFM) para el endpoint:
+GET /users/{id} — devuelve datos de un usuario.
 
-Medical History:
-{medical_history}
-
-Requirements:
-- Use attributes for metadata (timestamps, confidentiality levels)
-- Separate structure for demographics, medical history, and current status
-- Include namespace declarations for medical coding standards
-- Preserve relationships between conditions and treatments
-
-Return only valid XML with proper DOCTYPE declaration.
+Estructura requerida:
+# Título del endpoint
+## Parámetros       (tabla con columnas: nombre, tipo, requerido, descripción)
+## Respuesta        (bloque ```json con el schema)
+## Ejemplo          (bloque ```bash con curl)
+## Códigos de error (tabla)
 """
 
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-  )
+resp = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": prompt}],
+)
+md = resp.choices[0].message.content
 
-  response = client.chat.completions.create(
-      model="gpt-5-mini",
-      messages=[{"role": "user", "content": prompt}]
-  )
+# Validación estructural mínima
+required_headings = ["# ", "## Parámetros", "## Respuesta", "## Ejemplo"]
+missing = [h for h in required_headings if h not in md]
+assert not missing, f"Faltan encabezados: {missing}"
 
-  return parse_and_validate_xml(response.choices[0].message.content)
-
-def parse_and_validate_xml(xml_content):
-  try:
-      root = ET.fromstring(xml_content)
-      # Validate against medical record schema
-      return root
-  except ET.ParseError as e:
-      # Handle malformed XML with recovery strategies
-      return repair_xml_structure(xml_content, e)
-
-def repair_xml_structure(xml_content, error):
-  """Basic XML repair for common issues"""
-  print(f"XML Parse Error: {error}")
-  print("Attempting to repair XML structure...")
-
-  # Basic cleanup - remove invalid characters and fix common issues
-  cleaned = re.sub(r'[^\x20-\x7E\n\r\t]', '', xml_content)
-  cleaned = re.sub(r'&(?!(amp|lt|gt|quot|apos);)', '&amp;', cleaned)
-
-  try:
-      return ET.fromstring(cleaned)
-  except ET.ParseError:
-      print("Failed to repair XML. Returning raw content.")
-      return xml_content
-
-# Sample patient data for demonstration
-sample_patient_data = "Name: John Smith, Age: 45, DOB: 1979-03-15"
-sample_medical_history = "Allergies: Penicillin, Current Medications: Lisinopril 10mg daily"
-
-# Demonstrate XML generation
-xml_result = generate_patient_record_xml(sample_patient_data, sample_medical_history)
-print("Generated XML:", str(xml_result)[:200] + "...")
+# Extrae el bloque JSON embebido
+m = re.search(r"```json\n(.*?)\n```", md, re.DOTALL)
+if m:
+    import json
+    schema = json.loads(m.group(1))  # validación cruzada
+    print("Schema embebido:", schema)
 ```
 
-XML excels in enterprise environments where document structure matters as much as data content. Healthcare systems use XML for HL7 FHIR standards, financial institutions rely on XML for regulatory reporting, and government systems require XML for data interchange standards. The verbosity that makes XML seem inefficient actually provides the semantic clarity these systems require.
-
-The key advantage lies in XML's ability to embed context directly in the document structure. Attributes can carry metadata without affecting the core data hierarchy, namespaces prevent naming conflicts in complex integrations, and schema validation ensures document compliance with industry standards.
-
-CSV for High-Volume Tabular Data
-CSV provides optimal efficiency for tabular data with minimal parsing overhead. When dealing with large datasets, financial reports, or bulk data imports, CSV reduces both token usage and processing complexity compared to JSON alternatives.
-
-Database export scenarios demonstrate CSV's strengths clearly. A JSON representation of 10,000 customer records includes repetitive key names that consume tokens without adding value. CSV eliminates this redundancy while maintaining perfect data integrity for tabular structures.
+### 5. Elegir formato dinámicamente
 
 ```python
-from openai import OpenAI
-import csv
-import io
+from pydantic import BaseModel
+from typing import Literal
 
-# Financial reporting system generating CSV outputs
-def generate_quarterly_report_csv(financial_data, metrics):
-  prompt = f"""
-Generate a quarterly financial report in CSV format.
+class FormatDecision(BaseModel):
+    format: Literal["json", "xml", "csv", "markdown"]
+    reason: str
 
-Financial Data: {financial_data}
-Required Metrics: {metrics}
-
-Format Requirements:
-- First row must contain column headers
-- Use consistent date formatting (YYYY-MM-DD)
-- Handle decimal places consistently (2 places for currency)
-
-Return only the CSV content, no additional text.
-"""
-
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-  )
-
-  response = client.chat.completions.create(
-      model="gpt-5-mini",
-      messages=[{"role": "user", "content": prompt}]
-  )
-
-  return validate_csv_structure(response.choices[0].message.content)
-
-def validate_csv_structure(csv_content):
-  try:
-      reader = csv.reader(io.StringIO(csv_content))
-      rows = list(reader)
-      return csv_content if len(rows) > 1 else "Invalid CSV"
-  except csv.Error:
-      return "CSV parsing failed"
-
-# Sample data
-financial_data = "Q3 2024: Revenue $150K, Expenses $120K, Profit $30K"
-metrics = "Revenue, Expenses, Profit, Profit Margin"
-
-# Generate and display CSV report
-csv_result = generate_quarterly_report_csv(financial_data, metrics)
-print("Generated CSV Report:")
-print(csv_result)
+def pick_format(use_case: str) -> FormatDecision:
+    """Heurística simple basada en keywords."""
+    uc = use_case.lower()
+    if any(k in uc for k in ["hl7", "fhir", "xbrl", "attribute", "namespace"]):
+        return FormatDecision(format="xml", reason="metadatos/estándar")
+    if any(k in uc for k in ["excel", "bulk", "import", "tabular", "millones"]):
+        return FormatDecision(format="csv", reason="tabular de alto volumen")
+    if any(k in uc for k in ["doc", "readme", "wiki", "blog"]):
+        return FormatDecision(format="markdown", reason="humano + máquina")
+    return FormatDecision(format="json", reason="default para APIs")
 ```
 
-CSV handling requires careful attention to delimiter management, quote escaping, and field consistency. Models sometimes struggle with proper escaping when text fields contain commas or quotes, leading to parsing errors in downstream systems. Successful CSV implementation includes validation for consistent column counts, proper header formatting, and appropriate data type representation.
+### 6. Comparativa de costo en tokens (ilustrativa)
 
-The format proves particularly valuable for data science workflows, bulk imports, and reporting systems where human readability combines with machine processing efficiency. Modern applications often generate CSV for Excel compatibility while maintaining programmatic access for automated processing.
+Para 1 000 registros de 5 campos:
 
-```python
-from openai import OpenAI
+| Formato | Tokens aprox. | Observación |
+|---|---|---|
+| JSON (`[{...}, ...]`) | ~45 000 | Claves repetidas |
+| JSON compacto sin claves (array de arrays) | ~22 000 | Pierde auto-descripción |
+| CSV | ~18 000 | Encabezado 1 vez |
+| XML con elementos | ~55 000 | Más verboso que JSON |
+| XML con atributos | ~35 000 | Mejor que elementos |
 
-# Technical documentation generator using markdown
-def generate_api_documentation_markdown(api_spec, examples):
-  prompt = f"""
-Generate API documentation in markdown format.
+El ahorro de CSV sobre JSON en volumen explica por qué los pipelines de datos siguen prefiriéndolo.
 
-API Specification: {api_spec}
-Code Examples: {examples}
+## Errores comunes
 
-Structure Requirements:
-- Use hierarchical headings (# ## ###) for organization
-- Include code blocks with syntax highlighting
-- Create tables for parameter descriptions
+- **Usar XML "porque suena enterprise"** cuando el consumidor acepta JSON. XML paga tokens de más sin beneficio.
+- **Generar CSV con `str.join(",")`**. Rompe en el momento en que un campo contiene coma, comilla o salto de línea. Usa `csv.writer`.
+- **Confundir atributos y elementos XML**. Atributos para metadatos del nodo (sin estructura interna); elementos para contenido jerárquico. Regla: si puede repetirse, debe ser elemento.
+- **No declarar namespaces** cuando el consumidor los exige (HL7, SOAP). El documento parsea pero es inválido contra el estándar.
+- **Markdown dialectal**. Pedir "Markdown" sin especificar GFM genera tablas que GitHub renderiza y CommonMark ignora, o viceversa.
+- **No controlar fences de código** en Markdown. El modelo a veces envuelve su respuesta en ```` ```markdown ```` extra, duplicando bloques.
+- **YAML con valores ambiguos**: `yes`, `no`, `on`, `off` se convierten en booleanos. Cita siempre strings dudosos.
+- **Olvidar la codificación**. XML por default declara UTF-8; emitir caracteres en latin-1 produce un `XMLSyntaxError` opaco. Fuerza `encoding="utf-8"` en el prompt.
+- **Validación tardía**. Si validas solo al llegar al consumidor final, el error aparece lejos del origen. Valida inmediatamente después del `response.create`.
+- **Repair indefinido**. Reintentar con heurísticas de reparación hasta "que pase" oculta bugs reales del prompt. Limita a 1-2 pasadas y registra métricas.
+- **Mezclar prosa y formato estricto**. El modelo tiende a prefijar "Aquí tienes el XML:". Instrúyelo explícitamente: *"responde con XML únicamente, sin texto adicional"*, y recorta cualquier texto antes del primer `<` o después del último `>`.
+- **Pedir Markdown "con JSON embebido" sin fences**. Sin ```` ```json ```` el extractor no distingue la parte estructurada del texto.
 
-Return properly formatted markdown with consistent styling.
-"""
+## Resumen
 
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-  )
-
-  response = client.chat.completions.create(
-      model="gpt-5-mini",
-      messages=[{"role": "user", "content": prompt}]
-  )
-
-  return validate_markdown_structure(response.choices[0].message.content)
-
-def validate_markdown_structure(markdown_content):
-  # Basic validation for headings
-  has_headings = any(line.startswith('#') for line in markdown_content.split('\n'))
-  return markdown_content if has_headings else "Invalid markdown structure"
-
-# Sample data
-api_spec = "GET /users/{id} - Retrieve user information by ID"
-examples = "curl -X GET https://api.example.com/users/123"
-
-# Generate and display markdown documentation
-markdown_result = generate_api_documentation_markdown(api_spec, examples)
-print("Generated API Documentation:")
-print(markdown_result[:300] + "...")
-```
-
-Markdown excels in scenarios requiring both automated processing and human editing. Blog platforms generate markdown for content management, project documentation uses markdown for version control compatibility, and reporting systems leverage markdown for readable output that converts to multiple formats.
-
-The format's strength lies in its semantic simplicity combined with extensibility. Basic markdown provides structure for automated parsing while extended syntax supports advanced features like tables, code blocks, and metadata headers. This flexibility makes markdown ideal for content workflows that span human and machine processing.
-
-Choosing the Right Format for Your Use Case
-Format selection depends on specific requirements that extend beyond simple data representation. Metadata richness, relationship complexity, human readability needs, validation capabilities, and integration requirements all influence the optimal choice.
-
-XML suits scenarios requiring rich metadata, complex relationships, industry standard compliance, and sophisticated validation. Financial reporting, healthcare records, and government data interchange benefit from XML's semantic capabilities and validation frameworks.
-
-CSV optimizes for high-volume tabular data, minimal parsing overhead, Excel compatibility, and bulk processing workflows. Analytics platforms, financial reports, and data import systems leverage CSV's efficiency for large-scale data movement.
-
-Markdown serves content management, documentation workflows, human-readable reports, and systems requiring dual-purpose output. Technical documentation, blog platforms, and collaborative content creation workflows benefit from markdown's readability and processing capabilities.
-
-Common Pitfalls and Solutions
-XML generation often produces malformed documents due to improper attribute quoting, missing closing tags, or invalid character encoding. Implement robust validation using XML parsers that provide specific error locations, enable recovery strategies for common malformation patterns, and use schema validation for complex document structures.
+- La elección de formato **sigue a la forma del dato y al consumidor**: tabular → CSV, jerárquico con metadatos → XML, humano + máquina → Markdown, APIs → JSON.
+- **XML** brilla cuando necesitas **atributos**, **namespaces** y **validación XSD/Schematron** (healthcare, finance, gobierno).
+- **CSV** gana en **volumen** y **compatibilidad con Excel/pandas**; cuida el escape con la librería estándar `csv`.
+- **Markdown** es el mejor formato para contenido **dual** (humano y máquina); si tu target es GitHub o MkDocs, exige GFM.
+- Validación **inmediata**: parsea con la librería adecuada (`lxml`, `csv`, `markdown-it-py`) justo después de recibir la respuesta.
+- Implementa un **repair pass** acotado (máximo 1-2 intentos) y registra métricas; nunca un bucle infinito.
+- Documenta en el prompt **exactamente** qué dialecto quieres (CommonMark vs GFM, RFC 4180, XML con namespaces específicos).
+- Para formatos exóticos sobre modelos abiertos, usa **grammars** (GBNF, Outlines) para garantía dura.
+- Mide **costo en tokens** por formato; a veces CSV compacto le gana a JSON incluso en integraciones programáticas.
+- Un sistema maduro **elige formato dinámicamente** según el caso de uso en lugar de forzar uno solo.

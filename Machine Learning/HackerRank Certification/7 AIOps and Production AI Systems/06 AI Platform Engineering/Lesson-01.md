@@ -1,68 +1,339 @@
-## Platform Thinking for AI Teams
-As organizations scale AI initiatives, individual teams building custom infrastructure for each project creates duplication and inefficiency. Platform thinking centralizes common capabilities, enabling teams to focus on models and applications rather than infrastructure.
+# Platform Thinking para Equipos de IA
 
-A platform provides shared services that multiple teams use. Instead of every team building model serving infrastructure, the platform team builds serving infrastructure once that all teams use. Instead of every team implementing monitoring, the platform provides monitoring that works for all models. This reduces duplication and improves quality through specialization.
+## ¿Qué es?
 
-The platform abstracts complexity. Data scientists should not need to understand Kubernetes, load balancing, or distributed systems. The platform hides this complexity behind simple interfaces. Deploy a model by pushing to a repository or calling an API. The platform handles deployment details automatically.
+Una **plataforma interna de IA** es un conjunto de servicios compartidos (training, serving, feature store, model registry, gateway, observabilidad, governance) que los equipos de producto consumen **self-service** para construir y operar modelos sin reinventar infraestructura. En otras palabras, es un **producto interno** cuyos clientes son data scientists, ML engineers y backend engineers de la propia empresa.
 
-Self-service is a core platform principle. Teams should not need to file tickets and wait days for infrastructure. Self-service interfaces enable teams to provision resources, deploy models, and configure monitoring immediately. This maintains development velocity while centralizing platform management.
+El concepto proviene de la disciplina más amplia de **Platform Engineering** (popularizada por Team Topologies y por reportes de Thoughtworks), aplicada a cargas de trabajo de IA/ML/LLM. Ejemplos públicos:
 
-The platform enforces best practices automatically. Security policies, monitoring standards, and deployment procedures are built into the platform. Teams get these capabilities by default without implementing them individually. This ensures consistency and reduces the burden of maintaining operational excellence.
+| Empresa | Plataforma | Descripción |
+|---|---|---|
+| Netflix | **Metaflow** | Framework open-source para pipelines ML con ejecución local/cloud transparente. |
+| Uber | **Michelangelo** | End-to-end ML platform (feature store, training, serving, monitoring). |
+| LinkedIn | **Pro-ML** | Plataforma para feed ranking, people-you-may-know y search. |
+| Spotify | **ML Platform + Backstage** | Portal unificado para experimentos, modelos y features. |
+| Airbnb | **Bighead** | Pipeline estandarizado train→deploy→monitor. |
+| Anthropic / OpenAI | Herramientas internas de evals, fine-tuning y gateway | Governance de costos y acceso a modelos propios. |
 
-Platform evolution requires balancing stability and innovation. Production teams need stable, reliable platforms. Innovation requires experimenting with new technologies. Successful platforms provide stable core capabilities while allowing controlled experimentation in non-critical areas.
+### Principios fundacionales
 
-Platform teams serve internal customers (data scientists, ML engineers). Understanding customer needs is as important as technical capabilities. Regular feedback, user research, and metrics tracking ensure the platform solves real problems rather than theoretical ones.
+1. **Self-service primero.** Deploy en minutos sin ticket.
+2. **Golden paths.** El camino "fácil y correcto" coincide: hacer lo bien pensado es lo más rápido.
+3. **Opinionated pero no rígido.** Defaults sanos, escape hatches cuando se necesitan.
+4. **Platform-as-a-Product.** Hay roadmap, usuarios, NPS, versioning y backward compatibility.
+5. **Governance invisible.** Seguridad, compliance y cost caps se obtienen por default, no se piden.
 
-Common platform capabilities include model training orchestration, model serving infrastructure, feature stores, model registries, experiment tracking, monitoring and observability, data pipeline management, and compute resource provisioning. Not all organizations need all capabilities initially. Start with the most painful problems and expand iteratively.
+## ¿Por qué importa?
 
-Self-Service Infrastructure and Developer Experience
-Developer experience determines platform adoption. Excellent platforms are easy to use, fast, and reliable. Poor platforms are avoided despite mandates.
+Sin plataforma, cada equipo reinventa serving, monitoring, auth, feature pipelines y gateways a LLMs. El costo oculto es brutal:
 
-Documentation is the foundation of developer experience. Comprehensive, clear documentation with examples enables self-service. Getting started guides help new users quickly. API references help experienced users find details. Troubleshooting guides help users solve common problems independently.
+- **Duplicación:** 10 equipos × 3 ingenieros × 2 meses construyendo "serving" = 60 persona-meses tirados.
+- **Inconsistencia:** cada equipo con su propio formato de logs, SLOs y métricas → imposible comparar o auditar.
+- **Riesgo de seguridad:** cada app implementa auth a su manera, con bugs distintos. Un atacante solo necesita el eslabón más débil.
+- **Costos fuera de control:** sin chargeback, nadie limita a GPT-4 en producción con prompts de 20k tokens.
+- **Compliance imposible:** sin trazabilidad central (quién entrenó qué, con qué datos, cuándo se desplegó), auditorías GDPR/HIPAA/SOC 2 se vuelven pesadillas.
 
-APIs and command-line tools provide programmatic access. Web UIs work for occasional tasks but do not scale to frequent operations. APIs enable automation and integration with existing workflows. Well-designed APIs are intuitive, consistent, and well-documented.
+Una buena plataforma convierte **semanas de yak-shaving** en **minutos de "git push"**. El impacto típico tras un año de plataforma madura:
 
-Templates and examples accelerate adoption. Provide model deployment templates for common frameworks (TensorFlow, PyTorch). Provide training pipeline templates for typical workflows. Users start from working examples rather than blank pages. This reduces time to first success from days to minutes.
+| Métrica | Antes | Después |
+|---|---|---|
+| Tiempo deploy modelo nuevo | 2 semanas | < 1 hora |
+| % tiempo ingenieros en infra | 40% | 10% |
+| Incidentes por configuración | 3-5 / mes | < 1 / mes |
+| Costo LLM por request | sin control | capped por team |
+| Modelos reproducibles | ~30% | > 95% |
 
-Fast feedback loops maintain developer velocity. Deployments should complete in minutes, not hours. Training jobs should start immediately, not wait in queues. Slow platforms frustrate users and reduce productivity. Invest in performance and reliability of platform services.
+### Cuándo NO construir una plataforma
 
-Error messages should be actionable. "Deployment failed" is useless. "Deployment failed: container image not found in registry" explains the problem. "Check that you pushed the image to the correct registry" provides next steps. Good error messages reduce support burden and user frustration.
+- Equipo < 10 personas y < 5 modelos → **compra** (SageMaker, Vertex, Databricks) o adopta Metaflow/MLflow directamente.
+- "Vamos a hacerla por si acaso" sin stakeholders definidos → se vuelve un museo.
+- Un solo caso de uso que nunca se replicará → sobre-ingeniería garantizada.
 
-Monitoring and debugging tools help users understand their systems. Users should be able to see deployment status, logs, metrics, and traces for their models. These observability tools enable self-service debugging without platform team intervention.
+## ¿Cómo funciona?
 
-Support channels provide help when self-service is insufficient. Slack channels, office hours, or ticketing systems give users recourse when stuck. Platform teams should track common support requests to identify documentation gaps or usability problems.
+Una plataforma de IA madura expone capas que los equipos componen según necesidad.
 
-Onboarding programs help new users succeed. Workshops, tutorials, or pairing sessions teach platform usage. Good onboarding converts new users to productive users quickly, reducing ongoing support burden.
+### Componentes típicos
 
-Platform versus Product Team Structures
-Organizational structure affects platform success. Clear ownership, appropriate team structures, and effective collaboration enable platform effectiveness.
+| Componente | Función | Herramientas |
+|---|---|---|
+| **Model Gateway / Router** | Punto único a LLMs (propios y externos) con auth, rate-limit, fallbacks, budgets. | LiteLLM, Portkey, OpenRouter, Kong AI Gateway |
+| **Model Registry** | Catálogo versionado de modelos + metadata + stages. | MLflow, Weights & Biases, Vertex Model Registry |
+| **Prompt Library / Registry** | Prompts versionados con A/B, evals y audit trail. | Langfuse, Humanloop, PromptLayer, LangChain Hub |
+| **Feature Store** | Features consistentes entre training y serving. | Feast, Tecton, Hopsworks |
+| **Training Orchestration** | Pipelines reproducibles, retries, caching. | Metaflow, Kubeflow, Airflow, Dagster |
+| **Serving** | Autoscaling, batching, canary. | KServe, BentoML, vLLM, Ray Serve, Seldon |
+| **Eval Infrastructure** | Evals de regresión, offline y online. | Langfuse, Promptfoo, Braintrust, Patronus |
+| **Observabilidad** | Trazas, métricas, drift. | Arize, Evidently, WhyLabs, Datadog LLM Obs |
+| **Developer Portal** | UI única para onboarding, docs, catálogo. | Backstage, Port, Cortex |
+| **Governance** | SSO, RBAC, approvals, cost caps, PII guardrails. | OPA, Keycloak, in-house |
 
-Platform teams build and operate the platform. They own infrastructure, tools, and services that other teams use. Platform teams focus on reliability, scalability, and developer experience. They measure success by adoption, user satisfaction, and reduction in duplicate effort.
+### Golden paths
 
-Product teams build ML-powered products and features. They use the platform to deploy models and applications. Product teams focus on business value, user experience, and feature delivery. They measure success by product metrics and business outcomes.
+Un **golden path** es la secuencia bendecida para un escenario común. Ejemplo: "lanzar un chatbot RAG a producción".
 
-Clear ownership boundaries prevent conflicts. Platform teams own platform capabilities and reliability. Product teams own their models, applications, and business outcomes. When issues arise, clear ownership enables fast resolution without finger-pointing.
+```
+┌───────────────────────────────────────────────────────────┐
+│  cookiecutter chatbot-rag  →  genera repo con:            │
+│    - Dockerfile estandarizado                             │
+│    - CI que corre evals y PII scan                        │
+│    - Hook a Langfuse (prompts + trazas)                   │
+│    - Config LiteLLM (routing GPT-4 → Claude fallback)     │
+│    - SLO template (p95 < 2s, error rate < 1%)             │
+│    - Terraform para KServe + Pinecone namespace           │
+│  →  git push  →  CI aprueba  →  deploy a sandbox          │
+│  →  approval del tech lead  →  deploy prod                │
+└───────────────────────────────────────────────────────────┘
+```
 
-Platform-as-a-product thinking treats internal users as customers. Platform teams gather requirements, prioritize features, and measure satisfaction. Treating the platform as a product rather than a cost center encourages better design and higher quality.
+Si el equipo quiere algo distinto (otro vector DB, otro proveedor), puede, pero sale del golden path y asume responsabilidad de operarlo.
 
-Embedded platform engineers can help large product teams use the platform effectively. These engineers split time between the platform team and product teams, providing expertise and gathering feedback. Embedded engineers serve as liaison between platform and product teams.
+### Self-service onboarding
 
-Regular syncs between platform and product teams ensure alignment. Platform roadmaps should incorporate product team needs. Product teams should provide feedback on platform usability. These syncs prevent platforms from diverging from actual needs.
+Flujo típico:
 
-Platform governance balances autonomy and consistency. Some decisions (security policies, compliance) require centralization. Others (model architectures, training frameworks) allow flexibility. Clear governance defines what is mandatory, recommended, and optional.
+```
+Team registra en portal (Backstage)
+      ↓
+SSO (Okta/Azure AD) asigna RBAC por grupo
+      ↓
+Sandbox provisioned (namespace k8s, API keys, budget $500/mes)
+      ↓
+Equipo construye prototipo, mide con evals
+      ↓
+Request promoción a prod → aprobación platform + security
+      ↓
+Prod namespace + cost chargeback automático a cost center
+```
 
-Platform metrics track effectiveness. Adoption rates show if teams find the platform useful. Deployment frequency shows if the platform enables velocity. Support ticket volume shows if self-service works. These metrics guide platform improvements.
+### Multi-tenancy
 
-Career paths for platform engineers differ from product engineers. Platform engineers should be rewarded for building reusable capabilities that benefit many teams, not just one-off solutions. Recognition and promotion criteria should reflect this difference.
+Un cluster/una infra, muchos equipos. Aislamiento por:
 
-Summary
-Internal AI platforms centralize common capabilities, providing self-service infrastructure that multiple teams use. Platform thinking reduces duplication, enforces best practices, and enables teams to focus on models rather than infrastructure. Developer experience determines adoption, requiring excellent documentation, fast feedback, and actionable errors.
+- **Namespaces k8s** con quotas (CPU, GPU, memoria).
+- **API keys** por equipo con rate-limits y budgets en el gateway.
+- **Row-level security** en feature store (team A no ve features de team B).
+- **Logs/trazas** etiquetados por `team_id` para chargeback.
+- **Secrets** en Vault/Secrets Manager con policies por equipo.
 
-Platform team structures separate platform building from product building, with clear ownership and appropriate collaboration mechanisms. Successful platforms treat internal users as customers, measuring satisfaction and incorporating feedback into roadmaps.
+### SSO y RBAC
 
-Key concepts to remember
-Centralized Capabilities - Platform thinking centralizes common capabilities like model serving and monitoring, reducing duplication
-Self-Service Excellence - Excellent documentation and fast feedback enable teams to deploy and operate models independently
-Developer Experience Matters - Developer experience determines platform adoption; invest in usability, error messages, and observability
-Internal Customer Focus - Platform teams serve internal customers and should measure adoption, user satisfaction, and velocity improvements
-Clear Boundaries - Clear ownership boundaries between platform teams and product teams prevent conflicts and enable fast issue resolution
+Un solo login (Okta, Azure AD, Google Workspace) para portal, MLflow, Langfuse, Grafana. Los permisos derivan de **grupos LDAP/IdP**:
+
+```
+grupo:ml-platform-admins   → full
+grupo:team-search-ml       → namespace "search", budget $5k/mes, deploy a staging
+grupo:team-search-leads    → + approve prod promotions
+grupo:data-scientists-all  → read-only al registry
+```
+
+### Governance como código
+
+- **Approvals obligatorios** antes de prod (2 reviewers si el modelo toca PII).
+- **Cost caps** por equipo/proyecto: el gateway corta llamadas al llegar al umbral.
+- **PII policies** aplicadas en el pipeline (OPA / Rego) antes de aceptar un dataset.
+- **API versioning**: `/v1/generate` nunca cambia su contrato; cambios breaking van a `/v2`.
+
+## Ejemplo con código
+
+### 1. LiteLLM proxy: gateway unificado con routing, fallbacks y budgets
+
+`litellm_config.yaml`:
+
+```yaml
+model_list:
+  - model_name: smart-chat
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+      rpm: 500
+  - model_name: smart-chat
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      rpm: 500
+  - model_name: cheap-chat
+    litellm_params:
+      model: openai/gpt-4o-mini
+
+router_settings:
+  routing_strategy: simple-shuffle
+  fallbacks:
+    - smart-chat: [cheap-chat]       # si falla smart-chat, baja a cheap
+  num_retries: 2
+  timeout: 30
+  allowed_fails: 3
+  cooldown_time: 60
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  alerting: ["slack"]
+
+litellm_settings:
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
+  cache: true
+```
+
+Crear un **virtual key** por equipo con presupuesto:
+
+```bash
+curl -X POST https://litellm.internal/key/generate \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -d '{
+    "team_id": "team-search",
+    "max_budget": 2000,
+    "budget_duration": "30d",
+    "models": ["smart-chat", "cheap-chat"],
+    "metadata": {"cost_center": "CC-4421"}
+  }'
+```
+
+El equipo lo consume con el SDK estándar de OpenAI, sin saber qué proveedor atiende:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://litellm.internal/v1",
+    api_key="sk-team-search-xxxx",   # virtual key emitida por la plataforma
+)
+
+resp = client.chat.completions.create(
+    model="smart-chat",
+    messages=[{"role": "user", "content": "Resume este ticket..."}],
+    extra_headers={"x-request-id": "req-abc123", "x-user-id": "u-9981"},
+)
+print(resp.choices[0].message.content)
+```
+
+### 2. Model Registry con MLflow
+
+```python
+import mlflow
+from mlflow.tracking import MlflowClient
+
+mlflow.set_tracking_uri("https://mlflow.internal")
+mlflow.set_experiment("search/query-intent")
+
+with mlflow.start_run(run_name="xgb-v12") as run:
+    mlflow.log_params({"max_depth": 8, "lr": 0.05})
+    mlflow.log_metrics({"f1": 0.912, "auc": 0.954})
+    mlflow.xgboost.log_model(model, artifact_path="model")
+
+    # Registrar en el registry central
+    mv = mlflow.register_model(
+        model_uri=f"runs:/{run.info.run_id}/model",
+        name="search-query-intent",
+        tags={"team": "search", "owner": "ana@corp"},
+    )
+
+# Promover entre stages (con approval real detrás)
+client = MlflowClient()
+client.transition_model_version_stage(
+    name="search-query-intent",
+    version=mv.version,
+    stage="Staging",
+)
+```
+
+### 3. Prompt Library con versioning (Langfuse)
+
+```python
+from langfuse import Langfuse
+
+lf = Langfuse(host="https://langfuse.internal")
+
+# Publicar un prompt versionado
+lf.create_prompt(
+    name="support/triage-v3",
+    prompt="Eres un asistente de soporte. Clasifica el ticket en: {{categories}}.\nTicket: {{ticket}}",
+    config={"model": "smart-chat", "temperature": 0.0},
+    labels=["production"],   # etiqueta activa; la app pide siempre "production"
+)
+
+# El código de la app NUNCA hardcodea el prompt:
+prompt_obj = lf.get_prompt("support/triage-v3", label="production")
+compiled = prompt_obj.compile(categories="billing,bug,other", ticket=ticket_text)
+```
+
+Promoción entre entornos vía CI/CD (dev → staging → production) con PR review.
+
+### 4. SSO con OAuth2 (ejemplo FastAPI + Okta)
+
+```python
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import OAuth2AuthorizationCodeBearer
+from jose import jwt
+import httpx
+
+ISSUER = "https://corp.okta.com/oauth2/default"
+AUDIENCE = "ai-platform"
+
+oauth2 = OAuth2AuthorizationCodeBearer(
+    authorizationUrl=f"{ISSUER}/v1/authorize",
+    tokenUrl=f"{ISSUER}/v1/token",
+)
+
+async def current_user(token: str = Depends(oauth2)):
+    jwks = httpx.get(f"{ISSUER}/v1/keys").json()
+    try:
+        claims = jwt.decode(token, jwks, audience=AUDIENCE, issuer=ISSUER)
+    except Exception:
+        raise HTTPException(401, "invalid token")
+    return {"sub": claims["sub"], "groups": claims.get("groups", [])}
+
+def require_group(group: str):
+    def _check(user=Depends(current_user)):
+        if group not in user["groups"]:
+            raise HTTPException(403, f"requires {group}")
+        return user
+    return _check
+
+app = FastAPI()
+
+@app.post("/registry/promote")
+def promote(model: str, user=Depends(require_group("ml-prod-approvers"))):
+    # solo miembros del grupo pueden promover a prod
+    return {"ok": True, "approved_by": user["sub"]}
+```
+
+### 5. Tabla de decisión build vs buy
+
+| Factor | Favorece **BUY** (SageMaker/Vertex/Databricks) | Favorece **BUILD** (open-source + glue) |
+|---|---|---|
+| Equipo < 20 ingenieros | ✅ | ❌ |
+| Casos de uso estándar | ✅ | ❌ |
+| Lock-in aceptable | ✅ | ❌ |
+| Compliance específico (gob, defensa) | ❌ | ✅ |
+| Volumen > $500k/año en managed | ❌ | ✅ |
+| Diferenciador competitivo | ❌ | ✅ |
+| Multi-cloud obligatorio | ❌ | ✅ |
+| Time-to-market prioritario | ✅ | ❌ |
+
+Enfoque práctico: **híbrido**. Compra lo commodity (compute, serving básico), construye el "pegamento" diferenciador (gateway con tus políticas, portal con tu catálogo).
+
+## Errores comunes
+
+- **Plataforma construida sin stakeholders reales.** El equipo platform decide qué hace falta sin hablar con data scientists; resultado: hermosa arquitectura que nadie usa. Antídoto: 10 entrevistas antes de la primera línea de código, y métricas de adopción desde el día 1.
+- **Demasiada abstracción, un solo patrón forzado.** "Todos los modelos deben usar nuestro framework X." Rompe casos legítimos (streaming, batch, LLMs, visión) y empuja al shadow IT. Deja escape hatches.
+- **No hay cost chargeback.** Como el gasto cae en "la cuenta de la plataforma", los equipos consumen GPT-4 sin medida. Sin **virtual keys con budget** y reporte mensual al cost center, los costos explotan en 3 meses.
+- **Auth reimplementado en cada app.** Cada team hace su OAuth con bugs distintos. Centraliza SSO + RBAC desde el inicio, aunque sea feo al principio.
+- **Sin API versioning.** Un cambio breaking en `/generate` rompe 40 microservicios el martes a las 10am. Siempre versiona (`/v1`, `/v2`), mantén la vieja por 6-12 meses y deprecate con avisos.
+- **Platform team sin product manager.** Sin PM, el backlog es "lo que al staff engineer le pareció interesante esta semana". NPS cae, adopción se estanca.
+- **Confundir "platform" con "infrastructure".** Infra es Terraform y Kubernetes; platform añade UX, docs, templates, soporte, roadmap público. Sin eso es solo plumbing.
+- **Querer Stage 4 de maturity en año 1.** Feature store, AutoML y continuous training antes de tener serving confiable → colapso.
+- **Un solo gateway sin fallbacks.** Si LiteLLM/Portkey cae, toda la empresa queda sin LLMs. Diseña HA real (multi-región, circuit breakers, cache de emergencia).
+- **Documentación como afterthought.** Si el "getting started" tarda más de 30 minutos, los equipos no vuelven. Mide **Time to First Deployment** y optímalo como KPI.
+
+## Resumen
+
+- Una **plataforma interna de IA** es un **producto** cuyos clientes son los equipos de la empresa; servicios compartidos de training, serving, registry, prompts, features, gateway, observabilidad y governance.
+- Los principios clave son **self-service**, **golden paths**, **governance invisible** y **platform-as-a-product**.
+- Componentes centrales: **Model Gateway** (LiteLLM, Portkey), **Model Registry** (MLflow), **Prompt Library** (Langfuse, Humanloop), **Feature Store** (Feast), **Developer Portal** (Backstage).
+- La adopción se gana con **excelente DX**: docs claras, errores accionables, templates listos y deploys en minutos.
+- **Multi-tenancy, SSO y RBAC** no son opcionales: todo pasa por un login único, con quotas, budgets y audit trail por equipo.
+- **Build vs buy** depende de tamaño, criticidad y presupuesto; la mayoría acaba con un **híbrido** (comprar commodity, construir el diferenciador).
+- Los errores más caros son construir sin stakeholders, no implementar **cost chargeback** y re-hacer auth en cada app.
+- Referencias de madurez: Netflix Metaflow, Uber Michelangelo, LinkedIn Pro-ML, Spotify ML Platform, Airbnb Bighead.

@@ -1,77 +1,486 @@
-## Real-World Scenario: Multi-Model API Gateway
+# Real-World Scenario: Multi-Model API Gateway
 
-Your organization has deployed multiple ML models: sentiment analysis, text classification, entity extraction, and summarization. Each team deployed their models independently with different APIs, authentication methods, and monitoring. The result is chaos. Clients struggle to integrate with inconsistent APIs. Operations teams struggle to monitor and maintain disparate systems. Management wants consistency and better control.
+## ¿Qué es?
 
-Your task is to design and build a unified API gateway that sits in front of all ML models. The gateway provides consistent authentication, request routing, rate limiting, monitoring, and error handling. Individual model teams can focus on their models while the gateway handles cross-cutting concerns.
+Un **API gateway multi-modelo** es un servicio que sienta frente a múltiples servicios de ML y expone una **superficie unificada**: una sola URL, un solo esquema de autenticación, un solo sistema de rate limiting, un solo lugar de métricas y logs. Internamente enruta cada request al microservicio de modelo correcto.
 
-The key requirements are: Support multiple model services behind a single API endpoint; provide consistent authentication using API keys; implement rate limiting (1000 requests per minute per API key); route requests to appropriate model services based on the endpoint; collect metrics and logs centrally; support model versioning (clients can request specific versions); handle errors gracefully with consistent error responses; and enable gradual model rollouts.
+### Arquitectura por capas
 
-The architecture has several layers. The API gateway is the entry point receiving all client requests. The authentication layer validates API keys and identifies clients. The rate limiting layer enforces request quotas. The routing layer directs requests to appropriate model services. Model services are the actual ML models running behind the gateway. The monitoring layer collects metrics and logs.
+```
+                 ┌──────────────────────────────────┐
+Clientes  ──────▶│   1. TLS termination (ingress)   │
+                 ├──────────────────────────────────┤
+                 │   2. AuthN (API key / JWT / mTLS)│
+                 ├──────────────────────────────────┤
+                 │   3. Rate limiting (Redis)       │
+                 ├──────────────────────────────────┤
+                 │   4. Request validation          │
+                 ├──────────────────────────────────┤
+                 │   5. Routing + versioning        │
+                 ├──────────────────────────────────┤
+                 │   6. Circuit breaker + retries   │
+                 ├──────────────────────────────────┤
+                 │   7. Observabilidad (metrics,    │
+                 │      logs, traces)               │
+                 └──────────────┬───────────────────┘
+                                │
+          ┌─────────────────────┼─────────────────────┐
+          ▼                     ▼                     ▼
+   sentiment-v1.3        classify-v2.0         summarize-v1.1
+   sentiment-v1.4 (canary)                     summarize-v1.2 (canary)
+```
 
-Start with the API design. Your gateway exposes endpoints like ```/v1/sentiment```, ```/v1/classify```, ```/v1/extract```, and ```/v1/summarize```. Clients send POST requests with JSON payloads containing text to analyze. The gateway validates requests, checks authentication, enforces rate limits, routes to the appropriate model service, and returns results.
+Cada capa es una **cross-cutting concern** que no debe duplicarse en cada equipo de modelo. El gateway las resuelve una sola vez.
 
-Authentication uses API keys in the Authorization header. The gateway maintains a database of API keys, associated clients, and their rate limits. When a request arrives, the gateway extracts the API key, validates it exists, and loads the client's configuration. Invalid keys receive a 401 Unauthorized response immediately.
+## ¿Por qué importa?
 
-Rate limiting prevents abuse and ensures fair resource allocation. The gateway tracks requests per API key using a sliding window algorithm. Redis stores request counts with expiration. When a request arrives, the gateway increments the counter and checks if the limit is exceeded. If so, return 429 Too Many Requests. If not, proceed with the request.
+Sin gateway, cada equipo construye su propio stack:
 
+- 5 equipos → 5 esquemas de auth → clientes sufren.
+- 5 implementaciones de rate limiting → inconsistentes, imposibles de auditar.
+- 5 dashboards de métricas → ninguna visión unificada.
+- 5 formatos de error → clientes necesitan 5 integraciones.
+- Rollouts descoordinados → un equipo tumba un servicio que otro depende de.
 
-Implementing Request Routing and Versioning
-Request routing directs traffic to the appropriate backend service based on the endpoint and any version information. This requires a routing table that maps endpoints to backend services and logic to handle version selection.
+Con gateway:
 
-The routing table is a configuration mapping like: ```/v1/sentiment``` routes to sentiment-service.internal:8080; ```/v1/classify``` routes to classification-service.internal:8080; ```/v1/extract``` routes to extraction-service.internal:8080. These internal service addresses are not exposed to clients. The gateway handles all external traffic and communicates with backend services over an internal network.
+- **Clientes integran una vez** y acceden a todos los modelos.
+- **Operaciones centralizadas:** una política de rate limit se aplica globalmente.
+- **Observabilidad total:** cada request logeado y trazado uniformemente.
+- **Progressive rollouts controlados:** gateway enruta a canary via feature flags/weights sin coordinación con equipos de modelo.
+- **Security hardening único:** HTTPS, WAF, mTLS a backends, rotación de keys.
+- **Multi-tenancy real:** quotas, SLAs y aislamiento por cliente.
 
-Version selection allows clients to request specific model versions or get the default (latest) version. The request might include a header like ```X-Model-Version: 1.2.3``` or a query parameter like ```?version=1.2.3```. The gateway extracts this version identifier and routes to the appropriate backend. If no version is specified, route to the default.
+OpenAI, Anthropic, Google AI, Replicate y Hugging Face operan arquitecturas análogas: la API pública es un gateway sobre decenas o cientos de modelos backend.
 
-This requires backend services to support multiple versions simultaneously. You might run sentiment-v1.2 and sentiment-v1.3 as separate deployments. The gateway routing table knows both versions and routes accordingly. This enables gradual migration: old clients continue using v1.2 while new clients adopt v1.3.
+## ¿Cómo funciona?
 
-Implementing routing might use a reverse proxy configuration. Popular options include NGINX, Envoy, or Kong. You configure routing rules in these proxies. For more control, build a custom gateway using FastAPI or Express.js. The custom approach provides maximum flexibility but requires more code.
+### Diseño de endpoints
 
-A custom gateway in Python using FastAPI looks conceptually like this: Define route handlers for each endpoint; extract authentication from headers; validate API key and load client config; check rate limits using Redis; extract version information from request; look up backend service address from routing table; proxy the request to the backend service; return the response to the client; log request details for monitoring.
+Convención REST versionada:
 
-Error handling is critical. Backend services might return errors, time out, or be unavailable. The gateway should handle these scenarios gracefully. If a backend service returns an error, transform it into a consistent format. If a backend service times out after 30 seconds, return 504 Gateway Timeout. If no backend services are available, return 503 Service Unavailable.
+```
+POST /v1/sentiment      {"text": "..."}
+POST /v1/classify       {"text": "...", "labels": ["a","b","c"]}
+POST /v1/extract        {"text": "..."}
+POST /v1/summarize      {"text": "...", "max_tokens": 128}
 
-Circuit breaker pattern helps handle backend failures. Track error rates for each backend service. If error rates exceed a threshold (50 percent of requests failing), open the circuit breaker for that service. Reject requests immediately with 503 rather than waiting for timeouts. After a cooldown period, allow test requests to check if the service recovered. This prevents cascading failures.
+Headers opcionales:
+  Authorization: Bearer <api_key>
+  X-Model-Version: 1.3.0           # fija versión
+  X-Request-Id: <uuid>             # idempotencia + tracing
+  X-Tenant-Id: acme-corp           # multi-tenancy
+```
 
-Health checks ensure the gateway only routes to healthy backends. Periodically query each backend service with a health check request. Track which services are healthy. Route requests only to healthy services. Remove unhealthy services from the routing pool. When services recover, add them back. This provides automatic failure handling.
+### Autenticación con API keys
 
-Load balancing across multiple instances of the same service improves throughput and reliability. If you run 5 instances of the sentiment service, the gateway should distribute requests across all 5. Round-robin, least-connections, or weighted routing are common strategies. This prevents overloading any single instance.
+```python
+# Validación con cache en memoria + fallback a BD
+import time, hashlib
+from fastapi import Request, HTTPException
 
+_cache: dict[str, dict] = {}
+TTL = 300
 
-Monitoring, Logging, and Operational Excellence
-A production API gateway needs comprehensive monitoring and logging to track system health, debug issues, and optimize performance.
+async def get_client(api_key: str) -> dict:
+    hashed = hashlib.sha256(api_key.encode()).hexdigest()
+    now = time.time()
+    if hashed in _cache and _cache[hashed]["exp"] > now:
+        return _cache[hashed]["data"]
+    row = await db.fetch_one("SELECT * FROM api_keys WHERE hash=:h AND active", h=hashed)
+    if not row:
+        raise HTTPException(401, "Invalid API key")
+    _cache[hashed] = {"data": dict(row), "exp": now + TTL}
+    return dict(row)
 
-Metrics to collect include: requests per second (overall and per endpoint), latency percentiles (p50, p95, p99), error rates (overall and per endpoint), rate limit rejections, authentication failures, backend service health, and circuit breaker state. These metrics provide visibility into system behavior and help detect problems.
+async def authenticate(request: Request) -> dict:
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(401, "Missing bearer token")
+    return await get_client(auth.removeprefix("Bearer ").strip())
+```
 
-Expose metrics in a format that monitoring systems can scrape. Prometheus is popular for this. The gateway exposes a ```/metrics``` endpoint that returns metrics in Prometheus format. Prometheus scrapes this endpoint every 15 seconds and stores the metrics. Grafana visualizes metrics in dashboards.
+### Rate limiting con sliding window + Redis
 
-Logging should capture important events without overwhelming storage. Log every request with: timestamp, client ID, endpoint, HTTP status, latency, backend service, error details (if any). This provides an audit trail and enables debugging. Use structured logging (JSON format) to make logs easier to query.
+**Fórmula sliding window log-based:**
 
-Centralized logging using tools like Elasticsearch or cloud provider logging services enables searching across all logs. When investigating an issue, you can search for all requests from a specific client, all errors from a specific endpoint, or all requests with high latency.
+```
+allowed  ⟺  count_of_requests_in(now - window, now) < limit
+```
 
-Alerting notifies you when problems occur. Configure alerts for: error rate exceeds 5 percent, p99 latency exceeds 1 second, rate limit rejections spike, backend service health checks fail. Alerts should be actionable - they should indicate a problem that requires human response.
+Implementación con sorted sets en Redis:
 
-Distributed tracing helps debug request flows across multiple services. When a request goes from the gateway to a backend service, tracing propagates context. You can see the entire request path, where time was spent, and where errors occurred. Tools like Jaeger or Zipkin provide distributed tracing.
+```python
+import redis.asyncio as redis, time, uuid
 
-Implementing tracing involves adding trace headers to requests. When the gateway receives a request, it starts a trace and adds a trace ID header. When proxying to the backend service, it includes the trace ID. The backend service continues the trace and reports spans. This creates a complete picture of the request flow.
+rds = redis.Redis(host="redis", decode_responses=True)
 
-Performance optimization is important for gateways since every request flows through them. Authentication and rate limit checks should be fast (under 1ms). Use in-memory caches for frequently accessed data like API key validation. Use connection pools for database and Redis connections. Profile the gateway code to find bottlenecks.
+async def rate_limit(client_id: str, limit: int = 1000, window_s: int = 60):
+    key = f"rl:{client_id}"
+    now = time.time()
+    cutoff = now - window_s
+    pipe = rds.pipeline()
+    pipe.zremrangebyscore(key, 0, cutoff)         # purga viejos
+    pipe.zcard(key)                                # cuenta actuales
+    pipe.zadd(key, {str(uuid.uuid4()): now})       # agrega este request
+    pipe.expire(key, window_s + 1)
+    _, count, _, _ = await pipe.execute()
+    if count >= limit:
+        retry = window_s - (now - float(await rds.zrange(key, 0, 0, withscores=True)[0][1]))
+        raise HTTPException(429, "Rate limit exceeded",
+                            headers={"Retry-After": str(int(retry))})
+```
 
-Security considerations are critical. The gateway is a high-value target since it controls access to all models. Implement rate limiting to prevent denial of service. Validate all inputs to prevent injection attacks. Use HTTPS for all external communication. Rotate API keys regularly. Log authentication failures to detect brute force attacks.
+### Routing table + versioning
 
-Deployment of the gateway itself requires careful planning. The gateway is critical infrastructure - if it fails, all model services become unavailable. Deploy the gateway with high availability: multiple instances, load balancing, health checks. Use canary releases for gateway updates. Have rollback procedures ready.
+```python
+# routing.py
+from dataclasses import dataclass
 
-Documentation is essential for a shared service like an API gateway. Document the API contract: endpoints, request/response formats, authentication, rate limits. Document operational procedures: how to add new services, how to update routing, how to investigate issues. Good documentation enables teams to use the gateway effectively.
+@dataclass
+class Backend:
+    url: str
+    timeout_s: float = 2.0
 
-Finally, treat the API gateway as a product. Gather feedback from teams using it. What pain points do they have? What features would help them? Iterate on the gateway based on this feedback. A well-designed gateway accelerates model deployment and improves operational efficiency across the organization.
+ROUTES = {
+    "/v1/sentiment": {
+        "default": "1.3.0",
+        "versions": {
+            "1.3.0": Backend("http://sentiment-v130.ml-prod:80"),
+            "1.4.0": Backend("http://sentiment-v140.ml-prod:80"),   # canary
+        },
+        "canary": {"version": "1.4.0", "weight": 0.1},
+    },
+    "/v1/classify": {
+        "default": "2.0.0",
+        "versions": {"2.0.0": Backend("http://classify-v200.ml-prod:80")},
+    },
+    # ...
+}
 
-Summary
-Building a unified API gateway for ML models provides consistent authentication, rate limiting, request routing, and monitoring across multiple model services. The gateway architecture includes authentication, rate limiting, routing, and monitoring layers. Request routing directs traffic to appropriate backend services based on endpoints and version information.
+import random
+def pick_backend(path: str, header_version: str | None) -> Backend:
+    route = ROUTES[path]
+    if header_version and header_version in route["versions"]:
+        return route["versions"][header_version]
+    canary = route.get("canary")
+    if canary and random.random() < canary["weight"]:
+        return route["versions"][canary["version"]]
+    return route["versions"][route["default"]]
+```
 
-Comprehensive monitoring, logging, and alerting enable operational excellence. Performance optimization, security hardening, and high availability deployment ensure the gateway reliably serves as critical infrastructure for model serving.
+### Circuit breaker
 
-Key concepts to remember
-Unified Interface - Unified API gateways provide consistent authentication, rate limiting, and monitoring across multiple ML model services
-Flexible Routing - Request routing based on endpoints and version headers enables gradual model rollouts and backward compatibility
-Failure Resilience - Circuit breaker patterns and health checks prevent cascading failures when backend model services experience issues
-Comprehensive Observability - Metrics, structured logging, and distributed tracing enable effective debugging and performance optimization
-Critical Infrastructure - API gateways should be treated as critical infrastructure with high availability deployment and well-documented procedures
+**Lógica:**
+
+```
+state = CLOSED (normal) | OPEN (rechaza todo) | HALF_OPEN (prueba)
+
+CLOSED → OPEN  si  (error_rate > threshold)  AND  (requests_in_window > min_requests)
+OPEN   → HALF_OPEN  tras  reset_timeout
+HALF_OPEN → CLOSED  si siguiente request OK
+HALF_OPEN → OPEN    si siguiente request falla
+```
+
+```python
+import pybreaker
+
+sentiment_breaker = pybreaker.CircuitBreaker(
+    fail_max=10, reset_timeout=30, exclude=[httpx.HTTPStatusError]
+)
+
+@sentiment_breaker
+async def call_sentiment(client: httpx.AsyncClient, backend: Backend, payload: dict):
+    r = await client.post(f"{backend.url}/predict", json=payload, timeout=backend.timeout_s)
+    r.raise_for_status()
+    return r.json()
+```
+
+### Health checks y load balancing
+
+Para múltiples replicas del mismo servicio, el gateway puede:
+
+- **Delegar a Kubernetes Service** (round-robin L4).
+- **Hacer client-side LB** con descubrimiento vía DNS SRV o headless Service + lista actualizada.
+- **Health probes** cada 10 s a `/health` de cada backend; descartar unhealthy.
+
+```python
+# health_checker.py
+import httpx, asyncio
+healthy: dict[str, set[str]] = {}  # backend_name -> {ip1, ip2}
+
+async def probe(backend_name: str, ips: list[str]):
+    async with httpx.AsyncClient(timeout=2) as c:
+        results = await asyncio.gather(
+            *[c.get(f"http://{ip}:8000/health") for ip in ips],
+            return_exceptions=True,
+        )
+    healthy[backend_name] = {
+        ip for ip, r in zip(ips, results)
+        if not isinstance(r, Exception) and r.status_code == 200
+    }
+
+async def health_loop():
+    while True:
+        for name, ips in resolve_dns_all().items():
+            await probe(name, ips)
+        await asyncio.sleep(10)
+```
+
+### Observabilidad: Prometheus, structlog, OpenTelemetry
+
+```python
+from prometheus_client import Counter, Histogram, make_asgi_app
+import structlog, uuid
+
+REQS = Counter("gateway_requests_total", "", ["path", "status", "version", "client"])
+LAT = Histogram("gateway_latency_seconds", "", ["path", "version"],
+                buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5])
+RL_REJECT = Counter("gateway_rate_limit_rejects_total", "", ["client"])
+CB_OPEN = Counter("gateway_circuit_breaker_opens_total", "", ["backend"])
+
+log = structlog.get_logger()
+# log.info("request_served", path=..., status=..., latency_ms=..., trace_id=...)
+```
+
+Para distributed tracing, propaga W3C trace context:
+
+```python
+from opentelemetry import trace
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+FastAPIInstrumentor.instrument_app(app)
+HTTPXClientInstrumentor().instrument()
+# Jaeger/Tempo recibe spans con parent-child automáticamente
+```
+
+### Tabla comparativa de API gateways
+
+| Gateway | Lenguaje | Mejor para | Rate limit | Circuit breaker | Observabilidad | Hot-reload config |
+|---|---|---|---|---|---|---|
+| **Kong** | OpenResty (Lua) | Enterprise, plugin-rich | Sí | Sí | Prometheus + logs | Sí |
+| **Envoy** | C++ | Service mesh (Istio base) | Sí | Sí | Nativo gRPC | Sí (xDS) |
+| **NGINX / NGINX Plus** | C | Simplicidad, performance | Básico (OSS), full (Plus) | Básico | Logs | Reload soft |
+| **AWS API Gateway** | Managed | AWS-centric, serverless | Sí | No (via Lambda) | CloudWatch | API calls |
+| **Google Apigee** | Managed | Enterprise mgmt, monetización | Sí | Sí | Dashboards | Sí |
+| **Kubernetes Gateway API** | Spec sobre impls (Istio, Contour, Kong) | Nativo K8s | Depende impl | Depende impl | Depende impl | Sí |
+| **Custom FastAPI** | Python | Lógica ML-específica | Custom | Via pybreaker | Prometheus/OTel | Config reload |
+| **Traefik** | Go | Dev-friendly, auto-TLS | Básico | Sí | Prometheus | Sí |
+
+### Fórmulas y umbrales
+
+**Sliding window strict:**
+
+```
+allowed  ⟺  len({t : request_at(t) ∧ t ∈ (now - window, now]}) < limit
+```
+
+**Circuit breaker:**
+
+```
+open  ⟺  (errors_in_window / requests_in_window > threshold) ∧ (requests_in_window > min_requests)
+# Típicos: threshold=0.5, min_requests=20, window=10s, reset_timeout=30s
+```
+
+**Retry con exponential backoff + jitter:**
+
+```
+delay_n = min(cap, base × 2ⁿ) × random(0.5, 1.5)
+# base=100ms, cap=5s, n=0..3 (máx 4 intentos)
+```
+
+## Ejemplo con código
+
+Gateway completo funcional en FastAPI:
+
+```python
+# gateway.py
+import asyncio, time, uuid, hashlib
+import httpx, pybreaker, redis.asyncio as redis, structlog
+from fastapi import FastAPI, Request, HTTPException
+from prometheus_client import Counter, Histogram, make_asgi_app
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+# -------------------- app --------------------
+app = FastAPI(title="ML API Gateway", version="1.0.0")
+app.mount("/metrics", make_asgi_app())
+log = structlog.get_logger()
+rds = redis.Redis(host="redis", decode_responses=True)
+http = httpx.AsyncClient(timeout=5.0, limits=httpx.Limits(max_connections=500,
+                                                           max_keepalive_connections=200))
+FastAPIInstrumentor.instrument_app(app)
+HTTPXClientInstrumentor().instrument()
+
+# -------------------- metrics --------------------
+REQS = Counter("gw_requests_total", "", ["path", "status", "version", "client"])
+LAT  = Histogram("gw_latency_seconds", "", ["path", "version"],
+                 buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5])
+RL   = Counter("gw_rate_limit_rejects_total", "", ["client"])
+CB   = Counter("gw_cb_opens_total", "", ["backend"])
+
+# -------------------- routing --------------------
+BACKENDS = {
+    "/v1/sentiment": {
+        "1.3.0": "http://sentiment-v130.ml-prod",
+        "1.4.0": "http://sentiment-v140.ml-prod",
+    },
+    "/v1/classify":  {"2.0.0": "http://classify-v200.ml-prod"},
+    "/v1/extract":   {"1.0.0": "http://extract-v100.ml-prod"},
+    "/v1/summarize": {"1.1.0": "http://summarize-v110.ml-prod",
+                      "1.2.0": "http://summarize-v120.ml-prod"},
+}
+DEFAULT_VERSION = {"/v1/sentiment": "1.3.0", "/v1/classify": "2.0.0",
+                   "/v1/extract": "1.0.0", "/v1/summarize": "1.1.0"}
+CANARY = {"/v1/sentiment": ("1.4.0", 0.10), "/v1/summarize": ("1.2.0", 0.05)}
+
+breakers: dict[str, pybreaker.CircuitBreaker] = {}
+def get_breaker(url: str) -> pybreaker.CircuitBreaker:
+    if url not in breakers:
+        breakers[url] = pybreaker.CircuitBreaker(fail_max=10, reset_timeout=30)
+    return breakers[url]
+
+# -------------------- auth --------------------
+_key_cache: dict = {}
+async def authenticate(request: Request) -> dict:
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(401, "Missing bearer token")
+    api_key = auth.removeprefix("Bearer ").strip()
+    h = hashlib.sha256(api_key.encode()).hexdigest()
+    cached = _key_cache.get(h)
+    if cached and cached["exp"] > time.time():
+        return cached["data"]
+    # Fallback: BD (simulado aquí)
+    client = {"id": h[:8], "limit_per_min": 1000, "tenant": "acme"}
+    _key_cache[h] = {"data": client, "exp": time.time() + 300}
+    return client
+
+# -------------------- rate limit --------------------
+async def rate_limit(client_id: str, limit: int, window_s: int = 60):
+    key = f"rl:{client_id}"
+    now = time.time()
+    pipe = rds.pipeline()
+    pipe.zremrangebyscore(key, 0, now - window_s)
+    pipe.zcard(key)
+    pipe.zadd(key, {str(uuid.uuid4()): now})
+    pipe.expire(key, window_s + 1)
+    _, count, _, _ = await pipe.execute()
+    if count >= limit:
+        RL.labels(client_id).inc()
+        raise HTTPException(429, "Rate limit exceeded")
+
+# -------------------- routing logic --------------------
+import random
+def choose_version(path: str, header_version: str | None) -> str:
+    versions = BACKENDS[path]
+    if header_version and header_version in versions:
+        return header_version
+    canary = CANARY.get(path)
+    if canary and random.random() < canary[1]:
+        return canary[0]
+    return DEFAULT_VERSION[path]
+
+# -------------------- proxy --------------------
+async def proxy(backend_url: str, path: str, body: dict, trace_id: str) -> dict:
+    breaker = get_breaker(backend_url)
+    try:
+        @breaker
+        async def _call():
+            r = await http.post(f"{backend_url}/predict", json=body,
+                                headers={"x-request-id": trace_id})
+            r.raise_for_status()
+            return r.json()
+        return await _call()
+    except pybreaker.CircuitBreakerError:
+        CB.labels(backend_url).inc()
+        raise HTTPException(503, f"Backend {backend_url} circuit open")
+    except httpx.TimeoutException:
+        raise HTTPException(504, "Backend timeout")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(e.response.status_code, e.response.text)
+
+# -------------------- endpoints --------------------
+@app.post("/v1/{model}")
+async def dispatch(model: str, request: Request):
+    path = f"/v1/{model}"
+    if path not in BACKENDS:
+        raise HTTPException(404, f"Unknown model: {model}")
+
+    client = await authenticate(request)
+    await rate_limit(client["id"], client["limit_per_min"])
+
+    body = await request.json()
+    version = choose_version(path, request.headers.get("x-model-version"))
+    trace_id = request.headers.get("x-request-id", str(uuid.uuid4()))
+
+    t0 = time.perf_counter()
+    try:
+        result = await proxy(BACKENDS[path][version], path, body, trace_id)
+        status = 200
+    except HTTPException as e:
+        status = e.status_code
+        raise
+    finally:
+        elapsed = time.perf_counter() - t0
+        LAT.labels(path, version).observe(elapsed)
+        REQS.labels(path, status, version, client["id"]).inc()
+        log.info("served", path=path, status=status, version=version,
+                 client=client["id"], latency_ms=elapsed * 1000, trace_id=trace_id)
+    result["_version"] = version
+    return result
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+```
+
+Lanzar:
+
+```bash
+uvicorn gateway:app --host 0.0.0.0 --port 8080 --workers 4
+```
+
+## Errores comunes
+
+- **Rate limiting en memoria sin Redis compartido.** Con N replicas del gateway, cada una tiene su contador → el límite efectivo es N × limit.
+- **Sin circuit breaker.** Si un backend se degrada, cada request espera timeout → pool de conexiones se agota → gateway caído.
+- **Sin retries con backoff.** Un error 502 transitorio puede resolverse con un retry de 100 ms; sin él, el cliente ve error.
+- **Retries sin idempotencia.** Reintentos a endpoints no idempotentes duplican side effects. Headers `Idempotency-Key` o whitelist de métodos seguros.
+- **Gateway como SPOF.** Una sola replica → el gateway cae → **todo** cae. Siempre al menos 3 replicas en zonas distintas con autoscaling agresivo.
+- **Sin distributed tracing.** Debuggear latencia es imposible sin ver dónde se gastó el tiempo (gateway? red? backend? feature store?).
+- **Falta de versioning en path.** `/predict` sin `/v1/` imposibilita breaking changes. Siempre versiona.
+- **API keys sin hash en BD.** Si leakea la tabla, todas las keys se comprometen. Guarda SHA-256; compara con hash del input.
+- **Sin rotación de keys.** Keys eternas aumentan ventana de exposición. TTL + rotación semestral.
+- **Logging del payload completo.** Logs crecen gigante y pueden contener PII. Logea solo size + hash; muestreo del contenido.
+- **Timeouts no configurados en cliente.** El cliente httpx sin timeout bloquea el gateway cuando backend está lento.
+- **No HTTPS entre gateway y backends.** mTLS interno es best practice (Istio/Linkerd lo dan gratis).
+- **Config hardcodeada.** Cambiar un backend requiere redeploy. Usa ConfigMap + hot reload.
+
+## Contexto industrial
+
+- **Kong** (open source + enterprise): usado por GitHub, Expedia, Nasdaq.
+- **Envoy** (CNCF, nacido en Lyft): base de Istio, usado por Stripe, Netflix, Pinterest, Lyft, Reddit.
+- **AWS API Gateway**: default para startups serverless AWS; integra con Lambda, Cognito, WAF.
+- **Google Apigee**: enterprise con monetización, portal developer, analytics.
+- **Istio Gateway + Istio Service Mesh**: estándar K8s-nativo; cada microservicio detrás con mTLS + policies.
+- **Cloudflare Workers / Fastly Compute@Edge**: gateways edge-native, ejecutan lógica en 300+ POPs.
+- **OpenAI, Anthropic, Replicate, Hugging Face**: todos operan API gateways propios encima de serving layers (Triton/vLLM). Rate limiting por tier, kill-switch por abuso, routing a modelos canary.
+- **Netflix Zuul 2** y **Spring Cloud Gateway**: gateways JVM muy usados en bancos y telcos.
+- **Buoyant Linkerd**: service mesh Rust-based alternativo a Istio, más simple.
+
+Observabilidad típica alrededor del gateway: **Prometheus + Grafana** (metrics), **Loki / Elasticsearch** (logs), **Jaeger / Tempo** (traces), **OpenTelemetry** (instrumentation estándar), **PagerDuty / Opsgenie** (alertas).
+
+## Resumen
+
+- Un **API gateway multi-modelo** centraliza auth, rate limiting, routing, versioning, circuit breaking, retries y observabilidad.
+- Arquitectura en **capas**: TLS → auth → rate limit → validation → routing → circuit breaker → observabilidad → backends.
+- **Rate limiting distribuido** requiere Redis (o similar) con sliding window; nunca en memoria por replica.
+- **Circuit breakers** aíslan fallos de backends y previenen colapsos en cascada.
+- **Versioning via header** (`X-Model-Version`) + **routing table** + **canary weights** = rollouts controlados sin coordinación con equipos de modelo.
+- **Métricas Prometheus** + **structured logging** + **distributed tracing (OpenTelemetry)** son no-negociables.
+- El gateway **ES infraestructura crítica**: HA multi-zona, canary para sus propios updates, runbooks probados.
+- Opciones: **Kong, Envoy, NGINX, AWS API Gateway, Apigee, Kubernetes Gateway API, custom FastAPI, Traefik**. Elige según madurez del equipo y stack existente.
+- **Security**: HTTPS externo, mTLS interno (Istio/Linkerd), API keys hasheadas con rotación, logging sin PII.
+- Trata al gateway como **producto**: documenta la API, mide el DevEx, itera con feedback de los equipos consumidores.

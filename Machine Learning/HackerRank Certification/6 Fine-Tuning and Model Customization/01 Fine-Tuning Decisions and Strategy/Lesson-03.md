@@ -1,96 +1,276 @@
-## Licensing and Compliance
+# Licensing and Compliance
 
-Selecting a base model for fine-tuning involves more than technical capabilities. Licensing restrictions and compliance requirements can eliminate otherwise suitable models from consideration. Many teams discover these constraints only after investing in fine-tuning, forcing expensive migrations or compliance violations. Understanding these requirements upfront prevents costly mistakes and ensures your fine-tuning project aligns with enterprise governance standards.
+## ¿Qué es?
 
-Open-source models use different licenses with varying commercial use restrictions. Some models like Mistral use permissive Apache 2.0 licenses, while others like LLaMA use custom licenses that restrict usage for large companies. Meanwhile, compliance frameworks like HIPAA, SOC 2, and GDPR impose additional requirements on how models are deployed and where data is processed.
+Un modelo fine-tuneado es un **artefacto legal** tanto como técnico. La **licencia del modelo base** y el **marco regulatorio** del dominio determinan qué puedes hacer con los pesos entrenados, dónde puedes desplegarlos y qué datos puedes meterles. Ignorar esto es la forma más rápida de descubrir, seis meses después, que todo tu producto es inviable comercialmente o viola la ley.
 
-In this lesson, you will learn practical license selection guidelines, understand essential compliance requirements, and develop a framework for evaluating models against your organization's legal and regulatory needs.
+Las piezas en juego:
 
-Open-Source License Essentials
-Open-source LLM licenses determine what you can and cannot do with models, particularly for commercial use. Understanding these licenses is essential before investing in fine-tuning.
+- **Licencias de modelos open-source** — Apache 2.0, MIT, Llama Community License, Gemma Terms, licencias no-comerciales.
+- **Leyes de residencia de datos** — GDPR (UE), LGPD (Brasil), LFPDPPP (México), PIPL (China), leyes de localización en India, Rusia.
+- **Marcos de cumplimiento sectoriales** — HIPAA (salud EUA), SOC 2 (SaaS enterprise), PCI-DSS (tarjetas), ISO 27001, FedRAMP.
+- **Regulación emergente de IA** — EU AI Act (entrada escalonada 2024-2026), Executive Orders en EUA, propuestas en LATAM.
 
-Apache 2.0 License
+### Dos ejes de decisión
 
-Apache 2.0 is the most permissive license used by open-source LLMs. Models like Mistral 7B, Mistral 8x7B (Mixtral), and many others use Apache 2.0, which allows unrestricted commercial use, modification, and distribution. You can fine-tune these models, deploy them in production, and use them for any commercial purpose without restrictions.
+```
+          Licencia permite tu uso comercial?
+          ┌──────────────┬──────────────┐
+          │     SÍ       │      NO      │
+┌─────────┼──────────────┼──────────────┤
+Deploy    │  LIBRE       │  BLOQUEADO   │
+cumple    │  CORRECTO    │  POR         │
+compliance│              │  LICENCIA    │
+├─────────┼──────────────┼──────────────┤
+Deploy    │  BLOQUEADO   │  DOBLE       │
+NO cumple │  POR         │  BLOQUEO     │
+compliance│  COMPLIANCE  │              │
+└─────────┴──────────────┴──────────────┘
+```
 
-Apache 2.0 requires attribution and includes a patent grant, making it ideal for enterprise use. There are no usage thresholds, company size restrictions, or special requirements. This makes Apache 2.0-licensed models the safest choice for commercial fine-tuning projects where licensing clarity is important.
+Necesitas **ambas** celdas verdes para desplegar legalmente.
 
-LLaMA Community License
+## ¿Por qué importa?
 
-Meta's LLaMA models (LLaMA 2, LLaMA 3) use a custom license called the LLaMA Community License. This license allows commercial use but includes restrictions that eliminate it for some large enterprises. Specifically, companies with over 700 million monthly active users cannot use LLaMA models commercially without a separate agreement with Meta.
+Los costos de equivocarse son concretos y rastreables:
 
-The LLaMA Community License also requires that derivative works (including fine-tuned models) be distributed under the same license, meaning you cannot create proprietary fine-tuned models from LLaMA. This restriction can be problematic for companies that want to keep their fine-tuned models proprietary.
+- **Migración forzada de modelo** por licencia incompatible: 2-4 semanas, $10K-100K en re-entrenamiento + re-evaluación.
+- **Multas regulatorias:** GDPR hasta 4% del revenue global anual o €20M. HIPAA hasta $1.5M por categoría de violación/año. EU AI Act hasta €35M o 7% revenue.
+- **Pérdida de contratos enterprise:** sin SOC 2 Type II, grandes B2B no te firman.
+- **Daño reputacional:** una brecha de datos de salud en un modelo de IA genera cobertura mediática que pulveriza la confianza.
+- **Imposibilidad de distribuir el modelo:** si fine-tuneaste sobre Llama, por licencia debes distribuir el adapter bajo la misma licencia; no puedes venderlo como SaaS propietario cerrado sin ciertas consideraciones.
 
-For most companies, the LLaMA Community License is acceptable, but you must verify that your company size does not exceed the threshold. If you are close to or above 700 million monthly active users, you need a separate commercial agreement with Meta or should choose an Apache 2.0-licensed model instead.
+Esta lección no reemplaza asesoría legal, pero te da el **mapa mental** para hablar con tu equipo legal sabiendo qué preguntar.
 
-Practical License Selection
+## ¿Cómo funciona?
 
-When evaluating models, check the license terms carefully. Even if a model appears open-source, commercial use restrictions can eliminate it from consideration. For enterprise deployments, prefer models with clear, permissive licenses like Apache 2.0 to avoid future licensing complications.
+### Licencias open-source más comunes
 
-If you plan to distribute or sell your fine-tuned models, license compatibility becomes critical. Apache 2.0 allows proprietary derivatives, while the LLaMA Community License requires open-source distribution. Choose licenses that align with your business model for fine-tuned model distribution.
+| Licencia | Uso comercial | Modificación | Derivados cerrados | Patent grant | Notas |
+|---|---|---|---|---|---|
+| **Apache 2.0** | Sí, sin restricciones | Sí | Sí (puedes mantener fine-tunes privados) | Sí | Mistral, Falcon, Qwen (varía), BERT |
+| **MIT** | Sí | Sí | Sí | No explícito | Phi, muchos repos académicos |
+| **BSD-3** | Sí | Sí | Sí | No | Modelos académicos |
+| **Llama Community** | Sí, con topes | Sí | Mayormente sí (ver términos) | Limitado | Prohibida para empresas con >700M MAU; prohibida para entrenar otros LLMs competidores |
+| **Gemma Terms** | Sí | Sí | Sí, con "prohibited use policy" | Sí | Google obliga a seguir una política de uso aceptable |
+| **CC-BY-NC** | **No** (solo no comercial) | Sí | — | — | ¡Cuidado! Varios modelos "open" no son comerciales |
+| **OpenRAIL-M** | Sí, con restricciones de uso | Sí | Sí | Varía | BLOOM, usada para añadir cláusulas éticas |
 
-Data Residency and Compliance Essentials
-Data residency laws and compliance frameworks impose requirements on where data can be stored and processed, impacting model deployment decisions.
+### Caso Llama en detalle
 
-GDPR and EU Data Residency
+La **Llama Community License** (v2, v3) permite uso comercial *excepto*:
 
-The General Data Protection Regulation (GDPR) in the European Union imposes strict requirements on data processing. While GDPR does not explicitly mandate data residency, it requires that data transfers outside the EU meet adequacy decisions or use approved transfer mechanisms. In practice, many organizations choose to keep EU data within the EU to simplify compliance.
+1. Empresas con **>700 millones de MAU** al momento de release del modelo necesitan acuerdo separado con Meta.
+2. No puedes usar outputs de Llama para **entrenar otros LLMs** que compitan.
+3. Debes incluir el **aviso de atribución** y propagar la licencia en derivados.
 
-For fine-tuning, this means that if you process personal data from EU residents, you may need to ensure that both training data and inference occur within EU boundaries. Self-hosted models deployed in EU data centers satisfy this requirement, while hosted models from US providers may require additional compliance measures.
+Para la mayoría de equipos no es un problema; para TikTok, Snapchat, X, sí lo es.
 
-When fine-tuning models for EU use cases, prefer self-hosted deployments in EU data centers or use providers with EU data residency guarantees. This simplifies GDPR compliance and avoids complex data transfer agreements.
+### Marcos de cumplimiento (lo esencial)
 
-Data Localization Laws
+| Marco | Jurisdicción | Qué protege | Impacto en fine-tuning |
+|---|---|---|---|
+| **GDPR** | UE/EEA | Datos personales de residentes UE | Transferencias fuera UE requieren mecanismos aprobados (SCCs, adequacy); derecho al olvido obliga a poder "desaprender" (hard con pesos) |
+| **HIPAA** | EUA | PHI (datos de salud) | Business Associate Agreement con proveedor cloud; cifrado at-rest y in-transit; audit logs; acceso restringido |
+| **SOC 2 Type II** | Global (B2B) | Seguridad, disponibilidad, confidencialidad | Controles continuos auditados sobre 6-12 meses |
+| **PCI-DSS** | Global (tarjetas) | Datos de tarjeta de crédito | Segmentación de red; nunca entrenar con PANs en claro |
+| **LGPD** | Brasil | Datos personales | Similar a GDPR; consentimiento explícito, DPO obligatorio |
+| **LFPDPPP** | México | Datos personales | Aviso de privacidad, derechos ARCO |
+| **PIPL** | China | Datos personales | Localización dura; evaluación de seguridad para transferir |
+| **EU AI Act** | UE | Sistemas de IA | Clasificación por riesgo; GPAI (como LLMs) con obligaciones de transparencia y evaluación de riesgo sistémico |
 
-Some countries have explicit data localization laws that require certain data to remain within national boundaries. China, Russia, and India have data localization requirements for specific types of data, particularly personal data and financial information.
+### Residencia de datos: regla práctica
 
-For fine-tuning projects involving data from these regions, you must deploy models and process training data within the required geographic boundaries. This eliminates hosted models from US providers and requires self-hosted deployments in compliant regions.
+- **GDPR:** no exige residencia pero *simplifica* mantener datos en UE. Si usas APIs US (OpenAI, Anthropic), necesitas SCCs + Data Processing Agreement + evaluar impacto Schrems II.
+- **Rusia, China, India (algunos sectores):** localización dura. Debes correr el modelo en infraestructura local.
+- **Sector público LATAM:** cada vez más exige nubes regionales (AWS São Paulo, GCP Santiago).
 
-Compliance Framework Essentials
+### Decision framework legal
 
-Compliance frameworks impose specific requirements on how systems handle data, particularly sensitive data like healthcare records, financial information, or personal data.
+```
+1. Clasifica tus datos
+   - PII? PHI? datos financieros? propiedad intelectual?
+   - origen geográfico de los sujetos?
 
-HIPAA for Healthcare: Systems that process Protected Health Information (PHI) must implement administrative, physical, and technical safeguards. For fine-tuning with healthcare data, HIPAA compliance requires using HIPAA-compliant cloud providers, implementing encryption, maintaining audit logs, and ensuring that only authorized personnel access PHI. Self-hosted models deployed in HIPAA-compliant environments can satisfy HIPAA requirements, but you must ensure that all infrastructure, processes, and personnel meet HIPAA standards.
+2. Identifica marcos aplicables
+   - HIPAA/PCI/SOC2/GDPR/LGPD/EU AI Act?
 
-SOC 2 for Enterprise SaaS: SOC 2 demonstrates that a provider has implemented appropriate security controls and processes. For fine-tuning, using SOC 2-compliant infrastructure helps satisfy enterprise customer requirements. Most major cloud providers offer SOC 2-compliant services, making it feasible to achieve SOC 2 compliance for self-hosted fine-tuning.
+3. Filtra licencias de modelos
+   - uso comercial? MAU threshold? derivados cerrados permitidos?
+   - tu caso de uso está en prohibited uses?
 
-PCI-DSS for Financial Data: Systems that process, store, or transmit credit card data require PCI-DSS compliance. Fine-tuning with financial data that includes credit card information requires PCI-DSS-compliant infrastructure, network segmentation, and encryption. Self-hosted deployments in PCI-DSS-compliant environments can satisfy these requirements.
+4. Elige región de deployment
+   - residencia de datos compatible?
+   - proveedor con BAA/DPA firmable?
 
-Making Compliance-Informed Decisions
-Selecting models that meet licensing, compliance, and data residency requirements requires systematic evaluation.
+5. Documenta la cadena
+   - data lineage, model card, DPIA, risk register
+```
 
-License Compatibility Assessment
+### Modalidades híbridas inteligentes
 
-Evaluate license compatibility with your business model. If you plan to distribute fine-tuned models commercially, ensure the base model license allows this. Prefer Apache 2.0-licensed models for maximum flexibility, or verify that custom licenses meet your needs.
+- **Dev con API, prod con self-hosted:** prototipa con GPT-4o, migra a Mistral self-hosted en región UE para producción con datos regulados.
+- **API con zero-retention mode:** OpenAI, Anthropic y Google ofrecen contratos enterprise que no retienen prompts (clave para HIPAA).
+- **Private endpoints en nube cumplidora:** AWS Bedrock corre Claude/Llama/Mistral en tu VPC con BAA firmable (HIPAA).
 
-Compliance Framework Mapping
+## Ejemplo con código
 
-Map your compliance requirements to model deployment options. Identify which frameworks apply (HIPAA, SOC 2, GDPR, PCI-DSS) and verify that your chosen deployment approach satisfies each framework's requirements.
+### 1. Validador automático de compatibilidad licencia × caso de uso
 
-Data Residency Verification
+```python
+# ============================================================
+# ¿Puedo usar este modelo en mi contexto?
+# ============================================================
+from dataclasses import dataclass
+from typing import Optional
 
-Identify data residency requirements based on data origin, user location, and applicable laws. Ensure that your deployment location (cloud region, on-premise) satisfies residency requirements for all relevant jurisdictions.
+@dataclass
+class Modelo:
+    nombre: str
+    licencia: str
+    mau_threshold: Optional[int] = None   # None = sin tope
+    permite_derivados_cerrados: bool = True
+    prohibited_uses: tuple = ()
 
-Risk Assessment
+@dataclass
+class CasoDeUso:
+    empresa_mau: int
+    distribuira_fine_tune_cerrado: bool
+    dominio: str                           # p.ej. "salud", "finanzas", "marketing"
+    region_deployment: str                 # "ue", "us", "latam", "cn"
 
-Assess risks associated with license restrictions, compliance gaps, and data residency violations. Document mitigation strategies and ensure that model selection decisions account for these risks alongside technical and cost considerations.
+CATALOGO = [
+    Modelo("Mistral-7B", "Apache-2.0"),
+    Modelo("Llama-3-8B", "Llama-Community",
+           mau_threshold=700_000_000,
+           prohibited_uses=("entrenar LLMs competidores",)),
+    Modelo("Gemma-7B", "Gemma-Terms",
+           prohibited_uses=("desinformación", "armamento", "vigilancia masiva")),
+    Modelo("Phi-3-mini", "MIT"),
+    Modelo("Falcon-7B", "Apache-2.0"),
+]
 
-Common Pitfalls
-Selecting Models Without Checking Licenses: Teams often choose models based on performance without verifying license terms, only to discover restrictions after investing in fine-tuning. Always check license compatibility with your business model, especially if you plan to distribute fine-tuned models commercially.
+def validar(m: Modelo, uso: CasoDeUso) -> list[str]:
+    problemas = []
+    if m.mau_threshold and uso.empresa_mau > m.mau_threshold:
+        problemas.append(
+            f"Tu empresa ({uso.empresa_mau:,} MAU) supera el tope de "
+            f"{m.mau_threshold:,} del {m.licencia}. Necesitas acuerdo comercial."
+        )
+    if uso.distribuira_fine_tune_cerrado and not m.permite_derivados_cerrados:
+        problemas.append("Esta licencia no permite derivados cerrados.")
+    if uso.dominio in m.prohibited_uses:
+        problemas.append(f"Dominio '{uso.dominio}' está en prohibited uses.")
+    return problemas
 
-Assuming All Open-Source Licenses Are Equal: Not all open-source licenses are equally permissive. LLaMA's custom license restricts large companies and requires open-source distribution of derivatives, while Apache 2.0 allows unrestricted commercial use. Understand license differences before committing to a model.
+mi_caso = CasoDeUso(
+    empresa_mau=1_200_000_000,          # red social gigante
+    distribuira_fine_tune_cerrado=True,
+    dominio="marketing",
+    region_deployment="ue",
+)
 
-Ignoring Data Residency Requirements: Teams deploy models in convenient locations without considering data residency laws. GDPR, data localization laws, and compliance frameworks may require specific deployment locations. Verify residency requirements before selecting deployment infrastructure.
+for m in CATALOGO:
+    issues = validar(m, mi_caso)
+    estado = "OK" if not issues else "BLOQUEADO"
+    print(f"{m.nombre:<15} [{estado}] " + ("" if not issues else " | ".join(issues)))
+```
 
-Overlooking Compliance Framework Requirements: Teams assume that using compliant cloud providers automatically satisfies all requirements, but compliance frameworks like HIPAA require end-to-end compliance across infrastructure, processes, and personnel. Ensure your entire deployment stack meets compliance requirements.
+### 2. Checklist HIPAA aplicado al pipeline
 
-Underestimating License Migration Costs: Teams discover license incompatibilities after fine-tuning and must migrate to different models, requiring retraining and infrastructure changes. Evaluate licenses upfront to avoid costly migrations later.
+```python
+# ============================================================
+# ¿Mi pipeline de fine-tuning con datos de salud cumple HIPAA?
+# ============================================================
+checklist_hipaa = {
+    "BAA firmado con cloud provider": False,     # AWS, Azure, GCP ofrecen BAA
+    "PHI cifrado at-rest (AES-256)": False,
+    "PHI cifrado in-transit (TLS 1.2+)": False,
+    "Audit logs inmutables": False,
+    "Acceso basado en roles (least privilege)": False,
+    "De-identificación o Safe Harbor aplicado al dataset": False,
+    "Modelo deployado en región compatible": False,
+    "Prompts/outputs no se envían a servicios sin BAA": False,
+    "Plan de respuesta a brechas documentado": False,
+    "Entrenamiento al personal registrado": False,
+}
 
-Summary
-Licensing, compliance, and data residency requirements fundamentally constrain model selection for enterprise fine-tuning. Open-source licenses vary in permissiveness, with Apache 2.0 being most flexible and custom licenses potentially restricting commercial use. Data residency laws and compliance frameworks impose additional requirements that may mandate specific deployment approaches.
+def auditar(cl: dict) -> None:
+    total = len(cl)
+    ok = sum(cl.values())
+    print(f"Cumplimiento HIPAA: {ok}/{total}")
+    for item, v in cl.items():
+        marca = "[x]" if v else "[ ]"
+        print(f"  {marca} {item}")
+    if ok < total:
+        print("\nNO despliegues hasta cerrar todos los items.")
 
-Key concepts to remember
-License Types - Apache 2.0 is most permissive; LLaMA Community License restricts large companies
-Data Residency - GDPR and localization laws constrain deployment locations
-Compliance Frameworks - HIPAA, SOC 2, and PCI-DSS impose specific security and process requirements
-Risk Assessment - Evaluate licensing, compliance, and residency risks alongside technical considerations
+auditar(checklist_hipaa)
+```
+
+### 3. Model Card mínima (recomendada por EU AI Act)
+
+```python
+# ============================================================
+# Model Card: documenta origen, licencia, limitaciones
+# ============================================================
+model_card = {
+    "nombre": "soporte-cliente-es-v1",
+    "modelo_base": "Mistral-7B-Instruct-v0.3",
+    "licencia_base": "Apache-2.0",
+    "licencia_derivado": "Apache-2.0",
+    "tecnica": "QLoRA (r=16, alpha=32, 4-bit NF4)",
+    "dataset": {
+        "fuente": "tickets internos anonimizados 2023-2024",
+        "tamano": 3200,
+        "idioma": "es-MX",
+        "pii_eliminada": True,
+        "metodo_anonimizacion": "presidio + revisión humana del 10%",
+    },
+    "metrica_eval": {"accuracy": 0.91, "latencia_p95_ms": 320},
+    "limitaciones_conocidas": [
+        "no apto para asesoría legal o médica",
+        "degrada en dialectos fuera de MX/CO/AR",
+        "no entrenado para detectar fraude",
+    ],
+    "cumplimiento": ["GDPR", "LFPDPPP"],
+    "contacto_responsable": "ia-governance@empresa.com",
+    "fecha": "2025-10-07",
+}
+
+import json
+print(json.dumps(model_card, indent=2, ensure_ascii=False))
+```
+
+## Errores comunes
+
+- **Elegir modelo solo por benchmark sin leer la licencia.** Clásico: fine-tunear Llama y descubrir meses después que tu empresa supera 700M MAU.
+- **Asumir que "open-source" = "libre para todo".** Hay licencias no comerciales (CC-BY-NC), con cláusulas éticas (OpenRAIL), con topes (Llama).
+- **Confundir cloud compliance con end-to-end compliance.** AWS puede ser HIPAA-eligible, pero *tu* pipeline debe implementar los controles: cifrado, logs, roles, BAA.
+- **Ignorar prompts como vector de PHI.** Un usuario pega su historial clínico en tu chatbot — si no tienes BAA con el proveedor de API, acabas de violar HIPAA.
+- **No separar datos de entrenamiento vs inferencia.** GDPR aplica a ambos. "Entrené con datos UE y despliegué en US" es transferencia internacional.
+- **Olvidar el derecho al olvido.** GDPR exige poder borrar datos de un sujeto. Si memorizaste su info en los pesos, no basta con eliminarla del dataset.
+- **No versionar la Model Card.** Cuando audite el regulador, no poder decir qué datos entrenaron qué modelo es una red flag enorme.
+- **Fiarse de que la licencia "no cambiará".** Meta ha ajustado términos de Llama entre versiones. Guarda copia de la licencia del día que descargaste los pesos.
+- **Ignorar el EU AI Act.** Aunque opera "fuera de UE", si procesas datos de residentes UE, aplica. Hay obligaciones de transparencia para GPAI desde 2025.
+
+### Herramientas y recursos
+
+- **De-identificación:** Microsoft Presidio, AWS Comprehend Medical, scrubadub.
+- **Governance y catálogo:** HuggingFace model cards, MLflow Model Registry, Weights & Biases Model Registry.
+- **Auditoría:** Vanta, Drata, Secureframe (SOC 2, HIPAA, ISO 27001 automation).
+- **Cloud BAA:** AWS BAA (gratis), Azure (gratis con enterprise), GCP (gratis).
+- **Legal LLM-friendly:** Choose a License (choosealicense.com), TLDRLegal, SPDX license list.
+
+## Resumen
+
+- Un modelo fine-tuneado es un artefacto **legal además de técnico**: licencia + cumplimiento + residencia de datos definen qué puedes hacer con él.
+- **Apache 2.0** es la licencia más segura para uso comercial sin restricciones (Mistral, Falcon).
+- **Llama Community License** permite uso comercial *excepto* para empresas de >700M MAU y para entrenar competidores directos.
+- **GDPR, HIPAA, PCI-DSS, SOC 2, EU AI Act** cada uno impone requerimientos distintos sobre cifrado, logs, residencia, consentimiento y transparencia.
+- Para datos regulados (salud, finanzas, UE), **self-hosted en región compatible** suele ser el único camino.
+- **BAA (HIPAA)** y **DPA/SCC (GDPR)** son contratos *obligatorios* con tu proveedor de cloud o API — no son opcionales.
+- Documenta siempre una **Model Card**: modelo base, licencia, dataset, anonimización, métricas, limitaciones, contacto responsable.
+- El **derecho al olvido** (GDPR) choca con la memorización de pesos: anonimizar antes de entrenar es la defensa real.
+- Verifica licencias **antes** de invertir semanas en fine-tuning; migrar después es caro y lento.
+- Estas guías no reemplazan asesoría legal: úsalas para tener la conversación correcta con tu equipo de compliance.

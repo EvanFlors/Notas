@@ -1,183 +1,319 @@
-## Batch Prediction versus Real-Time Serving
-Comparison of batch, real-time, and streaming deployment patterns showing workflow and tradeoffs
+# Batch Prediction versus Real-Time Serving
 
 ![Batch, real-time, and streaming deployment pattern comparison](https://hrcdn.net/ai-engineering/module-7/light/aiops-lesson01-deployment-patterns-comparison.svg)
 
-The choice between batch prediction and real-time serving fundamentally shapes your deployment architecture, infrastructure costs, and user experience. Understanding when to use each pattern prevents costly mistakes and enables better system design.
+## ¿Qué es?
 
-Batch prediction processes many inputs at once on a schedule. You might generate predictions for all users every night, every hour, or every few minutes. The predictions are stored and served from a database or cache when needed. Users receive pre-computed predictions rather than on-demand predictions. This pattern works well when predictions do not need immediate freshness and when you can predict what users will need before they ask.
+Un **patrón de deployment** define *cuándo* y *cómo* se ejecuta la inferencia de un modelo en relación con la solicitud del usuario. Los tres patrones fundamentales son:
 
-Consider a movie recommendation system. You can generate recommendations for all users overnight, processing millions of users in a few hours using powerful batch processing infrastructure. When users log in the next day, they see pre-computed recommendations served from a cache. The recommendations are not based on their most recent viewing (from the last few hours), but they are fast to serve and cheap to generate at scale.
+- **Batch prediction:** las predicciones se calculan de forma masiva en un horario (nightly, hourly) y se almacenan en una base de datos o cache. El usuario consume predicciones **pre-computadas**.
+- **Real-time serving:** cada solicitud dispara una inferencia **sincrónica**. El modelo responde en milisegundos y la predicción refleja el estado más reciente del sistema.
+- **Streaming prediction:** eventos fluyen por una cola (Kafka, Kinesis, Pulsar) y workers consumen esos eventos **asincrónicamente**, publicando el resultado en otra cola o base de datos. Se encuentra entre batch y real-time.
 
-Here is how batch prediction works in practice:
+### Batch prediction
 
-Batch Prediction System
+Procesa miles o millones de inputs de una vez. Un job programado (Airflow, Prefect, Dagster) toma un snapshot de datos, ejecuta inferencia en lotes grandes (optimizando GPU/TPU) y guarda resultados. Cuando el usuario consulta, se sirve el valor cacheado con latencia de milisegundos.
 
-```python
-from datetime import datetime
+Ejemplo típico: recomendaciones de películas que Netflix calcula de madrugada para 200M+ usuarios. El resultado del día siguiente no refleja lo que viste en la última hora, pero sirve rápido y barato.
 
-class BatchPredictionSystem:
-  """Processes many inputs at once, stores results for later serving."""
+### Real-time serving
 
-  def __init__(self):
-      self.prediction_store = {}  # Cache for pre-computed predictions
+Cada request del cliente ejecuta el modelo sincrónicamente. El servidor debe estar siempre disponible, con autoscaling, replicación y presupuesto de latencia estricto (típicamente p99 < 100 ms para fraude, < 300 ms para búsqueda, < 1 s para chat).
 
-  def run_batch_prediction(self, user_ids: list, batch_size: int = 100):
-      """Run batch predictions for all users on a schedule."""
-      for i in range(0, len(user_ids), batch_size):
-          batch = user_ids[i:i + batch_size]
+Ejemplo típico: detección de fraude en Stripe. Una transacción no puede esperar hasta mañana: hay que decidir **ahora** si se aprueba.
 
-          # Batch inference is more efficient than individual predictions
-          predictions = self._predict_batch(batch)
+### Streaming predictions
 
-          # Store predictions in database/cache for later serving
-          for user_id, prediction in predictions.items():
-              self.prediction_store[user_id] = {
-                  'prediction': prediction,
-                  'generated_at': datetime.now().isoformat(),
-                  'ttl': 86400  # 24 hours
-              }
+Los eventos llegan continuamente y se procesan tan pronto como un worker esté disponible. No hay un cliente esperando respuesta sincrónica, pero tampoco se procesa "cada 24 horas". Es ideal para flujos continuos: moderación de contenido, scoring de clicks, enriquecimiento de logs.
 
-  def _predict_batch(self, user_ids: list) -> dict:
-      """Batch model inference - process many users efficiently."""
-      return {
-          user_id: {'recommended_items': [1001, 2001], 'scores': [0.85, 0.72]}
-          for user_id in user_ids
-      }
+Ejemplo típico: moderación de posts en Meta. Un usuario publica, el evento entra a Kafka, un worker lo clasifica en 2-5 segundos, y si es inapropiado se elimina.
 
-  def serve_prediction(self, user_id: int) -> dict:
-      """Serve pre-computed prediction via fast cache lookup."""
-      if user_id in self.prediction_store:
-          return {'prediction': self.prediction_store[user_id], 'source': 'cached'}
-      return {'prediction': None, 'source': 'miss'}
+## ¿Por qué importa?
 
+Elegir el patrón incorrecto es uno de los errores más costosos en producción. Las consecuencias se multiplican:
 
-# Example: Nightly batch job for recommendations
-system = BatchPredictionSystem()
-system.run_batch_prediction(user_ids=list(range(1, 10001)), batch_size=500)
+- **Elegir real-time cuando batch bastaba:** desperdicias 10-50x en infraestructura. Mantener GPUs encendidas 24/7 para servir predicciones que podrían pre-calcularse en 2 horas nocturnas con spot instances es tirar dinero.
+- **Elegir batch cuando se necesitaba real-time:** sirves predicciones obsoletas. En fraude, significa aprobar transacciones fraudulentas; en pricing dinámico, cobrar precios desactualizados; en chat, sentir que el bot está "muerto".
+- **Elegir streaming cuando era real-time:** el usuario espera una respuesta y recibe nada, porque el evento se procesó asincrónicamente.
 
-# Serving is ultra-fast (<1ms cache lookup)
-result = system.serve_prediction(user_id=42)
+Además, el patrón determina el **presupuesto de ingeniería**: real-time requiere load balancers, autoscaling, circuit breakers, health checks y observabilidad profunda. Batch requiere scheduler, data lake y job retry. Streaming requiere queue management, backpressure y exactly-once semantics.
 
-# Benefits: spot instances (70% savings), 10-50x more efficient, complex models OK
-# Tradeoffs: predictions become stale, need storage, not for real-time decisions
+## ¿Cómo funciona?
+
+### Arquitectura batch
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Scheduler (Airflow / Prefect / Dagster / cron)         │
+│      ↓ dispara job cada N horas                         │
+│  Data warehouse (BigQuery / Snowflake / S3+Delta)       │
+│      ↓ lee features de todos los usuarios               │
+│  Compute cluster (Spark / Ray / GPU batch job)          │
+│      ↓ inferencia en lotes de 10k-100k                  │
+│  Prediction store (Redis / DynamoDB / Postgres)         │
+│      ↓ serve con lookup <1ms                            │
+│  API edge (CDN + lookup)                                │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Batch prediction is ideal when you can pre-compute predictions for known users, trading freshness for dramatically lower costs and the ability to use more complex models.
+Ventajas: GPU utilization altísima (batches enormes), spot instances (70% descuento), modelos pesados viables.
+Costos: freshness de horas/días, almacenamiento de predicciones, costo si el universo de usuarios es gigante.
 
-Real-time serving computes predictions on-demand when requested. A user action triggers a request to your model server, which computes and returns a prediction immediately. The prediction reflects the most current information available. This pattern provides the freshest possible predictions but requires infrastructure that can handle request volume with acceptable latency.
+### Arquitectura real-time
 
-Consider a fraud detection system. When a user attempts a transaction, you need to evaluate it for fraud immediately. You cannot batch fraud detection overnight because by then the fraudulent transaction would be complete. Real-time serving is essential because decisions cannot wait.
-
-Here is how real-time serving works:
-
-Real-Time Serving System
-
-```python
-class RealTimeServingSystem:
-  """Computes predictions synchronously when requested."""
-
-  def predict_fraud(self, transaction: dict) -> dict:
-      """Real-time fraud prediction - must complete in <100ms."""
-      # Step 1: Feature retrieval from fast cache/DB (~10ms)
-      features = self._get_features_realtime(transaction)
-
-      # Step 2: Model inference - optimized for low latency (~20ms)
-      fraud_score = self._model_inference(features)
-
-      # Step 3: Apply business rules
-      decision = 'block' if fraud_score > 0.7 else 'allow'
-
-      return {'fraud_score': fraud_score, 'decision': decision}
-
-  def _get_features_realtime(self, transaction: dict) -> dict:
-      """Retrieve features in real-time using cached/denormalized data."""
-      return {
-          'amount': transaction.get('amount', 0),
-          'merchant_risk_score': 0.3,   # Pre-cached
-          'user_velocity': 2,            # From real-time counter
-          'device_fingerprint_risk': 0.2 # Pre-cached
-      }
-
-  def _model_inference(self, features: dict) -> float:
-      """Run optimized model inference (quantized model or GPU)."""
-      score = (
-          features['amount'] / 10000 * 0.3 +
-          features['merchant_risk_score'] * 0.3 +
-          features['user_velocity'] / 10 * 0.2 +
-          features['device_fingerprint_risk'] * 0.2
-      )
-      return min(1.0, score)
-
-
-# Example: Real-time fraud detection on payment
-system = RealTimeServingSystem()
-result = system.predict_fraud({'amount': 5000.00, 'merchant': 'electronics'})
-# Returns immediately with fraud_score and decision
-
-# Characteristics: freshest data, strict latency (<100ms), always-available
-# Tradeoffs: higher cost, model complexity constrained, need peak capacity
+```
+┌─────────────────────────────────────────────────────────┐
+│  Cliente (web / mobile / microservicio)                 │
+│      ↓ HTTP/gRPC                                        │
+│  API Gateway (Kong / Envoy / Cloud Gateway)             │
+│      ↓ auth, rate limit, routing                        │
+│  Load balancer (ALB / nginx / Istio)                    │
+│      ↓ round-robin / least-conn                         │
+│  Model servers (N replicas con autoscaling)             │
+│   - Feature store lookup (<10 ms)                       │
+│   - Model inference (<50 ms)                            │
+│   - Post-processing + logging                           │
+│      ↓                                                  │
+│  Respuesta sincrónica al cliente                        │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Real-time serving provides the freshest predictions but requires always-available infrastructure and careful optimization to meet strict latency requirements.
+Ventajas: freshness máxima, personalización per-request, decisiones críticas.
+Costos: infraestructura always-on, over-provisioning para peaks, complejidad operacional, limita tamaño del modelo.
 
-The latency requirements differ dramatically. Batch prediction can take seconds or minutes per prediction because users never wait for computation. You can use large, complex models that would be too slow for real-time serving. Real-time serving must complete within strict latency budgets, often under 100 milliseconds. This constrains model complexity and infrastructure choices.
+### Arquitectura streaming
 
-Cost characteristics differ significantly. Batch prediction allows using spot instances or preemptible VMs that cost 70 percent less than regular instances. Since predictions happen on a schedule, temporary instance failures are acceptable. You can also use larger batches that maximize GPU utilization and reduce cost per prediction. Real-time serving requires always-available infrastructure with capacity to handle peak request rates plus a safety margin. You cannot use spot instances because failure means dropped requests and unhappy users.
+```
+┌─────────────────────────────────────────────────────────┐
+│  Producers (apps que generan eventos)                   │
+│      ↓                                                  │
+│  Message broker (Kafka / Kinesis / Pulsar / Pub/Sub)    │
+│      ↓ topic particionado                               │
+│  Stream processor (Flink / Spark Streaming / Ray)       │
+│   o Workers (consumers paralelos)                       │
+│      ↓ inferencia en micro-batches                      │
+│  Output topic / database / cache                        │
+│      ↓                                                  │
+│  Consumers downstream                                   │
+└─────────────────────────────────────────────────────────┘
+```
 
-Freshness is the key tradeoff. Batch predictions become stale as time passes. A recommendation based on yesterday's user behavior might not reflect today's interests. Real-time predictions use the most current data and provide the best user experience. The question is whether the freshness improvement justifies the additional cost and complexity.
+Ventajas: desacoplamiento, backpressure natural (la queue absorbe spikes), throughput muy alto, micro-batching para GPU.
+Costos: complejidad de queue management, idempotencia, ordering, retries, dead-letter queues.
 
-Data availability affects pattern choice. Batch prediction can use data that takes time to process or compute. You might run complex feature engineering pipelines that aggregate historical data, train temporary models, or compute expensive features. Real-time serving needs features available immediately, limiting what data you can use.
+### Tabla comparativa
 
+| Dimensión | Batch | Real-time | Streaming |
+|---|---|---|---|
+| Latencia percibida | Milisegundos (desde cache) | 10-500 ms (inferencia) | Segundos a minutos |
+| Freshness de predicción | Horas o días | Segundos | Segundos a minutos |
+| Costo por millón de predicciones | $0.3-3 | $10-100 | $3-30 |
+| Utilización de GPU | 80-95% | 20-40% | 50-75% |
+| Infra always-on | No (spot OK) | Sí (99.9%+) | Sí (brokers + workers) |
+| Complejidad operacional | Baja | Alta | Media-Alta |
+| Rollback | Trivial (rerun job) | Requiere canary/blue-green | Replay desde offset |
+| Ejemplo | Recomendaciones Netflix | Fraude Stripe | Moderación Meta |
 
-Streaming Predictions for Continuous Processing
-Streaming prediction is a third pattern that sits between batch and real-time. Instead of processing requests individually on-demand or all at once on a schedule, streaming processes a continuous flow of events as they occur. This pattern works well for event-driven systems where predictions are needed for every event but not necessarily synchronized with user actions.
+### Fórmulas de referencia
 
-Consider a content moderation system for social media. Users continuously post content. Each post needs to be checked for inappropriate content. You do not need results instantly (a few seconds delay is acceptable), but you need to process all posts continuously as they arrive. Streaming prediction handles this pattern naturally.
+**Costo por predicción:**
 
-The architecture uses message queues or streaming platforms like Kafka or Kinesis. Events flow into a queue. Prediction workers consume events, compute predictions, and emit results. Multiple workers process events in parallel, providing high throughput without requiring immediate response to individual requests.
+```
+costo_por_prediccion = (precio_hora_infra × horas_computo) / num_predicciones_generadas
+```
 
-Streaming provides several advantages over pure real-time serving. You can batch multiple events together for more efficient processing. A worker might collect 32 events before sending them to the model together, improving GPU utilization. You can handle traffic spikes by letting events queue temporarily while workers process them. You cannot do this with synchronous real-time serving where every request waits for a response.
+Para un job batch de 2 horas en un GPU A100 ($3.67/h on-demand, $1.10/h spot) que genera 10M predicciones:
 
-Backpressure handling is a key feature of streaming systems. If prediction workers cannot keep up with event volume, the queue grows. You can add more workers to increase capacity or temporarily slow down event ingestion. This flexibility helps handle unexpected traffic spikes without dropping requests or failing requests.
+```
+costo_batch_spot = (1.10 × 2) / 10_000_000 = $0.00000022 por predicción
+```
 
-Streaming works well when predictions do not need to return to the original requester immediately. Content moderation predictions can be written to a database that other systems check. Recommendation scores can be written to a cache that serving systems read. Fraud scores can trigger alerts without blocking the original transaction. This decoupling provides flexibility and resilience.
+Comparado con real-time (asumiendo 50 req/s por GPU, $3.67/h):
 
-However, streaming adds complexity. You need to manage message queues, handle failures and retries, monitor queue depths, and ensure event ordering when it matters. The infrastructure cost includes queue services in addition to prediction workers. For simple use cases, streaming might be over-engineering.
+```
+costo_realtime = 3.67 / (50 × 3600) = $0.0000204 por predicción  →  ~90x más caro
+```
 
-The choice between streaming and real-time serving depends on whether results must return to the original caller. If a user is waiting for a response, use real-time serving. If results can be processed asynchronously, streaming often provides better efficiency and scalability.
+**Presupuesto de latencia (SLO budget):**
 
+Si tu SLO dice "p99 < 200 ms", y tus componentes son:
 
-Now that you understand batch, real-time, and streaming patterns, apply that knowledge to selecting the right approach for your use case.
+```
+latencia_total = red + feature_lookup + inferencia + post_processing
+    200 ms   =  20  +      30         +     ?      +       20
+    → budget_inferencia = 130 ms
+```
 
+Si la inferencia excede 130 ms, debes cuantizar, usar un modelo destilado, o cambiar hardware.
 
-Choosing the Right Pattern for Your Use Case
-Deciding which deployment pattern to use requires analyzing your specific requirements, constraints, and tradeoffs. Several factors guide this decision.
+## Ejemplo con código
 
-Latency requirements are the most critical factor. If users wait for predictions, you need real-time serving with latency under a few hundred milliseconds. If decisions can wait seconds or minutes, streaming works. If predictions can be hours or days old, batch processing suffices. A product recommendation system might use batch predictions served from cache with 100ms latency. A fraud detection system needs real-time predictions computed in 50ms. A customer churn prediction system can use batch predictions generated weekly.
+### Batch prediction con Airflow + Ray
 
-Request volume and cost considerations affect the decision. High volume with strict latency requirements is expensive. Real-time serving 100,000 requests per second requires significant infrastructure. If you can batch those predictions, costs decrease dramatically. Calculate the cost difference: real-time serving at 100 requests per second per GPU costs $3/hour or $0.000008 per prediction. Batch processing at 10,000 predictions per second costs $0.0000003 per prediction, about 25x cheaper.
+```python
+# dags/daily_recommendations.py
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime, timedelta
+import ray
 
-Data freshness needs determine whether batch predictions are acceptable. If user behavior changes rapidly and predictions must reflect recent actions, batch predictions quickly become stale. If user preferences are stable over days or weeks, batch predictions work fine. A news recommendation system needs freshness because interests change hourly. A movie recommendation system can use day-old predictions because taste changes slowly.
+@ray.remote(num_gpus=1)
+def predict_batch(user_ids: list[int]) -> dict:
+    """Inferencia GPU-eficiente sobre un lote grande."""
+    import torch
+    model = torch.load("/models/recsys_v3.pt").cuda().eval()
+    features = load_features_from_feast(user_ids)  # feature store
+    with torch.no_grad():
+        logits = model(features.cuda())
+        scores = torch.softmax(logits, dim=-1).cpu().numpy()
+    return dict(zip(user_ids, scores.tolist()))
 
-Prediction diversity matters. If most users need similar predictions, you can precompute popular predictions and serve them to many users. If every user needs unique predictions based on their specific context, precomputation becomes impractical. A trending products feature serves the same predictions to millions of users from cache. A personalized recommendation feature needs unique predictions per user.
+def run_batch_job(**context):
+    ray.init(address="auto")
+    all_users = fetch_active_users_from_warehouse()  # 50M usuarios
+    chunks = [all_users[i:i+10_000] for i in range(0, len(all_users), 10_000)]
 
-Operational complexity is a practical consideration. Batch prediction is simpler to implement and operate than real-time serving. You run a scheduled job, store results, and serve from a database. Real-time serving requires model servers, load balancers, autoscaling, health checks, and more sophisticated monitoring. For early projects or small teams, simplicity might outweigh perfect freshness.
+    # Paraleliza en el cluster Ray (p. ej. 20 GPUs)
+    futures = [predict_batch.remote(chunk) for chunk in chunks]
+    results = ray.get(futures)
 
-Hybrid approaches often provide the best balance. Use batch predictions as a default, served from cache with low latency. Use real-time predictions when context requires it. For example, a recommendation system might precompute homepage recommendations overnight but compute real-time recommendations on product detail pages based on the current product. This balances cost, latency, and freshness.
+    # Flush a Redis con TTL de 24h
+    pipe = redis_client.pipeline()
+    for batch in results:
+        for uid, scores in batch.items():
+            pipe.setex(f"recs:{uid}", 86400, serialize(scores))
+    pipe.execute()
 
-Another hybrid pattern is using batch predictions with real-time filtering. Generate candidate recommendations in batch for all users. At request time, filter candidates based on real-time context like current inventory, user location, or time-sensitive rules. This provides some freshness benefit without full real-time prediction costs.
+with DAG(
+    "daily_recommendations",
+    schedule_interval="0 3 * * *",   # 3am diario
+    start_date=datetime(2026, 1, 1),
+    retries=2, retry_delay=timedelta(minutes=15),
+) as dag:
+    PythonOperator(task_id="batch_predict", python_callable=run_batch_job)
+```
 
-Consider risk and failure modes. Batch systems fail gracefully. If a batch job fails, you serve slightly older predictions until the next successful run. Real-time systems fail visibly. If model servers fail, requests fail immediately. Batch systems are more forgiving operationally, which matters for teams learning to deploy AI systems.
+### Real-time serving con FastAPI
 
-Summary
-Deployment patterns for AI models include batch prediction, real-time serving, and streaming processing. Batch prediction precomputes predictions on a schedule and serves from cache, optimizing for cost at the expense of freshness. Real-time serving computes predictions on-demand, optimizing for freshness at higher cost. Streaming processes continuous event flows, balancing throughput and latency.
+```python
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+import torch, time
 
-Pattern choice depends on latency requirements, request volume, data freshness needs, prediction diversity, and operational complexity. Hybrid approaches combining batch and real-time patterns often provide the best balance of cost, performance, and user experience.
+app = FastAPI()
+model = None  # Se carga en startup
 
-Key concepts to remember
-Batch Cost-Effectiveness - Batch prediction is 10-50x more cost-effective than real-time serving but produces stale predictions
-Real-Time Freshness - Real-time serving provides the freshest predictions but requires always-available infrastructure and strict latency management
-Streaming for Events - Streaming patterns work well for event-driven systems where results do not need to return immediately to the caller
-Hybrid Approaches - Combine batch predictions with real-time filtering or context-specific real-time prediction to balance cost and freshness
-Data-Driven Decisions - Base pattern choice on actual latency requirements and data freshness needs, not assumptions about what users want
+class FraudRequest(BaseModel):
+    amount: float = Field(gt=0)
+    merchant_id: str
+    user_id: str
+    device_fingerprint: str
+
+class FraudResponse(BaseModel):
+    score: float
+    decision: str
+    latency_ms: float
+
+@app.on_event("startup")
+async def warmup():
+    """Carga el modelo y hace una inferencia dummy (cold-start kill)."""
+    global model
+    model = torch.jit.load("/models/fraud_v7.pt").cuda().eval()
+    dummy = torch.randn(1, 128).cuda()
+    for _ in range(10):
+        _ = model(dummy)
+    torch.cuda.synchronize()
+
+@app.get("/health")
+def health():
+    return {"status": "ok" if model is not None else "loading"}
+
+@app.post("/predict", response_model=FraudResponse)
+async def predict(req: FraudRequest):
+    t0 = time.perf_counter()
+    features = await fetch_features_realtime(req.user_id, req.merchant_id)
+    with torch.no_grad():
+        score = model(features.cuda()).item()
+    decision = "block" if score > 0.85 else ("review" if score > 0.5 else "allow")
+    return FraudResponse(
+        score=score, decision=decision,
+        latency_ms=(time.perf_counter() - t0) * 1000,
+    )
+```
+
+### Streaming prediction con Kafka
+
+```python
+from confluent_kafka import Consumer, Producer
+import json, torch
+
+consumer = Consumer({
+    "bootstrap.servers": "kafka:9092",
+    "group.id": "moderation-workers",
+    "auto.offset.reset": "latest",
+    "enable.auto.commit": False,   # commit manual tras éxito
+    "max.poll.interval.ms": 300000,
+})
+producer = Producer({"bootstrap.servers": "kafka:9092", "linger.ms": 20})
+consumer.subscribe(["posts.created"])
+
+model = torch.jit.load("/models/moderation_v4.pt").cuda().eval()
+BATCH_SIZE, FLUSH_MS = 32, 100
+
+def process_micro_batch(messages):
+    texts = [json.loads(m.value())["text"] for m in messages]
+    tensors = tokenize_and_pad(texts).cuda()
+    with torch.no_grad():
+        scores = torch.sigmoid(model(tensors)).cpu().tolist()
+
+    for msg, score in zip(messages, scores):
+        payload = json.loads(msg.value())
+        payload["moderation_score"] = score
+        payload["action"] = "remove" if score > 0.9 else "flag" if score > 0.6 else "ok"
+        producer.produce("posts.moderated", json.dumps(payload).encode())
+    producer.flush()
+    consumer.commit(asynchronous=False)   # exactly-once best-effort
+
+buffer, last_flush = [], time.time()
+while True:
+    msg = consumer.poll(timeout=0.05)
+    if msg and not msg.error():
+        buffer.append(msg)
+    now = time.time()
+    if len(buffer) >= BATCH_SIZE or (buffer and (now - last_flush) * 1000 > FLUSH_MS):
+        process_micro_batch(buffer)
+        buffer, last_flush = [], now
+```
+
+## Errores comunes
+
+- **Elegir real-time por defecto "por si acaso".** Es el patrón más caro y complejo. Antes de montarlo, pregúntate: ¿el usuario *realmente* espera la respuesta? Si no, batch o streaming ahorran órdenes de magnitud.
+- **Olvidar el cold start.** Un modelo de 10GB tarda 30-120 segundos en cargar a GPU. Sin un `warmup()` en `startup` y sin readiness probes correctas, el load balancer envía traffic antes de que el modelo esté listo → errores 500 masivos durante autoscaling.
+- **No considerar peak capacity.** Si tu promedio es 100 req/s pero Black Friday llega a 2000 req/s, no puedes autoscalar en 10 minutos cuando los pods tardan 2 min en cargar modelo. Pre-escala o usa standby warm.
+- **Streaming sin backpressure.** Si tus workers no consumen al mismo ritmo que llegan eventos, la queue crece sin límite y colapsa el broker. Monitorea `consumer_lag` y define alertas antes de 100k mensajes atrasados.
+- **Batch sin idempotencia.** Si el job falla a mitad y se reintenta, generas predicciones duplicadas o inconsistentes. Usa transacciones, upsert, o escribe a staging + swap atómico.
+- **Confundir freshness con calidad.** Una predicción batch de ayer puede ser *mejor* que una real-time con un modelo peor. La freshness solo importa si el fenómeno cambia rápido.
+- **Mezclar predicción con feature engineering pesada en real-time.** Si tus features requieren leer 20 tablas y calcular agregaciones, mueves esa carga al momento del request. Mejor pre-computar features en un **feature store** (Feast, Tecton, Vertex Feature Store) y leer con <10 ms.
+- **No implementar graceful degradation.** Si el modelo falla, ¿sirves un fallback (modelo más simple, regla heurística) o devuelves 500? Las empresas serias siempre tienen fallback.
+
+## Contexto industrial
+
+- **Netflix:** 95% de recomendaciones son batch (nightly), re-rankeadas en real-time con contexto (dispositivo, hora, items ya vistos).
+- **Stripe Radar:** fraude 100% real-time con presupuesto de 100 ms end-to-end incluyendo red.
+- **Meta:** moderación de contenido es streaming (Kafka + Flink), con 10B+ eventos diarios.
+- **Spotify:** Discover Weekly es batch (semanal), pero el autoplay next-track es real-time.
+- **Uber:** ETA es real-time, surge pricing es streaming (ventanas de 1-5 min), demand forecasting es batch (hourly).
+- **OpenAI / Anthropic:** chat completions son real-time; evaluaciones y safety sweeps son batch.
+
+Herramientas de referencia: **Airflow**, **Prefect**, **Dagster** (schedulers batch); **Kafka**, **Kinesis**, **Pulsar**, **Pub/Sub** (streaming); **Flink**, **Spark Streaming**, **Ray** (stream processors); **vLLM**, **Triton**, **TGI**, **Ray Serve**, **BentoML**, **SageMaker** (real-time serving).
+
+## Resumen
+
+- Existen **tres patrones** de deployment: batch, real-time y streaming. Cada uno optimiza un eje distinto (costo, latencia, throughput).
+- **Batch** pre-computa en horario y sirve desde cache: 10-50x más barato pero predicciones stale.
+- **Real-time** calcula on-demand: máxima freshness, infraestructura always-on, latencia estricta.
+- **Streaming** procesa eventos continuamente: desacopla productor y consumidor, absorbe spikes con backpressure.
+- Elige con base en **requerimiento de latencia**, **tasa de cambio del fenómeno**, **volumen de requests** y **presupuesto**.
+- Los patrones **híbridos** (batch pre-compute + real-time rerank, o batch + streaming features) suelen dar el mejor balance.
+- Siempre mide: **costo por predicción**, **p99 latency**, **utilización GPU**, **consumer lag** (streaming), **job success rate** (batch).
+- Herramientas industriales clave: Airflow/Prefect, Kafka/Flink, vLLM/Triton/Ray Serve. Todo corre sobre Kubernetes con observabilidad en Prometheus/Grafana.

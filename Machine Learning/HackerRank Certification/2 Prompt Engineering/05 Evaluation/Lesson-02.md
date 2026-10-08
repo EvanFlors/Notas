@@ -1,238 +1,314 @@
-## LLM-as-a-Judge Evaluation
-Imagine you have built an AI customer support system that generates thousands of responses daily. Traditional metrics like word count or response time tell you nothing about quality. Human reviewers would cost a fortune and could never keep up. This is where LLM-as-a-Judge evaluation transforms your development workflow from guesswork into systematic quality assurance.
+# LLM-as-a-Judge
 
-LLM-as-a-Judge leverages language models to evaluate AI-generated content at scale, providing nuanced quality assessment that captures semantic meaning, appropriateness, and user value. This approach has become the backbone of production AI systems at companies like OpenAI, Anthropic, and countless startups who need reliable evaluation without human bottlenecks.
+## ¿Qué es?
 
-By the end of this lesson, you will understand a complete LLM judge system that evaluates content across multiple dimensions, handles edge cases gracefully, and provides actionable feedback for improving your AI applications.
+**LLM-as-a-Judge** es el patrón de evaluación que usa un modelo de lenguaje como *evaluador* de las salidas de otro modelo (o del mismo). En vez de medir solapamiento léxico con una referencia, le pides a un LLM que **lea el output y lo califique** según una rúbrica estructurada: scores, justificaciones, flags y sugerencias.
 
-When Traditional Metrics Fall Short
-Traditional evaluation approaches work well for narrow, predictable tasks but break down when assessing open-ended AI outputs. BLEU scores might tell you that two texts share similar word sequences, but they cannot evaluate whether a customer support response actually resolves the user's problem with empathy and accuracy.
+Nació como una forma pragmática de aproximar la evaluación humana a escala. En 2023 el paper *"Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena"* (Zheng et al.) mostró que GPT-4 como juez coincide con humanos expertos ~85% del tiempo, un nivel comparable al acuerdo entre dos humanos entrenados. Desde entonces es el estándar de facto para evaluar chatbots, agentes y pipelines RAG.
 
-Consider evaluating a customer service chatbot response: "I understand your frustration with the delayed shipment. Let me check your order status and provide specific next steps." A BLEU score comparison against a reference answer misses the emotional intelligence, problem-solving approach, and customer-centric tone that make this response valuable.
+### Modalidades principales
 
-Traditional metrics like ROUGE, perplexity, and exact match scoring focus on surface-level features rather than semantic quality. They cannot assess creativity, appropriateness for context, logical consistency, or adherence to brand guidelines. These limitations become critical in production where user satisfaction depends on nuanced quality factors that automated metrics simply cannot capture.
+| Modalidad | Qué hace el juez | Cuándo usarla |
+|---|---|---|
+| **Scoring directo (pointwise)** | Da score 1-5 (o 1-10) a cada output | Tareas con rúbrica estable; tracking longitudinal |
+| **Pairwise comparison** | Dado A y B, elige el mejor (o empate) | Comparar modelos, A/B tests, construir Elo rankings |
+| **Reference-based** | Compara output contra una referencia ideal | Tienes golden answers y quieres medir fidelidad |
+| **Reference-free** | Juzga sin referencia | Preguntas abiertas, generación creativa |
+| **Chain-of-thought judge** | Razona antes de dar score | Tareas complejas; mejora calibración ~10-15% |
 
-This gap between measurement and meaning drives the need for evaluation systems that understand content the way humans do, while maintaining the scalability and consistency required for production deployment.
+## ¿Por qué importa?
 
-How LLM Judges Work
-LLM-as-a-Judge evaluation uses one language model to assess outputs from another model (or the same model). The judge receives the original prompt, the generated response, and specific evaluation criteria, then provides structured feedback including scores, reasoning, and improvement suggestions.
+Las métricas tradicionales (lección 1) son ciegas a dimensiones que a los usuarios sí les importan: empatía, pertinencia, seguridad, factualidad en respuestas abiertas, tono de marca. Contratar humanos para evaluar 10,000 respuestas de un chatbot cuesta semanas y miles de dólares; un LLM judge lo hace en minutos por centavos.
 
-The evaluation process follows a clear pattern: define evaluation criteria, design judge prompts with examples and rubrics, process responses through the judge model, aggregate results across multiple dimensions, and generate actionable feedback. This systematic approach ensures consistent evaluation while capturing the nuanced understanding that traditional metrics miss.
+**Casos típicos donde LLM-as-a-judge brilla:**
 
-```python
-def create_judge_prompt(original_prompt, response, criteria):
-  judge_prompt = f"""
-  You are an expert evaluator assessing AI-generated content.
+- Chatbots de soporte: medir si la respuesta *resuelve* el problema, no sólo si suena parecida a una plantilla.
+- RAG: evaluar *faithfulness* (¿se apega al contexto recuperado?) y *answer relevance*.
+- Agentes: juzgar si la secuencia de acciones es correcta aunque la salida final varíe en forma.
+- Fine-tuning / RLHF: generar señales de preferencia a escala para entrenar reward models.
+- Red-teaming: clasificar si una respuesta cruza una línea de seguridad.
 
-  Original Request: {original_prompt}
-  AI Response: {response}
+### Comparación costo/calidad
 
-  Evaluate this response on the following criteria:
-  {criteria}
+| Enfoque | $ por 1k evals | Correlación con humano | Latencia |
+|---|---|---|---|
+| Exact match / regex | ~$0 | 0.3-0.5 (según tarea) | ms |
+| BLEU / ROUGE | ~$0 | 0.4-0.6 | ms |
+| Cosine (embeddings) | ~$0.05 | 0.5-0.7 | ms |
+| **LLM judge (GPT-4 class)** | **~$5-20** | **0.75-0.90** | **1-5 s** |
+| Humano experto | ~$500-2000 | 1.0 (por definición) | horas-días |
 
-  Provide your assessment in this JSON format:
-  {{
-      "overall_score": 1-5,
-      "criteria_scores": {{"accuracy": 1-5, "helpfulness": 1-5, "tone": 1-5}},
-      "reasoning": "Detailed explanation of your assessment",
-      "improvements": ["Specific suggestions for improvement"]
-  }}
-  """
-  return judge_prompt
+## ¿Cómo funciona?
 
-# Example implementation
-def evaluate_response(prompt, response):
-  criteria = """
-  - Accuracy: Is the information factually correct?
-  - Helpfulness: Does it address the user's needs?
-  - Tone: Is it appropriate for the context?
-  - Clarity: Is it easy to understand?
-  """
+El flujo canónico tiene cinco pasos:
 
-  judge_prompt = create_judge_prompt(prompt, response, criteria)
-  evaluation = llm_client.complete(judge_prompt)
-  return json.loads(evaluation)
+```
+1. Definir dimensiones y rúbrica (observable, medible)
+2. Construir prompt del juez (rol + criterios + ejemplos + formato)
+3. Correr sobre dataset (del golden set o de logs de producción)
+4. Parsear salida estructurada (JSON)
+5. Agregar + alertar + validar vs humano (calibración)
 ```
 
-This implementation shows the core pattern: structured criteria, clear formatting requirements, and systematic scoring that enables both human interpretation and automated processing of evaluation results.
+### Dimensiones típicas y qué miden
 
-Designing Effective Judge Prompts
-The quality of your LLM judge depends entirely on prompt design. Effective judge prompts include clear role definition, specific evaluation criteria with concrete examples, structured output formats for systematic analysis, and calibration examples that demonstrate consistent application of standards.
+| Dimensión | Pregunta operativa |
+|---|---|
+| Accuracy / Correctness | ¿La información es factualmente correcta? |
+| Relevance | ¿Responde a lo que se preguntó, sin desviarse? |
+| Faithfulness (RAG) | ¿La respuesta está respaldada por el contexto recuperado? |
+| Completeness | ¿Cubre todos los aspectos de la pregunta? |
+| Helpfulness | ¿Ayuda al usuario a avanzar? |
+| Clarity | ¿Es claro y bien estructurado? |
+| Tone / Brand voice | ¿Suena como mi marca? |
+| Safety | ¿Está libre de contenido dañino, sesgo o PII? |
+| Format compliance | ¿Respeta el formato pedido (JSON, markdown, longitud)? |
 
-Start with role clarity: "You are an expert customer service evaluator with 10 years of experience assessing response quality." This context helps the judge understand the perspective and standards to apply. Follow with specific, measurable criteria rather than vague instructions like "assess quality."
+Regla práctica: **3-5 dimensiones bien definidas superan a rúbricas de 10+**. Más dimensiones degradan la consistencia del juez.
 
-```python
-def create_customer_service_judge():
-  return """
-  You are an expert customer service evaluator. Assess responses using these criteria:
+### Scoring directo vs pairwise
 
-  ACCURACY (1-5):
-  5: Completely accurate information, no errors
-  3: Mostly accurate with minor gaps
-  1: Contains significant inaccuracies
+El scoring directo es intuitivo pero sufre de **sesgo de calibración**: distintos jueces (o el mismo juez con prompts ligeramente distintos) distribuyen scores de forma diferente. Un GPT-4o puede dar media 4.2/5 mientras Claude Sonnet da 3.8/5 por los mismos outputs.
 
-  HELPFULNESS (1-5):
-  5: Directly solves the customer's problem with clear next steps
-  3: Addresses the issue but could be more actionable
-  1: Does not address the customer's actual concern
+El pairwise es más robusto porque sólo pide **un orden relativo**. Combinando miles de comparaciones se construye un ranking Elo (como en Chatbot Arena). Precio: necesitas N·(N-1)/2 comparaciones para N candidatos, aunque sampling inteligente lo reduce.
 
-  TONE (1-5):
-  5: Professional, empathetic, matches brand voice perfectly
-  3: Appropriate but could be more engaging
-  1: Inappropriate tone for customer service context
+### Chain-of-thought en el juez
 
-  Example HIGH quality response:
-  "I sincerely apologize for the shipping delay. I've located your order #12345 and see it was delayed due to weather. It will arrive tomorrow by 3 PM, and I've applied a 20% discount to your account for the inconvenience."
+Pedir al juez que **razone antes de puntuar** mejora consistencia:
 
-  Example LOW quality response:
-  "Your order is delayed. Check the tracking number."
-
-  Provide scores and 2-3 sentence reasoning for each criterion.
-  """
+```
+Primero describe qué hace bien la respuesta.
+Luego describe qué hace mal.
+Luego da un score 1-5 justificado por los puntos anteriores.
 ```
 
-Include calibration examples showing excellent and poor responses with explanations of why they receive their scores. This helps the judge apply consistent standards across different inputs and reduces variability in evaluation quality.
+Esto reduce el sesgo de "primera impresión" y suele subir correlación con humanos 10-15 puntos.
 
-Multi-Dimensional Assessment
-Production systems require evaluation across multiple quality dimensions simultaneously. Instead of single overall scores, implement judges that assess accuracy, relevance, safety, tone, and format compliance independently. This granular feedback enables targeted improvements and helps identify specific areas where your AI system needs refinement.
+### Cohen's kappa para validar al juez
 
-Structure your evaluation to capture both quantitative scores and qualitative insights. Scores enable automated analysis and trend tracking, while reasoned explanations provide actionable improvement guidance for prompt engineering and model fine-tuning efforts.
+Antes de confiar en un juez, **mídelo contra humanos** sobre una muestra de 100-300 casos. Calcula Cohen's κ:
 
-```python
-class MultiDimensionalJudge:
-  def __init__(self):
-      self.dimensions = {
-          'accuracy': 'Factual correctness and reliable information',
-          'relevance': 'Direct connection to user request',
-          'safety': 'Appropriate content without harmful elements',
-          'clarity': 'Clear, understandable communication',
-          'completeness': 'Addresses all aspects of the request'
-      }
-
-  def evaluate(self, prompt, response):
-      results = {}
-      for dimension, description in self.dimensions.items():
-          score = self._evaluate_dimension(prompt, response, dimension, description)
-          results[dimension] = score
-      return results
-
-  def _evaluate_dimension(self, prompt, response, dimension, description):
-      judge_prompt = f"""
-      Focus specifically on {dimension}: {description}
-
-      Original: {prompt}
-      Response: {response}
-
-      Rate {dimension} from 1-5 with brief reasoning.
-      """
-      return self._get_judge_score(judge_prompt)
+```
+κ = (p_o − p_e) / (1 − p_e)
 ```
 
-This approach enables sophisticated analysis like identifying that responses score high on accuracy but low on empathy, or that certain prompt patterns consistently produce safe but overly verbose outputs.
+Si κ ≥ 0.6 entre el juez LLM y el humano consenso, puedes escalarlo. Si κ < 0.4, la rúbrica es ambigua o el juez no entiende la tarea; **no despliegues**.
 
-Customer Service AI Evaluation Example
-Here's a complete example of using LLM as a judge to evaluate customer service chatbot responses across multiple quality dimensions:
+### Rúbrica bien diseñada (ejemplo escala 1-5)
+
+**Helpfulness para soporte técnico:**
+
+| Nivel | Descripción operacional |
+|---|---|
+| 5 | Resuelve el problema con pasos específicos y verificables. El usuario puede ejecutar la solución sin pedir más info. |
+| 4 | Resuelve el problema pero omite un paso menor o requiere que el usuario infiera un detalle. |
+| 3 | Direcciona el problema en la dirección correcta, pero faltan 2+ pasos o requiere clarificación significativa. |
+| 2 | Toca el tema correcto pero no provee una ruta accionable. |
+| 1 | No aborda el problema del usuario o lo malinterpreta por completo. |
+
+Cada nivel es **observable** (puedes mirar la respuesta y clasificarla) y **medible** (das el mismo score ante el mismo output).
+
+### Jueces y herramientas del ecosistema
+
+| Herramienta | Enfoque | Fortaleza |
+|---|---|---|
+| **Promptfoo** | YAML declarativo + CI | Rápido para arrancar, asserts mezcla deterministas + LLM judge |
+| **DeepEval** | pytest-first para LLMs | 14+ métricas prebuilt (G-Eval, hallucination, bias) |
+| **Ragas** | Especializado en RAG | Faithfulness, answer relevance, context precision/recall |
+| **LangSmith evaluators** | Trazabilidad + evals | Integración nativa con LangChain |
+| **OpenAI evals** | Framework open source | Compatible con registros de OpenAI; útil para fine-tuning |
+| **Braintrust** | SaaS para eval + experiment tracking | UI pulida, buena para equipos |
+| **Inspect** (UK AI Safety) | Evals de seguridad | Red-teaming, jailbreaks |
+
+## Ejemplo con código
+
+### Juez pairwise con Anthropic Claude
 
 ```python
-from openai import OpenAI
 import json
+from anthropic import Anthropic
 
-def evaluate_customer_service_response(customer_query, ai_response):
-  """Use LLM as a judge to evaluate customer service quality"""
+client = Anthropic()
 
-  evaluation_prompt = f"""
-You are evaluating a customer service AI response. Rate the response on these dimensions (1-10 scale):
+JUDGE_SYSTEM = """Eres un evaluador experto de respuestas de IA. Dado una pregunta
+y dos respuestas (A y B), eliges cuál es mejor según los criterios dados.
+Sé imparcial: ignora el orden en que te presentan A y B."""
 
-Customer Query: "{customer_query}"
-AI Response: "{ai_response}"
+JUDGE_USER = """Pregunta del usuario:
+<question>{question}</question>
 
-Evaluate on:
-1. Helpfulness: Does the response address the customer's needs?
-2. Professionalism: Is the tone appropriate and respectful?
-3. Accuracy: Is the information provided correct and relevant?
-4. Clarity: Is the response easy to understand?
-5. Completeness: Does it fully address the query?
+Respuesta A:
+<a>{answer_a}</a>
 
-Provide scores and brief explanations in JSON format:
-{{
-  "helpfulness": {{"score": X, "explanation": "brief reason"}},
-  "professionalism": {{"score": X, "explanation": "brief reason"}},
-  "accuracy": {{"score": X, "explanation": "brief reason"}},
-  "clarity": {{"score": X, "explanation": "brief reason"}},
-  "completeness": {{"score": X, "explanation": "brief reason"}},
-  "overall_quality": "excellent/good/fair/poor"
-}}
+Respuesta B:
+<b>{answer_b}</b>
+
+Criterios de evaluación:
+1. Correctness: ¿Es factualmente correcta?
+2. Helpfulness: ¿Resuelve lo que el usuario preguntó?
+3. Clarity: ¿Es clara y bien estructurada?
+
+Razona paso a paso en <reasoning>...</reasoning>, luego responde en JSON:
+{{"winner": "A" | "B" | "tie", "confidence": 0.0-1.0, "reasoning_summary": "..."}}
 """
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-  )
 
-  response = client.chat.completions.create(
-      model="gpt-5-mini",
-      messages=[{"role": "user", "content": evaluation_prompt}]
-  )
+def judge_pairwise(question: str, answer_a: str, answer_b: str) -> dict:
+    # Mitigación de position bias: evaluar en ambos órdenes y agregar
+    def _one_call(a, b):
+        msg = client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=1024,
+            temperature=0.0,
+            system=JUDGE_SYSTEM,
+            messages=[{
+                "role": "user",
+                "content": JUDGE_USER.format(question=question, answer_a=a, answer_b=b)
+            }],
+        )
+        text = msg.content[0].text
+        json_part = text.split("{", 1)[1].rsplit("}", 1)[0]
+        return json.loads("{" + json_part + "}")
 
-  try:
-      return json.loads(response.choices[0].message.content)
-  except json.JSONDecodeError:
-      return {"error": "Failed to parse evaluation"}
+    r1 = _one_call(answer_a, answer_b)
+    r2 = _one_call(answer_b, answer_a)  # orden invertido
 
-# Test cases - customer service scenarios
+    # Normalizar: r2.winner="A" en realidad vota por answer_b
+    swap = {"A": "B", "B": "A", "tie": "tie"}
+    votes = [r1["winner"], swap[r2["winner"]]]
+
+    if votes[0] == votes[1]:
+        final = votes[0]
+    else:
+        final = "tie"  # posición importó → inconclusivo
+
+    return {
+        "winner": final,
+        "confidence": (r1["confidence"] + r2["confidence"]) / 2,
+        "position_bias_detected": votes[0] != votes[1],
+    }
+```
+
+Siempre que uses pairwise, **evalúa en ambos órdenes** y marca como *tie* cuando el juez cambia su veredicto al voltear la posición. Es el único control barato contra position bias.
+
+### Juez pointwise con rúbrica estricta usando DeepEval
+
+```python
+from deepeval import evaluate
+from deepeval.metrics import GEval
+from deepeval.test_case import LLMTestCase, LLMTestCaseParams
+
+correctness = GEval(
+    name="Correctness",
+    criteria=(
+        "Determina si la respuesta actual (actual_output) es factualmente "
+        "correcta y consistente con la respuesta esperada (expected_output)."
+    ),
+    evaluation_steps=[
+        "Compara los hechos clave del output actual con los del esperado.",
+        "Penaliza fuertemente contradicciones factuales (score ≤ 2).",
+        "Permite paráfrasis y reordenamientos si preservan el significado.",
+        "Da 5 si todos los hechos coinciden y no hay información inventada.",
+    ],
+    evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT,
+                       LLMTestCaseParams.EXPECTED_OUTPUT],
+    threshold=0.7,
+    model="gpt-4o",
+)
+
 test_cases = [
-  {
-      "query": "My order hasn't arrived and it's been 2 weeks. Can you help track it?",
-      "response": "I understand your concern about the delayed order. Let me check your tracking information right away. I can see your order is currently in transit and should arrive within 2 business days. I'll also expedite the shipping at no charge and send you tracking updates. Is there anything else I can help with?"
-  },
-  {
-      "query": "How do I return a damaged product?",
-      "response": "Returns are handled by our return department. Contact them."
-  },
-  {
-      "query": "What's your refund policy?",
-      "response": "We offer full refunds within 30 days of purchase for unused items in original packaging. For digital products, refunds are available within 14 days. Shipping costs are refunded for defective items. Would you like me to start a return process for a specific item?"
-  }
+    LLMTestCase(
+        input="¿En qué año se fundó la ONU?",
+        actual_output="La ONU se fundó en 1945, tras la Segunda Guerra Mundial.",
+        expected_output="1945",
+    ),
+    LLMTestCase(
+        input="¿Cuál es la capital de Australia?",
+        actual_output="Sídney es la capital de Australia.",  # error factual
+        expected_output="Canberra",
+    ),
 ]
 
-# Evaluate each test case
-print("=== CUSTOMER SERVICE AI EVALUATION ===\n")
-
-for i, case in enumerate(test_cases, 1):
-  print(f"--- Test Case {i} ---")
-  print(f"Customer: {case['query']}")
-  print(f"AI Response: {case['response']}\n")
-
-  evaluation = evaluate_customer_service_response(case['query'], case['response'])
-
-  if "error" not in evaluation:
-      print("EVALUATION SCORES:")
-      for dimension, details in evaluation.items():
-          if isinstance(details, dict) and 'score' in details:
-              print(f"{dimension.title()}: {details['score']}/10 - {details['explanation']}")
-      print(f"Overall Quality: {evaluation.get('overall_quality', 'N/A')}")
-  else:
-      print("Evaluation failed - could not parse response")
-
-  print("-" * 60 + "\n")
+results = evaluate(test_cases=test_cases, metrics=[correctness])
 ```
 
-This example demonstrates how LLM judges can evaluate nuanced customer service qualities that traditional metrics miss, such as empathy, professionalism, and appropriateness of tone.
+DeepEval orquesta las llamadas al juez, calcula umbrales, genera reportes y se integra como fixtures de pytest.
 
-Common Pitfalls and Solutions
-Judge models can inherit biases from their training data, leading to systematic evaluation errors. Test your judges across diverse demographics, topics, and edge cases. If you discover bias patterns, adjust your judge prompts with explicit bias mitigation instructions or implement bias detection layers.
+### Evaluación de RAG con Ragas
 
-Overly complex evaluation criteria confuse judges and reduce consistency. Start with simple, clearly defined dimensions and add complexity gradually while monitoring evaluation quality. Three to five well-defined criteria typically work better than comprehensive rubrics with ten or more dimensions.
+Para pipelines RAG, Ragas provee las métricas canónicas:
 
-Format requirements that are too rigid cause judges to fail on edge cases, while requirements that are too loose produce inconsistent output structures. Design output formats that balance structure with flexibility, and implement robust parsing that handles minor format variations gracefully.
+```python
+from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
+from datasets import Dataset
 
-Avoid evaluation criteria outside the judge model's knowledge cutoff or training domain. If your application requires domain expertise that the judge model lacks, consider fine-tuning judge models on domain-specific evaluation data or implementing hybrid human-AI evaluation workflows.
+data = {
+    "question": ["¿Qué es un embedding?"],
+    "answer": ["Un embedding es un vector denso que representa un texto en un espacio continuo."],
+    "contexts": [[
+        "Un embedding es una representación numérica densa de datos como texto o imágenes.",
+        "Los modelos de embeddings mapean entradas a vectores de alta dimensión."
+    ]],
+    "ground_truth": ["Un embedding es una representación vectorial densa de datos."],
+}
 
-Summary
-LLM-as-a-Judge evaluation provides scalable, nuanced assessment of AI-generated content that captures semantic quality beyond traditional metrics. This approach enables production AI systems to maintain consistent quality while providing actionable feedback for continuous improvement.
+result = evaluate(
+    Dataset.from_dict(data),
+    metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+)
+print(result)
+# {'faithfulness': 1.0, 'answer_relevancy': 0.94,
+#  'context_precision': 1.0, 'context_recall': 1.0}
+```
 
-Key concepts to remember
-LLM Judges for Semantic Quality - LLM judges excel when traditional metrics fail to capture semantic quality, context appropriateness, or subjective assessments
-Effective Judge Prompt Design - Effective judge prompt design requires clear roles, specific criteria with examples, and structured output formats that enable systematic analysis
-Multi-Dimensional Evaluation - Multi-dimensional evaluation across accuracy, relevance, safety, and other quality factors provides granular feedback for targeted improvements
-Reliability Measures - Reliability measures including multiple judge consensus, confidence scoring, and human validation ensure consistent evaluation quality
-Avoid Common Pitfalls - Common pitfalls include bias inheritance, overly complex criteria, and evaluation domains outside judge model capabilities
+- **Faithfulness:** cada afirmación de la respuesta está respaldada por el contexto.
+- **Answer relevancy:** la respuesta aborda la pregunta.
+- **Context precision/recall:** ¿los chunks recuperados son relevantes y suficientes?
+
+### Config declarativa con Promptfoo (LLM-rubric)
+
+```yaml
+prompts:
+  - "Responde al cliente profesionalmente: {{query}}"
+
+providers:
+  - openai:gpt-4o-mini
+
+tests:
+  - vars:
+      query: "Mi paquete lleva 3 semanas de retraso, estoy harto."
+    assert:
+      - type: llm-rubric
+        provider: anthropic:claude-sonnet-4-5
+        value: |
+          La respuesta debe:
+          1. Reconocer la frustración del cliente con empatía explícita
+          2. Ofrecer un siguiente paso concreto (tracking, reembolso, escalamiento)
+          3. Mantener tono profesional, no defensivo
+          4. No prometer compensaciones específicas sin verificar
+          Puntúa 1-5 y rechaza si score < 4.
+```
+
+## Errores comunes
+
+- **Usar el mismo modelo como generador y como juez.** Un GPT-4o juzgando a GPT-4o infla scores: el juez tiende a preferir el estilo que él mismo produciría. Si puedes, usa un juez de familia distinta (Claude juzga a GPT, o viceversa).
+- **No controlar position bias en pairwise.** Los LLMs tienen un sesgo medible a preferir "la primera opción". Siempre evalúa en ambos órdenes y promedia.
+- **Rúbricas vagas ("evalúa la calidad").** Son el error #1. Si tus humanos no logran κ ≥ 0.6 con esa rúbrica, el juez LLM tampoco. Reescribe antes de culpar al modelo.
+- **No validar al juez contra humanos.** Un juez descalibrado se convierte en un oráculo falso. Antes de desplegarlo en CI, compara con 100-300 anotaciones humanas y calcula κ.
+- **Temperatura > 0 en el juez.** Introduce variabilidad gratuita. Usa `temperature=0` siempre que puedas (algunos modelos como Claude requieren un valor explícito).
+- **Confiar en scores absolutos sin agregación.** Un score de 3.8 no significa nada en aislamiento; sí significa algo si subió de 3.5 la semana pasada. Trackea tendencias, no puntos.
+- **Judge drift sin monitoreo.** El modelo del juez (ej. `gpt-4o`) recibe actualizaciones silenciosas. Un cambio de versión puede desplazar la distribución de scores. Fija versión (`gpt-4o-2024-11-20`) y re-calibra en cada upgrade.
+- **Rúbricas de 10+ dimensiones.** La consistencia del juez degrada rápido. 3-5 es el sweet spot.
+- **No capturar razonamiento.** Pedir sólo "score" sin "reasoning" pierde la señal más útil: *por qué* el juez bajó la nota. Siempre pide justificación breve.
+- **Costo descontrolado.** Juzgar 100k outputs con GPT-4o cuesta cientos de dólares. Usa jueces baratos (Haiku, GPT-4o-mini) para screening y escala el juez caro sólo a casos ambiguos.
+
+## Resumen
+
+- **LLM-as-a-Judge** usa un LLM para calificar outputs de otro LLM contra una rúbrica estructurada; aproxima evaluación humana a 1-10% del costo.
+- Modalidades: **pointwise** (score absoluto), **pairwise** (comparación A vs B, base de MT-Bench y Chatbot Arena), **reference-based** y **reference-free**.
+- Rúbrica efectiva = **3-5 dimensiones** observables y medibles, cada nivel con descripción operacional.
+- Mitiga sesgos: **temperatura 0**, **chain-of-thought** antes de scorear, **evaluación en ambos órdenes** para pairwise, **juez de familia distinta** al generador.
+- Siempre **valida al juez contra humanos** con Cohen's κ ≥ 0.6 antes de confiar en él.
+- Herramientas: **DeepEval** y **Ragas** (métricas prebuilt), **Promptfoo** (YAML declarativo), **Braintrust** y **LangSmith** (SaaS con tracking), **OpenAI evals** (open source).
+- Combina con métricas tradicionales: deterministas para screening barato, LLM judge para casos que pasan screening.
+- Capacita siempre la justificación textual: el *por qué* es más accionable que el score.

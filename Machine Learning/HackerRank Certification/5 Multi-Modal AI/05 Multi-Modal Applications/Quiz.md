@@ -1,65 +1,68 @@
-## Quiz: Multi-Modal Applications
+# Quiz: Aplicaciones multimodales
 
-Multi-Modal Applications
-You are architecting a multi-modal AI assistant for a field service company. Technicians use mobile devices to photograph equipment issues, record voice notes about problems, and receive AI-generated diagnostic guidance with images and spoken instructions. The system processes 2,000 requests daily across vision, audio, and text modalities, with strict requirements for response time (under 5 seconds) and reliability (99.9% uptime).
+Estás diseñando un asistente de IA multimodal para una empresa de servicio en campo. Los técnicos usan dispositivos móviles para fotografiar problemas en equipos, grabar notas de voz sobre los problemas y recibir guía diagnóstica generada por IA con imágenes e instrucciones habladas. El sistema procesa 2.000 solicitudes diarias a través de las modalidades de visión, audio y texto, con requisitos estrictos de tiempo de respuesta (bajo 5 segundos) y confiabilidad (99,9% de uptime).
 
+---
 
-Your knowledge base contains equipment manuals (PDFs), repair procedure videos, and troubleshooting photos. A technician asks 'How do I replace the filter on model X450?' What retrieval strategy should you use?
+**Pregunta 1.** Tu base de conocimiento contiene manuales de equipo (PDFs), videos de procedimientos de reparación y fotografías de solución de problemas. Un técnico pregunta: "¿Cómo reemplazo el filtro en el modelo X450?" ¿Qué estrategia de recuperación deberías usar?
 
-Search only text documents since the question is text-based
+**Explicación:** Esta es una pregunta clásica de multi-modal RAG. El técnico necesita pasos escritos (texto del manual), referencia visual del componente (fotos) y confirmación del procedimiento (video). Limitar la búsqueda a una sola modalidad reduce la utilidad; devolver solo video obliga al técnico a esperar y buscar el momento exacto; no usar retrieval abre la puerta a alucinaciones sobre un modelo específico.
 
-Search all modalities and return a mix of relevant text, images, and video clips
+- Buscar solo documentos de texto porque la pregunta está basada en texto.
+- **Buscar en todas las modalidades y devolver una mezcla relevante de texto, imágenes y clips de video.** ✅
+- Devolver solo resultados de video porque los procedimientos de reparación se muestran mejor visualmente.
+- Generar una respuesta nueva sin recuperación porque la pregunta es sencilla.
 
-Return only video results since repair procedures are best shown visually
+**Correcto.** La recuperación multimodal entrega guía integral: texto para los pasos y foto/video como referencia visual, con las fuentes citadas para que el técnico pueda profundizar.
 
-Generate a new response without retrieval since the question is straightforward
-Correct Answer!
-Multi-modal retrieval provides comprehensive guidance: text for steps, images/video for visual reference.
+---
 
-A technician sends a photo of a malfunctioning control panel and asks for help. The agent can respond with text, generated diagram, or spoken instructions. What should determine the response modality?
+**Pregunta 2.** Un técnico envía una foto de un panel de control que no funciona y pide ayuda. El agente puede responder con texto, un diagrama generado o instrucciones habladas. ¿Qué debería determinar la modalidad de la respuesta?
 
-Always respond with the same modality the user used (photo → image response)
+**Explicación:** La modalidad de salida no se elige por simetría ni por maximizar un único eje (densidad informativa). Depende del **contexto del usuario**: si tiene las manos ocupadas, el audio gana; si debe seguir una secuencia larga, el texto permite re-leer; si debe identificar un componente, una imagen anotada es insustituible. Dejar que el LLM decida sin reglas lleva a comportamiento impredecible y caro.
 
-Always use text for maximum information density
+- Siempre responder con la misma modalidad que usó el usuario (foto → respuesta en imagen).
+- Siempre usar texto para máxima densidad de información.
+- **Considerar el contexto: texto para pasos detallados, audio si las manos están ocupadas, imágenes para guía visual.** ✅
+- Dejar que el LLM decida la modalidad de respuesta autónomamente.
 
-Consider context: text for detailed steps, audio if hands are busy, images for visual guidance
+**Correcto.** La modalidad óptima depende del tipo de contenido y de la situación del técnico; en campo esto suele determinarse por una señal explícita del cliente o por el tipo de tarea.
 
-Let the LLM decide the response modality autonomously
-Correct Answer!
-Optimal modality depends on content type and technician's situation.
+---
 
-Your system needs to process a request that requires: 1) transcribing a voice note, 2) analyzing an equipment photo, 3) generating a response, 4) converting to speech. What architecture pattern minimizes latency?
+**Pregunta 3.** Tu sistema necesita procesar una solicitud que requiere: 1) transcribir una nota de voz, 2) analizar una foto del equipo, 3) generar una respuesta, 4) convertir la respuesta a voz. ¿Qué patrón de arquitectura minimiza la latencia?
 
-Sequential processing: transcribe → analyze → generate → speak
+**Explicación:** La regla general es: **paraleliza operaciones independientes, serializa las dependientes**. La transcripción (STT) y el análisis de la foto son independientes entre sí: ninguno depende de la salida del otro. La generación de la respuesta depende de ambos, por lo tanto debe esperar a los dos. El TTS depende de la respuesta generada. Batching diferido mata el SLA de 5 s; omitir modalidades degrada la calidad diagnóstica.
 
-Parallel input processing (transcribe + analyze simultaneously), then generate, then speak
+- Procesamiento secuencial: transcribir → analizar → generar → hablar.
+- **Procesamiento paralelo de inputs (transcribir + analizar simultáneamente), luego generar, luego hablar.** ✅
+- Agrupar todas las solicitudes y procesarlas juntas cada 30 segundos.
+- Omitir la transcripción de audio y analizar solo la imagen para ahorrar tiempo.
 
-Batch all requests and process them together every 30 seconds
+**Correcto.** Paralelizar operaciones independientes (STT y visión) con `asyncio.gather` o workers concurrentes reduce la latencia total casi a la mitad en este pipeline.
 
-Skip audio transcription and analyze only the image to save time
-Correct Answer!
-Parallelizing independent operations (STT and vision) reduces total latency significantly.
+---
 
-Your multi-modal system costs are 60% vision API, 25% audio APIs, 15% text generation. Budget needs to be reduced by 30% without major quality impact. What should you optimize first?
+**Pregunta 4.** Los costos de tu sistema multimodal son 60% API de visión, 25% APIs de audio, 15% generación de texto. Necesitas reducir el presupuesto 30% sin impacto mayor en calidad. ¿Qué deberías optimizar primero?
 
-Reduce text generation quality since it's the smallest cost component
+**Explicación:** El principio de **Amdahl aplicado a costos**: optimiza primero el componente que domina el gasto. Reducir el 15% a cero solo recorta 15%; eliminar audio es destrozar la UX; limitar a 5 requests/día rompe el producto. Los dos ataques con mejor ROI en visión son: bajar el *detail level* a `low` cuando no se necesita (ahorro ~70% de tokens de imagen) y cachear por hash para no re-procesar fotos duplicadas (en campo los técnicos re-fotografían el mismo equipo).
 
-Optimize vision costs: use low detail where appropriate, cache repeated image analyses
+- Reducir la calidad de generación de texto porque es el componente de menor costo.
+- **Optimizar costos de visión: usar detalle bajo donde sea apropiado, cachear análisis de imágenes repetidas.** ✅
+- Reemplazar todo el audio con interfaces de solo texto.
+- Limitar a los usuarios a 5 solicitudes por día para reducir el volumen.
 
-Replace all audio with text-only interfaces
+**Correcto.** 60% del costo significa que optimizar visión tiene el mayor impacto. Ajustar el nivel de detalle y agregar caché puede recortar fácilmente 30-40% del gasto sin que el usuario lo note.
 
-Limit users to 5 requests per day to reduce volume
-Correct Answer!
-60% of cost means vision optimization has highest impact. Detail tuning and caching help significantly.
+---
 
-During a vision API outage, technicians cannot get photo-based diagnostics. What is the best fallback design?
+**Pregunta 5.** Durante una caída de la API de visión, los técnicos no pueden obtener diagnósticos basados en fotos. ¿Cuál es el mejor diseño de fallback?
 
-Show error message and ask technicians to try again later
+**Explicación:** El principio es **degradación graciosa**: cuando una modalidad falla, el sistema sigue entregando valor en otra. Mostrar error y pedir reintentar deja al técnico varado; encolar las imágenes puede ser válido como complemento, pero no resuelve el ahora; escalar todo a humanos no escala y es carísimo. Caer a texto implica pedir al técnico que describa síntomas y responder con el conocimiento del manual + razonamiento del LLM; es peor que con foto pero sigue siendo útil.
 
-Fall back to text-based troubleshooting using symptom descriptions instead of photos
+- Mostrar mensaje de error y pedir a los técnicos que reintenten más tarde.
+- **Caer a solución de problemas basada en texto usando descripciones de síntomas en lugar de fotos.** ✅
+- Encolar las solicitudes de análisis de fotos hasta que la API de visión se recupere.
+- Escalar automáticamente todas las solicitudes a soporte humano durante las caídas.
 
-Queue photo analysis requests until vision API recovers
-
-Automatically escalate all requests to human support during outages
-Correct Answer!
-Graceful degradation: text-based diagnosis is less optimal but still provides value.
+**Correcto.** La degradación graciosa a diagnóstico basado en texto es menos óptima que con foto, pero sigue entregando valor y mantiene el servicio operativo mientras el proveedor se recupera.

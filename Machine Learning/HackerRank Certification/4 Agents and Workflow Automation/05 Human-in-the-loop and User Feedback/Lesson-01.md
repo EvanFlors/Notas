@@ -1,129 +1,225 @@
-## Why Human Oversight Matters
+# Por qué importa la supervisión humana
 
-Your code review agent is deployed and working great—until it auto-approves a PR that introduces a subtle authentication bypass. The agent saw the code, analyzed it, and determined it was safe. It was wrong. Without human oversight, the vulnerability shipped to production.
+## ¿Qué es?
 
-Agents are powerful but imperfect. They make mistakes that even careful testing cannot fully prevent. Human-in-the-loop is not about limiting agents—it is about deploying them responsibly, with safety nets that catch the inevitable errors before they cause damage.
+**Human-in-the-Loop (HITL)** es un patrón de diseño en el que un humano participa en puntos específicos del ciclo de decisión de un agente autónomo. En lugar de dejar que el modelo ejecute todas las acciones sin intervención, HITL inserta **checkpoints de supervisión** donde una persona aprueba, corrige, rechaza o retroalimenta la propuesta del agente antes (o después) de que tenga efecto en el mundo real.
 
-In this lesson, you will learn when and why human oversight is essential, how to identify high-stakes decisions that need human approval, and how to design systems that combine agent efficiency with human judgment.
+> **Definición operativa:** Un sistema es HITL si, para al menos una clase de acción, la ejecución está condicionada o puede ser modificada por una decisión humana registrada.
 
-By the end, you will understand how to calibrate autonomy based on risk, creating systems where agents and humans collaborate effectively.
+La supervisión humana no es desconfianza hacia el agente: es **confianza calibrada**. Nadie despliega software sin pruebas, monitoreo y la capacidad de intervenir. Los agentes no son la excepción; son software probabilístico cuyos errores no se eliminan completamente con testing.
 
-The Case for Human Oversight
-Agents make autonomous decisions, but autonomy without oversight creates risk. A code review agent that auto-merges PRs could approve code with subtle security vulnerabilities. An agent that posts review comments might make incorrect suggestions that waste developer time.
+### El espectro de autonomía
 
-Human-in-the-loop (HITL) is not about distrusting agents—it is about appropriate trust. You would not deploy any software system without testing, monitoring, and the ability to intervene. Agents are no different.
+Los agentes no son "manuales" o "autónomos" en blanco y negro. Existen al menos cuatro niveles claros, y un sistema maduro combina varios según el tipo de acción:
 
-Consider a code review agent deployed to your engineering organization. Without oversight, it might approve a PR that breaks production or miss critical security issues. With appropriate HITL patterns, humans review high-stakes decisions, correct agent mistakes, and provide feedback that improves future performance.
+| Nivel | Quién decide | Quién ejecuta | Ejemplo (code review agent) |
+|---|---|---|---|
+| **Totalmente manual** | Humano | Humano | El agente solo analiza y presenta hallazgos; el humano escribe el review |
+| **Human-initiated** | Humano aprueba propuesta | Agente ejecuta tras aprobación | El agente redacta el comentario y espera "approve" antes de publicarlo |
+| **Agent-initiated con override** | Agente decide, humano puede revertir | Agente ejecuta, humano edita/retracta | El agente publica reviews automáticos; el humano puede borrarlos o editarlos |
+| **Totalmente autónomo** | Agente | Agente | El agente revisa, comenta y mergea PRs sin intervención |
 
-The goal is not to eliminate automation but to design systems where humans and agents collaborate effectively. Agents handle routine work at scale; humans handle exceptions, edge cases, and high-stakes decisions.
+![Espectro de autonomía: del control humano a la independencia del agente](https://hrcdn.net/ai-engineering/module-4/light/hitl-lesson01-autonomy-spectrum.svg)
 
-The Spectrum of Autonomy
-Agent autonomy exists on a spectrum from fully manual to fully autonomous. Different tasks warrant different positions on this spectrum based on reversibility, stakes, and agent reliability.
+### HITL en el ecosistema actual
 
-Fully manual: Humans make all decisions; agents provide information only. The code review agent analyzes PRs and presents findings, but humans write and post all reviews.
+- **Anthropic Claude Code** pide confirmación antes de ejecutar comandos destructivos (`rm -rf`, `git push --force`). El modelo propone, el humano acepta.
+- **OpenAI Assistants API** expone `required_action` cuando una tool call necesita input humano para continuar (`submit_tool_outputs` pausa el run hasta recibir respuesta).
+- **GitHub Copilot Workspace** genera un plan completo antes de modificar código; el usuario revisa y edita antes de la ejecución.
+- **RLHF (Reinforcement Learning from Human Feedback)** es HITL aplicado al *entrenamiento*: humanos rankean salidas para alinear el modelo base.
 
-Human-initiated: Agents propose actions; humans approve before execution. The agent drafts review comments and suggests an outcome, but waits for human confirmation before posting.
+## ¿Por qué importa?
 
-Agent-initiated with override: Agents execute actions automatically but humans can intervene. The agent posts reviews automatically, but humans receive notifications and can edit or retract reviews.
+Un agente de code review desplegado sin supervisión eventualmente auto-aprobará un PR con un bypass de autenticación sutil. Lo analizará, concluirá que es seguro, y se equivocará. Sin HITL, la vulnerabilidad llega a producción. Este patrón se repite en todos los dominios: el modelo tiene un desempeño alto en promedio pero su cola de errores es inaceptablemente costosa.
 
-Fully autonomous: Agents execute without human involvement. The agent reviews, comments, and auto-merges PRs that meet criteria, with no human in the loop.
+HITL importa porque:
 
-Spectrum of agent autonomy from fully manual to fully autonomous showing four levels of human oversight
-![The spectrum of autonomy: from human control to agent independence](https://hrcdn.net/ai-engineering/module-4/light/hitl-lesson01-autonomy-spectrum.svg)
+- **Los agentes alucinan.** Un LLM puede inventar APIs, tablas o políticas de seguridad con tono convincente. Sin humano, el error se propaga.
+- **El costo de errores es asimétrico.** Un falso positivo en un comentario de review molesta a un dev; un falso negativo en un chequeo de seguridad compromete el sistema entero.
+- **El contexto completo rara vez está en el prompt.** El agente no sabe que el repo `legacy-auth` está congelado hasta que la migración termine. Un humano sí.
+- **La regulación lo exige.** GDPR Art. 22 (decisiones automatizadas), EU AI Act (sistemas de alto riesgo), HIPAA, SOX. En muchos dominios, acción autónoma sin human review es ilegal.
+- **Habilita la mejora continua.** Las correcciones humanas son la fuente más rica de datos para fine-tuning, prompt engineering y evaluación.
+
+### Cuándo NO poner humano en el loop
+
+- **Acciones triviales y reversibles de alto volumen:** un humano revisando mil tags de "necesita triaje" por hora produce fatiga y rubber-stamping.
+- **Latencia crítica:** un sistema anti-fraude en el checkout no puede esperar 30 segundos a que un humano apruebe.
+- **Dominio bien calibrado con telemetría densa:** si tienes 6 meses de datos mostrando >99% precisión en una clase, el humano agrega ruido más que señal.
+
+## ¿Cómo funciona?
+
+### Identificar decisiones de alto riesgo
+
+No toda acción del agente necesita supervisión. Tres dimensiones determinan el riesgo:
+
+| Dimensión | Pregunta | Bajo riesgo | Alto riesgo |
+|---|---|---|---|
+| **Reversibilidad** | ¿Qué tan fácil es deshacer esto? | Postear comentario (se borra) | `DROP TABLE` en producción |
+| **Impacto (blast radius)** | ¿A cuántas personas o sistemas afecta? | Un archivo | Todos los usuarios |
+| **Confianza del agente** | ¿Qué tan seguro está el modelo? | 0.95 en caso rutinario | 0.4 en caso novedoso |
+
+**Regla práctica:** `requiere_humano = (reversibilidad == baja) OR (impacto == alto) OR (confianza < umbral)`.
+
+### Patrones HITL comunes
+
+| Patrón | Momento del humano | Caso de uso |
+|---|---|---|
+| **Approval** | Antes de ejecutar | Acciones costosas o irreversibles (deploy, pago, merge a main) |
+| **Review** | Después de ejecutar | Acciones reversibles donde queremos auditoría (comentarios publicados) |
+| **Correction / Edit** | Durante la ejecución | Humano modifica la propuesta del agente antes de que surta efecto |
+| **Teaching** | Fuera de línea | Humano etiqueta ejemplos para mejorar prompt o entrenar |
+| **Escalation** | Cuando el agente duda | El agente decide pedir ayuda explícitamente (low confidence) |
+
+### Presentación de contexto para humanos
+
+Un `"Approve?"` sin contexto fuerza al humano a investigar por su cuenta. Una buena solicitud de aprobación incluye:
+
+- Resumen de la acción propuesta y por qué.
+- Confianza y señales que la respaldan (o la debilitan).
+- Efectos de aprobar vs. rechazar.
+- Deadline (`expires_at`) y comportamiento default si no se responde.
+- Link al contexto completo (PR, log, trace) por si el humano quiere profundizar.
+
+### Canales: encontrar al humano donde trabaja
+
+Un ingeniero vive en Slack; un gerente en email; un operador on-call en PagerDuty. El sistema debe soportar múltiples canales de notificación con el mismo backend de aprobación.
+
+## Ejemplo con código
+
+### Policy Engine: decidir cuándo requerir humano
 
 ```python
-class PolicyEngine:
-  def __init__(self):
-      self.policies = {
-          "post_comment": {"autonomy": "agent_initiated", "requires_approval": False},
-          "request_changes": {"autonomy": "human_initiated", "requires_approval": True},
-          "approve_pr": {"autonomy": "human_initiated", "requires_approval": True},
-          "auto_merge": {"autonomy": "manual", "requires_approval": True}
-      }
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
 
-  def requires_human(self, action_type: str, context: dict) -> bool:
-      policy = self.policies.get(action_type, {})
-      if policy.get("requires_approval"):
-          return not self._check_auto_approve(policy, context)
-      return False
+class Autonomy(str, Enum):
+    MANUAL = "manual"
+    HUMAN_INITIATED = "human_initiated"
+    AGENT_INITIATED = "agent_initiated"
+    AUTONOMOUS = "autonomous"
+
+@dataclass
+class ActionPolicy:
+    autonomy: Autonomy
+    requires_approval: bool
+    confidence_threshold: float = 0.0  # si confianza < umbral, forzar humano
+
+class PolicyEngine:
+    def __init__(self):
+        self.policies: dict[str, ActionPolicy] = {
+            "post_comment":    ActionPolicy(Autonomy.AGENT_INITIATED, False, 0.6),
+            "request_changes": ActionPolicy(Autonomy.HUMAN_INITIATED, True,  0.8),
+            "approve_pr":      ActionPolicy(Autonomy.HUMAN_INITIATED, True,  0.9),
+            "auto_merge":      ActionPolicy(Autonomy.MANUAL,          True,  1.0),
+            "delete_branch":   ActionPolicy(Autonomy.MANUAL,          True,  1.0),
+        }
+
+    def requires_human(self, action: str, context: dict[str, Any]) -> bool:
+        policy = self.policies.get(action)
+        if policy is None:
+            # Default conservador: desconocido = pedir humano
+            return True
+        if policy.requires_approval:
+            return True
+        if context.get("agent_confidence", 1.0) < policy.confidence_threshold:
+            return True
+        return False
 ```
 
-Understanding where your agent sits on the autonomy spectrum helps you design appropriate oversight for each action type.
-
-Identifying High-Stakes Decisions
-Not all agent actions need human oversight. Identifying which decisions are high-stakes helps focus human attention where it matters most.
-
-Reversibility determines how easily you can undo an action. Posting a comment is reversible (you can delete it). Merging a PR is partially reversible (you can revert). Deleting a branch with unmerged work is irreversible. Less reversible actions warrant more oversight.
-
-Impact scope measures how many people or systems are affected. A typo fix affects one file. A database migration affects every user. A security vulnerability in an authentication library affects the entire application.
-
-Confidence level reflects how certain the agent is about its decision. High-confidence decisions on routine tasks can proceed automatically. Low-confidence decisions or novel situations benefit from human judgment.
+### Risk Assessor: combinar reversibilidad, impacto y confianza
 
 ```python
 class RiskAssessor:
-  def assess_action(self, action: str, context: dict) -> dict:
-      reversibility = self._assess_reversibility(action)
-      impact = self._assess_impact(action, context)
-      confidence = context.get("agent_confidence", 0.5)
+    REVERSIBILITY = {
+        "post_comment":  "low",       # fácil de deshacer
+        "approve_pr":    "medium",
+        "merge_pr":      "high",
+        "delete_branch": "critical",  # casi irreversible
+    }
 
-      overall_risk = self._calculate_overall_risk(reversibility, impact, confidence)
-      requires_human = self._determine_human_needed(action, overall_risk, confidence)
+    def assess(self, action: str, context: dict) -> dict:
+        reversibility = self.REVERSIBILITY.get(action, "medium")
+        impact = self._impact(context)
+        confidence = context.get("agent_confidence", 0.5)
 
-      return {"risk": overall_risk, "requires_human": requires_human}
+        score = 0
+        score += {"low": 0, "medium": 1, "high": 2, "critical": 3}[reversibility]
+        score += {"low": 0, "medium": 1, "high": 2}[impact]
+        score += 2 if confidence < 0.6 else (1 if confidence < 0.8 else 0)
 
-  def _assess_reversibility(self, action: str) -> str:
-      reversibility_map = {
-          "post_comment": "low",
-          "approve_pr": "medium",
-          "merge_pr": "high",
-          "delete_branch": "critical"
-      }
-      return reversibility_map.get(action, "medium")
+        level = "low" if score <= 2 else ("medium" if score <= 4 else "high")
+        return {
+            "risk": level,
+            "reversibility": reversibility,
+            "impact": impact,
+            "confidence": confidence,
+            "requires_human": level != "low",
+        }
+
+    def _impact(self, context: dict) -> str:
+        files = context.get("files_changed", 0)
+        if context.get("touches_auth") or context.get("touches_payments"):
+            return "high"
+        if files > 20:
+            return "high"
+        return "medium" if files > 5 else "low"
 ```
 
-Designing for Human Collaboration
-Effective HITL systems make it easy for humans to understand agent decisions and provide input. Poor HITL design frustrates humans with too many interruptions or provides too little context for good decisions.
-
-Context presentation shows humans what the agent knows. When requesting approval, the agent should present the PR summary, identified issues, confidence levels, and its proposed action—not just "Approve this?"
+### Solicitud de aprobación con contexto rico
 
 ```python
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
 @dataclass
 class ApprovalRequest:
-  request_id: str
-  action: str
-  pr_number: int
-  summary: str
-  proposed_action: str
-  confidence: float
-  key_findings: list
-  approval_effect: str
-  rejection_effect: str
-  expires_at: datetime
+    request_id: str
+    action: str
+    pr_number: int
+    summary: str
+    proposed_action: str
+    confidence: float
+    key_findings: list[str]
+    approval_effect: str
+    rejection_effect: str
+    expires_at: datetime
+    channel: str  # "slack" | "email" | "pagerduty"
+
+def build_request(action: str, pr: dict, review: dict, confidence: float) -> ApprovalRequest:
+    return ApprovalRequest(
+        request_id=f"req-{pr['number']}-{int(datetime.utcnow().timestamp())}",
+        action=action,
+        pr_number=pr["number"],
+        summary=f"PR #{pr['number']}: {pr['title']} ({pr['files_changed']} archivos)",
+        proposed_action=review["recommendation"],
+        confidence=confidence,
+        key_findings=review["findings"][:3],  # top 3
+        approval_effect="El review se publica como comentario bloqueante",
+        rejection_effect="El review se descarta; nada se publica",
+        expires_at=datetime.utcnow() + timedelta(hours=4),
+        channel="slack" if pr["author_role"] == "engineer" else "email",
+    )
 ```
 
-Response channels meet humans where they work. Engineers might prefer Slack notifications; managers might prefer email summaries. The system should support multiple channels for approval requests.
+## Errores comunes
 
-Now that you understand how to identify high-stakes decisions, apply that knowledge to assess risk factors in real scenarios.
+- **Pedir confirmación en todo.** Produce **fatiga de aprobación**: el humano empieza a hacer rubber-stamp sin leer. Peor que no pedir, porque genera falsa sensación de control. Solución: calibra para que solo las decisiones genuinamente de alto riesgo lleguen al humano.
+- **No pedir confirmación en nada.** El agente ejecuta acciones irreversibles con 0.4 de confianza en un caso que nunca vio. Daño silencioso.
+- **Contexto insuficiente en la solicitud.** `"¿Apruebas este PR review?"` sin findings, confianza ni resumen fuerza al humano a investigar. Terminan aprobando por desgaste.
+- **Sin timeout definido.** Si el aprobador está de vacaciones, la acción queda pendiente para siempre. Define `on_timeout`: `escalate`, `auto_approve` (solo para bajo riesgo) o `auto_reject`.
+- **Un solo aprobador.** Punto único de falla. Define pools de aprobadores elegibles con load balancing.
+- **No capturar la razón del rechazo.** El humano rechaza pero no explica por qué; el agente comete el mismo error mañana. Habilita campo libre `rejection_reason` y úsalo para refinar prompts.
+- **Mezclar niveles de autonomía en una sola política global.** `requires_approval: True` para todo el agente es demasiado grueso. Define política por tipo de acción.
+- **Olvidar la observabilidad.** Si no mides tasa de aprobación, tiempo de respuesta y tasa de modificación, no puedes calibrar el sistema.
+- **HITL cosmético.** Mostrar un botón "Approve" que, si no responden en 2 segundos, auto-aprueba. Es teatro de seguridad, no supervisión.
 
-Common Pitfalls and Solutions
-Too many approval requests: If every action requires approval, humans become bottlenecks and start rubber-stamping. Solution: calibrate autonomy levels so only genuinely high-stakes decisions need human review.
+## Resumen
 
-Insufficient context: Approval requests that just say "Approve PR review?" force humans to investigate on their own. Solution: include all relevant context—findings, confidence, risk assessment—in the approval request.
-
-No timeout handling: If humans do not respond, the system hangs. Solution: define timeout behavior—escalate, auto-approve with notification, or auto-reject with explanation.
-
-No feedback path: Humans approve or reject but cannot explain why. Solution: allow modifications and capture feedback for agent improvement.
-
-Summary
-Human-in-the-loop is essential for production agents. It provides safety nets for high-stakes decisions while preserving automation benefits for routine work. The spectrum of autonomy ranges from fully manual to fully autonomous, with most production systems using a mix based on action type and context.
-
-High-stakes decisions are identified by reversibility, impact scope, and agent confidence. Risk assessment helps determine which actions need human approval. Effective HITL design presents context clearly and meets humans in their preferred channels.
-
-Key Takeaways:
-
-Human oversight is about appropriate trust, not distrust of agents
-Different actions warrant different autonomy levels based on risk
-Reversibility, impact scope, and confidence determine which decisions need humans
-Present sufficient context for humans to make informed decisions
-Support multiple notification channels to meet humans where they work
-Design for collaboration between humans and agents, not just interruption
+- **Human-in-the-loop** inserta checkpoints humanos en el ciclo de decisión del agente para capturar errores antes de que causen daño.
+- Los agentes existen en un **espectro de autonomía**: manual, human-initiated, agent-initiated con override, totalmente autónomo. Sistemas maduros mezclan niveles por tipo de acción.
+- Tres dimensiones determinan si una acción necesita humano: **reversibilidad**, **impacto** y **confianza del agente**.
+- Patrones HITL clave: **approval** (antes), **review** (después), **correction** (durante), **teaching** (offline), **escalation** (el agente pide ayuda).
+- Una buena solicitud de aprobación incluye **contexto rico**: resumen, confianza, efectos de aprobar/rechazar, deadline y canal apropiado.
+- Errores clásicos: fatiga por sobre-aprobación, daño silencioso por sub-aprobación, contexto pobre, timeouts indefinidos y aprobador único.
+- HITL es **confianza calibrada**, no desconfianza: libera al humano del trabajo rutinario para enfocarlo donde su juicio es insustituible.

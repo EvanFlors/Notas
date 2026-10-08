@@ -1,75 +1,69 @@
-Structured Output Generation
-This quiz tests your understanding of structured output generation including JSON mode, schema design, XML and alternative formats, and multi-layer validation strategies. You'll need to solve real-world problems related to data consistency, validation, and choosing the right format for specific use cases.
+# Quiz: Generación de Salidas Estructuradas
 
+Este quiz evalúa tu comprensión de JSON mode, diseño de schemas, formatos alternativos (XML, CSV, Markdown) y estrategias de validación multi-capa. Resuelve problemas realistas de consistencia de datos, validación y elección de formato.
 
-Your e-commerce platform extracts product information from supplier emails. Initial JSON mode implementation returns valid JSON but inconsistent field names: sometimes "product_name" and sometimes "productName". The inconsistency breaks your inventory database integration. What is the most effective solution?
+---
 
-Implement a post-processing layer that normalizes field names before database insertion
+### 1. Tu plataforma de e-commerce extrae información de productos desde correos de proveedores. La implementación inicial con JSON mode devuelve JSON válido pero con nombres inconsistentes: a veces `"product_name"`, a veces `"productName"`. La inconsistencia rompe la integración con el inventario. ¿Cuál es la solución más efectiva?
 
-Design a strict schema with explicit field definitions and include it in the prompt
+- Implementar una capa de post-procesamiento que normalice los nombres de campo antes de insertar en la base de datos.
+- **Diseñar un schema estricto con definiciones explícitas de campos e incluirlo en el prompt. ✅**
+- Cambiar a XML porque maneja convenciones de nombres de forma más fiable.
+- Usar few-shot prompting con ejemplos que muestren el patrón correcto de nombres.
 
-Switch to XML format which handles naming conventions more reliably
+**Explicación:** JSON mode solo garantiza **sintaxis** JSON válida, no consistencia **semántica**. Un schema estricto (OpenAI structured outputs con `strict: true`, Anthropic tool use con `tool_choice` forzado, o Pydantic con constrained decoding) fija los nombres de campo a nivel del decoder: el modelo literalmente no puede emitir `productName` si el schema dice `product_name`. Normalizar en post-proceso trata el síntoma, no la causa, y falla silenciosamente cuando aparece un nombre nuevo. Few-shot ayuda pero no garantiza. XML no soluciona el problema de naming.
 
-Use few-shot prompting with examples showing the correct field naming pattern
-Correct Answer!
-JSON mode guarantees syntax, not semantic consistency. Strict schemas with explicit field definitions establish exact field names, preventing inconsistency.
+---
 
-You built a customer support system that generates structured ticket data. During peak traffic, you notice 15% of responses contain incomplete JSON due to token limits truncating outputs. Your validation layer currently rejects these responses entirely, causing support delays. What should you implement first?
+### 2. Construiste un sistema de soporte que genera tickets estructurados. En hora pico, el 15 % de las respuestas contiene JSON incompleto por truncamiento de tokens. Tu capa de validación las rechaza todas, causando retrasos. ¿Qué deberías implementar primero?
 
-Increase the model's max_tokens parameter to prevent truncation
+- Aumentar el parámetro `max_tokens` del modelo para prevenir el truncamiento.
+- **Añadir manejo inteligente de respuestas parciales que rescate datos útiles con scoring de confianza. ✅**
+- Cambiar a XML porque maneja datos incompletos de forma más elegante.
+- Implementar retry progresivo con backoff exponencial para generaciones fallidas.
 
-Add intelligent partial response handling that salvages usable data with confidence scoring
+**Explicación:** Subir `max_tokens` reduce la frecuencia pero no elimina el problema (y cuesta más). El retry con backoff añade latencia sin aprovechar el 15 % que ya está casi completo. El **parsing parcial** detecta `finish_reason="length"`, intenta cerrar llaves/corchetes faltantes, extrae los campos ya emitidos, y marca el resultado con `confidence < 1.0`. Así entregas valor en el 15 % de los casos degradados en vez de rechazarlos. El scoring permite a los consumidores decidir si usan el dato o lo escalan.
 
-Switch to XML format which handles incomplete data more gracefully
+---
 
-Implement progressive retry with exponential backoff for failed generations
-Correct Answer!
-Intelligent parsing salvages usable data from partial responses and adds confidence scores, providing value while maintaining reliability.
+### 3. Tu sistema de reportes financieros genera análisis trimestrales en CSV para Excel. Necesitas validar que los cálculos de ingresos sean lógicamente consistentes con los gastos y márgenes reportados. ¿Qué capa de validación debe manejar esta comprobación?
 
-Your financial reporting system generates quarterly analysis in CSV format for Excel compatibility. You need to validate that revenue calculations are logically consistent with the reported expenses and profit margins. Which validation layer should handle this check?
+- Validación sintáctica para asegurar que la estructura CSV sea correcta.
+- **Validación semántica para verificar la consistencia lógica de las relaciones numéricas. ✅**
+- Validación de seguridad para buscar PII o contenido inapropiado.
+- Validación de negocio para aplicar reglas regulatorias de la industria.
 
-Syntax validation to ensure CSV structure is correct
+**Explicación:** La validación **sintáctica** solo revisa que el CSV parsee (número correcto de columnas, encabezados). La de **seguridad** busca PII. La de **negocio** aplica reglas regulatorias (ej. SOX, IFRS). La **semántica** verifica que los datos tienen **sentido lógico entre sí**: que `profit == revenue - expenses`, que `margin_pct == profit / revenue * 100`. Es exactamente el chequeo descrito. Puede implementarse con reglas Python (`abs(revenue - expenses - profit) < 0.01`) o con un juez LLM si la lógica es más fuzzy.
 
-Semantic validation to verify logical consistency of numerical relationships
+---
 
-Safety validation to check for PII or inappropriate content
+### 4. Diseñas un sistema de historia clínica que debe preservar notas con formato, datos del paciente con validación estricta, y relaciones entre diagnósticos y tratamientos. El sistema requiere cumplir estándares de datos de salud. ¿Qué formato cumple mejor estos requisitos?
 
-Business validation to apply industry-specific regulatory rules
-Correct Answer!
-Semantic validation checks logical consistency and contextual appropriateness, verifying mathematically consistent relationships between financial data.
+- **XML con atributos para metadatos, namespaces para cumplimiento de estándares y estructura jerárquica. ✅**
+- CSV para almacenamiento eficiente e importación fácil de datos tabulares.
+- JSON con objetos anidados para relaciones y validación estricta de schema.
+- Markdown para notas legibles por humanos con secciones estructuradas embebidas.
 
-You are designing a medical records system that must preserve doctor's notes with formatting, patient data with strict validation, and relationships between diagnoses and treatments. The system requires compliance with healthcare data standards. Which format best meets these requirements?
+**Explicación:** El dominio clínico exige **HL7 FHIR**, **CDA** o similares, todos basados en XML. Los **atributos** (`<diagnosis code="E11.9" confidential="HIPAA"/>`) llevan metadatos sin ensuciar la jerarquía. Los **namespaces** (`xmlns:hl7="..."`) previenen colisiones cuando mezclas vocabularios. **XSD/Schematron** validan contra el estándar oficial. CSV es plano (sin relaciones). JSON puede modelar la jerarquía pero carece de atributos vs elementos y namespaces nativos. Markdown no valida nada estricto. En healthcare, elegir XML no es gusto: es cumplimiento.
 
-XML with attributes for metadata, namespaces for standards compliance, and hierarchical structure
+---
 
-CSV for efficient storage and easy database import of tabular patient data
+### 5. Tu sistema de moderación de contenido usa validación multi-capa: syntax (50 ms), safety (200 ms) y validación semántica vía juez LLM (1500 ms). En alto tráfico, la latencia de validación supera al tiempo de generación. ¿Qué estrategia balancea mejor velocidad y fiabilidad?
 
-JSON with nested objects for relationships and strict schema validation
+- **Aplicar la validación con juez LLM selectivamente solo a contenido de alto riesgo marcado por la capa de seguridad. ✅**
+- Correr las tres capas en paralelo para minimizar tiempo total.
+- Eliminar la validación semántica para reducir latencia.
+- Cachear resultados de validación para contenido similar y evitar chequeos repetidos.
 
-Markdown for human-readable notes with embedded structured data sections
-Correct Answer!
-XML excels for rich metadata, semantic relationships, and standards compliance. Attributes carry metadata, namespaces prevent conflicts, and schema validation ensures compliance.
+**Explicación:** Correr en paralelo no sirve porque las capas son **dependientes** (sin JSON parseable no hay semántica que juzgar) y, aunque fuera independiente, el juez LLM dominaría la latencia igual. Eliminar la semántica deja pasar errores reales. El caché ayuda marginalmente pero el contenido rara vez se repite exacto. La estrategia correcta es **selectividad**: la capa de seguridad (barata) actúa como triage; solo el 5-10 % marcado como riesgoso paga el juez. Latencia promedio baja drásticamente, fiabilidad se mantiene donde importa.
 
-Your content moderation system uses multi-layer validation: syntax check (50ms), safety check (200ms), and semantic validation via AI judge (1500ms). During high traffic, validation latency exceeds AI generation time. Which optimization strategy provides the best balance of speed and reliability?
+---
 
-Apply AI judge validation selectively only to high-risk content flagged by safety layer
+### 6. Construiste un generador de documentación de API en Markdown. Funciona bien con endpoints simples pero falla al documentar estructuras anidadas con múltiples parámetros opcionales. Los usuarios se quejan de que no se ve la jerarquía de parámetros. ¿Qué debes hacer?
 
-Run all three validation layers in parallel to minimize total time
+- Cambiar a JSON porque representa mejor las estructuras anidadas.
+- Añadir más ejemplos en few-shot prompting mostrando documentación compleja.
+- Cambiar a XML con atributos para metadatos de parámetros y elementos anidados para jerarquía.
+- **Mejorar la generación de Markdown con tablas para parámetros y bloques de código anidados para estructura. ✅**
 
-Remove semantic validation entirely to reduce latency
-
-Cache validation results for similar content to avoid repeated expensive checks
-Correct Answer!
-Applying expensive validation selectively to high-risk content maintains reliability where it matters while reducing average latency.
-
-You built an API documentation generator using markdown format. The system works well for simple endpoints but struggles when documenting complex nested request/response structures with multiple optional parameters. Users complain the documentation lacks clear parameter hierarchies. What should you do?
-
-Switch to JSON format which better represents nested data structures
-
-Add more examples in few-shot prompting showing complex documentation patterns
-
-Switch to XML format with attributes for parameter metadata and nested elements for hierarchy
-
-Enhance markdown generation with tables for parameters and nested code blocks for structure
-Correct Answer!
-Tables for parameters and nested code blocks for structure leverage markdown's readability while solving hierarchy representation.
+**Explicación:** El consumidor (GitHub, MkDocs, Docusaurus) es un **lector humano** de Markdown; cambiar a JSON o XML rompe la UX. Few-shot ayuda pero no resuelve la limitación estructural de pedir "describe en texto plano". Markdown en su dialecto **GFM** sí tiene herramientas: **tablas** (`| param | tipo | required | descripción |`) muestran la lista; **bloques de código ```json anidados** muestran el shape del request/response; **sub-headings** (`### Parámetros opcionales`) agrupan. Resolver el problema **dentro del formato correcto** es casi siempre mejor que cambiar de formato.

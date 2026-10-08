@@ -1,343 +1,308 @@
-## When Legal Requirements Become Engineering Constraints
+# Cumplimiento regulatorio, residencia de datos y propiedad intelectual
 
-Imagine you deploy an AI coding assistant that helps your team write code faster. It works great for six months. Then a compliance audit reveals that the tool stores prompts containing customer emails, violating GDPR retention requirements. You need to fix it immediately, but the tool was not designed with compliance in mind. You are forced to either retrofit controls in a panic or disable the tool entirely.
+## ¿Qué es?
 
-This is why compliance is a system design problem, not just a legal concern. Regulations like GDPR, AI Act, and sector-specific rules define what data can be processed, how long it can be stored, and how decisions must be audited. If compliance is handled after the tool is deployed, you will either retrofit controls in a panic or disable useful workflows. Treat compliance as a design requirement from day one.
+**Cumplimiento (compliance)** en herramientas de IA es la traducción de obligaciones legales (GDPR, HIPAA, CCPA, EU AI Act, PCI-DSS) a **controles técnicos verificables**: redacción, retención, cifrado, residencia, consentimiento, auditoría. **Residencia de datos** garantiza que los prompts y outputs permanezcan en jurisdicciones específicas. **Propiedad intelectual (IP)** cubre dos preguntas abiertas: ¿puede un LLM aprender de datos protegidos por copyright?, y ¿de quién es el output que genera?
 
-In this lesson, you will learn how to translate privacy and AI regulations into concrete engineering controls, how to build compliance into system design, and how to make compliance testable and auditable. You will understand why compliance should be engineering work, not legal paperwork, and how to balance compliance requirements with developer productivity.
+> Cumplimiento no es papeleo legal: es un conjunto de **requisitos de ingeniería** que se diseñan, implementan y testean como cualquier otra feature.
 
-By the end, you will have a practical framework for treating compliance as engineering requirements that can be implemented, tested, and maintained like any other system feature.
+### Panorama regulatorio
 
-Compliance Is a System Design Problem
-This is especially important for AI tools because they introduce new data flows. A tool that pulls context from logs or tickets may inadvertently process personal data. If compliance requirements are not built into the tool, you are forced to either disable it or accept risk.
+| Regulación | Alcance | Año | Requisitos AI-específicos |
+|---|---|---|---|
+| **GDPR** (UE 2016/679) | PII de residentes UE | Vigente desde 2018 | Base legal, DPA Art. 28, DSAR Art. 15/17, DPIA Art. 35 para alto riesgo, Art. 22 (decisiones automatizadas) |
+| **HIPAA** (EE.UU.) | PHI de pacientes | 1996 | BAA con cada "business associate" que procese PHI (incluye vendors LLM) |
+| **CCPA/CPRA** (California) | Datos de consumidores | 2020/2023 | Opt-out de venta/compartición, right to delete, right to know |
+| **EU AI Act** | Sistemas de IA en UE | 2024, aplicación por fases hasta 2027 | Clasificación por riesgo, Art. 10 (data governance), transparency Art. 50, obligaciones GPAI Art. 53 |
+| **PCI-DSS v4.0** | Datos de tarjetas | 2024 (vigente) | PAN tokenizado antes de LLM; LLMs normalmente no deben ver PAN |
+| **LGPD** (Brasil) | Equivalente GDPR | 2020 | Similar a GDPR; ANPD como regulador |
+| **PIPEDA** (Canadá) | Consumidores | 2000 | Consent model, meaningful consent |
+| **UK AI Regulation** | Reino Unido | Sectorial, 2024+ | Enfoque pro-innovación, sin ley única por ahora |
 
-Consider what happens without compliance in design. A tool stores prompts for debugging. Those prompts contain customer emails. GDPR requires deletion after a certain period, but the tool has no deletion mechanism. You are now non-compliant, and fixing it requires redesigning the tool. When compliance is designed in, these problems are prevented.
+### EU AI Act: el nuevo paisaje
 
-Compliance is also tied to contracts. If you use an external vendor, you may need data processing agreements that specify how data is used and retained. Engineering needs to know these constraints because they affect tool configuration and deployment. When contracts define requirements, engineering must implement them. When contracts are unclear, engineering cannot implement them.
+El **EU AI Act** (Reglamento 2024/1689) categoriza sistemas de IA en cuatro niveles:
 
-Translating Policies into Controls
-Most compliance requirements map to a small set of technical controls:
+| Nivel | Ejemplos | Obligaciones |
+|---|---|---|
+| **Prohibido** | Social scoring, manipulación subliminal | Prohibición total |
+| **Alto riesgo** | IA en reclutamiento, crédito, infraestructura crítica | Registro, DPIA, transparencia, supervisión humana, auditoría |
+| **Riesgo limitado** | Chatbots, deepfakes | Transparencia (declarar que es IA) |
+| **Mínimo** | Filtros de spam, videojuegos | Sin obligación |
 
-Data minimization → context budgeting and redaction. Process only the data you need, and remove sensitive data before processing.
+**Art. 10 (Data governance)** es clave para herramientas: los datasets de entrenamiento, validación y test deben ser **relevantes, representativos, libres de errores y completos**, con examen de posibles sesgos. **Art. 53** aplica a GPAI (General Purpose AI) e introduce obligaciones de documentación técnica y resumen de datos de entrenamiento.
 
-Access control → scoped permissions and approval gates. Limit who can access data and what they can do with it.
+## ¿Por qué importa?
 
-Auditability → structured logs and provenance tags. Record what happened, when it happened, and who caused it.
+### Zero-Data-Retention (ZDR) y data policies de proveedores
 
-Retention → automated deletion policies. Delete data when it is no longer needed.
+| Proveedor | Opción ZDR | Default retention | Entrenamiento con tus prompts | BAA (HIPAA) |
+|---|---|---|---|---|
+| **Anthropic API** | Sí, por defecto en Enterprise | 0–30 días | No (nunca entrena con API) | Sí, bajo contrato |
+| **Anthropic Claude.ai Free/Pro** | No | Hasta 30 días; opt-out para training en settings | Sí por defecto en Free (desde 2025) | No |
+| **OpenAI API** | Sí (ZDR opt-in para enterprise) | 30 días default | No (API) | Sí con Enterprise + BAA |
+| **OpenAI ChatGPT Enterprise/Team** | Sí (no training por default) | Según admin | No | Sí |
+| **ChatGPT Free/Plus** | No | Hasta 30 días | Sí salvo opt-out en settings | No |
+| **Azure OpenAI** | Sí (opt-in abuse monitoring off) | 30 días con monitoring | Nunca | Sí |
+| **AWS Bedrock** | Sí (no retention por defecto) | 0 días | Nunca | Sí |
+| **Google Vertex AI / Gemini** | Sí (customer-managed) | Variable | Nunca en Vertex | Sí |
+| **GitHub Copilot Business/Enterprise** | Sí (no training) | Prompts no retenidos | No en Business | No típicamente |
+| **Copilot Individual** | No | Variable | Sí (telemetry opt-out) | No |
 
-This mapping is what turns abstract policy into engineering decisions you can implement. When policies map to controls, compliance is actionable. When policies do not map to controls, compliance is aspirational.
+Dos reglas prácticas:
 
-Data Residency as an Engineering Constraint
-Some regulations and contracts require data to stay in specific regions. For AI tools, that means:
+1. **API empresarial ≠ chat consumer.** Las APIs enterprise de Anthropic, OpenAI, Google y AWS **no entrenan con tus datos** por contrato; los chats públicos (Free/Plus) sí lo hacen a menos que optes por salirte.
+2. **ZDR no es automático.** Pedirlo explícitamente, firmar el addendum y configurar el header o flag correspondiente.
 
-Routing prompts to approved regions: ensure prompts are processed in compliant locations.
+### Residencia de datos
 
-Blocking cross-region data transfer for restricted data: prevent data from leaving approved regions.
+Operar en UE con un modelo cuyo endpoint vive en us-east-1 implica **transferencia internacional** regulada por GDPR Cap. V. Opciones:
 
-Ensuring caches and logs are stored in compliant locations: verify that storage meets residency requirements.
+- **Standard Contractual Clauses (SCCs)** firmadas con el proveedor.
+- **EU-US Data Privacy Framework** (desde julio 2023, reemplazando al invalidado Privacy Shield).
+- **Endpoints regionales**: Azure OpenAI EU, Bedrock eu-central-1, Vertex AI europe-west4, Anthropic AWS Bedrock EU, OpenAI Dublin.
+- **On-prem / self-hosted** para datos de máxima sensibilidad: Llama 3.1, Mistral Large, Qwen 2.5, DeepSeek V3 con vLLM/TGI.
 
-These are not legal details. They are routing and infrastructure decisions that must be made by engineers. When residency is an engineering constraint, it is implemented correctly. When residency is a legal detail, it is forgotten.
+### On-prem vs. cloud LLMs
 
-Practical Scope for AI Tools
-You do not need a full legal analysis to build safe defaults. You need clarity on:
+| Dimensión | On-prem / self-hosted | Cloud (API managed) |
+|---|---|---|
+| Residencia | Total control | Depende de región |
+| Capex | Alto (GPUs, infra) | Bajo |
+| Opex | Energía, mantenimiento | Por token |
+| Modelo top-tier | Difícil (quantization, latencia) | GPT-4.5, Claude 4.5 fácil |
+| Updates | Manual | Automático |
+| Compliance strict | Más fácil (nada sale) | Depende de DPA/BAA |
+| Latencia | Baja intra-red | Red pública |
 
-Whether prompts can contain personal data: if yes, you need redaction and retention controls.
+Patrón híbrido común: **modelo pequeño on-prem** para redacción, clasificación y rutas sensibles; **cloud API** para tareas no sensibles con prompts ya redactados.
 
-Whether tool outputs are stored: if yes, you need retention and access controls.
+### Propiedad intelectual
 
-Who can access logs and caches: if access is broad, you need stricter controls.
+Dos preguntas abiertas con jurisprudencia en evolución:
 
-These questions can be answered by engineering and security owners. Legal review can validate, but it should not be the only source of truth. When engineering owns compliance, it is implemented. When legal owns compliance, it is documented but not implemented.
+#### 1. Training data provenance (¿puede el modelo aprender de tus datos?)
 
-Risk-Based Usage Rules
-Compliance often depends on risk level. For AI tools, you can define usage tiers:
+Casos legales en curso:
 
-Low risk: public or internal-only data, broad tool access. These tasks have low compliance requirements.
+- **Getty Images vs. Stability AI (2023, UK/EU/US).** Getty demandó por scraping de 12 millones de imágenes con marca de agua. Juicio UK sentencia parcial 2024-2025.
+- **New York Times vs. OpenAI & Microsoft (dic 2023, US).** NYT alega entrenamiento sobre millones de artículos protegidos y output que regurgita texto literal. Juicio en 2025-2026.
+- **Authors Guild vs. OpenAI, Meta (2023-2024).** Grupos de autores (Grisham, Martin) por entrenamiento sobre libros.
+- **Thomson Reuters vs. ROSS Intelligence (fallo feb 2025).** Primera decisión US sustantiva contra "fair use" en entrenamiento comercial.
+- **Andersen vs. Stability AI (US).** Artistas demandan por derivación de estilos.
 
-Medium risk: confidential data, restricted tools, more logging. These tasks need moderate compliance controls.
+Impacto práctico: hasta que haya jurisprudencia firme, los enterprise contracts suelen incluir **IP indemnification** (Microsoft Copilot Copyright Commitment, Google Shielded AI, Anthropic IP indemnity) donde el vendor asume la defensa legal si el output infringe copyright.
 
-High risk: restricted data, strict approvals, minimal retention. These tasks need strict compliance controls.
+#### 2. Output ownership (¿de quién es el código/texto generado?)
 
-This makes compliance proportional and avoids blocking everyday work. When compliance is risk-based, it is manageable. When compliance is one-size-fits-all, it is either too strict or too lenient.
+- **US Copyright Office (2023-2024):** las obras generadas puramente por IA no son copyrightables. Solo lo son las contribuciones humanas significativas.
+- **UK:** permite copyright a "computer-generated works" (CDPA s. 9(3)), con autor el humano que hizo los arreglos.
+- **UE:** sin armonización; mayoría de estados requiere autoría humana.
 
+Consecuencia para equipos: código generado por Copilot/Cursor sin edición significativa puede **no estar protegido** por copyright en US, aunque sea tuyo contractualmente ("you own what you create" en Copilot ToS).
 
-Before diving into engineering patterns, consider how compliance becomes manageable when you treat it like a set of testable requirements rather than a vague checklist.
+#### 3. Code licensing con Copilot
 
-Engineering Patterns That Satisfy Compliance
-A few patterns show up repeatedly:
+El **Business Source License** y **GPL** generan problemas: si Copilot aprendió de código GPL y regurgita snippets casi idénticos, tu producto podría estar derivando de GPL sin cumplir. GitHub introdujo:
 
-Privacy by default: tools should default to minimal data sharing. When tools are private by default, compliance is easier.
+- **Duplication detection filter** (reduce output copiado literal de training set público).
+- **Copilot Copyright Commitment** para Business/Enterprise: Microsoft defiende y paga daños si demandan al cliente por el output de Copilot usado con los filtros activos.
 
-Explicit consent or approval: require human acknowledgment for sensitive contexts. When consent is explicit, compliance is verifiable.
+### Checklist de compliance mínimo
 
-Data residency controls: route data to approved regions or services. When residency is controlled, compliance is ensured.
+- ¿Firmaste **DPA** con todos los procesadores (vendor LLM incluido)?
+- ¿Firmaste **BAA** con cada vendor que ve PHI?
+- ¿**ZDR** activo o explícitamente aceptas el default retention?
+- ¿**Región** del endpoint cumple residencia (EU para UE, etc.)?
+- ¿Mecanismo de **DSAR** operativo y testeado?
+- ¿**DPIA** (GDPR Art. 35) hecha para casos de alto riesgo?
+- ¿**Transparencia** AI Act Art. 50 implementada (declarar que es IA)?
+- ¿**IP indemnity** del vendor cubre tu caso de uso?
 
-Deletion workflows: build a path for removing data on request. When deletion is automated, compliance is reliable.
+## ¿Cómo funciona?
 
-These patterns are implementable, testable, and auditable. They also reduce the burden on developers, because the safe path is the default path. When patterns are clear, implementation is straightforward. When patterns are unclear, implementation is difficult.
+### Policy as code
 
-Policy as Code for AI Tools
-When possible, express compliance rules as code. For example, a policy engine can block prompts that include restricted data or prevent tools from accessing restricted directories. This makes compliance testable and reduces subjective interpretation.
+Expresar reglas de compliance como código ejecutable permite testearlas y aplicarlas en runtime:
 
-Consider what happens with policy as code. A compliance rule says "do not process customer emails." The policy engine blocks prompts containing emails automatically. Compliance is enforced, not just documented. When policy is code, it is enforceable. When policy is text, it is not enforceable.
-
-Here is an example policy-as-code configuration:
-
-compliance-policy.yaml
 ```yaml
-# Compliance Policy as Code
-
 policies:
-# Data minimization
-- name: block_customer_emails
-  type: data_minimization
-  rule: |
-    block if prompt contains email_pattern
-  action: reject_with_message("Customer emails cannot be processed")
+  - name: eu_residency
+    when: data.classification in [confidential, restricted]
+       and user.region == "EU"
+    enforce: route_to(region="eu-west-1", provider="azure_openai")
 
-# Access control
-- name: restrict_restricted_directories
-  type: access_control
-  rule: |
-    block if path matches /restricted/**
-  action: require_approval("security-team")
+  - name: no_phi_without_baa
+    when: contains_phi(prompt)
+    enforce: require(vendor.has_baa == true)
 
-# Data residency
-- name: enforce_eu_data_residency
-  type: data_residency
-  rule: |
-    route to eu-region if data_classification == "restricted"
-  action: enforce_region("eu-west-1")
+  - name: ai_act_transparency
+    when: output_consumer_facing == true
+    enforce: inject_disclosure("Este contenido fue generado por IA")
 
-# Retention enforcement
-- name: auto_delete_after_retention
-  type: retention
-  rule: |
-    delete if age > retention_days and classification == "restricted"
-  action: schedule_deletion(retention_days)
+  - name: training_opt_out
+    enforce: send_header("x-training-opt-out: true")
 ```
 
-Here is an example compliance check implementation:
+## Ejemplo con código
 
-compliance-check-system.py
+### Gateway con enforcement de policies
+
 ```python
-#!/usr/bin/env python3
-"""
-Compliance check system for AI tools.
-Enforces compliance rules as code.
-"""
+# pip install anthropic
+import os, re
+from anthropic import Anthropic
 
-import re
-from typing import List, Dict, Optional
+cliente_eu = Anthropic(api_key=os.environ["ANTHROPIC_EU_KEY"])  # endpoint EU
+cliente_us = Anthropic(api_key=os.environ["ANTHROPIC_US_KEY"])
+
+PATRONES_PHI = [r"\bpatient\b", r"\bdiagnos", r"\bICD-10\b", r"\bHbA1c\b"]
+
+class ComplianceError(Exception): pass
+
+def contiene_phi(texto: str) -> bool:
+    return any(re.search(p, texto, re.I) for p in PATRONES_PHI)
+
+def gateway(prompt: str, usuario: dict, clasificacion: str) -> str:
+    # 1. Residencia
+    if usuario["region"] == "EU" and clasificacion in {"confidential",
+                                                        "restricted"}:
+        cliente = cliente_eu
+    else:
+        cliente = cliente_us
+
+    # 2. BAA requerida si PHI
+    if contiene_phi(prompt) and not usuario.get("baa_signed"):
+        raise ComplianceError("PHI sin BAA — ruta prohibida")
+
+    # 3. ZDR siempre on para datos regulados
+    headers = {}
+    if clasificacion in {"confidential", "restricted"}:
+        headers["anthropic-beta"] = "zero-data-retention"
+
+    # 4. AI Act transparency: inyectar disclosure si es customer-facing
+    if usuario.get("output_customer_facing"):
+        prompt += ("\n\nIMPORTANTE: Si tu respuesta será mostrada "
+                   "al usuario final, iníciala con 'Respuesta generada "
+                   "por IA:'.")
+
+    resp = cliente.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}],
+        extra_headers=headers,
+    )
+    return resp.content[0].text
+```
+
+### Test de compliance en CI
+
+```python
+import pytest
+
+def test_phi_sin_baa_rechaza():
+    with pytest.raises(ComplianceError):
+        gateway("patient John has diagnosis of type 2 diabetes",
+                usuario={"region": "US", "baa_signed": False},
+                clasificacion="restricted")
+
+def test_eu_user_va_a_eu_endpoint(monkeypatch):
+    rutas = []
+    monkeypatch.setattr("tu_modulo.cliente_eu",
+                        type("C", (), {"messages": type("M", (), {
+                            "create": lambda **kw: rutas.append("eu") or
+                                     type("R", (), {"content":[
+                                         type("B", (), {"text":"ok"})()]})()
+                        })()})())
+    gateway("código propietario", {"region":"EU"}, "confidential")
+    assert rutas == ["eu"]
+
+def test_zdr_header_en_restricted(httpx_mock):
+    # mockear request y verificar header
+    ...
+```
+
+### Clase para gestión de proveedores y DPAs
+
+```python
 from dataclasses import dataclass
-from enum import Enum
-
-class ComplianceViolation(Exception):
-  """Raised when compliance check fails."""
-  pass
-
-class DataClassification(Enum):
-  RESTRICTED = "restricted"
-  CONFIDENTIAL = "confidential"
-  INTERNAL = "internal"
-  PUBLIC = "public"
+from datetime import date
 
 @dataclass
-class ComplianceCheck:
-  """A compliance check rule."""
-  name: str
-  check_type: str
-  rule: callable
-  action: str
+class VendorContract:
+    name: str
+    dpa_signed: bool
+    baa_signed: bool
+    zdr_available: bool
+    regions: list[str]
+    ip_indemnity: bool
+    sccs_signed: bool
+    expiry: date
 
-class ComplianceEngine:
-  """Enforces compliance policies."""
+VENDORS = {
+    "anthropic": VendorContract("Anthropic", True, True, True,
+                                  ["us-east-1","eu-west-1"],
+                                  True, True, date(2026,12,31)),
+    "openai":    VendorContract("OpenAI Enterprise", True, True, True,
+                                  ["us","eu-dublin"],
+                                  True, True, date(2026,6,30)),
+    "azure_oai": VendorContract("Azure OpenAI", True, True, True,
+                                  ["eastus","westeurope","swedencentral"],
+                                  True, True, date(2027,1,1)),
+}
 
-  def __init__(self):
-      self.checks: List[ComplianceCheck] = []
-      self._register_default_checks()
-
-  def _register_default_checks(self):
-      """Register default compliance checks."""
-
-      # Block customer emails
-      self.checks.append(ComplianceCheck(
-          name="block_customer_emails",
-          check_type="data_minimization",
-          rule=self._check_email_pattern,
-          action="reject"
-      ))
-
-      # Restrict directory access
-      self.checks.append(ComplianceCheck(
-          name="restrict_restricted_directories",
-          check_type="access_control",
-          rule=self._check_restricted_paths,
-          action="require_approval"
-      ))
-
-      # Enforce retention
-      self.checks.append(ComplianceCheck(
-          name="enforce_retention",
-          check_type="retention",
-          rule=self._check_retention_policy,
-          action="schedule_deletion"
-      ))
-
-  def _check_email_pattern(self, prompt: str) -> bool:
-      """Check if prompt contains email addresses."""
-      email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-      return bool(re.search(email_pattern, prompt))
-
-  def _check_restricted_paths(self, path: str) -> bool:
-      """Check if path is in restricted directory."""
-      restricted_patterns = ["/restricted/", "/secrets/", "/credentials/"]
-      return any(pattern in path for pattern in restricted_patterns)
-
-  def _check_retention_policy(self, data: Dict) -> bool:
-      """Check if data exceeds retention policy."""
-      age_days = data.get("age_days", 0)
-      classification = data.get("classification")
-
-      retention_limits = {
-          DataClassification.RESTRICTED: 7,
-          DataClassification.CONFIDENTIAL: 30,
-          DataClassification.INTERNAL: 180
-      }
-
-      limit = retention_limits.get(classification, 365)
-      return age_days > limit
-
-  def validate_prompt(self, prompt: str, context: Dict = None) -> List[str]:
-      """Validate a prompt against compliance rules."""
-      violations = []
-
-      for check in self.checks:
-          if check.check_type == "data_minimization":
-              if check.rule(prompt):
-                  violations.append(f"{check.name}: {check.action}")
-
-      return violations
-
-  def validate_access(self, path: str, actor: str) -> bool:
-      """Validate access to a path."""
-      for check in self.checks:
-          if check.check_type == "access_control":
-              if check.rule(path):
-                  if check.action == "require_approval":
-                      # In real implementation, check approval status
-                      return False
-                  elif check.action == "reject":
-                      raise ComplianceViolation(f"Access denied: {path}")
-
-      return True
+def seleccionar_vendor(data_type: str, region: str) -> str:
+    for nombre, v in VENDORS.items():
+        if region not in v.regions:
+            continue
+        if data_type == "phi" and not v.baa_signed:
+            continue
+        if data_type == "eu_pii" and not (v.dpa_signed and v.sccs_signed):
+            continue
+        if not v.zdr_available:
+            continue
+        return nombre
+    raise ComplianceError(f"Sin vendor válido para {data_type} en {region}")
 ```
 
-Compliance Requirements as User Stories
-One effective technique is to express compliance requirements as user stories:
+### Herramientas de ecosistema
 
-"As a privacy owner, I need logs to delete after 14 days." This turns a requirement into a feature that can be implemented.
+| Herramienta | Función |
+|---|---|
+| **OneTrust / TrustArc** | Gestión de consentimientos, DSAR, DPIA |
+| **BigID / Securiti** | Discovery de PII en data lakes y prompts |
+| **Snorkel Flow** | Weak supervision + redaction programática |
+| **Lakera Guard** | Prompt injection + PII en runtime |
+| **Private AI** | NER multilingüe para redaction |
+| **Protect AI** | Model risk management, MLBOM |
+| **Opal / Styra OPA** | Policy as code (Rego) para enforcement |
 
-"As a security owner, I need prompts to be redacted before storage." This turns a requirement into a control that can be built.
+## Errores comunes
 
-This turns compliance into concrete engineering work that can be prioritized, implemented, and tested. When requirements are user stories, they are actionable. When requirements are legal text, they are not actionable.
+- **Tratar compliance como asunto legal.** Si el equipo de ingeniería no implementa los controles, los acuerdos quedan en el papel. Convierte cada obligación en user story y testéala en CI.
+- **No firmar DPA con el proveedor.** Procesar PII UE vía API sin DPA Art. 28 es violación aunque el vendor sea técnicamente seguro.
+- **Confundir "no entrena con mis datos" con "no retiene".** OpenAI API no entrena por default pero sí retiene 30 días para abuse monitoring; para ZDR debes solicitarlo.
+- **Usar ChatGPT Free/Plus para datos de clientes.** Esos tiers entrenan con tus prompts salvo opt-out explícito. Jamás para datos regulados.
+- **Olvidar la residencia.** Un prompt con PII de ciudadano UE enviado a `api.openai.com` (us-east) sin SCCs es transferencia internacional ilegal.
+- **No BAA con vendor LLM procesando PHI.** HIPAA exige BAA con cada business associate; sin él, exposición a fines OCR de hasta 1.9M USD anuales por violación.
+- **No considerar licencia upstream del código generado.** Si Copilot genera un snippet derivado de GPL y lo usas en producto propietario, puede obligarte a liberar el producto bajo GPL.
+- **Asumir ownership del output automáticamente.** El US Copyright Office exige autoría humana significativa; el output puro de IA no es copyrightable en US.
+- **Ignorar derivatives y fine-tunes.** Fine-tunear Llama con datos propietarios y luego publicarlo puede filtrar esos datos vía membership inference attacks.
+- **No DPIA para alto riesgo.** GDPR Art. 35 exige Data Protection Impact Assessment para sistemas de IA que procesan datos sensibles a gran escala; sin ella, violación procedimental.
+- **No cumplir transparency AI Act Art. 50.** Chatbots customer-facing deben declarar que son IA; sanción hasta 15M EUR o 3% facturación.
+- **Vendor único.** Depender de un solo proveedor sin plan B deja el servicio expuesto a cambios de ToS, outages regulatorios o decisiones adversas de corte.
+- **No monitorear jurisprudencia.** Casos como NYT vs OpenAI o Thomson Reuters vs ROSS cambian el panorama IP; revisa trimestralmente.
 
-Compliance Checks as Part of CI
-If compliance is important, it should be tested. Examples:
+## Resumen
 
-Automated checks for forbidden data in prompts: verify that restricted data is not processed.
-
-Scans for secrets in tool logs: verify that secrets are not stored.
-
-Policy checks for unauthorized data transfers: verify that data stays in approved locations.
-
-These are the same idea as security checks, but focused on compliance rules. When compliance is tested, it is verified. When compliance is not tested, it is assumed.
-
-Example Compliance Checks
-Concrete checks make compliance real:
-
-Block prompts that include regulated identifiers: prevent processing of PII or other regulated data.
-
-Fail builds when restricted files are accessed by AI tools: prevent access to sensitive data.
-
-Verify that retention settings match policy: ensure data is deleted on schedule.
-
-These checks can be automated and included in your standard test pipeline. When checks are automated, compliance is consistent. When checks are manual, compliance is inconsistent.
-
-Avoiding the "Legal-Only" Trap
-When compliance is treated as a legal-only concern, engineers bypass it under deadline pressure. When compliance is encoded as engineering requirements, it becomes part of normal workflow and is easier to follow.
-
-Consider what happens with the legal-only trap. Compliance is a legal concern, so engineers ignore it. They paste customer data into prompts "for debugging." Compliance is violated, but engineers did not realize it. When compliance is engineering work, engineers implement it. When compliance is legal work, engineers ignore it.
-
-Design Reviews for New Tool Integrations
-Before adopting a new AI tool, run a short design review:
-
-Identify data flows and retention behavior: understand what data the tool sees and how long it is stored.
-
-Validate vendor guarantees and contracts: verify that vendors meet compliance requirements.
-
-Define where the tool is allowed to run: internal only or external, based on data sensitivity.
-
-This review can be short, but it prevents accidental non-compliance later. When reviews are done, compliance is designed in. When reviews are skipped, compliance is retrofitted.
-
-
-Summary: Implement Compliance, Do Not Just Document It
-Compliance for AI tools is a set of engineering constraints: minimize data, restrict access, log actions, and enforce retention. When these constraints are built into the system, compliance becomes part of everyday workflow rather than a late-stage review.
-
-Compliance should be engineering work, not legal paperwork. When compliance is implemented as code, it is testable and enforceable. When compliance is documented as text, it is not testable or enforceable.
-
-Compliance Ownership and Escalation
-Compliance controls need owners, just like services. If a compliance check fails, there must be an escalation path and a timeline for remediation. Without ownership, compliance becomes an afterthought.
-
-When ownership is clear, compliance is maintained. When ownership is unclear, compliance drifts. The goal is to make ownership explicit so that compliance stays current and effective.
-
-Compliance and Developer Velocity
-Well-designed controls reduce friction. When compliance is embedded into defaults, developers do not need to think about it for every task. The goal is to make safe behavior the easiest behavior.
-
-When compliance is easy, developers follow it. When compliance is hard, developers bypass it. The goal is to make compliance invisible to developers while ensuring it is enforced.
-
-Compliance Documentation That Engineers Can Use
-Engineers do not need legal briefs. They need short, practical guidance:
-
-What data types are restricted: clear list of what cannot be processed.
-
-Which tools are approved for which data: clear mapping of tools to data types.
-
-How to request exceptions: clear process for getting approval when needed.
-
-When documentation is concise and actionable, compliance improves without heavy process. When documentation is verbose and vague, compliance degrades.
-
-Common Compliance Failure Modes
-Tools that store prompts without a clear retention policy: prompts accumulate indefinitely, violating retention requirements.
-
-Teams that paste production data into prompts "for debugging": production data is processed without proper controls.
-
-Lack of a process to delete data on request: data subject requests cannot be fulfilled.
-
-These failure modes are preventable when compliance is treated as engineering work rather than policy text. When compliance is engineering work, it is implemented. When compliance is policy text, it is not implemented.
-
-Compliance Evidence and Reporting
-Most audits ask for evidence: retention settings, access logs, and proof of controls. If you store this evidence in a predictable place, audits are straightforward and do not disrupt engineering. If you do not, audits become emergency projects.
-
-When evidence is organized, audits are easy. When evidence is disorganized, audits are hard. The goal is to make evidence collection automatic so that audits do not require emergency work.
-
-Common Pitfalls and Solutions
-Pitfall: compliance policies that are not enforceable. Solution: convert policies into automated checks and default configurations. When policies are enforceable, compliance is reliable. When policies are not enforceable, compliance is unreliable.
-
-Pitfall: treating compliance as optional for internal tools. Solution: apply the same controls internally, because internal misuse still creates risk. When compliance applies to all tools, risk is managed. When compliance applies only to external tools, internal risk is unmanaged.
-
-Pitfall: unclear data ownership. Solution: assign clear ownership for data classification and retention decisions. When ownership is clear, decisions are made. When ownership is unclear, decisions are not made.
-
-Pitfall: no testing. Solution: test compliance checks in CI. When compliance is tested, it is verified. When compliance is not tested, it is assumed.
-
-Pitfall: no evidence collection. Solution: collect evidence automatically. When evidence is automatic, audits are easy. When evidence is manual, audits are hard.
-
-Key concepts to remember
-Compliance maps to controls—treat regulations as engineering requirements
-Safe defaults reduce friction—privacy by default prevents accidental violations
-Test compliance in CI—automate checks for forbidden data flows
-Ownership matters—assign responsibility for data decisions
-Policy as code—express compliance rules as testable code
-Risk-based approach—apply stricter controls to higher-risk data
-Collect evidence automatically—make audits straightforward
+- **Compliance = ingeniería**, no papeleo: cada obligación (GDPR, HIPAA, CCPA, EU AI Act, PCI-DSS) se traduce a controles técnicos verificables (redacción, retención, cifrado, residencia, DSAR).
+- **GDPR (2018)**: DPA Art. 28, DSAR Art. 15/17, DPIA Art. 35 para alto riesgo, Art. 22 para decisiones automatizadas. **HIPAA**: BAA con cada procesador de PHI. **EU AI Act (2024)**: clasifica por riesgo; Art. 10 data governance; Art. 50 transparency.
+- **Zero-Data-Retention (ZDR)**: Anthropic Enterprise lo activa por default; OpenAI, Azure OpenAI, AWS Bedrock, Google Vertex ofrecen opción. **Nunca es automático**: requiere contrato y configuración.
+- **APIs enterprise no entrenan con tus datos**; chats consumer (Free/Plus) sí a menos que optes por salirte. Reglas distintas.
+- **Residencia**: Transferencia UE→US requiere SCCs o EU-US Data Privacy Framework; usa endpoints regionales (Azure OAI EU, Bedrock eu-central-1) para datos regulados.
+- **On-prem vs cloud**: patrón híbrido común — modelo pequeño local para redacción y rutas sensibles, cloud API para tareas no sensibles con prompts limpios.
+- **IP training**: casos abiertos — **NYT vs OpenAI (2023)**, **Getty vs Stability (2023)**, **Thomson Reuters vs ROSS (fallo 2025)**, **Authors Guild**. Hasta jurisprudencia firme, apóyate en **IP indemnity** del vendor (Microsoft Copyright Commitment, Google Shielded AI, Anthropic indemnity).
+- **Output ownership**: US Copyright Office requiere autoría humana significativa; output puro de IA no es copyrightable. UK sí permite via CDPA s. 9(3).
+- **Copilot y licensing**: filtro de duplicación y Copyright Commitment reducen (no eliminan) riesgo de derivar de código GPL/BSL.
+- **Policy as code** (OPA/Rego, YAML enforcement) convierte compliance en algo testeable en CI; test de compliance = test de software.
+- **Checklist mínimo**: DPA + BAA + ZDR + región + DSAR operativo + DPIA + transparency + IP indemnity del vendor. Si falta cualquiera, no estás listo para producción con datos regulados.

@@ -1,213 +1,316 @@
-## Chain-of-Thought Prompting
-When you asked early GPT models "How many times does the letter 'r' appear in the word 'strawberry'?" they would confidently answer "2" or "1"—completely wrong. This simple counting task exposed a fundamental limitation: these models would jump to conclusions without systematic reasoning. The repeated failures on letter counting in "strawberry" became so notorious that it helped drive the development of reasoning-focused models like OpenAI's o1. Chain-of-thought prompting emerged as the solution, forcing models to spell out their reasoning step by step: "Let me break this down: s-t-r-a-w-b-e-r-r-y... I see 'r' in positions 3, 8, and 9, so that's 3 total." This systematic approach transformed unreliable guessing into reliable reasoning.
+# Chain-of-Thought, Self-Consistency y Reasoning Models
 
-In production AI systems, getting the right answer is only half the battle. You also need to understand how the model arrived at that answer, validate its reasoning, and catch errors before they impact users. Chain-of-thought prompting gives you this visibility while dramatically improving performance on complex reasoning tasks. By the end of this lesson, you will understand how to implement basic and advanced chain-of-thought techniques that you can deploy in production systems today.
+## ¿Qué es?
 
-Why Models Need to Show Their Work
-Traditional prompting works like asking simple questions and hoping for good answers. This approach handles basic tasks like writing text or simple classification well, but fails when you need the model to solve complex problems requiring multiple steps of reasoning.
+**Chain-of-Thought (CoT) prompting** es la técnica de pedirle al modelo que **explicite los pasos intermedios de razonamiento** antes de dar la respuesta final. En vez de obtener directamente `y`, obtienes una secuencia `r₁ → r₂ → ... → rₙ → y`, donde cada `rᵢ` es un paso de pensamiento.
 
-Consider asking a model to calculate the total cost of a cloud infrastructure setup with different pricing tiers, regional variations, and usage patterns. Without chain-of-thought prompting, the model might give you a number, but you have no way to verify its calculations or understand which assumptions it made. With chain-of-thought prompting, the model shows each calculation step, making errors immediately visible and the reasoning process auditable.
+Introducida por **Wei et al. (2022)** en *"Chain-of-Thought Prompting Elicits Reasoning in Large Language Models"*, demostró que simplemente añadir `"Let's think step by step"` (Kojima et al., 2022, **zero-shot CoT**) o un ejemplo con razonamiento explícito dispara mejoras masivas en benchmarks como GSM8K (aritmética), MATH y commonsense reasoning.
 
-The difference becomes critical in production environments where incorrect reasoning can lead to costly mistakes. A financial analysis assistant that miscalculates risk without showing its work is a liability. The same assistant that walks through its reasoning step by step becomes a valuable tool that humans can validate and trust.
+### Técnicas de la familia "reasoning in prompt"
 
-Breaking Down Complex Problems Step by Step
-Basic chain-of-thought prompting works by explicitly asking the model to think through problems systematically. Instead of jumping to conclusions, you guide the model to identify the problem components, work through each step logically, and build toward a final answer.
-Here is a practical example for a customer support AI analyzing a complex billing dispute:
+| Técnica | Idea | Autor / año |
+|---|---|---|
+| **CoT (few-shot)** | Ejemplos con razonamiento paso a paso | Wei et al., 2022 |
+| **Zero-shot CoT** | Añadir "Let's think step by step" sin ejemplos | Kojima et al., 2022 |
+| **Self-Consistency** | Muestrear N cadenas y votar la respuesta | Wang et al., 2022 |
+| **Tree-of-Thought (ToT)** | Explorar múltiples ramas de razonamiento con búsqueda | Yao et al., 2023 |
+| **ReAct** | Alternar razonamiento y acciones (herramientas) | Yao et al., 2022-23 |
+| **Reflexion** | Autocrítica y revisión de la respuesta | Shinn et al., 2023 |
+| **Reasoning models** | Modelo con cadenas de pensamiento internas entrenadas | OpenAI o1 (2024), Claude extended thinking (2025) |
+
+## ¿Por qué importa?
+
+Modelos tempranos fallaban en tareas aritméticas simples porque "saltaban" a la respuesta. El ejemplo famoso: *"¿cuántas r hay en strawberry?"* → respuestas "2" o "1". Al forzar al modelo a enumerar letra por letra, acierta. En producción, CoT importa porque:
+
+- **Mejora accuracy** en tareas de razonamiento (matemáticas, lógica, planificación multi-paso).
+- **Hace auditable** la decisión: puedes revisar los pasos y detectar errores lógicos.
+- **Permite debugging del prompt:** ves exactamente dónde el modelo se equivoca.
+- **Habilita herramientas** (ReAct): el modelo decide cuándo llamar a una API, buscar en la web o ejecutar código.
+- **Es la base de los reasoning models** modernos (o1, o3, Claude extended thinking, DeepSeek-R1), que internalizan CoT durante entrenamiento con RL.
+
+### CoT vs. respuesta directa
+
+| Dimensión | Respuesta directa | Chain-of-Thought |
+|---|---|---|
+| Tokens de salida | Pocos | Muchos (razonamiento + respuesta) |
+| Latencia | Baja | Alta |
+| Costo | Bajo | Más alto |
+| Accuracy en razonamiento | Baja | Significativamente mayor |
+| Auditabilidad | Nula (caja negra) | Alta |
+| Riesgo de alucinación | Alucinación directa | Alucinación "razonada" (puede sonar convincente) |
+
+Regla práctica: usa CoT cuando el costo del error > el costo extra de tokens, o cuando necesitas explicar la decisión a un humano.
+
+## ¿Cómo funciona?
+
+### CoT por tipo
+
+#### 1. Zero-shot CoT
+
+Añadir frases disparadoras: `"Let's think step by step"`, `"Pensemos paso a paso"`, `"Razonemos primero y luego respondamos"`.
+
+#### 2. Few-shot CoT
+
+Ejemplos donde el output incluye razonamiento explícito antes de la respuesta final:
+
+```
+Pregunta: Si tengo 3 manzanas y compro el doble, ¿cuantas tengo?
+Razonamiento: Inicio con 3. "El doble" significa 2 x 3 = 6 adicionales. Total = 3 + 6 = 9.
+Respuesta: 9
+
+Pregunta: {nueva_pregunta}
+Razonamiento:
+```
+
+#### 3. Self-Consistency (Wang et al., 2022)
+
+En vez de una sola cadena, muestrea `N` cadenas con `temperature > 0` y vota la respuesta más frecuente:
+
+```
+       Problema
+          │
+    ┌─────┼─────┬─────┐
+    ▼     ▼     ▼     ▼
+  CoT₁  CoT₂  CoT₃  CoT_N     (temperature=0.7, N=5..40)
+    │     │     │     │
+   y=9   y=9   y=12  y=9
+          │
+          ▼
+   Mayoría → y_final = 9
+```
+
+Funciona porque **respuestas correctas convergen** por múltiples caminos, mientras que los errores tienden a ser idiosincráticos.
+
+#### 4. Tree-of-Thought (Yao et al., 2023)
+
+Generaliza CoT a una **búsqueda en árbol**: cada paso tiene varios "pensamientos" candidatos; se evalúan y se expanden los más prometedores (BFS / DFS). Útil en puzzles (Game of 24, crucigramas) donde se requiere backtracking.
+
+#### 5. ReAct (Yao et al., 2022-23)
+
+Alterna **Reasoning** (pensar) y **Acting** (llamar herramientas):
+
+```
+Thought: necesito saber la poblacion actual de Mexico.
+Action: web_search("poblacion Mexico 2026")
+Observation: 131 millones.
+Thought: ahora necesito la de Canada...
+Action: web_search("poblacion Canada 2026")
+Observation: 40 millones.
+Thought: puedo responder.
+Answer: Mexico tiene ~3.3x la poblacion de Canada.
+```
+
+Base conceptual de los **agentes modernos** (LangGraph, OpenAI Agents SDK, Claude agent).
+
+#### 6. Reasoning models (o1, Claude extended thinking, DeepSeek-R1)
+
+Modelos entrenados con RL para producir cadenas de pensamiento **internas** (no visibles al usuario) antes de responder. Facturan **reasoning tokens** aparte. Características:
+
+| Modelo | Reasoning tokens | API control |
+|---|---|---|
+| OpenAI o1 / o3 | Internos (ocultos) | `reasoning_effort = "low" / "medium" / "high"` |
+| Claude extended thinking | Visibles como bloques `thinking` | `thinking: {type: "enabled", budget_tokens: N}` |
+| DeepSeek-R1 | Visibles (`<think>...</think>`) | Open weights |
+
+Con reasoning models, **CoT explícito en el prompt a menudo degrada el desempeño**: el modelo ya razona internamente y "guiarlo" interfiere con su proceso. En su lugar, da instrucciones de **alto nivel** y deja que el modelo decida los pasos.
+
+## Ejemplo con código
+
+### Zero-shot CoT
 
 ```python
 from openai import OpenAI
 
-def analyze_billing_dispute(customer_data, billing_history):
-    prompt = f"""
-    Analyze this billing dispute step by step:
+client = OpenAI(api_key="API_KEY", base_url="BASE_URL")
 
-    Customer: {customer_data['name']}
-    Dispute: {customer_data['complaint']}
-    Billing History: {billing_history}
+def responder_cot(pregunta):
+    prompt = f"""Pregunta: {pregunta}
 
-    Please work through this systematically:
-    1. First, identify what specific charges the customer is disputing
-    2. Then, check if those charges appear in their billing history
-    3. Next, determine if the charges align with their service usage
-    4. Finally, recommend a resolution based on your analysis
-
-    Show your reasoning for each step.
-    """
-
-    return call_llm(prompt)
-
-def call_llm(prompt):
-    client = OpenAI(
-        api_key="API_KEY",
-        base_url="BASE_URL",
+Pensemos paso a paso antes de responder. Al final, en una linea aparte,
+escribe "Respuesta final: <valor>".
+"""
+    r = client.chat.completions.create(
+        model="gpt-5-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
     )
+    return r.choices[0].message.content
 
-    try:
-        response = client.chat.completions.create(
-            model="gpt-5-mini",
-            messages=[
-                {"role": "system", "content": "You are a customer service analyst specializing in billing disputes."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error calling LLM: {str(e)}"
+print(responder_cot(
+    "Un carrito tiene 3 cajas con 12 manzanas cada una. "
+    "Si vendo el 25% de las manzanas, ¿cuantas quedan?"
+))
+```
 
-# Sample input data
-customer_data = {
-    'name': 'Sarah Johnson',
-    'complaint': 'I was charged $89.99 for premium support in March, but I never signed up for this service. I only have the basic plan which should be $29.99/month.'
-}
+### Few-shot CoT para análisis de disputas de facturación
 
-billing_history = [
-    {'date': '2024-01-15', 'description': 'Basic Plan', 'amount': 29.99},
-    {'date': '2024-02-15', 'description': 'Basic Plan', 'amount': 29.99},
-    {'date': '2024-03-15', 'description': 'Basic Plan', 'amount': 29.99},
-    {'date': '2024-03-15', 'description': 'Premium Support Add-on', 'amount': 89.99},
-    {'date': '2024-03-22', 'description': 'Premium Support Usage - 3 tickets', 'amount': 0.00}
+```python
+EJEMPLOS_COT = [
+    {
+        "input": "Cliente dice que le cobraron 50 USD extra por soporte premium.",
+        "razonamiento": (
+            "1. El cargo disputado es 'soporte premium' = 50 USD.\n"
+            "2. Reviso historial: aparece el cargo el 10/03.\n"
+            "3. No hay registro de activacion por el cliente.\n"
+            "4. Procede reembolso."
+        ),
+        "respuesta": "REEMBOLSAR 50 USD",
+    },
+    # ...
 ]
 
-# Run the function
-result = analyze_billing_dispute(customer_data, billing_history)
-print(result)
+def analizar_disputa(caso):
+    partes = [
+        "Analiza disputas de facturacion siguiendo el patron de los ejemplos.\n"
+    ]
+    for e in EJEMPLOS_COT:
+        partes.append(f"Caso: {e['input']}")
+        partes.append(f"Razonamiento:\n{e['razonamiento']}")
+        partes.append(f"Decision: {e['respuesta']}\n")
+    partes.append(f"Caso: {caso}")
+    partes.append("Razonamiento:")
+    r = client.chat.completions.create(
+        model="gpt-5-mini",
+        messages=[{"role": "user", "content": "\n".join(partes)}],
+        temperature=0,
+    )
+    return r.choices[0].message.content
+
+print(analizar_disputa("Cliente dice que no reconoce cargo de 30 USD del 22/02."))
 ```
 
-This structured approach transforms a potentially confusing dispute into manageable analysis steps. The model cannot skip ahead to a conclusion without demonstrating its reasoning, making errors easier to catch and decisions easier to explain to customers.
-
-The key is being explicit about the reasoning process you want. Phrases like "think step by step," "work through this systematically," and "show your reasoning" signal to the model that you want transparent thinking rather than immediate answers.
-
-![Step-by-Step Reasoning](https://hrcdn.net/ai-engineering/module-2/light/005-cot_illustration.svg)
-
-Making Intermediate Reasoning Visible
-One of the most powerful aspects of chain-of-thought prompting is how it exposes intermediate reasoning steps that would normally remain hidden inside the model. This visibility serves multiple purposes in production systems: error detection, reasoning validation, and knowledge extraction for improving your prompts over time.
-
-When building a code review AI, for example, you want the model to identify potential issues systematically rather than making vague assessments. Here is how chain-of-thought prompting makes this process transparent:
+### Self-Consistency con voto mayoritario
 
 ```python
-from openai import OpenAI
+import re
+from collections import Counter
 
-def review_code_systematically(code_snippet):
-  prompt = f"""
-  Review this code step by step:
+def extraer_respuesta(texto):
+    m = re.search(r"[Rr]espuesta final[:\s]+(-?\d+(?:\.\d+)?)", texto)
+    return m.group(1) if m else None
 
-  {code_snippet}
+def self_consistency(pregunta, n=7, temperature=0.7):
+    respuestas = []
+    for _ in range(n):
+        r = client.chat.completions.create(
+            model="gpt-5-mini",
+            messages=[{"role": "user", "content":
+                f"{pregunta}\n\nPensemos paso a paso. Termina con "
+                f"'Respuesta final: <valor>'."}],
+            temperature=temperature,
+        )
+        resp = extraer_respuesta(r.choices[0].message.content)
+        if resp is not None:
+            respuestas.append(resp)
+    conteo = Counter(respuestas)
+    ganadora, votos = conteo.most_common(1)[0]
+    return {
+        "respuesta": ganadora,
+        "confianza": votos / len(respuestas),
+        "distribucion": dict(conteo),
+    }
 
-  Analysis process:
-  1. Security: Check for common vulnerabilities (SQL injection, XSS, etc.)
-  2. Performance: Identify potential bottlenecks or inefficient patterns
-  3. Maintainability: Assess code clarity and adherence to best practices
-  4. Testing: Evaluate testability and error handling
-
-  For each category, explain what you found and why it matters.
-  Then provide an overall assessment and specific recommendations.
-  """
-
-  client = OpenAI(
-    api_key="API_KEY",
-    base_url="BASE_URL",
-  )
-
-  response = client.chat.completions.create(
-      model="gpt-5-mini",
-      messages=[{"role": "user", "content": prompt}]
-  )
-
-  return response.choices[0].message.content
-
-# Example code snippet with various issues
-sample_code = """
-def process_user_login(username, password):
-  import sqlite3
-  conn = sqlite3.connect('users.db')
-  cursor = conn.cursor()
-
-  query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
-  cursor.execute(query)
-  result = cursor.fetchone()
-
-  if result:
-      session_data = {'user_id': result[0], 'username': result[1]}
-      return session_data
-  else:
-      return None
-"""
-
-# Demonstrate chain-of-thought code review
-print("=== CHAIN-OF-THOUGHT CODE REVIEW ===\n")
-review_result = review_code_systematically(sample_code)
-print(review_result)
+print(self_consistency(
+    "Juan tiene 48 canicas. Regala 1/3 a Ana y 1/4 del resto a Luis. "
+    "¿Cuantas le quedan?",
+    n=7,
+))
 ```
 
-This approach gives you insight into the model's reasoning process at each stage. If the security analysis misses an obvious SQL injection vulnerability, you can identify that specific gap and improve your prompting strategy. If the performance analysis focuses on micro-optimizations while missing major architectural issues, you can adjust the prompt to emphasize the right priorities.
-
-The intermediate steps also make it easier to automate follow-up actions. If the model identifies security issues in step one, your system can automatically flag the code for additional review before the analysis continues.
-
-Self-Consistency Through Multiple Reasoning Paths
-While basic chain-of-thought prompting improves reasoning quality, individual attempts can still contain errors or inconsistencies. Self-consistency addresses this limitation by generating multiple reasoning paths for the same problem and using consensus to identify the most reliable answer.
-
-The technique recognizes a fundamental principle: while any single reasoning attempt might go wrong, correct answers tend to emerge consistently across multiple independent attempts. This is similar to how code reviews work better with multiple reviewers, even when individual reviewers might miss specific issues.
-
-Here is how to implement self-consistency for a financial risk assessment system:
+### Reasoning model: OpenAI o-series
 
 ```python
-def assess_investment_risk_with_consistency(investment_data, num_attempts=5):
-  base_prompt = f"""
-  Assess the risk level of this investment opportunity:
-
-  {investment_data}
-
-  Work through your analysis step by step:
-  1. Evaluate market conditions and trends
-  2. Analyze the company's financial health
-  3. Consider industry-specific risks
-  4. Factor in economic indicators
-  5. Assign a risk rating (Low/Medium/High) with confidence level
-
-  Show your reasoning for each step.
-  """
-
-  results = []
-  for i in range(num_attempts):
-      # Add slight variation to encourage different reasoning paths
-      varied_prompt = base_prompt + f"\nConsider this from perspective #{i+1}:"
-      result = call_llm(varied_prompt)
-      results.append(extract_risk_rating(result))
-
-  # Use majority voting for final decision
-  final_rating = most_common(results)
-  confidence = calculate_consensus_strength(results)
-
-  return {
-      'rating': final_rating,
-      'confidence': confidence,
-      'individual_analyses': results
-  }
+r = client.chat.completions.create(
+    model="o3-mini",
+    reasoning_effort="high",  # "low" | "medium" | "high"
+    messages=[{"role": "user", "content":
+        "Demuestra que la suma de los primeros n impares es n^2."}],
+)
+print(r.choices[0].message.content)
+print("Tokens de razonamiento:", r.usage.completion_tokens_details.reasoning_tokens)
 ```
 
-This approach provides multiple benefits in production environments. First, it gives you confidence indicators based on consensus strength. If all five attempts rate an investment as "High Risk," you can trust that assessment more than if the results are split between "Medium" and "High." Second, it helps identify edge cases where reasoning is genuinely difficult, allowing you to flag these situations for human review.
+### Claude extended thinking (reasoning visible)
 
-The trade-off is increased computational cost and latency. Five reasoning attempts take roughly five times longer than a single attempt, so you need to balance accuracy gains against performance requirements. For critical decisions like financial assessments or medical diagnoses, this trade-off often makes sense. For routine tasks like email classification, basic chain-of-thought prompting might be sufficient.
+```python
+import anthropic
 
-![Self-Consistency Diagram](https://hrcdn.net/ai-engineering/module-2/light/006-self_consistency_illustration.svg)
+client_a = anthropic.Anthropic(api_key="API_KEY")
 
-Common Pitfalls and Solutions
-Chain-of-thought prompting can fail in predictable ways that you need to anticipate in production systems. The most common issue is reasoning that looks sophisticated but contains fundamental logical errors. Models can produce elaborate step-by-step analyses that sound convincing but are built on incorrect assumptions or faulty logic.
+r = client_a.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=4096,
+    thinking={"type": "enabled", "budget_tokens": 2048},
+    messages=[{"role": "user", "content":
+        "Un tren sale a 60 km/h desde A, otro a 90 km/h desde B. "
+        "Estan a 300 km. ¿En cuanto se cruzan?"}],
+)
+for bloque in r.content:
+    if bloque.type == "thinking":
+        print("[THINKING]", bloque.thinking[:400], "...")
+    elif bloque.type == "text":
+        print("[RESPUESTA]", bloque.text)
+```
 
-To address this, implement reasoning validation checkpoints. After each major reasoning step, have the model verify its conclusions against the available data. For numerical calculations, include explicit verification steps where the model double-checks its arithmetic. For logical reasoning, ask the model to consider potential counterarguments or alternative explanations.
+### ReAct minimal (loop razonar-actuar)
 
-Another frequent problem is reasoning that becomes too verbose or loses focus on the original question. Models can get caught up in detailed tangents that do not contribute to solving the actual problem. Combat this by providing clear reasoning templates that keep the model on track and setting explicit length limits for each reasoning step.
+```python
+HERRAMIENTAS = {
+    "sumar": lambda a, b: a + b,
+    "multiplicar": lambda a, b: a * b,
+}
 
-Finally, watch for consistency issues where different reasoning steps contradict each other. This often happens when models make assumptions early in the reasoning process and then forget those assumptions later. Address this by having the model explicitly state and track its assumptions throughout the reasoning process.
+def react_loop(pregunta, max_pasos=5):
+    historial = [f"Pregunta: {pregunta}"]
+    for _ in range(max_pasos):
+        prompt = "\n".join(historial) + "\nThought:"
+        r = client.chat.completions.create(
+            model="gpt-5-mini",
+            messages=[{"role": "user", "content": prompt}],
+            stop=["Observation:"],
+            temperature=0,
+        )
+        salida = r.choices[0].message.content
+        historial.append("Thought:" + salida)
+        if "Answer:" in salida:
+            return salida.split("Answer:")[-1].strip()
+        # (parser simplificado: en real usarias JSON o tool calling nativo)
+    return "sin respuesta"
+```
 
-Summary
-Chain-of-thought prompting transforms AI models from opaque answer generators into transparent reasoning partners. By requiring models to show their work step by step, you gain visibility into their decision-making process while significantly improving performance on complex reasoning tasks.
+En producción, usa el **tool calling nativo** del SDK (OpenAI `tools=`, Anthropic `tools=`) en vez de parsear texto a mano.
 
-Key concepts to remember
-Explicit Reasoning Instructions - Use explicit reasoning instructions like "think step by step" and "show your reasoning"
-Structure Complex Problems - Structure complex problems into manageable sequential steps
-Visible Reasoning - Make intermediate reasoning visible for validation and error detection
-Self-Consistency for Critical Decisions - Implement self-consistency through multiple reasoning paths for critical decisions
-Balance Accuracy and Cost - Balance accuracy improvements against increased computational costs
-Validation Checkpoints - Include reasoning validation checkpoints to catch logical errors
-Clear Reasoning Templates - Provide clear reasoning templates to keep models focused on the core problem
+## Errores comunes
+
+- **CoT que alucina pasos.** El razonamiento suena lógico pero parte de hechos falsos. Mitigación: validación en checkpoints (recalcular aritmética con una herramienta, verificar hechos con RAG).
+- **Pasos contradictorios.** El modelo asume `X=5` en el paso 2 y `X=7` en el paso 4. Pide al modelo que **enumere y rastree** supuestos.
+- **Razonamiento verboso que pierde el foco.** Da plantillas con pasos numerados y límites de longitud por paso.
+- **Usar CoT en reasoning models.** Añadir "think step by step" a o3 o Claude thinking suele **degradar** el desempeño; el modelo ya razona internamente.
+- **Self-consistency con `temperature=0`.** Sin diversidad, las N muestras son idénticas y el voto no aporta nada. Usa `temperature=0.5-0.8`.
+- **Costo descontrolado.** CoT y especialmente self-consistency pueden multiplicar costo y latencia 5-10x. Usa solo donde el valor lo justifica.
+- **Ignorar los reasoning tokens.** En o-series, pueden ser el 80% del costo del request; monitoréalos y ajusta `reasoning_effort`.
+- **Confundir CoT con few-shot.** CoT = pasos de razonamiento; few-shot = ejemplos. Son ortogonales: puedes hacer *few-shot CoT* (ejemplos con razonamiento) o *zero-shot CoT* (sin ejemplos).
+- **Exponer el razonamiento al usuario final.** El razonamiento intermedio puede filtrar información sensible, contener errores embarazosos o ser inconsistente con la respuesta. Mostrar solo la respuesta, loggear el razonamiento.
+- **No cuantizar la confianza.** En self-consistency, el **grado de consenso** (ej. 7/7 vs 4/7) es una señal valiosa para enrutar casos difíciles a revisión humana.
+
+## Herramientas y ecosistema
+
+| Herramienta | Rol |
+|---|---|
+| **OpenAI o1/o3/o4** | Reasoning models con `reasoning_effort` |
+| **Anthropic Claude extended thinking** | Reasoning con `thinking` visible y `budget_tokens` |
+| **DeepSeek-R1 / Qwen QwQ** | Reasoning models open-weights |
+| **LangGraph / OpenAI Agents SDK** | Orquestar ReAct y árboles de pensamiento |
+| **DSPy `ChainOfThought`, `ProgramOfThought`** | CoT programable y optimizable |
+| **Guidance / Outlines** | Forzar formato en salidas CoT |
+
+## Resumen
+
+- **CoT** = pedir al modelo que explicite los pasos antes de responder. Introducido por **Wei et al. (2022)**.
+- **Zero-shot CoT** se activa con "pensemos paso a paso" (Kojima et al., 2022); **few-shot CoT** usa ejemplos con razonamiento.
+- **Self-Consistency** (Wang et al., 2022): muestrea N cadenas y vota la mayoría; el consenso cuantifica la confianza.
+- **Tree-of-Thought** (Yao et al., 2023): búsqueda explícita sobre ramas de razonamiento.
+- **ReAct** (Yao et al., 2022-23): alterna razonar y usar herramientas; base de los agentes.
+- **Reasoning models** (o1 2024, Claude extended thinking, DeepSeek-R1): razonamiento internalizado durante RL; no requieren CoT explícito y lo pueden deteriorar.
+- Riesgos: alucinaciones "razonadas", contradicciones entre pasos, costo multiplicado, exposición de reasoning al usuario.
+- Regla: usa CoT cuando necesites **accuracy en razonamiento** o **auditabilidad**; usa reasoning models cuando el presupuesto lo permita y la tarea sea de alta dificultad; usa self-consistency en decisiones críticas donde el consenso vale el 5-10x de costo.

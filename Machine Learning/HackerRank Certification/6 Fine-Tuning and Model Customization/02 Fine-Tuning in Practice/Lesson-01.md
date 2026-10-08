@@ -1,226 +1,254 @@
-## Instruction vs Completion Tuning
+# Instruction Tuning vs Completion Tuning
 
-When fine-tuning a language model, your first decision is whether to use instruction tuning or completion tuning. This choice fundamentally shapes how you format training data, what the model learns, and how you use it in production. Many teams choose the wrong format, leading to models that do not behave as expected or require extensive prompt engineering to work correctly.
+## ¿Qué es?
 
-Instruction tuning teaches models to follow instructions and respond in conversational formats, making them suitable for chat applications, Q&A systems, and interactive interfaces. Completion tuning teaches models to continue text in a specific style or format, making them suitable for code generation, content creation, and domain-specific text completion.
+Al hacer **fine-tuning** de un modelo de lenguaje, la primera decisión arquitectónica es elegir entre **instruction tuning** y **completion tuning**. No es un detalle menor: define cómo formateas los datos, qué aprende el modelo, cómo lo invocas en producción y qué *chat template* debes usar.
 
-Throughout this submodule, you will work with a practical example: fine-tuning a 7B language model for a customer support chatbot. This chatbot needs to classify support tickets, generate appropriate responses, and extract key information from customer messages. You will see how each technique applies to this real-world scenario.
+- **Instruction tuning:** entrena al modelo a **seguir instrucciones** y responder en formato conversacional. Cada ejemplo tiene una *instrucción* explícita (lo que debe hacer), una *entrada* opcional (el dato sobre el que opera) y una *salida* (la respuesta esperada). Es el formato de ChatGPT, Claude, Llama-Instruct, Mistral-Instruct, etc.
+- **Completion tuning:** entrena al modelo a **continuar texto** siguiendo un patrón o estilo. El ejemplo es un `prompt` crudo y la `completion` que el modelo debe generar. Es el formato clásico de GPT-3 (`text-davinci-003`) y de los modelos *base* no alineados.
 
-In this lesson, you will learn the practical differences between instruction and completion tuning, understand when to use each approach, and see how to format training data correctly for your customer support chatbot.
+A lo largo de este submódulo trabajarás con un caso práctico recurrente: **fine-tunear un modelo 7B para un chatbot de soporte al cliente** que clasifica tickets, redacta respuestas y extrae información. Verás cómo cada decisión técnica se traduce en comportamiento real del chatbot.
 
-Instruction Tuning Fundamentals
-Instruction tuning trains models to follow instructions and respond in conversational formats. The model learns to interpret user requests, follow task specifications, and generate appropriate responses based on the instruction provided.
+### Comparación rápida
 
-When to Use Instruction Tuning
+| Dimensión | Instruction tuning | Completion tuning |
+|---|---|---|
+| Formato del dato | `{instruction, input, output}` o `{messages: [...]}` | `{prompt, completion}` |
+| Qué aprende el modelo | Seguir órdenes variadas | Continuar un patrón fijo |
+| Aplicación típica | Chatbots, asistentes, Q&A | Autocompletado de código, templates, estilo literario |
+| Requiere chat template | Sí (ChatML, Llama 3, Alpaca…) | No necesariamente |
+| Dataset mínimo útil | 500-5,000 ejemplos | 100-1,000 ejemplos |
+| Flexibilidad en inferencia | Alta: cambia la instrucción | Baja: depende del prefijo exacto |
 
-Instruction tuning is appropriate when you need models to:
+## ¿Por qué importa?
 
-Follow specific instructions or commands
-Respond in conversational or chat formats
-Handle Q&A interactions
-Adapt to different task types based on instructions
-Work with interactive applications where users provide instructions
-Instruction Tuning Data Format
+Elegir mal el formato es la causa #1 de modelos fine-tuneados que "no funcionan como esperaba". Dos escenarios reales:
 
-Instruction tuning data typically uses a structured format with instruction, input (optional), and output fields. For your customer support chatbot, you format examples like this:
+1. **Equipo usa completion tuning para un chatbot.** El modelo aprende a continuar texto pero no interpreta variaciones de instrucción. En producción, cualquier reformulación del usuario (`"clasifica este ticket"` vs `"¿de qué categoría es?"`) rompe la respuesta.
+2. **Equipo usa instruction tuning para un generador de templates fijos.** Añade overhead de tokens de instrucción, aumenta latencia y requiere más datos para converger en un patrón que podría aprenderse directamente como completion.
+
+Además, el formato elegido **determina el chat template** que debes aplicar en training *y* en inferencia. Un mismatch entre training template y serving template produce respuestas truncadas, repeticiones infinitas o degradación silenciosa de calidad.
+
+## ¿Cómo funciona?
+
+### Formato de datos: JSONL es el estándar
+
+Casi todas las bibliotecas modernas (HuggingFace TRL, OpenAI fine-tuning, Axolotl, Unsloth) consumen **JSONL** (JSON Lines): un objeto JSON por línea. Esto permite streaming, concatenación trivial y shuffling eficiente.
+
+**Instruction tuning estilo Alpaca:**
+
+```jsonl
+{"instruction": "Clasifica este ticket por urgencia y categoría.", "input": "Mi pedido #12345 no ha llegado. Debía estar hace 3 días.", "output": "Urgencia: Alta\nCategoría: Problema de envío"}
+{"instruction": "Genera una respuesta útil para esta consulta.", "input": "¿Cómo devuelvo un artículo que compré la semana pasada?", "output": "Gracias por contactarnos. Para devolver un artículo, visita tu cuenta..."}
+```
+
+**Instruction tuning estilo chat (formato moderno, recomendado):**
+
+```jsonl
+{"messages": [{"role": "system", "content": "Eres un asistente de soporte al cliente."}, {"role": "user", "content": "Mi pedido #12345 no ha llegado."}, {"role": "assistant", "content": "Lamento el inconveniente. ¿Me compartes el correo de confirmación?"}]}
+{"messages": [{"role": "user", "content": "¿Cómo devuelvo un artículo?"}, {"role": "assistant", "content": "Visita tu cuenta, selecciona la orden y haz clic en 'Devolver'..."}]}
+```
+
+**Completion tuning:**
+
+```jsonl
+{"prompt": "Asunto: Confirmación de pedido\n\nEstimado", "completion": " [Cliente],\n\nGracias por tu pedido #[Número]..."}
+{"prompt": "Ticket #12345 - Problema de envío\nEstado:", "completion": " En progreso\nAsignado a: Equipo de envíos..."}
+```
+
+### Chat templates: ChatML, Llama 3, Alpaca
+
+Un **chat template** es la forma de serializar una conversación `[{role, content}, ...]` en una cadena de tokens que el modelo entienda. Cada familia de modelos usa el suyo y **debes usar exactamente el que vino con el modelo base**.
+
+| Template | Modelos | Formato (ejemplo) |
+|---|---|---|
+| **Alpaca** | Alpaca, Vicuna 1.0 | `### Instruction:\n{instr}\n\n### Input:\n{inp}\n\n### Response:\n{out}` |
+| **ChatML** | OpenAI, Qwen, varios open-source | `<|im_start|>user\n{msg}<|im_end|>\n<|im_start|>assistant\n{resp}<|im_end|>` |
+| **Llama 3** | Llama 3/3.1/3.2 Instruct | `<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{msg}<|eot_id|>...` |
+| **Llama 2** | Llama 2 Chat | `<s>[INST] <<SYS>>\n{sys}\n<</SYS>>\n\n{msg} [/INST] {resp} </s>` |
+| **Mistral** | Mistral/Mixtral Instruct | `<s>[INST] {msg} [/INST] {resp}</s>` |
+| **Gemma** | Gemma Instruct | `<start_of_turn>user\n{msg}<end_of_turn>\n<start_of_turn>model\n{resp}<end_of_turn>` |
+
+HuggingFace resuelve esto con `tokenizer.apply_chat_template()`, que lee el template del `tokenizer_config.json` del modelo:
 
 ```python
-# Instruction Tuning Data Format for Customer Support Chatbot
-# Each example contains an instruction, optional input, and expected output
+from transformers import AutoTokenizer
 
-instruction_tuning_examples = [
-  {
-      "instruction": "Classify this support ticket by urgency and category.",
-      "input": "My order #12345 hasn't arrived. It was supposed to be here 3 days ago. I need it urgently for an event tomorrow.",
-      "output": "Urgency: High\nCategory: Shipping Issue\nTicket Type: Delivery Delay"
-  },
-  {
-      "instruction": "Generate a helpful response to this customer inquiry.",
-      "input": "How do I return an item I purchased last week?",
-      "output": "Thank you for contacting us. To return an item, please visit your account page, select the order, and click 'Return Item'. You'll receive a prepaid return label via email within 24 hours. Returns are accepted within 30 days of purchase."
-  },
-  {
-      "instruction": "Extract key information from this customer message.",
-      "input": "Hi, I placed order #67890 on March 15th for 2 items totaling $149.99. The payment went through but I haven't received a confirmation email.",
-      "output": "Order Number: 67890\nOrder Date: March 15th\nItems: 2\nTotal: $149.99\nIssue: Missing confirmation email"
-  }
+tok = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
+messages = [
+    {"role": "system", "content": "Eres un asistente de soporte."},
+    {"role": "user", "content": "Mi pedido no llegó."},
+]
+texto = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+print(texto)
+```
+
+### Tokenización para training: máscaras de loss
+
+En **instruction tuning**, un detalle crítico que muchos olvidan: la **pérdida (loss) debe calcularse sólo sobre los tokens del `assistant`**, no sobre los del `user` ni los de la instrucción. Si entrenas con la pérdida activa sobre los tokens de usuario, el modelo intenta "aprender" a predecir las preguntas, lo que degrada su capacidad de responder.
+
+En HuggingFace TRL, `DataCollatorForCompletionOnlyLM` o `SFTTrainer` con `response_template` se encargan de esto automáticamente.
+
+### Cuándo elegir cada enfoque
+
+**Usa instruction tuning cuando:**
+
+- Construyes una aplicación **interactiva** (chatbot, asistente).
+- Un solo modelo debe cubrir **múltiples tareas** según la instrucción.
+- Los usuarios formularán peticiones **variadas y no predecibles**.
+- Quieres aprovechar **modelos *Instruct* existentes** (Llama-Instruct, Mistral-Instruct) como punto de partida.
+
+**Usa completion tuning cuando:**
+
+- La aplicación es **no interactiva** y sigue un **patrón fijo** (generador de templates, autocompletado de código con prefijo claro).
+- Dispones de un **modelo base** (no instruct) y quieres especializarlo en un dominio.
+- Los datos son escasos y el patrón es muy regular.
+- Necesitas **latencia mínima**: sin tokens de instrucción, el prompt es más corto.
+
+## Ejemplo con código
+
+### Preparar un dataset instruction-tuning y aplicar el chat template
+
+```python
+import json
+from pathlib import Path
+from transformers import AutoTokenizer
+
+# 1. Dataset crudo del equipo de soporte
+raw = [
+    {
+        "instruction": "Clasifica este ticket por urgencia y categoría.",
+        "input": "Mi pedido #12345 no ha llegado. Era para un evento mañana.",
+        "output": "Urgencia: Alta\nCategoría: Problema de envío\nTipo: Retraso",
+    },
+    {
+        "instruction": "Genera una respuesta útil para esta consulta.",
+        "input": "¿Cómo devuelvo un artículo que compré la semana pasada?",
+        "output": "Para devolver un artículo, visita tu cuenta y haz clic en 'Devolver'...",
+    },
+    {
+        "instruction": "Extrae la información clave de este mensaje.",
+        "input": "Hola, hice la orden #67890 el 15 de marzo por $149.99 pero no me llegó el correo.",
+        "output": "Número de orden: 67890\nFecha: 15 de marzo\nTotal: $149.99\nIssue: Correo faltante",
+    },
 ]
 
-# The model learns to follow the instruction pattern
-# and generate appropriate outputs based on the task
+# 2. Convertir a formato chat (messages)
+def a_chat(ex):
+    user = ex["instruction"]
+    if ex.get("input"):
+        user += f"\n\n{ex['input']}"
+    return {
+        "messages": [
+            {"role": "system", "content": "Eres un asistente de soporte al cliente."},
+            {"role": "user", "content": user},
+            {"role": "assistant", "content": ex["output"]},
+        ]
+    }
+
+dataset_chat = [a_chat(ex) for ex in raw]
+
+# 3. Escribir JSONL
+Path("data").mkdir(exist_ok=True)
+with open("data/soporte_train.jsonl", "w", encoding="utf-8") as f:
+    for ejemplo in dataset_chat:
+        f.write(json.dumps(ejemplo, ensure_ascii=False) + "\n")
+
+# 4. Verificar aplicación del chat template
+tok = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
+texto = tok.apply_chat_template(dataset_chat[0]["messages"], tokenize=False)
+print(texto[:400])
 ```
 
-Instruction tuning teaches models to recognize instruction patterns and adapt their behavior accordingly. The model learns that when it sees "Classify the sentiment," it should perform classification, and when it sees "Generate a professional email," it should generate email content.
+### Formato para OpenAI fine-tuning API
 
-Advantages of Instruction Tuning
-
-Models become more interactive and user-friendly
-Single model can handle multiple task types based on instructions
-Easier to integrate into chat interfaces and conversational applications
-Models learn to follow formatting and style requirements specified in instructions
-Limitations of Instruction Tuning
-
-Requires more training data to learn instruction-following patterns
-May have higher latency due to instruction processing overhead
-Less suitable for tasks requiring specific text continuation patterns
-Completion Tuning Fundamentals
-Completion tuning trains models to continue text in specific styles, formats, or domains. The model learns patterns from training examples and generates text that matches those patterns when given similar prompts.
-
-When to Use Completion Tuning
-
-Completion tuning is appropriate when you need models to:
-
-Generate code in specific programming languages or frameworks
-Continue text in domain-specific styles (legal documents, medical reports)
-Generate content following specific templates or formats
-Complete partial inputs in predictable ways
-Work with non-interactive applications where completion patterns are fixed
-Completion Tuning Data Format
-
-Completion tuning data uses a simpler format where the model learns to continue from a prompt. For a customer support system that generates standardized email templates, you might format examples like this:
+OpenAI espera JSONL con el campo `messages`:
 
 ```python
-# Completion Tuning Data Format for Email Template Generation
-# Each example contains a prompt and the expected completion
+import json
 
-completion_tuning_examples = [
-  {
-      "prompt": "Subject: Order Confirmation\n\nDear",
-      "completion": " [Customer Name],\n\nThank you for your order #[Order Number]. Your items will ship within 2-3 business days.\n\nOrder Details:\n[Item List]\n\nTotal: $[Amount]\n\nWe'll send tracking information once your order ships.\n\nBest regards,\nCustomer Support"
-  },
-  {
-      "prompt": "Ticket #12345 - Shipping Issue\nStatus:",
-      "completion": " In Progress\n\nAssigned to: Shipping Team\nExpected Resolution: 24-48 hours\n\nWe're investigating the delay with your order. Our team is working to resolve this and will update you within 24 hours."
-  },
-  {
-      "prompt": "Return Request for Order #67890\nReason:",
-      "completion": " Item Defective\n\nProcessing: Approved\nReturn Label: Sent\n\nWe've approved your return request. A prepaid return label has been sent to your email. Please package the item securely and drop it off at any carrier location."
-  }
+ejemplos_openai = [
+    {
+        "messages": [
+            {"role": "system", "content": "Eres un clasificador de tickets de soporte."},
+            {"role": "user", "content": "Mi pedido #12345 no ha llegado."},
+            {"role": "assistant", "content": "Urgencia: Alta\nCategoría: Envío"},
+        ]
+    },
+    # ... más ejemplos
 ]
 
-# The model learns to continue text in the style and format
-# demonstrated by the training examples
+with open("data/openai_sft.jsonl", "w", encoding="utf-8") as f:
+    for ex in ejemplos_openai:
+        f.write(json.dumps(ex, ensure_ascii=False) + "\n")
 ```
 
-Completion tuning teaches models to recognize patterns and continue text accordingly. The model learns that after "def calculate_total(items):", it should generate Python function code, and after "Customer Name:", it should generate order information in a specific format.
+### Conversión entre formatos
 
-Advantages of Completion Tuning
-
-More efficient for domain-specific text generation
-Lower latency for completion tasks
-Better suited for code generation and template-based content
-Requires less training data for specific completion patterns
-Limitations of Completion Tuning
-
-Less flexible for interactive applications
-Models may not adapt well to new instruction types
-Requires careful prompt engineering to trigger correct completions
-
-Choosing the Right Approach
-Selecting between instruction and completion tuning requires analyzing your use case requirements, application type, and expected usage patterns.
-
-Application Type Analysis
-
-Interactive applications that receive user instructions benefit from instruction tuning. Your customer support chatbot is interactive: users send varied messages asking for classification, response generation, or information extraction. The chatbot must interpret different instruction types and adapt its behavior accordingly. Instruction tuning teaches the model to recognize these patterns and respond appropriately.
-
-Non-interactive applications with fixed completion patterns benefit from completion tuning. If you were building an automated email template generator that always follows the same format, completion tuning would be more efficient. The system would learn to complete standardized templates rather than interpreting varied instructions.
-
-Task Flexibility Requirements
-
-If you need a single model to handle multiple task types based on instructions, instruction tuning is necessary. A support chatbot that handles classification, extraction, and generation tasks needs instruction tuning to adapt to different request types.
-
-If your application performs a single, well-defined task with consistent patterns, completion tuning may be more efficient. A code completion tool that always generates Python functions does not need instruction-following capabilities.
-
-Data Availability Considerations
-
-Instruction tuning typically requires more diverse training data to teach the model various instruction types and task formats. If you have limited data or data that follows specific patterns, completion tuning may be more practical.
-
-Completion tuning can work well with smaller, more focused datasets that demonstrate specific completion patterns. If you have examples of the exact patterns you want the model to learn, completion tuning is often more efficient.
-
-Practical Decision Framework
-
-Use instruction tuning when:
-
-Building interactive applications (chatbots, assistants)
-Need a single model for multiple task types
-Users provide varied instructions or requests
-Want models that adapt to different instructions
-Use completion tuning when:
-
-Building non-interactive applications (code generators, formatters)
-Task follows consistent, predictable patterns
-Have focused datasets demonstrating specific patterns
-Need efficient, low-latency text completion
-Format Conversion Examples
-Understanding how to convert between formats helps you adapt existing data or switch approaches if needed.
-
-Converting Completion to Instruction Format
-
-If you have completion-style data but need instruction tuning, you can add instruction context. For your customer support chatbot, you might convert email template completions into instruction format:
+De **completion** a **instruction** (para habilitar interactividad):
 
 ```python
-# Converting completion data to instruction format for chatbot
-
-completion_example = {
-  "prompt": "Subject: Order Confirmation\n\nDear",
-  "completion": " [Customer Name],\n\nThank you for your order #[Order Number]..."
+completion_ex = {
+    "prompt": "Asunto: Confirmación de pedido\n\nEstimado",
+    "completion": " [Cliente],\n\nGracias por tu pedido..."
 }
 
-# Convert to instruction format for interactive chatbot
-instruction_example = {
-  "instruction": "Generate an order confirmation email for this customer.",
-  "input": "Customer: John Doe, Order #12345, Amount: $149.99",
-  "output": "Subject: Order Confirmation\n\nDear John Doe,\n\nThank you for your order #12345. Your items will ship within 2-3 business days.\n\nTotal: $149.99\n\nWe'll send tracking information once your order ships.\n\nBest regards,\nCustomer Support"
+instruction_ex = {
+    "instruction": "Genera un correo de confirmación de pedido para este cliente.",
+    "input": "Cliente: Juan Pérez, Pedido #12345, Monto: $149.99",
+    "output": "Asunto: Confirmación de pedido\n\nEstimado Juan Pérez,\n\nGracias por tu pedido #12345...",
 }
-
-# The instruction provides context about what task to perform
-# This makes the model work in interactive scenarios where users
-# might ask "generate a confirmation email" or "create an order summary"
 ```
 
-Converting Instruction to Completion Format
-
-If you have instruction-style data but need completion tuning, you can combine instruction and input into a single prompt. This is useful if you want to convert your chatbot data for a template-based system:
+De **instruction** a **completion** (para sistemas de plantillas fijas):
 
 ```python
-# Converting instruction data to completion format
-
-instruction_example = {
-  "instruction": "Classify this support ticket by urgency and category.",
-  "input": "My order #12345 hasn't arrived. It was supposed to be here 3 days ago.",
-  "output": "Urgency: High\nCategory: Shipping Issue"
+instruction_ex = {
+    "instruction": "Clasifica este ticket por urgencia y categoría.",
+    "input": "Mi pedido #12345 no ha llegado.",
+    "output": "Urgencia: Alta\nCategoría: Envío",
 }
 
-# Convert to completion format for template system
-completion_example = {
-  "prompt": "Support Ticket Analysis\n\nCustomer Message: My order #12345 hasn't arrived. It was supposed to be here 3 days ago.\n\nUrgency:",
-  "completion": " High\nCategory: Shipping Issue\nTicket Type: Delivery Delay"
+completion_ex = {
+    "prompt": "Análisis de ticket\n\nMensaje: Mi pedido #12345 no ha llegado.\n\nUrgencia:",
+    "completion": " Alta\nCategoría: Envío",
 }
-
-# The prompt includes the instruction and input,
-# and the model learns to complete with the output
-# This format works for non-interactive systems with fixed patterns
 ```
 
-Format conversion allows you to adapt existing datasets or experiment with both approaches to see which works better for your use case.
+### Validar que el chat template aplica loss sólo al assistant
 
-Common Pitfalls
-Using Completion Tuning for Interactive Applications: Teams sometimes use completion tuning for chatbots like your customer support system, leading to models that do not adapt well to varied user instructions. Your chatbot needs to handle "classify this ticket," "generate a response," and "extract order details" - these varied instructions require instruction tuning, not completion tuning.
+```python
+from trl import DataCollatorForCompletionOnlyLM
+from transformers import AutoTokenizer
 
-Using Instruction Tuning for Fixed Patterns: Teams sometimes use instruction tuning for applications with fixed completion patterns, adding unnecessary overhead. If you were building an automated email formatter that always generates the same template structure, completion tuning would be more efficient.
+tok = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
 
-Incorrect Data Formatting: Using the wrong format (instruction vs completion) leads to models that do not learn the intended behavior. If you format your customer support chatbot data as completions when it needs to handle instructions, the model will not learn to interpret varied user requests correctly.
+# Para Llama 3, el response template es el header del assistant
+response_template = "<|start_header_id|>assistant<|end_header_id|>\n\n"
+collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tok)
 
-Mixing Formats Inconsistently: Inconsistent formatting within a dataset confuses models and reduces training effectiveness. If some of your customer support examples use instruction format and others use completion format, the model will not learn a consistent pattern.
+# El collator pone -100 (ignore_index) en todos los tokens
+# excepto los del assistant, de modo que la cross-entropy loss
+# sólo se calcule sobre la respuesta deseada.
+```
 
-Summary
-Instruction tuning and completion tuning serve different purposes in fine-tuning workflows. For your customer support chatbot, instruction tuning is the right choice because it needs to handle varied user instructions (classify tickets, generate responses, extract information) in an interactive setting. Completion tuning would work better for a system that generates standardized email templates following fixed patterns.
+## Errores comunes
 
-Choosing the right approach requires analyzing your application type, task flexibility needs, and data availability. Your chatbot is interactive and handles multiple task types, so instruction tuning is necessary. Understanding format conversion helps you adapt existing data or experiment with both approaches if your requirements change.
+- **Usar completion tuning para un chatbot.** El modelo no interpreta variaciones de la instrucción. En producción, cada reformulación del usuario rompe la respuesta.
+- **Usar instruction tuning para un patrón fijo.** Añade overhead de tokens y requiere más datos; completion tuning converge más rápido.
+- **Mezclar formatos dentro del mismo dataset.** Algunos ejemplos como `{instruction, input, output}` y otros como `{prompt, completion}`: el modelo no aprende un patrón consistente.
+- **Olvidar el chat template correcto.** Entrenar con un template y servir con otro produce respuestas truncadas o repeticiones infinitas. Siempre usa `tokenizer.apply_chat_template()` del modelo base exacto.
+- **No enmascarar los tokens de usuario en la loss.** El modelo intenta aprender a predecir las preguntas y degrada su capacidad de responder.
+- **Formato de dataset incorrecto.** OpenAI requiere `messages`; Axolotl acepta `alpaca`, `sharegpt`, `chat_template`; TRL es flexible pero necesita que coincida con `dataset_text_field` o `formatting_func`.
+- **Olvidar `add_generation_prompt=True` en inferencia.** Sin el prompt de generación (ej. `<|start_header_id|>assistant<|end_header_id|>\n\n`), el modelo no sabe que es su turno de responder.
+- **Entrenar un modelo *Instruct* como si fuera *base*.** Sobrescribes el alineamiento previo y pierdes la capacidad de seguir instrucciones generales.
 
-Key concepts to remember
-Instruction Tuning - Teaches models to follow instructions; suitable for interactive applications like your chatbot
-Completion Tuning - Teaches models to continue text patterns; suitable for fixed-pattern applications like template generators
-Application Type - Interactive apps need instruction tuning; fixed-pattern apps need completion tuning
-Data Format - Instruction format includes instruction/input/output; completion format includes prompt/completion
-Format Conversion - You can convert between formats to adapt existing data or experiment with approaches
+## Resumen
+
+- **Instruction tuning** enseña a seguir instrucciones variadas → chatbots, asistentes, Q&A. Formato: `{instruction, input, output}` o `{messages: [...]}`.
+- **Completion tuning** enseña a continuar un patrón fijo → templates, autocompletado, generación de estilo. Formato: `{prompt, completion}`.
+- El estándar de almacenamiento es **JSONL** (una línea = un ejemplo).
+- Cada familia de modelo exige su **chat template** (Alpaca, ChatML, Llama 3, Mistral, Gemma). Usa `tokenizer.apply_chat_template()`.
+- En instruction tuning, la **loss debe aplicarse sólo a los tokens del assistant** (usa `DataCollatorForCompletionOnlyLM` o equivalente).
+- Para el **chatbot de soporte** del submódulo, la elección correcta es **instruction tuning con formato chat**, porque maneja clasificación, generación y extracción en una sola interfaz interactiva.
+- Mezclar formatos, olvidar el template o entrenar sin máscara de loss son los errores más caros y más silenciosos de todo el pipeline.

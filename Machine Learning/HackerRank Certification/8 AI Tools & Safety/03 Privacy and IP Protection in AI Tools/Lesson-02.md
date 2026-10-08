@@ -1,300 +1,310 @@
-## When "Don't Share Sensitive Data" Is Too Vague
+# Clasificación de datos y pipelines de redacción
 
-Imagine your team has a policy: "Do not share sensitive data with AI tools." A developer needs to debug an issue and pastes a log file into an AI assistant. The log contains customer emails, but the developer does not realize emails are "sensitive data" under your policy. The data leaks, and you discover that your policy was too vague to be actionable.
+## ¿Qué es?
 
-This is why classification matters for AI workflows. Most data policies fail because they are too vague. "Do not share sensitive data" sounds reasonable, but it leaves developers guessing. Classification turns vague policy into concrete rules that can be enforced automatically.
+**Clasificación de datos** es el proceso de etiquetar cada activo (archivo, log, campo de base de datos, prompt) con un nivel de sensibilidad que determina **qué controles** aplican. **Redacción** es la implementación técnica de esa política: antes de que un dato cruce al LLM, los campos sensibles se reemplazan por placeholders, hashes o tokens.
 
-In this lesson, you will learn how to build a simple classification scheme for developer workflows, how to implement redaction pipelines that remove sensitive data before it reaches AI tools, and how to test and monitor redaction quality. You will understand why classification enables automation, how redaction improves both safety and quality, and how to balance protection with usability.
+La fórmula operativa es simple:
 
-By the end, you will have a practical classification and redaction framework that prevents data leaks while still allowing AI tools to be useful.
+> **Política vaga ("no compartas datos sensibles") → fuga.
+> Clasificación + redacción determinística → control automático que no depende del juicio humano bajo presión.**
 
-Why Classification Matters for AI Workflows
-For AI-assisted development, a simple classification scheme is enough:
+### Esquema mínimo de clasificación
 
-Public: safe to share. This includes open-source code, public documentation, and non-sensitive examples.
+| Nivel | Qué incluye | Reglas con herramientas de IA |
+|---|---|---|
+| **Public** | Documentación pública, código open source, ejemplos | Sin restricción |
+| **Internal** | Documentación interna, código no sensible, discusiones generales | Herramientas con DPA, redacción light |
+| **Confidential** | Código propietario, decisiones de arquitectura, roadmap, datos de negocio | Herramientas enterprise con ZDR, redacción de PII |
+| **Restricted** | Secretos, credenciales, PII, PHI, PCI, datos regulados | Prohibido en prompts; redacción obligatoria o bloqueo |
 
-Internal: not public, but low sensitivity. This includes internal documentation, non-sensitive code, and general engineering discussions.
+### Dónde se esconden los datos sensibles
 
-Confidential: proprietary code, internal docs, non-public product data. This includes your codebase, architecture decisions, and business logic.
+Los datos sensibles rara vez están donde "deberían". En flujos de desarrollo típicos aparecen en:
 
-Restricted: secrets, credentials, regulated data, customer PII. This includes API keys, passwords, customer information, and any data that would cause harm if exposed.
+- **Headers de request** en logs (`Authorization: Bearer eyJ...`, cookies de sesión).
+- **Config files** con tokens embebidos (`.env`, `settings.yaml`, `kubeconfig`).
+- **Stack traces** que incluyen identificadores (`user_id=12345`, `email=ana@acme.com` en el mensaje de error).
+- **Datasets de test** que son copias de producción sin anonimizar.
+- **Tickets de soporte** con capturas de pantalla y conversaciones con clientes.
+- **Historial de prompts** en el propio asistente de IA.
 
-Once data is classified, you can enforce consistent handling rules. AI tools should never see restricted data, and they should see confidential data only through approved paths. This makes policy actionable instead of aspirational.
+## ¿Por qué importa?
 
-Classification also helps teams make decisions quickly. If a developer knows a file is "restricted," the rule is automatic: do not include it in prompts or logs. The classification removes ambiguity. When classification is clear, decisions are fast. When classification is vague, decisions are slow and inconsistent.
+La diferencia entre una política escrita y un control efectivo es la **determinación**. Un reglamento que dice "no envíes PII al LLM" transfiere la responsabilidad al desarrollador en el momento más vulnerable: cuando está apurado, debuggeando a las 3am. Un pipeline de redacción determinístico, en cambio, **no permite** que el dato salga, independientemente del juicio humano.
 
-Classification also supports automation. If a file is tagged as restricted, the AI tool can automatically block it. This reduces the need for human judgment in the moment, which is where most leaks happen. When classification is automated, protection is consistent. When classification is manual, protection is inconsistent.
+### Redacción como control de calidad, no solo de seguridad
 
-Building a Classification Inventory
-Start with the highest-value data sources:
+Un segundo motivo, menos obvio: **los LLMs producen mejores respuestas con prompts limpios**. Un prompt que incluye 2 KB de API keys, UUIDs y timestamps irrelevantes distrae al modelo. Redactar los datos sensibles reemplazándolos por `<EMAIL>`, `<API_KEY>` o `<USER_ID>` mejora la señal/ruido y suele subir la precisión del output.
 
-Production logs: these often contain customer data, secrets, and sensitive information.
+### El costo de no clasificar
 
-Configuration repositories: these often contain API keys, database credentials, and service configurations.
+| Síntoma | Causa raíz | Consecuencia |
+|---|---|---|
+| "No supimos que era sensible" | Falta de clasificación | Fuga sin ownership claro |
+| "El tool lo leyó solo" | Context retrieval sin allowlist | Secretos en logs del vendor |
+| "Lo redactamos manualmente" | Sin automatización | Inconsistencia + fatiga |
+| "Pasó el test, falló en prod" | Sin regresión de redacción | Fuga silenciosa |
 
-Customer support tickets: these often contain customer PII and account information.
+## ¿Cómo funciona?
 
-Internal knowledge bases: these often contain proprietary information and architecture decisions.
+### Operacionalizar clasificación en el repositorio
 
-For each source, assign a classification and document how AI tools are allowed to access it. This inventory makes it possible to scale safe usage across teams. When sources are classified, access rules are clear. When sources are not classified, access rules are unclear.
+Una técnica concreta es **etiquetar carpetas** con convenciones y hacerlas enforceables desde el tooling:
 
-Consider what happens without classification. A developer needs to debug an issue and looks at production logs. They do not know if logs are "sensitive," so they paste them into an AI tool. The logs contain customer emails, and the data leaks. With classification, the logs are marked as "restricted," and the tool blocks them automatically.
-
-Where Sensitive Data Hides in Dev Workflows
-Sensitive data often appears in places developers do not expect:
-
-Log lines that include request headers: headers might contain authentication tokens or customer identifiers.
-
-Config files with embedded tokens: configuration might include API keys or database passwords.
-
-Stack traces that include user identifiers: error messages might contain customer emails or account IDs.
-
-Sample datasets used in tests: test data might contain real customer information copied from production.
-
-If your tool automatically gathers context, these sources can be pulled into prompts. Classification helps you build redaction rules that catch these cases before they leave the system boundary. When sources are classified, redaction rules are clear. When sources are not classified, redaction rules are unclear.
-
-Redaction Is a Safety Control and a Quality Control
-Redaction is not only about privacy. It improves output quality by removing noise. A clean, redacted prompt often produces more accurate outputs because the model is not distracted by irrelevant secrets or identifiers.
-
-Consider what happens with unredacted prompts. A developer pastes a log file that contains customer emails, API keys, and error messages. The AI tool sees all of this and gets confused about what matters. It might focus on the wrong information or generate code that references sensitive data. With redaction, the tool sees only what matters, producing better results.
-
-Redaction should happen as close to the source as possible. If you redact after the prompt is sent, you have already failed the policy. The data has left your control. When redaction happens early, leaks are prevented. When redaction happens late, leaks have already occurred.
-
-Classification Labels in Repositories
-One way to operationalize classification is to label directories or files:
-
-```restricted/``` for secrets or regulated data. Files in this directory should never be accessed by AI tools.
-
-```confidential/``` for proprietary logic. Files in this directory should be accessed only through approved paths.
-
-```internal/``` for general engineering docs. Files in this directory can be accessed by AI tools with caution.
-
-These labels can be enforced by tooling. If the AI tool attempts to read a restricted path, it should be blocked or require approval. When labels are enforced, protection is automatic. When labels are not enforced, protection is manual and inconsistent.
-
-Here is an example of classification labels in a repository:
-
-.data-classification.md
-```markdown
-# Data Classification Labels
-
-## Directory Classifications
-
-### Restricted (Never Access with AI Tools)
-- secrets/ - API keys, credentials, tokens
-- credentials/ - Database passwords, service accounts
-- .env* - Environment files with secrets
-- deployment/keys/ - SSH keys, certificates
-
-### Confidential (Requires Approval)
-- src/ - Proprietary source code
-- architecture/ - Internal architecture decisions
-- roadmap/ - Product plans and strategy
-
-### Internal (Use with Caution)
-- docs/ - Internal documentation
-- tests/ - Test files (may contain test data)
-
-### Public (Safe to Share)
-- public/ - Public documentation
-- examples/ - Example code (no secrets)
+```
+my-repo/
+├── public/              # Nivel Public — safe to share
+├── docs/                # Internal
+├── src/                 # Confidential (código propietario)
+├── restricted/          # Restricted — bloqueado para IA
+│   ├── secrets/
+│   ├── pii-samples/
+│   └── patient-data/
+└── .data-classification.yaml
 ```
 
-Here is an example of a redaction pipeline:
+El archivo `.data-classification.yaml` es leído por el proxy de IA, el pre-commit hook y el CI:
 
-redaction-pipeline.py
+```yaml
+classifications:
+  public:    [public/**, examples/**]
+  internal:  [docs/**, tests/**]
+  confidential: [src/**, architecture/**]
+  restricted: [restricted/**, secrets/**, "**/.env*", "**/*.pem"]
+
+ai_tool_rules:
+  restricted: block
+  confidential: require_redaction
+  internal: redact_pii
+  public: allow
+```
+
+### Pipeline de redacción determinístico
+
+Las cuatro etapas de un pipeline sólido son:
+
+1. **Pattern detection**: regex y reconocedores NLP para patrones comunes (emails, PAN, SSN, tokens).
+2. **Context filters**: evitar falsos positivos (una cadena que parece API key puede ser un fixture).
+3. **Masking rules**: reemplazar por placeholder legible, hash o token reversible.
+4. **Audit log**: registrar qué se redactó, dónde y cuándo (sin registrar el contenido crudo).
+
+## Ejemplo con código
+
+### Pipeline completo con Presidio + hashing + cifrado
+
 ```python
-#!/usr/bin/env python3
-"""
-Redaction pipeline for AI tool inputs.
-Removes sensitive data before sending to AI tools.
-"""
+# pip install presidio-analyzer presidio-anonymizer cryptography
 
-import re
-from typing import List, Dict
+import hashlib
+import json
+import logging
+from datetime import datetime
 from pathlib import Path
 
-class DataRedactor:
-  """Redacts sensitive data from content."""
+from cryptography.fernet import Fernet
+from presidio_analyzer import AnalyzerEngine, PatternRecognizer, Pattern
+from presidio_anonymizer import AnonymizerEngine
+from presidio_anonymizer.entities import OperatorConfig
 
-  def __init__(self):
-      # Patterns for different data types
-      self.patterns = {
-          "email": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-          "ssn": r'\b\d{3}-\d{2}-\d{4}\b',
-          "phone": r'\b\d{3}-\d{3}-\d{4}\b',
-          "api_key": r'(?i)(api[_-]?key|apikey)\s*[:=]\s*["\']?([A-Za-z0-9_\-]{20,})["\']?',
-          "token": r'(?i)(token|bearer)\s*[:=]\s*["\']?([A-Za-z0-9_\-]{32,})["\']?',
-          "password": r'(?i)(password|passwd|pwd)\s*[:=]\s*["\']([^"\']+)["\']',
-      }
+# ---------------------------------------------------------------
+# 1. Configurar analyzer con recognizers custom
+# ---------------------------------------------------------------
+analyzer = AnalyzerEngine()
 
-  def redact_content(self, content: str, data_types: List[str] = None) -> str:
-      """Redact specified data types from content."""
-      if data_types is None:
-          data_types = list(self.patterns.keys())
+# Recognizer custom: tokens internos tipo "acme_tok_...."
+acme_token = PatternRecognizer(
+    supported_entity="ACME_TOKEN",
+    patterns=[Pattern(name="acme_tok", regex=r"acme_tok_[A-Za-z0-9]{32}",
+                      score=0.95)],
+)
+analyzer.registry.add_recognizer(acme_token)
 
-      redacted = content
+anonymizer = AnonymizerEngine()
 
-      for data_type in data_types:
-          if data_type in self.patterns:
-              pattern = self.patterns[data_type]
-              replacement = f"[{data_type.upper()}_REDACTED]"
-              redacted = re.sub(pattern, replacement, redacted)
+# ---------------------------------------------------------------
+# 2. Reglas de masking por tipo
+# ---------------------------------------------------------------
+OPERADORES = {
+    "EMAIL_ADDRESS": OperatorConfig("replace", {"new_value": "<EMAIL>"}),
+    "PERSON":        OperatorConfig("replace", {"new_value": "<PERSON>"}),
+    "PHONE_NUMBER":  OperatorConfig("replace", {"new_value": "<PHONE>"}),
+    "CREDIT_CARD":   OperatorConfig("mask", {"masking_char": "*",
+                                              "chars_to_mask": 12,
+                                              "from_end": False}),
+    "US_SSN":        OperatorConfig("replace", {"new_value": "<SSN>"}),
+    "IBAN_CODE":     OperatorConfig("hash"),
+    "IP_ADDRESS":    OperatorConfig("hash"),
+    "ACME_TOKEN":    OperatorConfig("replace", {"new_value": "<ACME_TOKEN>"}),
+}
 
-      return redacted
+ENTIDADES = list(OPERADORES.keys())
 
-  def redact_file(self, file_path: Path, classification: str) -> str:
-      """Redact file based on classification."""
-      content = file_path.read_text()
+# ---------------------------------------------------------------
+# 3. Cifrado at-rest con Fernet (symmetric AES-128-CBC + HMAC)
+# ---------------------------------------------------------------
+# En producción: la clave vive en KMS (AWS KMS, GCP KMS, Vault)
+LLAVE = Fernet.generate_key()
+fernet = Fernet(LLAVE)
 
-      if classification == "restricted":
-          # Redact everything sensitive
-          return self.redact_content(content)
-      elif classification == "confidential":
-          # Redact PII but keep code structure
-          return self.redact_content(content, ["email", "ssn", "phone"])
-      elif classification == "internal":
-          # Light redaction
-          return self.redact_content(content, ["api_key", "token", "password"])
-      else:
-          # Public - no redaction needed
-          return content
+def cifrar(texto: str) -> bytes:
+    return fernet.encrypt(texto.encode("utf-8"))
+
+def descifrar(token: bytes) -> str:
+    return fernet.decrypt(token).decode("utf-8")
+
+# ---------------------------------------------------------------
+# 4. Audit log con hash del input crudo (no el crudo)
+# ---------------------------------------------------------------
+AUDIT_LOG = Path("/var/log/ai-proxy/audit.jsonl")
+
+def audit(entry: dict) -> None:
+    entry["ts"] = datetime.utcnow().isoformat() + "Z"
+    AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with AUDIT_LOG.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+# ---------------------------------------------------------------
+# 5. Pipeline principal
+# ---------------------------------------------------------------
+def redactar_para_llm(prompt: str, user_id: str,
+                      clasificacion: str = "confidential") -> str:
+    if clasificacion == "restricted":
+        raise PermissionError("Datos restricted bloqueados para herramientas IA")
+
+    # Hash del original (para correlación forense sin exponer PII)
+    hash_input = hashlib.sha256(prompt.encode()).hexdigest()
+
+    resultados = analyzer.analyze(text=prompt, language="en",
+                                   entities=ENTIDADES)
+
+    limpio = anonymizer.anonymize(text=prompt,
+                                   analyzer_results=resultados,
+                                   operators=OPERADORES).text
+
+    audit({
+        "user_id": user_id,
+        "input_sha256": hash_input,
+        "input_len": len(prompt),
+        "output_len": len(limpio),
+        "entidades": {r.entity_type: 0 for r in resultados} and
+                     {r.entity_type:
+                      sum(1 for x in resultados if x.entity_type == r.entity_type)
+                      for r in resultados},
+        "clasificacion": clasificacion,
+    })
+
+    # Guardar copia cifrada del output limpio por si hace falta auditar
+    (AUDIT_LOG.parent / f"{hash_input}.enc").write_bytes(cifrar(limpio))
+
+    return limpio
+
+# ---------------------------------------------------------------
+# 6. Uso
+# ---------------------------------------------------------------
+sucio = """
+Ana García (ana.garcia@acme.com, +34 611 223 344) reporta error.
+API key: acme_tok_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+Tarjeta usada: 4111 1111 1111 1111
+"""
+
+limpio = redactar_para_llm(sucio, user_id="eng_42",
+                            clasificacion="confidential")
+print(limpio)
+# → <PERSON> (<EMAIL>, <PHONE>) reporta error.
+#   API key: <ACME_TOKEN>
+#   Tarjeta usada: ************1111
 ```
 
+### Datos estructurados: redacción por campo
 
-Before diving into redaction pipelines, consider how classification allows you to build deterministic redaction rules that are enforceable and easy to audit.
+Cuando el input es JSON, la redacción por campo es más precisa que regex:
 
-Building a Practical Redaction Pipeline
-A minimal redaction pipeline for AI tools includes:
+```python
+import copy
 
-Pattern detection: find tokens, keys, emails, and IDs with regex rules. This catches common sensitive patterns.
+CAMPOS_SENSIBLES = {
+    "email", "phone", "ssn", "credit_card", "password",
+    "api_key", "token", "patient_name", "diagnosis",
+}
 
-Context-aware filters: confirm that matches are actually sensitive. This reduces false positives.
+def redactar_json(obj, placeholder="<REDACTED>"):
+    if isinstance(obj, dict):
+        return {k: (placeholder if k.lower() in CAMPOS_SENSIBLES
+                    else redactar_json(v, placeholder))
+                for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [redactar_json(x, placeholder) for x in obj]
+    return obj
 
-Masking rules: replace sensitive values with placeholders. This preserves structure while removing data.
+log = {"user_id": "12345", "email": "ana@acme.com",
+       "action": "login", "ip": "10.0.0.1"}
 
-Audit logs: record what was removed and why. This enables debugging and learning.
+print(redactar_json(log))
+# → {'user_id': '12345', 'email': '<REDACTED>',
+#     'action': 'login', 'ip': '10.0.0.1'}
+```
 
-Pattern detection is fast but imperfect. Context-aware filtering reduces false positives. For example, a string that looks like an API key might be a test fixture. Use a list of known test tokens or safe allowlists to reduce noise. When patterns are context-aware, false positives are reduced. When patterns are not context-aware, false positives are common.
+### Tests de regresión
 
-Redaction Patterns That Actually Work
-Effective redaction patterns are specific and tested:
+Redacción sin tests es redacción rota. Mínimo:
 
-Keys with known prefixes: API keys often start with "sk_" or "pk_". These patterns are reliable.
+```python
+import pytest
 
-UUIDs with associated labels: UUIDs labeled "user_id" or "account_id" are likely sensitive. Labels provide context.
+CASOS = [
+    ("Mi email es ana@acme.com", "<EMAIL>", "EMAIL_ADDRESS"),
+    ("SSN 123-45-6789", "<SSN>", "US_SSN"),
+    ("acme_tok_" + "a"*32, "<ACME_TOKEN>", "ACME_TOKEN"),
+    ("4111 1111 1111 1111", "************1111", "CREDIT_CARD"),
+]
 
-Email addresses and phone numbers: these are clearly PII and should be redacted.
+@pytest.mark.parametrize("entrada, esperado, entidad", CASOS)
+def test_redaccion(entrada, esperado, entidad):
+    salida = redactar_para_llm(entrada, user_id="test",
+                                clasificacion="internal")
+    assert esperado in salida
+    assert entidad.lower() not in salida.lower() or esperado in salida
 
-Credit card patterns with checksum validation: credit cards have specific formats and checksums. These patterns are reliable.
+def test_restricted_bloqueado():
+    with pytest.raises(PermissionError):
+        redactar_para_llm("algo", user_id="x", clasificacion="restricted")
+```
 
-Do not over-redact. If you remove too much, the model will not have enough context to be useful. The goal is to remove sensitive data while keeping the task solvable. When redaction is balanced, tools are useful and safe. When redaction is excessive, tools are safe but not useful.
+### Comparativa de herramientas
 
-Human-Readable Redaction
-Redaction should preserve meaning where possible. Replace a secret with a placeholder like API_KEY_REDACTED instead of deleting the line entirely. This keeps the prompt understandable and helps the model respond appropriately.
+| Herramienta | Open source | Idiomas | Formatos | Recognizers custom |
+|---|---|---|---|---|
+| **Microsoft Presidio** | Sí | 30+ con transformers | Texto, imágenes (OCR), PDFs | Sí, Python |
+| **AWS Comprehend PII** | No | 8 | Texto | Limitado (regex entities) |
+| **Google Cloud DLP** | No | 50+ | Texto, imágenes, BQ, GCS | Sí, infoTypes custom |
+| **Lakera Guard** | No | Multi | Texto streaming | Vía policies |
+| **Private AI** | Freemium | 50+ | Texto, voz, docs | Sí |
+| **Snorkel Flow** | No | — | Label functions programáticas | Núcleo del producto |
 
-Consider what happens with deletion. A developer pastes a config file that contains an API key. The redaction pipeline deletes the entire line. The AI tool sees a config file with missing values and cannot understand the structure. It generates code that does not work. With placeholders, the tool sees the structure and generates working code.
+## Errores comunes
 
-Handling Structured Data
-Redaction is easier when data is structured. If you can convert logs or records to JSON with labeled fields, you can target redaction precisely. This is often more accurate than regex-only approaches and reduces false positives.
+- **Reglas regex sin tests.** Un regex de credit card que ignora espacios funciona hasta que llega un `4111 1111 1111 1111`. Testea los formatos reales que ves en producción.
+- **Over-redaction.** Si redactas tanto que el modelo pierde el contexto (`"<X> <Y> <Z> hizo <W>"`), degradas la calidad. Mantén estructura: usa placeholders con etiqueta (`<EMAIL>`, `<USER_ID>`) en lugar de borrar.
+- **Redactar después de enviar.** Si el prompt ya salió al vendor, el daño está hecho. La redacción tiene que ocurrir **antes** del request HTTP, idealmente en un proxy a nivel red.
+- **Logs con PII sin redacción.** El error más repetido: el pipeline redacta antes del LLM pero el `logger.info(prompt_original)` manda el crudo a Datadog/Splunk/CloudWatch. Audita todos los sinks.
+- **No DPA con el proveedor.** La redacción técnica no sustituye el contrato. Si procesas PII, necesitas DPA aunque redactes.
+- **Clasificación manual sin automatización.** Pedirle a los desarrolladores que etiqueten cada archivo falla. Usa convenciones de path, scanner de secretos (gitleaks, trufflehog) y defaults seguros.
+- **Allowlist de "test tokens" demasiado permisiva.** `test_api_key = "sk-live-..."` deja pasar secretos reales. Prohíbe prefijos de producción incluso en tests.
+- **No encryption at rest** en el cache del proxy o en el audit log. Un dump de Redis con prompts sin redactar es equivalente a la fuga original.
+- **No retention policy** para los logs de redacción. Guardar "qué se redactó" durante años acumula metadatos que pueden ser reversibles por correlación.
+- **Ignorar formatos nuevos** (nuevos tipos de token, nuevos infoTypes). Haz sampling audits mensuales de prompts reales para detectar drift.
 
-Consider what happens with structured data. A log entry is JSON: ```{"user_id": "12345", "email": "user@example.com", "action": "login"}```. You can redact the ```user_id``` and ```email``` fields precisely, leaving the ```action``` field intact. The tool sees the structure and the action, enabling useful responses. With unstructured data, redaction is less precise and more likely to remove useful information.
+## Resumen
 
-Redaction Before Retrieval and After Retrieval
-There are two places to apply redaction:
-
-Before retrieval: sanitize documents and logs in storage. This prevents sensitive data from being stored in the first place.
-
-After retrieval: sanitize the retrieved content before prompting. This protects against newly introduced sensitive content.
-
-Both are valuable. Pre-redaction reduces risk in storage, while post-redaction protects against newly introduced sensitive content. When redaction happens in both places, protection is layered. When redaction happens in only one place, protection is incomplete.
-
-Testing and Monitoring Redaction Quality
-Redaction needs tests just like any other code:
-
-Unit tests for each regex pattern: verify that patterns catch what they should.
-
-Integration tests for common log formats: verify that redaction works with real data formats.
-
-Regression tests for known leaks: verify that past leaks are prevented.
-
-Monitor false positives and false negatives. If you over-redact, the model becomes less useful. If you under-redact, you risk leakage. The balance should be explicit and measurable. When redaction is tested and monitored, quality is maintained. When redaction is not tested, quality degrades.
-
-Sampling Audits for Redaction Drift
-Even good pipelines drift over time as new data formats appear. Add a lightweight sampling audit:
-
-Sample a small percentage of prompts each week: check a random sample of prompts for redaction quality.
-
-Verify that sensitive fields were redacted correctly: ensure patterns are still working.
-
-Update patterns when new formats appear: adapt to changing data formats.
-
-This keeps the pipeline aligned with real data, not just test fixtures. When audits are regular, drift is caught early. When audits are irregular, drift accumulates.
-
-Redaction Failure Handling
-Redaction will occasionally fail. When it does, treat it like any other safety issue:
-
-Log the failure with minimal sensitive content: record what happened without exposing data.
-
-Add a new test case for the missed pattern: prevent the same failure from happening again.
-
-Update the redaction rule set: improve the pipeline based on the failure.
-
-This turns a one-time mistake into a systematic improvement. When failures are learned from, systems improve. When failures are ignored, systems degrade.
-
-
-Summary: Make Redaction Deterministic
-Data classification gives you a shared language for what is safe. Redaction turns that language into enforceable rules. The best pipelines are deterministic, tested, and auditable. When classification is clear and redaction is automated, protection is consistent and reliable.
-
-Redaction improves both safety and quality. It prevents data leaks and improves AI tool outputs by removing noise. When redaction is done well, tools are safer and more useful. When redaction is done poorly, tools are either unsafe or not useful.
-
-Redaction in the Developer Experience
-The most successful redaction systems are invisible. Developers should not have to manually redact data in every prompt. If they do, they will skip it under pressure. Build redaction into the tooling so that safe behavior is the default behavior.
-
-When redaction is automatic, developers use it. When redaction is manual, developers skip it. The goal is to make safe behavior easy and unsafe behavior hard. When redaction is built in, safe behavior is the default.
-
-A Redaction Readiness Checklist
-Are classification labels applied to high-risk data? If not, redaction rules are unclear.
-
-Do we have redaction rules for common secret formats? If not, secrets will leak.
-
-Are redaction rules tested in CI? If not, rules will break without notice.
-
-Do we monitor false positives and false negatives? If not, quality will degrade.
-
-If any answer is no, redaction is likely to fail in practice. When readiness is incomplete, protection is incomplete. When readiness is complete, protection is reliable.
-
-Exceptions and Override Paths
-Sometimes teams need to override redaction for legitimate reasons, such as debugging an incident. If you allow overrides, they should be:
-
-Time-limited: overrides expire automatically.
-
-Approved by an owner: overrides require explicit approval.
-
-Fully logged: overrides are recorded for audit.
-
-This keeps exceptions rare and auditable rather than routine and invisible. When overrides are controlled, they are manageable. When overrides are uncontrolled, they become the norm.
-
-Connecting Redaction to Policy
-Redaction rules should map directly to classification policy. If a data type is classified as restricted, there must be a corresponding redaction rule. This alignment reduces ambiguity and makes audits much easier.
-
-When redaction aligns with policy, protection is consistent. When redaction does not align with policy, protection is inconsistent. The goal is to make redaction a direct implementation of policy, not a separate system.
-
-Common Pitfalls and Solutions
-Pitfall: redaction rules with no tests. Solution: add unit tests for every redaction pattern. When rules are not tested, they break silently. When rules are tested, they are reliable.
-
-Pitfall: over-redacting context. Solution: add allowlists and context rules to preserve useful data. When redaction is excessive, tools are not useful. When redaction is balanced, tools are useful and safe.
-
-Pitfall: redaction after the prompt is sent. Solution: enforce redaction before any outbound request. When redaction happens late, leaks have already occurred. When redaction happens early, leaks are prevented.
-
-Pitfall: no classification. Solution: classify data before building redaction rules. When classification is missing, redaction rules are unclear. When classification is present, redaction rules are clear.
-
-Pitfall: no monitoring. Solution: monitor redaction quality and adapt to changes. When monitoring is missing, quality degrades. When monitoring is present, quality is maintained.
-
-Key concepts to remember
-Classification makes policy actionable—define what is public, confidential, and restricted
-Redaction should be deterministic—pattern rules plus context checks
-Redact early—sanitize before data leaves the system boundary
-Test the redaction pipeline—treat redaction like any other critical control
-Monitor quality—track false positives and false negatives
-Make it invisible—build redaction into tooling so safe behavior is default
-Connect to policy—redaction rules should map directly to classification policy
+- **Clasificación** convierte política vaga en reglas enforceables: Public, Internal, Confidential, Restricted. Define qué puede ir a qué herramienta.
+- Los datos sensibles se esconden en **headers, configs, stack traces, test fixtures y tickets**: redacta en el **sink**, no solo en el visualizador.
+- Un pipeline de **redacción determinístico** tiene cuatro etapas: detección por patrón, filtros contextuales, masking con placeholders legibles y audit log sin contenido crudo.
+- **Microsoft Presidio** es el estándar OSS para PII; alternativas comerciales (AWS Comprehend, GCP DLP, Lakera, Private AI, Snorkel) añaden integraciones y precisión multilingüe.
+- Combina **Presidio + Fernet** para cifrar at-rest cualquier copia del prompt que persistas (cache, audit, debugging).
+- **Hashea el input crudo** (SHA-256) y guarda solo el hash en el audit log: permite correlación forense sin exponer PII.
+- **Datos estructurados** (JSON, dict) permiten redacción por campo, más precisa que regex sobre texto plano.
+- **Tests de regresión** son obligatorios: cada formato nuevo detectado en producción se convierte en caso de test.
+- **Redacta antes del request**, nunca después; si el prompt ya salió, la política falló.
+- **Over-redaction** degrada la utilidad del LLM: usa placeholders con etiqueta (`<EMAIL>`) para preservar estructura y mejorar la respuesta del modelo.
+- La redacción es a la vez **control de seguridad y control de calidad**: prompts limpios producen outputs mejores.

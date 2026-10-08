@@ -1,216 +1,309 @@
-## How Agents Fail Differently
+# Workflows vs Agents: eligiendo el nivel correcto de autonomía
 
-Your code review agent passes all tests. It handles edge cases, manages timeouts, and gracefully recovers from API failures. You deploy it to production. Within a week, it has approved a PR containing an obvious SQL injection vulnerability, burned through $200 in API costs on a single review, and posted the same comment 47 times.
+## ¿Qué es?
 
-Traditional software fails in predictable ways: crashes, timeouts, and error responses. Agents fail differently. They make bad decisions confidently. They get stuck in reasoning loops. They consume unbounded resources pursuing unhelpful paths.
+En diciembre de 2024, Anthropic publicó *Building Effective Agents*, un ensayo que fijó el vocabulario de la industria. En él se distinguen dos categorías de sistemas construidos con LLMs:
 
-In this lesson, you will learn how agents fail, why traditional fault tolerance is not enough, and how to build resilience patterns that handle the unique challenges of autonomous decision-making systems.
+- **Workflows (flujos):** sistemas donde los LLMs y las herramientas se orquestan mediante **rutas de código predefinidas**. El grafo de ejecución es decidido por el programador.
+- **Agents (agentes):** sistemas donde el LLM **dirige dinámicamente** sus propios procesos y el uso de herramientas, decidiendo paso a paso qué hacer para cumplir el objetivo.
 
-By the end, you will understand agent-specific failure modes and have practical patterns to prevent them.
+Ambos pertenecen a la familia de **"agentic systems"** (sistemas agénticos), pero representan puntos distintos en un espectro:
 
-Reasoning Failures
-The most insidious agent failures are reasoning errors. The agent runs successfully, returns a result, and posts a review—but the review is wrong. No exception is thrown. No error is logged. The agent simply made a bad decision.
-
-Consider this scenario: your code review agent analyzes a pull request modifying the authentication module. The code contains this line:
-
-```python
-query = f"SELECT * FROM users WHERE username = '\{username\}'"
+```
+Más control                                            Más flexibilidad
+Más predecible                                         Más adaptable
+Menor costo                                            Mayor costo
+     │                                                        │
+     ▼                                                        ▼
+┌─────────────┐    ┌───────────────┐    ┌─────────────────────┐
+│  LLM call   │ →  │   Workflow    │ →  │       Agent         │
+│ (una sola)  │    │ (código fijo) │    │ (loop autónomo)     │
+└─────────────┘    └───────────────┘    └─────────────────────┘
 ```
 
-This is textbook SQL injection. But the agent says: "Authentication changes look secure. The query uses parameterized input via the username variable." The agent saw the code, processed it, and confidently reached the wrong conclusion.
+La regla práctica de Anthropic: **"usa el patrón más simple que funcione"**. Un workflow determinístico es casi siempre más barato, más depurable y más fiable que un agente autónomo. Solo cuando la tarea requiere ramificación impredecible debes recurrir a un agente.
 
-Reasoning failures happen because language models pattern match against training data. When patterns are ambiguous, the model produces plausible-sounding but incorrect analysis.
+### Workflow vs Agent en una tabla
 
-Common reasoning failures in code review agents:
+| Dimensión | Workflow | Agent |
+|---|---|---|
+| Control de flujo | Programador (código) | LLM (decide en runtime) |
+| Pasos | Conocidos de antemano | Dinámicos |
+| Determinismo | Alto | Bajo |
+| Costo por ejecución | Predecible | Variable (puede explotar) |
+| Debugging | Fácil (trazas lineales) | Difícil (razonamiento no determinístico) |
+| Casos ideales | ETL con IA, clasificación + routing, resumen multi-paso | Soporte técnico libre, coding agents, investigación abierta |
 
-False negatives: Missing actual vulnerabilities because the pattern looks similar to safe code
-False positives: Flagging safe code as vulnerable, eroding developer trust
-Scope confusion: Analyzing the wrong files or missing context from related modules
-Overconfidence: Stating conclusions with certainty when evidence is ambiguous
-You cannot prevent reasoning failures entirely—they are inherent to LLM-based systems. But you can detect and mitigate them through structured validation and human escalation for critical decisions.
+## ¿Por qué importa?
 
-Infinite Loops and Stuck Agents
-Traditional infinite loops crash your process or exhaust memory. Agent loops are worse: they exhaust your budget while appearing to work normally.
+Equivocarse de nivel de autonomía es el error #1 en sistemas de IA en producción. Lo vemos en dos direcciones:
 
-An agent loop happens when the agent repeatedly takes actions without making progress. The agent calls ```get_file_content("auth.py")```, observes the result, decides it needs more context, and calls ```get_file_content("auth.py")``` again. And again. Fifty times.
+1. **Construir un agente cuando bastaba un workflow.** El equipo compra el hype, monta un loop con un LLM que llama 15 herramientas, el costo se dispara, el debugging es imposible y el 90% de los casos reales podían resolverse con `if cliente.tipo == "VIP": ruta_a()`.
+2. **Construir un workflow cuando se necesitaba un agente.** El equipo intenta enumerar todas las ramas posibles de una conversación de soporte. Al cuarto `if/elif/else` anidado, el código se vuelve inmantenible y el usuario termina atrapado en un árbol que nunca lo escucha.
 
-The agent keeps requesting the same information because its reasoning does not recognize it already has what it needs. This happens when context windows overflow, when prompts lack clear completion criteria, or when the agent cannot determine that its approach is failing.
+El marco de Anthropic da un lenguaje común para tomar esa decisión *antes* de escribir código. Herramientas como **LangGraph**, **LlamaIndex Workflows**, **Temporal** e **Inngest** han adoptado este vocabulario, lo cual hace que la decisión arquitectónica sea portable entre stacks.
 
-Loop detection strategies:
+### El espectro completo
 
-Track action history and flag repeated identical calls
-Set maximum iterations per review (not just timeouts)
-Require progress indicators: if no new findings in N iterations, intervene
-Include explicit "I am stuck" reasoning paths in prompts
-Token Explosion
-A typical code review costs $0.05 in API tokens. But a single problematic review can cost $50 or more. Token explosion happens when agents load excessive context, iterate too many times, or generate verbose outputs without constraints.
+Entre "una sola llamada al LLM" y "agente totalmente autónomo" existen **cinco patrones de workflow** canónicos (Anthropic, Dec 2024) y luego los agentes:
 
-The pattern usually looks like this: the agent encounters a large PR with 200 changed files. It decides to analyze each file thoroughly, loading full file contents into context. By iteration 15, the agent is sending 100,000 tokens per request.
+| Patrón | Qué es | Cuándo usarlo |
+|---|---|---|
+| **Prompt chaining** | Divide la tarea en pasos secuenciales; cada LLM procesa el output del anterior | Tareas descomponibles con pasos claros (traducir → revisar → formatear) |
+| **Routing** | Un LLM clasifica el input y lo envía a un handler especializado | Entrada heterogénea con categorías distintas (soporte: facturación vs técnico vs reembolsos) |
+| **Parallelization** | Múltiples LLMs trabajan en paralelo; luego se agregan resultados | Sectioning (dividir tarea) o voting (consenso para seguridad) |
+| **Orchestrator-workers** | Un LLM central descompone dinámicamente y delega a workers | Tareas donde los subtasks no se conocen de antemano (ej. editar varios archivos de un repo) |
+| **Evaluator-optimizer** | Un LLM genera, otro evalúa y da feedback; iteran | Hay criterios de calidad claros y la iteración añade valor (traducción literaria, búsqueda compleja) |
+| **Agent** | Loop autónomo con herramientas, memoria y planificación | Problema abierto, pasos impredecibles, feedback del entorno disponible |
 
-Token explosion is dangerous because it scales invisibly. Your average cost metrics look fine until one catastrophic review skews your monthly bill.
+## ¿Cómo funciona?
 
-What drives token explosion:
+### Workflow determinístico (prompt chaining)
 
-Loading full file contents instead of diffs
-Accumulating conversation history without summarization
-Verbose tool outputs that the agent includes verbatim in reasoning
-Retry loops that repeat expensive context
-The solution is token budgets: explicit limits on how many tokens a single review can consume. When the budget is exhausted, the agent must stop or produce a partial result.
+El código define el grafo. El LLM solo rellena nodos. No hay decisión sobre "qué paso sigue":
 
-Goal Drift
-You ask the agent to review a PR for security issues. It starts checking authentication code, notices some style inconsistencies, begins suggesting refactoring improvements, and eventually produces a review focused entirely on code style with no security analysis at all.
-
-Goal drift happens when the agent loses track of its original objective during multi-step reasoning. Each individual step seems reasonable, but the cumulative effect is wandering away from the task.
-
-Prevention strategies:
-
-Include the goal in every prompt, not just the initial request
-Structure reviews as phases: "Phase 1: Security, Phase 2: Style" with explicit transitions
-Validate final output against original goal before posting
-
-Before diving into traditional fault tolerance patterns, consider how agent failures differ from standard software failures.
-
-Why Traditional Fault Tolerance Is Not Enough
-You have built resilient systems before. You use retries with exponential backoff, circuit breakers for failing services, and graceful degradation when dependencies are unavailable. These patterns are necessary for agent systems—but they are not sufficient.
-
-Traditional fault tolerance assumes failures are observable: an API returns an error, a timeout occurs. Agent failures are often unobservable. The agent completes successfully, returns a result, and the result is wrong. No error to catch.
-
-Consider circuit breakers. A traditional circuit breaker opens when a service returns errors repeatedly. But what if the agent misinterprets responses? The circuit stays closed while the agent produces bad reviews. You need quality-based circuit breakers that track correctness, not just availability.
-
-Retries illustrate another gap. When an API call fails, retrying often succeeds. When an agent makes a reasoning error, retrying produces the same error—or a different one. LLM outputs are non-deterministic, so retries might help, but they might also introduce new problems.
-
-Timeouts prevent operations from hanging forever. But agent operations can complete quickly while still being catastrophically expensive. A review that finishes in 30 seconds might have consumed $50 in tokens.
-
-Circuit Breakers for Agent Systems
-Standard circuit breakers protect against service failures. Agent circuit breakers must also protect against quality degradation.
-
-```python
-class AgentCircuitBreaker:
-  def __init__(self, failure_threshold=3, quality_threshold=0.8):
-      self.consecutive_failures = 0
-      self.recent_quality_scores = []
-      self.state = "closed"
-
-  def record_result(self, success: bool, quality_score: float = None):
-      if not success:
-          self.consecutive_failures += 1
-          if self.consecutive_failures >= self.failure_threshold:
-              self.state = "open"
-      else:
-          self.consecutive_failures = 0
-
-      if quality_score is not None:
-          self.recent_quality_scores.append(quality_score)
-          avg = sum(self.recent_quality_scores[-10:]) / min(10, len(self.recent_quality_scores))
-          if avg < self.quality_threshold:
-              self.state = "degraded"
+```
+Input → LLM₁ (extraer) → validar → LLM₂ (clasificar) → LLM₃ (resumir) → Output
+                              │
+                              └─ gate: si falla, STOP
 ```
 
-The key addition is the degraded state. The agent is working—it completes reviews without errors—but the reviews are not good enough. This state triggers alerts and potentially routes reviews to human reviewers.
+### Routing
 
-Graceful Degradation with Uncertainty
-When a traditional service degrades, you return cached data or a simplified response. When an agent degrades, you must communicate uncertainty to users.
-
-If the security scanner is unavailable, your agent should not silently skip security analysis and approve the PR. It should explicitly state what it could not check:
-
-```python
-async def review_with_degradation(self, pr_number: int) -> dict:
-  result = {"completed_checks": [], "skipped_checks": [], "warnings": []}
-
-  if self.security_circuit.is_available():
-      try:
-          result["security"] = await self.scan_security(pr_number)
-          result["completed_checks"].append("security_scan")
-      except Exception as e:
-          result["skipped_checks"].append("security_scan")
-          result["warnings"].append(f"Security scan unavailable: \{e\}")
-
-  if result["skipped_checks"]:
-      result["recommendation"] = "MANUAL_REVIEW_REQUIRED"
-
-  return result
+```
+             ┌─ handler_facturación
+Input → LLM router ──┼─ handler_técnico
+             └─ handler_reembolsos
 ```
 
-Graceful degradation for agents means degrading to human judgment, not to silent assumptions. When the agent cannot do its job fully, it should say so clearly and escalate appropriately.
+El LLM clasifica una vez; el código enruta. Permite usar un modelo barato para clasificar y modelos caros solo para handlers complejos.
 
-Now that you understand agent-specific failures like infinite loops and token explosion, consider how to prevent runaway resource consumption.
+### Parallelization
 
-Building Resilient Agent Workflows
-Resilience is not a single pattern but a combination of strategies working together. A production agent workflow incorporates loop detection, budget enforcement, progress tracking, and quality monitoring.
-
-```python
-class ResilientReviewAgent:
-  async def review_pr(self, pr_number: int) -> ReviewResult:
-      action_history = []
-      goal = f"Review PR #\{pr_number\} for security vulnerabilities"
-
-      while len(action_history) < self.config.max_iterations:
-          if not self.token_budget.can_continue():
-              return self.create_partial_result("Token budget exhausted")
-
-          if self.detect_loop(action_history):
-              return self.create_partial_result("Agent stuck in loop")
-
-          action = await self.get_next_action(goal=goal, history=action_history)
-          action_history.append(action)
-
-          if action.type == "complete":
-              return self.create_final_result()
-
-      return self.create_partial_result("Max iterations reached")
+```
+            ┌─ LLM (revisa seguridad)
+Input ──────┼─ LLM (revisa performance)   ──→ agregador → Output
+            └─ LLM (revisa estilo)
 ```
 
-This loop incorporates multiple resilience strategies:
+Dos variantes:
+- **Sectioning:** cada LLM atiende una parte distinta.
+- **Voting:** varios LLMs atienden lo mismo; se toma la mayoría (útil para validaciones de seguridad donde `N-of-M` reduce falsos negativos).
 
-Token budgets prevent runaway costs. Before each iteration, the agent checks if it can afford to continue.
+### Orchestrator-workers
 
-Loop detection catches stuck agents. The agent tracks its action history and detects when it repeats the same actions.
+A diferencia de parallelization, aquí **el orquestador decide en runtime** cuántos workers lanzar y qué pedirles. El patrón canónico para agentes de código tipo Claude Code o Cursor.
 
-Goal anchoring prevents drift. The original goal is included in every prompt.
+### Evaluator-optimizer
 
-Progress tracking through findings ensures the agent is accomplishing something.
+Dos LLMs en loop: uno propone, otro critica. Converge cuando el evaluador aprueba. Útil cuando los criterios de calidad son explícitos y el modelo puede autoevaluarse mejor que generar bien al primer intento.
 
-Handling Agent Restarts
-Long-running reviews can be interrupted by deployments, crashes, or infrastructure issues. Without state persistence, an interrupted review must start over.
+### Agent (loop autónomo)
+
+```
+┌─────────────────────────────────────────┐
+│  observar entorno                       │
+│         ↓                               │
+│  pensar (LLM decide siguiente acción)   │
+│         ↓                               │
+│  actuar (tool call)                     │
+│         ↓                               │
+│  recibir feedback ───┐                  │
+│         ↓            │                  │
+│  ¿objetivo cumplido? │                  │
+│    no ───────────────┘                  │
+│    sí → return                          │
+└─────────────────────────────────────────┘
+```
+
+El agente no sabe cuántos pasos tomará. Necesita: herramientas con descripciones claras, criterios de parada (completion, max_iterations, budget), observabilidad del razonamiento, y un entorno que le dé feedback real (no alucinado).
+
+### La regla de decisión
+
+**¿Puedes dibujar el grafo completo antes de ejecutar?**
+
+- **Sí** → workflow (elige el patrón más simple de los cinco).
+- **No, pero puedes acotar las opciones** → orchestrator-workers.
+- **No, el problema requiere exploración abierta** → agent.
+
+## Ejemplo con código
+
+Comparación directa de un router (workflow) contra un agent para el mismo problema: triage de tickets de soporte.
 
 ```python
-class CheckpointedAgent:
-  async def review_with_checkpoints(self, pr_number: int, review_id: str):
-      checkpoint = await self.load_checkpoint(review_id)
+# ============================================================
+# OPCIÓN A — Workflow: routing determinístico
+# ============================================================
+from anthropic import Anthropic
 
-      if checkpoint:
-          findings = checkpoint.findings
-          phase = checkpoint.phase
-      else:
-          findings = []
-          phase = "security"
+client = Anthropic()
+MODEL_FAST = "claude-haiku-4-5"
+MODEL_SMART = "claude-sonnet-4-5"
 
-      if phase == "security":
-          findings.extend(await self.run_security_phase(pr_number))
-          await self.save_checkpoint(review_id, "coverage", findings)
-          phase = "coverage"
+def clasificar(ticket: str) -> str:
+    """LLM barato clasifica; el código enruta."""
+    resp = client.messages.create(
+        model=MODEL_FAST,
+        max_tokens=10,
+        messages=[{
+            "role": "user",
+            "content": (
+                f"Clasifica este ticket en UNA palabra: "
+                f"'facturacion', 'tecnico' o 'reembolso'.\n\n{ticket}"
+            ),
+        }],
+    )
+    return resp.content[0].text.strip().lower()
 
-      if phase == "coverage":
-          findings.extend(await self.run_coverage_phase(pr_number))
-          await self.save_checkpoint(review_id, "complete", findings)
+def handler_facturacion(ticket): return f"[FACTURACIÓN] {ticket[:40]}..."
+def handler_tecnico(ticket):     return f"[TÉCNICO]     {ticket[:40]}..."
+def handler_reembolso(ticket):   return f"[REEMBOLSO]   {ticket[:40]}..."
 
-      return self.compile_review(findings)
-````
+HANDLERS = {
+    "facturacion": handler_facturacion,
+    "tecnico":     handler_tecnico,
+    "reembolso":   handler_reembolso,
+}
 
-Checkpoints should capture meaningful state: completed phases, accumulated findings, and context needed to resume. Do not checkpoint raw LLM conversation history—it is too large and not portable across model versions.
+def workflow_triage(ticket: str) -> str:
+    categoria = clasificar(ticket)
+    handler = HANDLERS.get(categoria, handler_tecnico)  # fallback
+    return handler(ticket)
 
-Summary
-Agents fail differently from traditional software. Reasoning errors produce incorrect results without raising exceptions. Infinite loops consume resources while appearing to work. Token explosion causes unbounded costs. Goal drift leads agents away from their objectives.
 
-Traditional fault tolerance patterns—circuit breakers, retries, timeouts—are necessary but not sufficient. Agent systems need quality-aware circuit breakers, graceful degradation that communicates uncertainty, and resource limits that prevent token explosion.
+# ============================================================
+# OPCIÓN B — Agent: loop autónomo con herramientas
+# ============================================================
+TOOLS = [
+    {
+        "name": "buscar_factura",
+        "description": "Busca una factura por número.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"numero": {"type": "string"}},
+            "required": ["numero"],
+        },
+    },
+    {
+        "name": "crear_ticket_jira",
+        "description": "Crea un ticket técnico en Jira.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "titulo": {"type": "string"},
+                "severidad": {"type": "string", "enum": ["low", "med", "high"]},
+            },
+            "required": ["titulo", "severidad"],
+        },
+    },
+]
 
-Key Takeaways:
+def ejecutar_tool(nombre: str, args: dict) -> str:
+    if nombre == "buscar_factura":
+        return f"Factura {args['numero']}: $450 MXN, estado=pagada"
+    if nombre == "crear_ticket_jira":
+        return f"Ticket SUP-{hash(args['titulo']) % 10000} creado"
+    return "error: tool desconocida"
 
-Reasoning failures are silent: the agent succeeds but produces wrong results—validate outputs
-Infinite loops waste resources without crashing—track action history and detect repetition
-Token explosion can cost 1000x normal—enforce per-review token budgets
-Goal drift leads agents astray—include the goal in every prompt, not just the first
-Traditional circuit breakers miss quality problems—track correctness, not just availability
-Graceful degradation means escalating to humans, not silently skipping checks
-Checkpoint at phase boundaries so interrupted reviews can resume
-Now that you understand how agents fail and how to build resilience, you are ready to learn how to observe and debug agent behavior in production.
+def agent_triage(ticket: str, max_iter: int = 10) -> str:
+    messages = [{"role": "user", "content": ticket}]
+    for i in range(max_iter):
+        resp = client.messages.create(
+            model=MODEL_SMART,
+            max_tokens=1024,
+            tools=TOOLS,
+            messages=messages,
+        )
+        # Criterio de parada
+        if resp.stop_reason == "end_turn":
+            return resp.content[-1].text
+
+        # El modelo pide usar una tool
+        messages.append({"role": "assistant", "content": resp.content})
+        tool_results = []
+        for block in resp.content:
+            if block.type == "tool_use":
+                output = ejecutar_tool(block.name, block.input)
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": output,
+                })
+        messages.append({"role": "user", "content": tool_results})
+    return "AGENT TIMEOUT"
+
+
+# ============================================================
+# Comparación
+# ============================================================
+ticket = "Mi factura F-9981 muestra un cargo duplicado"
+print("Workflow:", workflow_triage(ticket))
+print("Agent:   ", agent_triage(ticket))
+```
+
+**Qué observar:** el workflow termina en **una** llamada LLM barata + un handler determinístico. El agent puede dar una mejor respuesta cuando el ticket es ambiguo (porque usa herramientas y razona), pero cuesta de 5x a 50x más y es imposible garantizar el camino exacto que tomará.
+
+### Orchestrator-workers con LangGraph
+
+Para tareas donde los subtasks se descubren en runtime (ej. "edita todos los archivos del repo que usan la API antigua"), **LangGraph** ofrece la primitiva correcta: un grafo con un nodo orquestador que puede despachar workers dinámicamente.
+
+```python
+from typing import TypedDict, Annotated
+from langgraph.graph import StateGraph, END
+import operator
+
+class ReviewState(TypedDict):
+    archivos: list[str]
+    hallazgos: Annotated[list[str], operator.add]   # workers acumulan
+
+def planificar(state: ReviewState):
+    """Orquestador: decide qué archivos revisar."""
+    return {"archivos": ["auth.py", "db.py", "api.py"]}
+
+def revisar_archivo(state: ReviewState):
+    """Worker: revisa un archivo (uno por invocación)."""
+    archivo = state["archivos"].pop(0)
+    # ...llamada al LLM...
+    return {"hallazgos": [f"{archivo}: ok"]}
+
+def consolidar(state: ReviewState):
+    return {"hallazgos": [f"RESUMEN: {len(state['hallazgos'])} archivos"]}
+
+def hay_mas(state: ReviewState):
+    return "revisar_archivo" if state["archivos"] else "consolidar"
+
+g = StateGraph(ReviewState)
+g.add_node("planificar", planificar)
+g.add_node("revisar_archivo", revisar_archivo)
+g.add_node("consolidar", consolidar)
+g.set_entry_point("planificar")
+g.add_edge("planificar", "revisar_archivo")
+g.add_conditional_edges("revisar_archivo", hay_mas,
+                        {"revisar_archivo": "revisar_archivo",
+                         "consolidar": "consolidar"})
+g.add_edge("consolidar", END)
+
+app = g.compile()
+resultado = app.invoke({"archivos": [], "hallazgos": []})
+```
+
+Este es el patrón que usan en producción herramientas como Claude Code, Devin y Cursor.
+
+## Errores comunes
+
+- **Construir un agente cuando bastaba un workflow.** El síntoma clásico: tu "agente" siempre toma la misma secuencia de pasos. Si siempre hace A → B → C, no es un agente: es un workflow mal implementado que paga el impuesto de autonomía (costo, latencia, imprevisibilidad) sin recibir el beneficio.
+- **No definir criterios de parada en el loop.** Un agente sin `max_iterations`, sin budget de tokens, sin timeout y sin detección de loops puede quedarse corriendo horas, acumular cuentas de 4 dígitos y dejar al usuario esperando. Siempre define **al menos tres** criterios de parada: finalización natural (`end_turn`), límite duro (`max_iterations`) y presupuesto de tokens.
+- **Mezclar workflow y agent sin separar responsabilidades.** Es tentador meter un loop autónomo dentro de un nodo de workflow. El resultado: no sabes si una falla es del grafo externo o del agente interno. Separa: workflow para la columna vertebral determinística, agents para subtareas acotadas donde la autonomía realmente ayuda.
+- **Elegir framework antes de elegir patrón.** "Usemos CrewAI / AutoGen / LangGraph" es la pregunta equivocada. Primero decide: ¿workflow o agent? ¿Qué patrón? *Después* elige el framework que mejor expresa ese patrón. LangGraph es fuerte en grafos explícitos con state; CrewAI en roles multi-agente; AutoGen en conversaciones multi-agente; Temporal e Inngest en durabilidad y resumability.
+- **Herramientas mal diseñadas.** Un agente solo es tan bueno como sus tools. Nombres ambiguos, descripciones vagas, schemas sin validación y mensajes de error inútiles destruyen el razonamiento del LLM. Trata las descripciones de tool como prompts críticos: itera sobre ellas con la misma seriedad que sobre el system prompt.
+
+## Resumen
+
+- **Workflows** = control del programador (grafos fijos); **Agents** = control del LLM (decisiones en runtime). Ambos son "sistemas agénticos".
+- La regla de oro de Anthropic (*Building Effective Agents*, Dic 2024): **usa el patrón más simple que funcione**.
+- Los **cinco patrones de workflow**: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer. Un agente es la sexta opción, no la primera.
+- Decisión rápida: *¿puedo dibujar el grafo antes de ejecutar?* Sí → workflow. No → agent.
+- **LangGraph** es la referencia actual para expresar workflows + agents con estado explícito; **CrewAI** y **AutoGen** se enfocan en multi-agent; **Temporal** e **Inngest** aportan durabilidad.
+- Los **tres criterios de parada** mínimos para un agente: fin natural, max_iterations, budget de tokens.
+- Construir un agente cuando bastaba un workflow es el error #1: paga el costo de autonomía sin recibir el beneficio.
+- Diseña las **tool descriptions** con tanto cuidado como el system prompt: el agente razona sobre lo que lee ahí.

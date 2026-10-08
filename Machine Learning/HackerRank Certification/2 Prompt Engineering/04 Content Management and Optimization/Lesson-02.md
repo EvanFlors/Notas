@@ -1,136 +1,288 @@
-## Chunking and Context Strategies
-You have just built what seems like the perfect customer support chatbot. It is designed to answer questions by referencing your company's comprehensive documentation. Everything looks great until you try to load your 50-page user manual and get hit with "maximum context length exceeded." Your chatbot cannot even see the information it needs to be helpful. This frustrating limitation affects thousands of AI applications every day, but there is a solution: smart chunking and context management.
+# Estrategias de Chunking y Gestión de Contexto
 
-Context management represents one of the most practical and immediate challenges you will face when building AI applications. Whether you are processing legal documents, analyzing codebases, or creating conversational AI systems, understanding how to intelligently chunk and manage context determines whether your application succeeds or fails in production.
+## ¿Qué es?
 
-In this lesson, you will learn the strategic approaches that production teams use to handle large content efficiently. You will understand when to use different chunking strategies, how to preserve meaning across boundaries, and how to build systems that gracefully handle context pressure. By the end, you will have the practical skills to implement robust context management in your own AI applications.
+**Chunking** es el proceso de partir un contenido largo (manual, código, transcripción, conversación) en fragmentos manejables llamados *chunks*, de modo que cada uno quepa en el **context window** del modelo y preserve la semántica necesaria para que la respuesta siga siendo correcta. La **gestión de contexto** va un paso más allá: decide **qué chunks entran al prompt**, en **qué orden** y **con qué nivel de compresión**, bajo restricciones de tokens y presupuesto.
 
-Why Simple Truncation Breaks Your AI System
-The most common mistake developers make is treating context limits like file size restrictions. When content exceeds token limits, the naive approach simply cuts off text at the boundary, similar to how you might truncate a filename that exceeds character limits.
+No es "cortar texto cada N caracteres". Un buen sistema de chunking responde tres preguntas:
 
-This approach creates four critical problems in production systems.
+1. **¿Dónde cortar?** (en fronteras naturales: párrafo, sección, función, turno de diálogo).
+2. **¿Qué incluir en la ventana?** (relevancia por query, recencia, importancia estructural).
+3. **¿Cómo comprimir lo que no cabe?** (resumen, descarte, re-ranking).
 
-Context loss occurs when important information gets arbitrarily removed, often eliminating the very content needed to answer user questions.
-Coherence breaks happen when sentences or paragraphs get split mid-thought, leaving the AI with incomplete information that leads to confused or incorrect responses.
-Semantic fragmentation splits related concepts across different processing chunks, preventing the AI from understanding relationships between ideas.
-Priority inversion becomes a serious issue where less important content at the beginning takes precedence over crucial information that appears later in the document.
-Consider a real example from a technical support system. A user asks about debugging authentication errors in a software product. The relevant troubleshooting section appears on page 45 of a 60-page manual, but naive truncation cuts off at page 30 due to token limits. The AI receives only general product information and basic setup instructions, completely missing the specific error handling procedures the user needs.
+> El fenómeno **Lost in the Middle** (Liu et al., 2023, Stanford) mostró que los LLMs responden mucho mejor cuando la información relevante está al **inicio o al final** del contexto; en el medio se degrada hasta un 20% de accuracy. Chunking inteligente no es solo meter cosas: es ponerlas donde el modelo las verá.
 
-This scenario illustrates why intelligent chunking becomes essential for production AI systems. The goal shifts from simply fitting content into token limits to strategically preserving the most relevant information while maintaining semantic coherence.
+### Vocabulario mínimo
 
-Document-Aware Chunking Strategies
-Different content types require different chunking approaches because they have distinct structures and information hierarchies. Production systems implement document-aware strategies that respect the natural boundaries and semantic organization of specific content types.
+- **Chunk size:** tokens por fragmento (típico 500–2,000).
+- **Overlap:** tokens repetidos entre chunks consecutivos (típico 10–20%) para no cortar ideas.
+- **Retrieval:** recuperar los top-K chunks relevantes a una query (típicamente vía embeddings + similitud coseno).
+- **Rerank:** re-ordenar los chunks recuperados con un modelo cross-encoder más preciso.
+- **Context pressure:** proporción `tokens_usados / context_window`.
 
-Research papers present a clear hierarchical structure that intelligent chunking can leverage. Rather than splitting arbitrarily at token boundaries, you chunk by sections (Introduction, Methods, Results, Discussion), preserve citation context within each chunk, maintain figure and table references, and keep related paragraphs together. This approach ensures that when the AI processes a chunk about experimental results, it has access to the complete methodology and data interpretation within that section.
+## ¿Por qué importa?
 
-Conversation transcripts require different handling because they have temporal flow and speaker context. Effective chunking maintains dialogue boundaries by keeping complete exchanges between speakers, preserves conversation threads that span multiple turns, includes sufficient context for pronoun resolution, and maintains temporal markers that help the AI understand the conversation flow.
+Porque sin chunking inteligente, un sistema de IA se rompe de dos maneras:
 
-Code repositories present unique challenges because of dependency relationships and functional boundaries. Intelligent code chunking groups related functions together, preserves import statements and dependencies within chunks, keeps class definitions intact with their methods, and maintains documentation strings with their corresponding code. This ensures that when the AI analyzes a code chunk, it has sufficient context to understand functionality and relationships.
+- **Error duro:** `maximum context length exceeded` → la API devuelve 400 y la aplicación cae.
+- **Error silencioso:** el modelo responde, pero omite la sección relevante porque fue truncada o colocada en una zona que ignora.
 
-Here is a practical implementation example for document-aware chunking:
+Un caso real: un chatbot de soporte referencia un manual de 60 páginas. El usuario pregunta sobre errores de autenticación, cuya sección está en la página 45. Con truncation naive el prompt corta en la página 30 y el modelo contesta con información genérica. El usuario abandona.
 
-```python
-def chunk_by_content_type(content, content_type, max_tokens=2000):
-  if content_type == "research_paper":
-      return chunk_by_sections(content, section_headers=["Introduction", "Methods", "Results"])
-  elif content_type == "conversation":
-      return chunk_by_speakers(content, preserve_exchanges=True)
-  elif content_type == "code":
-      return chunk_by_functions(content, include_dependencies=True)
-  else:
-      return chunk_with_overlap(content, max_tokens, overlap_tokens=200)
+### Los cuatro problemas de la truncation naive
 
-def chunk_by_sections(content, section_headers):
-  chunks = []
-  current_chunk = ""
+| Problema | Qué ocurre | Consecuencia |
+|---|---|---|
+| **Context loss** | Se elimina información arbitraria | Respuestas que no contestan la pregunta |
+| **Coherence break** | Se corta a mitad de frase | Modelo alucina para completar |
+| **Semantic fragmentation** | Ideas relacionadas quedan en chunks distintos | No se detectan relaciones |
+| **Priority inversion** | Lo irrelevante del inicio desplaza lo crítico del final | Peor calidad con **más** contexto |
 
-  for line in content.split('\n'):
-      if any(header in line for header in section_headers):
-          if current_chunk:
-              chunks.append(current_chunk.strip())
-          current_chunk = line + '\n'
-      else:
-          current_chunk += line + '\n'
+### Lost in the Middle (Liu 2023)
 
-  if current_chunk:
-      chunks.append(current_chunk.strip())
-
-  return chunks
+```
+Posición de la info clave:   inicio    medio    final
+Accuracy en Q&A (GPT-3.5):    76%      55%      71%
+Accuracy en Q&A (Claude 1.3): 80%      62%      75%
 ```
 
-![Document Chunking Strategies](https://hrcdn.net/ai-engineering/module-2/light/010-chunking_comparison.svg)
+Conclusión: **colocar lo importante al principio o al final** del prompt mejora la calidad sin cambiar el modelo.
 
-This approach ensures that each chunk maintains semantic coherence while respecting the natural structure of the content type.
+## ¿Cómo funciona?
 
-Priority-Based Content Selection
-When you cannot fit all content within token limits, strategic selection becomes crucial. Production systems implement priority-based content selection using systematic approaches that identify and preserve the most relevant information for specific tasks.
+### 1. Chunking por tipo de contenido
 
-Keyword density analysis identifies content sections most relevant to user queries by calculating term frequency for task-relevant keywords, scoring sections based on keyword concentration, and prioritizing chunks with higher relevance scores. For a customer support system handling authentication questions, sections containing terms like "login," "password," "token," and "authentication" receive higher priority scores.
+Cada tipo de documento tiene fronteras naturales que preservan semántica:
 
-Example - If a user asks, "How do I reset my password?", the system will prioritize chunks where "password" appears most frequently, such as a section titled "Password Reset Instructions."
+| Tipo de contenido | Frontera natural | Qué preservar |
+|---|---|---|
+| Artículo científico | Sección (Intro, Methods, Results) | Citas, tablas, figuras referenciadas |
+| Transcripción de conversación | Turno de hablante | Resolución de pronombres, timestamps |
+| Código fuente | Función/clase | Imports, docstrings, dependencias |
+| Documentación técnica | Encabezado `##` o `###` | Code blocks, enlaces internos |
+| Legal / contrato | Cláusula numerada | Definiciones referenciadas |
+| Chat de usuario | Mensaje completo | Rol, timestamp |
 
-Position-based weighting recognizes that certain document positions typically contain more important information. Introductions and executive summaries often provide crucial context and key findings. Conclusions frequently contain actionable recommendations and key takeaways. The first and last paragraphs of sections typically summarize main points. This weighting system ensures that structurally important content receives preservation priority even when token limits force difficult choices.
+### 2. Estrategias de compresión bajo presión
 
-Example - If a report's executive summary states, "Our new security protocol reduces breaches by 40%", this information is given higher weight than details buried in the middle of the document.
+Monitoreo del `pressure_ratio = tokens_usados / context_window`:
 
-Recency weighting becomes critical for time-sensitive applications where newer information typically holds more relevance. Customer support systems prioritize recent product updates, bug fixes, and feature announcements. Legal document analysis systems weight recent case law and regulatory changes more heavily than older precedents.
+| Rango | Estrategia | Qué conserva |
+|---|---|---|
+| 0 – 60% | Sin acción | Todo intacto |
+| 60 – 80% | Compresión selectiva de mensajes antiguos | Últimos 10 turnos íntegros |
+| 80 – 95% | Pruning agresivo | Últimos 5 turnos + resumen |
+| 95 – 100% | Emergency summarization | Últimos 3 turnos + resumen de alto nivel |
 
-Example - If a product update released last week changes the login process, information about this update is weighted more heavily than older instructions about the previous login process.
+### 3. Progressive summarization (jerárquica por capas)
 
-Reference frequency analysis identifies content that other sections frequently cite or reference, indicating structural importance within the document. Sections that multiple other sections reference likely contain foundational concepts or critical procedures that should receive preservation priority.
-
-Example - If multiple sections of a technical manual refer to "Section 2: Safety Guidelines," this section is considered foundational and should be preserved even if other sections must be truncated.
-
-Dynamic Context Management Under Pressure
-Production AI systems experience varying context pressure based on user behavior, content complexity, and system load. Dynamic context management treats the context window as a strategic resource requiring intelligent allocation decisions based on current conditions.
-
-Context pressure monitoring implements real-time tracking of token usage with graduated response strategies. At 60% capacity, the system begins selective compression of older messages while keeping recent interactions intact. At 80% capacity, more aggressive pruning removes non-essential context while preserving task-critical information. At 95% capacity, emergency protocols activate to maintain system functionality through aggressive summarization and content prioritization.
-
-Sliding window strategies maintain conversation coherence by keeping recent messages intact while progressively compressing older context. Recent messages (last 5-10 exchanges) remain unmodified to preserve immediate conversation flow. Medium-age messages (10-20 exchanges back) undergo light summarization that preserves key facts and decisions. Older messages receive aggressive compression into high-level summaries that maintain important context without consuming excessive tokens.
-
-Progressive summarization creates layered context compression that maintains information at different levels of detail. Level 1 maintains full detail for immediate context. Level 2 provides structured summaries for recent context. Level 3 offers high-level overviews for background context. This approach ensures that the AI always has access to appropriately detailed information based on relevance and recency.
-
-```python
-def manage_context_pressure(messages, max_tokens, current_usage):
-  pressure_ratio = current_usage / max_tokens
-
-  if pressure_ratio < 0.6:
-      return messages  # No action needed
-  elif pressure_ratio < 0.8:
-      return compress_older_messages(messages, keep_recent=10)
-  elif pressure_ratio < 0.95:
-      return aggressive_pruning(messages, keep_recent=5)
-  else:
-      return emergency_summarization(messages, keep_recent=3)
-
-def compress_older_messages(messages, keep_recent):
-  recent = messages[-keep_recent:]
-  older = messages[:-keep_recent]
-  compressed_older = summarize_message_batch(older)
-  return [compressed_older] + recent
+```
+Capa 1 (full detail):    últimos 5 mensajes      → sin modificar
+Capa 2 (resumen medio):  mensajes 6-20            → resumen estructurado
+Capa 3 (resumen alto):   mensajes 21-∞            → bullets de alto nivel
 ```
 
-Common Pitfalls and Solutions
-Three major pitfalls consistently affect production context management systems.
+### 4. Priority-based selection
 
-Boundary splitting cuts important information across chunk boundaries—solve this with 10-20% overlap between chunks and smart boundary detection at natural breaking points like paragraph endings.
+Cuatro criterios combinables para decidir qué chunk entra:
 
-Context collapse happens when aggressive compression removes essential information—prevent this with graduated compression that removes less critical content first and validation loops to verify necessary information remains.
+- **Keyword density:** cuántas veces aparecen términos relevantes a la query.
+- **Position weighting:** introducción y conclusión suelen pesar más.
+- **Recency weighting:** info reciente pesa más (crítico en soporte técnico).
+- **Reference frequency:** secciones referenciadas por otras son foundational.
 
-Token miscounting creates cost surprises when estimates differ from actual usage—use the same tokenizer as your target model and reserve 10-15% of context capacity as a safety buffer.
+### 5. Comparativa de estrategias
 
+| Estrategia | Uso | Ventaja | Desventaja |
+|---|---|---|---|
+| **Fixed-size chunking** | Prototipo rápido | Simple | Rompe estructura |
+| **Recursive character splitting** | Markdown, HTML | Respeta jerarquía | Config fina |
+| **Sentence-aware** | Prosa narrativa | Mantiene oraciones | Chunks desiguales |
+| **Semantic chunking** | Documentos heterogéneos | Agrupa por similitud de embeddings | Costoso computacionalmente |
+| **Hierarchical (parent-child)** | RAG avanzado | Recupera parent al hit de child | Más almacenamiento |
+| **Agentic chunking** | Dominio especializado | LLM decide fronteras | Costoso en tokens |
 
-Summary
-Effective context management transforms from a technical constraint into a strategic advantage when implemented thoughtfully. The key insight involves treating token limits not as obstacles but as design constraints that drive intelligent content curation and processing decisions.
+## Ejemplo con código
 
-Strategic chunking preserves meaning and coherence by respecting document structure, maintaining semantic relationships, and implementing priority-based selection criteria. Dynamic context management adapts to varying pressure conditions through graduated response strategies, progressive summarization techniques, and intelligent resource allocation.
+### Chunking consciente del tipo de documento
 
-Production-ready implementations require careful attention to boundary handling, accurate token estimation, and validation processes that ensure compressed context maintains essential information quality.
+```python
+import tiktoken
 
-Key concepts to remember
-Document-Aware Chunking - Document-aware chunking strategies preserve semantic structure better than arbitrary token-based splitting
-Priority-Based Selection - Priority-based content selection ensures relevant information receives preservation preference under token pressure
-Dynamic Context Management - Dynamic context management adapts resource allocation based on real-time usage patterns and system demands
-Smart Boundaries - Overlap strategies and smart boundary detection prevent information loss at chunk boundaries
-Progressive Summarization - Progressive summarization maintains information at appropriate detail levels based on recency and relevance
-Production Requirements - Production systems require accurate token counting, safety buffers, and validation processes
+ENC = tiktoken.encoding_for_model("gpt-4o")
+
+def contar(texto: str) -> int:
+    return len(ENC.encode(texto))
+
+def chunk_recursivo(texto: str, max_tokens: int = 2000, overlap: int = 200,
+                    separadores: list[str] | None = None) -> list[str]:
+    """Divide por los separadores en orden; si un bloque sigue grande, baja al siguiente."""
+    separadores = separadores or ["\n\n## ", "\n\n", "\n", ". ", " "]
+    if contar(texto) <= max_tokens:
+        return [texto]
+    sep = separadores[0]
+    partes = texto.split(sep)
+    chunks, buffer = [], ""
+    for p in partes:
+        candidato = (buffer + sep + p) if buffer else p
+        if contar(candidato) <= max_tokens:
+            buffer = candidato
+        else:
+            if buffer:
+                chunks.append(buffer)
+            if contar(p) > max_tokens and len(separadores) > 1:
+                chunks.extend(chunk_recursivo(p, max_tokens, overlap, separadores[1:]))
+                buffer = ""
+            else:
+                buffer = p
+    if buffer:
+        chunks.append(buffer)
+    return _aplicar_overlap(chunks, overlap)
+
+def _aplicar_overlap(chunks: list[str], overlap_tokens: int) -> list[str]:
+    out = [chunks[0]]
+    for i in range(1, len(chunks)):
+        prev_tokens = ENC.encode(chunks[i - 1])[-overlap_tokens:]
+        out.append(ENC.decode(prev_tokens) + "\n" + chunks[i])
+    return out
+```
+
+### Chunking por secciones (research papers / docs)
+
+```python
+import re
+
+def chunk_por_secciones(markdown: str) -> list[dict]:
+    """Divide un markdown en chunks por encabezado H2, preservando el título como metadata."""
+    patron = re.compile(r"^(## .+)$", re.MULTILINE)
+    cortes = [m.start() for m in patron.finditer(markdown)]
+    cortes.append(len(markdown))
+    secciones = []
+    for i in range(len(cortes) - 1):
+        bloque = markdown[cortes[i]:cortes[i + 1]].strip()
+        titulo = bloque.split("\n", 1)[0].lstrip("# ").strip()
+        secciones.append({"titulo": titulo, "contenido": bloque, "tokens": contar(bloque)})
+    return secciones
+```
+
+### Chunking de código por funciones
+
+```python
+import ast
+
+def chunk_python_por_funcion(codigo: str) -> list[dict]:
+    """Un chunk por función/clase, incluyendo imports del archivo."""
+    tree = ast.parse(codigo)
+    lineas = codigo.splitlines()
+    imports = [l for l in lineas if l.startswith(("import ", "from "))]
+    header = "\n".join(imports) + "\n\n"
+    chunks = []
+    for nodo in tree.body:
+        if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            cuerpo = "\n".join(lineas[nodo.lineno - 1 : nodo.end_lineno])
+            chunks.append({"nombre": nodo.name, "contenido": header + cuerpo})
+    return chunks
+```
+
+### Priority-based selection con keyword density
+
+```python
+from collections import Counter
+import re
+
+def score_relevancia(chunk: str, query: str) -> float:
+    palabras_q = [w.lower() for w in re.findall(r"\w+", query) if len(w) > 3]
+    tokens_chunk = re.findall(r"\w+", chunk.lower())
+    cnt = Counter(tokens_chunk)
+    hits = sum(cnt[w] for w in palabras_q)
+    return hits / max(len(tokens_chunk), 1)
+
+def seleccionar_top_k(chunks: list[str], query: str, k: int = 5) -> list[str]:
+    ranked = sorted(chunks, key=lambda c: score_relevancia(c, query), reverse=True)
+    return ranked[:k]
+```
+
+(En producción esto se hace con embeddings + similitud coseno, no con keyword density; la versión keyword es una baseline útil y gratis.)
+
+### Gestión dinámica bajo presión
+
+```python
+def gestionar_presion(mensajes: list[dict], ctx_max: int, uso_actual: int,
+                      resumidor) -> list[dict]:
+    ratio = uso_actual / ctx_max
+    if ratio < 0.60:
+        return mensajes
+    if ratio < 0.80:
+        recientes, viejos = mensajes[-10:], mensajes[:-10]
+        resumen = resumidor(viejos)
+        return [{"role": "system", "content": f"[Resumen previo]\n{resumen}"}] + recientes
+    if ratio < 0.95:
+        recientes, viejos = mensajes[-5:], mensajes[:-5]
+        resumen = resumidor(viejos, nivel="agresivo")
+        return [{"role": "system", "content": f"[Resumen]\n{resumen}"}] + recientes
+    # Emergencia: solo últimos 3 + resumen muy comprimido
+    recientes, viejos = mensajes[-3:], mensajes[:-3]
+    return [{"role": "system", "content": resumidor(viejos, nivel="emergencia")}] + recientes
+```
+
+### Hierarchical (parent-child) retrieval
+
+```python
+# Idea: embebes chunks pequeños (hijos) para precisión en el matching,
+# pero inyectas el chunk grande (padre) en el prompt para contexto.
+padres   = chunk_por_secciones(documento)              # grandes, p.ej. 2000 tokens
+hijos    = []
+for i, p in enumerate(padres):
+    for sub in chunk_recursivo(p["contenido"], max_tokens=300):
+        hijos.append({"texto": sub, "parent_id": i})
+
+# retrieval: busca entre `hijos`, pero devuelve `padres[hijos[hit].parent_id]`
+```
+
+### Validación de tokens antes de enviar
+
+```python
+BUFFER_SEGURIDAD = 0.15   # reserva 15% para la respuesta
+
+def cabe_en_contexto(prompt: str, ctx_max: int, max_output: int) -> bool:
+    disponible = int(ctx_max * (1 - BUFFER_SEGURIDAD)) - max_output
+    return contar(prompt) <= disponible
+```
+
+## Errores comunes
+
+- **Truncation naive por caracteres.** Corta en medio de palabras y mide mal. Usa siempre tokens reales con `tiktoken` o el tokenizador del proveedor.
+- **Chunking sin overlap.** Pierdes información en las fronteras. Usa 10-20% de overlap o un *smart boundary detector* en párrafos.
+- **Ignorar Lost in the Middle.** Colocar la info clave en el medio de un prompt largo baja accuracy hasta 20 puntos. Pon lo crítico al inicio o al final.
+- **No contar tokens antes de enviar.** Reserva un buffer de 10-15% del context window para la respuesta; nunca llenes al 100%.
+- **Mismo tokenizador para todos los modelos.** `cl100k_base` para GPT-4 ≠ `o200k_base` para GPT-5 ≠ Claude ≠ Llama. Usa el tokenizador real del modelo destino.
+- **Context collapse.** Comprimir demasiado agresivamente borra información necesaria. Haz compresión graduada y valida que la respuesta siga siendo correcta.
+- **Re-embeber en cada deploy.** Guarda los embeddings con un hash del texto y del modelo (`sha256(texto+modelo)`); solo re-embeber lo que cambió.
+- **Chunking de código por caracteres.** Rompe funciones. Usa AST (`ast` en Python, tree-sitter en general) para respetar fronteras sintácticas.
+- **No persistir metadata.** Un chunk sin `source_id`, `section`, `position` es imposible de citar en la respuesta final.
+- **Reinventar RAG.** Para 90% de casos, LangChain / LlamaIndex / Haystack tienen chunkers probados; empieza por ahí antes de escribir el tuyo.
+
+## Herramientas del ecosistema
+
+| Herramienta | Para qué |
+|---|---|
+| **LangChain `RecursiveCharacterTextSplitter`** | Chunking jerárquico por separadores |
+| **LlamaIndex `SentenceWindowNodeParser`** | Chunking con ventana contextual |
+| **unstructured.io** | Parsing de PDF/HTML/DOCX con estructura |
+| **tree-sitter** | Chunking semántico de código en cualquier lenguaje |
+| **Semantic Chunker (LangChain)** | Agrupa por similitud de embeddings |
+| **Cohere Rerank / Jina Reranker** | Re-ordenar top-K recuperados |
+| **Pinecone / Qdrant / pgvector** | Almacén vectorial con metadata |
+
+## Resumen
+
+- **Chunking inteligente** respeta las fronteras naturales del contenido (sección, función, turno) en vez de cortar cada N caracteres.
+- La **truncation naive** produce *context loss, coherence break, semantic fragmentation* y *priority inversion*.
+- Usa **overlap de 10-20%** entre chunks para no cortar ideas en los bordes.
+- **Lost in the Middle** (Liu 2023): los LLMs ignoran el centro de prompts largos; coloca lo crítico al inicio o final.
+- La **gestión dinámica** monitorea `pressure_ratio` y comprime en capas: full detail reciente, resumen medio, bullets antiguos.
+- **Priority-based selection** combina keyword density, position, recency y reference frequency.
+- **Hierarchical retrieval** (parent-child) consigue precisión en el matching con contexto rico en el prompt.
+- Reserva un **buffer de 10-15%** del context window para la salida; nunca llenes al 100%.
+- Mide siempre con el **tokenizador real** del modelo destino.
+- Para empezar: `RecursiveCharacterTextSplitter` + overlap 15% + top-K con rerank. Añade complejidad solo cuando las métricas lo justifiquen.

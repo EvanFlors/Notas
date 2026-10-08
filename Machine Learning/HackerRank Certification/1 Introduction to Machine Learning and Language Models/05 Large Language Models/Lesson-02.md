@@ -1,314 +1,387 @@
-## LLM Interaction: Parameters, Token Management, and Cost Optimization
-When you call an LLM API, you are not just sending text and hoping for the best. Behind every successful AI application lies a carefully tuned set of parameters that control exactly how the model generates responses. Consider how GitHub Copilot suggests code; it uses very different parameter settings than ChatGPT writing a creative story or a customer service bot answering support questions.
+# Interacción con LLMs: parámetros, tokens y optimización de costo
 
-But there is another critical dimension that many developers overlook until it is too late: token management.
+## ¿Qué es?
 
-This lesson focuses on the technical components that control LLM behavior; the parameters you can tune and the token economics that determine both cost and performance. By mastering both aspects, you will build more predictable, cost-effective, and reliable AI systems that consistently deliver the right experience for your users while staying within budget.
+Cada llamada a una API de LLM es una pequeña configuración de **cómo generar texto**. No es sólo "mandar un prompt y recibir respuesta": es controlar — token por token — qué distribución de probabilidad usa el modelo para elegir el siguiente token, cuántos tokens produce, cuándo detenerse y cuánto cuesta.
 
-Core Components of LLM Interaction
-Every LLM API call consists of several key components:
+Una interacción típica con un LLM se compone de:
 
-Input (Prompt): The text you send to the model
-Generation Parameters: Settings that control output behavior
-Token Management: Understanding and controlling token usage
-Model Selection: Choosing the right model for your use case
-Response Processing: Handling and validating the output
+| Componente | Qué es | Impacto |
+|---|---|---|
+| **Prompt** (system + user) | El texto de entrada | Define la tarea y el contexto |
+| **Model selection** | Qué modelo del catálogo usar | Calidad, costo, latencia |
+| **Sampling params** | `temperature`, `top_p`, `top_k`, `frequency_penalty`, `presence_penalty` | Creatividad vs. determinismo |
+| **Length control** | `max_tokens`, `stop` sequences | Dónde cortar la generación |
+| **Reproducibilidad** | `seed` | Mismo input → mismo output |
+| **Token accounting** | Conteo input + output | Costo y uso de contexto |
+| **Response format** | JSON mode, structured outputs, tool use | Garantías de formato |
 
-Think of this like operating a sophisticated camera. Your prompt is what you are photographing, but the parameters are your camera settings; aperture, shutter speed, ISO; that determine how that photo turns out. Token management is like understanding your film budget; every shot costs money, and you need to balance quality with cost. Just as professional photographers adjust settings based on lighting and subject matter, professional developers tune LLM parameters and manage tokens based on their specific use case.
+La diferencia entre un prototipo que "funciona en el notebook" y un sistema de producción confiable es, en gran medida, **la elección deliberada de cada uno de estos componentes** en vez de aceptar los defaults.
 
-Basic Prompting
-While we will cover prompting in the next module, understanding the basics is essential for parameter tuning and token management. Your prompt is the primary way to communicate with the LLM, and its efficiency directly impacts both performance and cost.
+### Analogía: la cámara fotográfica
 
-Simple Effective Prompting
+Piensa en el LLM como una cámara profesional. Tu *prompt* es el sujeto que fotografías. Los *parámetros* son apertura, ISO, velocidad de obturación: el mismo sujeto cambia radicalmente según cómo los ajustes. Los *tokens* son tu presupuesto de rollo fotográfico: finito y pagado. Un fotógrafo profesional ajusta cada setting según el contexto; un desarrollador profesional de LLM apps hace lo mismo.
 
-The most effective prompts follow a clear structure: context that establishes the AI's role, task description that explains what you want, format specification for the response structure, and constraints that set boundaries. This structure maximizes clarity while minimizing unnecessary tokens.
+## ¿Por qué importa?
 
-For example, instead of: "Hey, can you look at this code and tell me if there are any problems with it and maybe suggest some improvements?" (22 tokens), use: "You are a code reviewer. Analyze this function for potential bugs. Provide 2-3 specific issues if found." (19 tokens with better clarity).
+Porque **los defaults te traicionan en producción**:
 
-Key Prompt Components:
+- `temperature=1.0` (el default de OpenAI) hace que tu extractor de datos devuelva resultados distintos cada vez — rompiendo tests, caches y confianza del usuario.
+- No fijar `max_tokens` deja que el modelo escriba 4000 tokens cuando necesitabas 50 — pagas 80× más de lo necesario.
+- No contar tokens antes de enviar causa errores de *context overflow* en producción cuando el usuario pega un documento grande.
+- No usar structured outputs hace que `json.loads()` lance excepciones aleatorias en el 2-5% de las requests.
 
-Role/Context: What perspective should the model take?
-Task: What specifically do you want the model to do?
-Format: How should the response be structured?
-Constraints: Any limits or requirements?
-The quality of your prompts directly impacts how well parameter tuning works and how efficiently you use tokens. A unclear prompt can not be fixed with parameter adjustments alone and often leads to longer, more expensive responses as the model tries to guess your intent.
+El costo de una app LLM mal configurada se mide en miles de dólares/mes y clientes perdidos. El de una bien configurada, en centavos por request.
 
-Understanding Tokenization
-Before diving into parameters, you need to understand tokens; the fundamental units that LLMs process and that determine your costs. Unlike human reading where we see words and sentences, LLMs see sequences of tokens, which are subword units that can represent parts of words, whole words, or punctuation marks.
+### Ejemplo cuantitativo
 
-How Tokenization Works
+Un asistente de soporte procesa 100K requests/día. Prompt system de 2000 tokens, user ~200 tokens, respuesta ~300 tokens.
 
-Most modern LLMs use Byte Pair Encoding (BPE). GPT models typically average about 4 characters per token, but this varies significantly based on content type. Simple English text uses about 0.75 tokens per word, while code uses approximately 1.3 tokens per word due to symbols and operators. JSON and structured data can consume 1.5 tokens per word or more because of formatting overhead.
+| Configuración | Costo/día (gpt-4o-mini) |
+|---|---|
+| Sin caching, max_tokens=4000 | ~$52 |
+| Sin caching, max_tokens=400 | ~$18 |
+| **Con prompt caching + max_tokens=400** | **~$4** |
 
-Understanding these patterns helps predict costs and optimize performance. A customer support system processing mostly plain text will have different token economics than a code analysis tool processing complex programming languages with heavy symbolic content.
+Mismo producto, mismo modelo. 13× de diferencia.
 
-Token Counting with Tiktoken
+## ¿Cómo funciona?
 
-For production applications, precise token counting is essential. OpenAI provides tiktoken, a fast tokenizer library that gives exact token counts for their models. This eliminates guesswork and enables accurate cost prediction and context management.
+### 1. Tokenización — la unidad fundamental
 
-Tiktoken supports different encodings for different model families. The newer models use the "cl100k_base" encoding, while older models like text-davinci-003 use "p50k_base". Using the correct encoding ensures your token counts match exactly what the API will charge.
+Los LLMs no ven palabras, ven **tokens**: subunidades aprendidas con **Byte Pair Encoding (BPE)**. Reglas de pulgar:
 
-Here is how to implement precise token counting:
+| Contenido | Tokens / palabra | Chars / token |
+|---|---|---|
+| Inglés | 0.75 | 4.0 |
+| Español | 1.0 – 1.3 | 3.5 |
+| Código | 1.3 – 1.8 | 2.5 |
+| JSON | 1.5 – 2.0 | 2.0 |
+| Chino / Japonés / Árabe | 2 – 3 | 1.5 |
+
+Encodings comunes:
+
+| Encoding | Modelos |
+|---|---|
+| `cl100k_base` | GPT-3.5, GPT-4 clásico |
+| `o200k_base` | GPT-4o, GPT-4.1, GPT-5, o1 |
+| `p50k_base` | davinci legacy, Codex |
+
+> **Overhead del chat API:** cada mensaje añade ~3-4 tokens de estructura (role, delimitadores). Una conversación de 10 turnos puede acumular 60-80 tokens sólo en estructura. En multi-turn largas, resumen las N-5 anteriores.
+
+### 2. Temperature — creatividad vs. determinismo
+
+Temperature `T` escala los *logits* antes del softmax:
+
+```
+P(token_i) = softmax(logits_i / T)
+```
+
+- `T → 0` : la distribución colapsa en el token más probable → **determinista**.
+- `T = 1` : distribución nativa del modelo.
+- `T → ∞` : distribución uniforme → caos.
+
+Guía práctica por caso de uso:
+
+| Tarea | Temperature | Por qué |
+|---|---|---|
+| Extracción de datos / clasificación | 0.0 | Mismo input, misma salida |
+| Generación de código | 0.1 – 0.2 | Precisión, sintaxis correcta |
+| Soporte al cliente / RAG | 0.2 – 0.4 | Útil pero consistente |
+| Resúmenes, traducción | 0.3 – 0.5 | Fidelidad con algo de variedad |
+| Escritura técnica | 0.5 – 0.7 | Balance |
+| Brainstorming | 0.8 – 1.0 | Variedad de ideas |
+| Escritura creativa | 1.0 – 1.3 | Máxima creatividad |
+
+### 3. Top-p (nucleus sampling) y top-k
+
+**Top-k**: considera solo los `k` tokens más probables. Simple pero rígido.
+
+**Top-p (nucleus)**: considera el conjunto más chico de tokens cuya probabilidad acumulada supere `p`. Dinámico — en pasos "obvios" solo mira pocos tokens, en pasos ambiguos considera muchos.
+
+```
+top_p = 0.1  → muy focalizado (10% de masa de probabilidad)
+top_p = 0.9  → estándar en producción
+top_p = 1.0  → sin filtrado
+```
+
+Recomendación de OpenAI/Anthropic: **ajusta temperature O top_p, no ambos**. Default sensato: `temperature=0.3, top_p=1.0` o `temperature=1.0, top_p=0.9`.
+
+### 4. max_tokens, stop sequences y seed
+
+- **`max_tokens`:** techo duro de tokens generados. Protege contra respuestas infinitas y costos descontrolados. Siempre dimensiona según la tarea (50 para clasificar, 500 para analizar, 2000 para generar artículo).
+- **`stop` sequences:** strings donde el modelo debe cortar. Útiles para formatos estructurados ("`\n\n###`", "`</answer>`") o generación de código ("`\ndef`" para no empezar otra función).
+- **`seed`:** fija la aleatoriedad del sampling. Mismo seed + mismo prompt + mismo modelo = misma salida (determinismo *best-effort*, no 100% garantizado por los proveedores). Esencial para tests.
+- **`frequency_penalty` / `presence_penalty`:** desincentivan repetición. Útiles si notas que el modelo repite frases. Valores típicos 0.0 – 1.0.
+
+### 5. System prompts
+
+El `system` message define identidad, estilo y restricciones del asistente. Se procesa igual que cualquier texto pero convencionalmente el modelo le da más peso. Un buen system prompt:
+
+```
+Eres <ROL> especializado en <DOMINIO>.
+Tu objetivo: <TAREA>.
+Formato de respuesta: <ESTRUCTURA>.
+Restricciones: <LO QUE NO HACER>.
+Si no sabes algo, di "No lo sé" en vez de inventar.
+```
+
+### 6. Structured outputs (JSON mode, tool use)
+
+En vez de pedir "devuelve JSON" en prose y rezar, usa las APIs nativas:
+
+- **OpenAI:** `response_format={"type": "json_schema", "json_schema": {...}}` — garantiza JSON válido conforme al schema.
+- **Anthropic:** `tools=[...]` con `tool_choice` forzado — el modelo responde llamando a tu "función".
+- **Librerías:** **Instructor**, **Outlines**, **LMFormatEnforcer**, **Pydantic AI**.
+
+### 7. Pricing — modelo de dos tramos
+
+Todas las APIs cobran distinto input vs. output (output es 2-5× más caro porque es más lento de generar):
+
+| Modelo (2025, referencial) | Input $/1M | Output $/1M | Cached input |
+|---|---|---|---|
+| gpt-4o | 2.50 | 10.00 | 1.25 |
+| gpt-4o-mini | 0.15 | 0.60 | 0.075 |
+| gpt-5-mini | 0.25 | 2.00 | 0.025 |
+| gpt-5-nano | 0.05 | 0.40 | 0.005 |
+| Claude 3.5 Sonnet | 3.00 | 15.00 | 0.30 (90% off) |
+| Claude Haiku 3.5 | 0.80 | 4.00 | 0.08 |
+| Claude Opus 4 | 15.00 | 75.00 | 1.50 |
+| Gemini 1.5 Pro | 1.25 | 5.00 | 0.3125 |
+| Gemini 1.5 Flash | 0.075 | 0.30 | 0.01875 |
+| DeepSeek V3 | 0.27 | 1.10 | 0.07 |
+
+> **Prompt caching** (OpenAI, Anthropic, Google): si tu system prompt o contexto RAG es grande y se repite, actívalo. Reduce costo input hasta 90% y latencia hasta 85%. Es *una línea* de código.
+
+## Ejemplo con código
+
+### Conteo preciso de tokens antes de llamar
 
 ```python
+# pip install tiktoken
 import tiktoken
 
-class TokenCounter:
-  def __init__(self, model="gpt-4o"):
-      # Different models use different encodings
-      self.model_encodings = {
-          "gpt-4o": "o200k_base",
-          "gpt-4.1-mini": "o200k_base",
-          "gpt-4.1-nano": "o200k_base",
-          "gpt-5": "o200k_base",
-          "gpt-5-mini": "o200k_base",
-          "gpt-5-nano": "o200k_base",
-          "gpt-4": "cl100k_base",
-          "gpt-3.5-turbo": "cl100k_base",
-      }
+class ContadorTokens:
+    _ENCODINGS = {
+        "gpt-4o":        "o200k_base",
+        "gpt-4o-mini":   "o200k_base",
+        "gpt-5":         "o200k_base",
+        "gpt-5-mini":    "o200k_base",
+        "gpt-4":         "cl100k_base",
+        "gpt-3.5-turbo": "cl100k_base",
+    }
 
-      encoding_name = self.model_encodings.get(model, "o200k_base")
-      self.encoder = tiktoken.get_encoding(encoding_name)
+    def __init__(self, modelo="gpt-4o"):
+        self.enc = tiktoken.get_encoding(self._ENCODINGS.get(modelo, "o200k_base"))
 
-  def count_tokens(self, text):
-      """Get exact token count for text."""
-      return len(self.encoder.encode(text))
+    def contar(self, texto: str) -> int:
+        return len(self.enc.encode(texto))
 
-  def count_message_tokens(self, messages, model="gpt-4o"):
-      """Count tokens for chat API messages including overhead."""
-      tokens_per_message = 3  # Every message has overhead
-      tokens_per_name = 1     # If name field is present
+    def contar_mensajes(self, mensajes: list[dict]) -> int:
+        """Incluye el overhead de estructura del chat API."""
+        total = 3  # priming del assistant
+        for m in mensajes:
+            total += 3
+            for k, v in m.items():
+                total += len(self.enc.encode(str(v)))
+                if k == "name":
+                    total += 1
+        return total
 
-      num_tokens = 0
-      for message in messages:
-          num_tokens += tokens_per_message
-          for key, value in message.items():
-              num_tokens += len(self.encoder.encode(value))
-              if key == "name":
-                  num_tokens += tokens_per_name
-
-      num_tokens += 3  # Every reply is primed with assistant message
-      return num_tokens
-
-# Example usage
-counter = TokenCounter(model="gpt-4o")
-
-# Count tokens in simple text
-text = "Hello, how are you today?"
-token_count = counter.count_tokens(text)
-print(f"Text: '{text}'")
-print(f"Token count: {token_count}")
-
-# Count tokens in chat messages
-messages = [
-  {"role": "system", "content": "You are a helpful assistant."},
-  {"role": "user", "content": "What is machine learning?"}
+c = ContadorTokens("gpt-4o")
+mensajes = [
+    {"role": "system", "content": "Eres un asistente conciso."},
+    {"role": "user",   "content": "¿Qué es el nucleus sampling?"},
 ]
-message_tokens = counter.count_message_tokens(messages)
-print(f"\nChat messages token count: {message_tokens}")
-print(f"  System message: 'You are a helpful assistant.'")
-print(f"  User message: 'What is machine learning?'")
-print(f"  Total tokens (including overhead): {message_tokens}")
+print("Input tokens:", c.contar_mensajes(mensajes))
 ```
 
-Chat API Token Overhead:
-
-When using chat based APIs, remember that conversation structure itself consumes tokens. Each message includes overhead for role definition and formatting. A typical message uses about 3 overhead tokens, plus additional tokens if name fields are present. Every conversation also includes priming tokens for the assistant's response.
-
-This overhead becomes significant in multi-turn conversations. A chat session with 10 exchanges could use 60+ tokens just for structural formatting before considering actual content. For applications with long conversation histories, this overhead represents a substantial portion of token budgets.
-
-Temperature: Controlling Creativity and Consistency
-Temperature is the most important parameter for controlling model behavior. It determines how "creative" or "predictable" the model's responses will be by adjusting the probability distribution over possible next tokens.
-
-Understanding Temperature Values:
-
-0.0: Completely deterministic always chooses the most likely next token
-0.1-0.3: Very focused and consistent, ideal for factual tasks
-0.4-0.7: Balanced between creativity and coherence
-0.8-1.2: Creative and varied, good for brainstorming
-1.3+: Highly creative but potentially incoherent
-Temperature in Production:
+### Presets de parámetros por tarea
 
 ```python
-class TaskHandler:
-  def __init__(self):
-      self.temperature_presets = {
-          "code_generation": 0.1,      # Need precision
-          "data_extraction": 0.0,      # Need consistency
-          "customer_support": 0.3,     # Helpful but consistent
-          "content_writing": 0.7,      # Creative but coherent
-          "brainstorming": 1.0,        # Maximum creativity
-          "creative_writing": 1.2      # Highly creative
-      }
+PRESETS = {
+    "extraccion_json":  {"temperature": 0.0, "top_p": 1.0, "max_tokens": 300, "seed": 42},
+    "clasificacion":    {"temperature": 0.0, "top_p": 1.0, "max_tokens": 10},
+    "codigo":           {"temperature": 0.1, "top_p": 0.95, "max_tokens": 800},
+    "soporte":          {"temperature": 0.3, "top_p": 0.9,  "max_tokens": 400},
+    "resumen":          {"temperature": 0.4, "top_p": 0.9,  "max_tokens": 500},
+    "brainstorm":       {"temperature": 0.9, "top_p": 0.95, "max_tokens": 600},
+    "creativo":         {"temperature": 1.2, "top_p": 0.95, "max_tokens": 1200},
+}
 
-  def get_temperature(self, task_type):
-      return self.temperature_presets.get(task_type, 0.6)  # Default
+def llamar(oai, modelo, tarea, mensajes):
+    return oai.chat.completions.create(
+        model=modelo, messages=mensajes, **PRESETS[tarea]
+    )
 ```
 
-Temperature Impact on Costs:
-
-Lower temperatures are often more cost-effective because they generate more predictable outputs that require less retry logic. Higher temperatures may need multiple attempts to get usable results, increasing both token usage and costs.
-
-Top_p (Nucleus Sampling): Randomness Control
-While temperature affects overall randomness, top_p provides more nuanced control. It limits the model to only consider the most probable tokens that collectively make up a specified probability mass.
-
-How Top_p Works:
-
-Instead of considering all possible tokens, the model only looks at tokens whose cumulative probability reaches the top_p threshold:
-
-0.1: Only the top 10% most probable tokens (very focused)
-0.5: Top 50% of probability mass (moderate variety)
-0.9: Top 90% of probability mass (standard setting)
-1.0: All tokens considered (no filtering)
-Top_p vs Temperature:
+### Calculadora de costos y presupuesto
 
 ```python
-# Precise tasks - use both low temperature and low top_p
-def extract_data(text):
-  return llm.generate(
-      prompt=f"Extract phone number from: {text}",
-      temperature=0.2,
-      top_p=0.1,          # Very focused token selection
-      max_tokens=50
-  )
+PRECIOS = {  # $/1M tokens
+    "gpt-4o":       {"in": 2.50,  "out": 10.00, "cached_in": 1.25},
+    "gpt-4o-mini":  {"in": 0.15,  "out": 0.60,  "cached_in": 0.075},
+    "gpt-5-nano":   {"in": 0.05,  "out": 0.40,  "cached_in": 0.005},
+    "claude-sonnet": {"in": 3.00, "out": 15.00, "cached_in": 0.30},
+    "claude-haiku":  {"in": 0.80, "out": 4.00,  "cached_in": 0.08},
+}
 
-# Creative tasks - higher temperature with high top_p
-def generate_ideas(topic):
-  return llm.generate(
-      prompt=f"Brainstorm 5 innovative ideas for {topic}",
-      temperature=0.9,
-      top_p=0.95,         # Allow creative token choices
-      max_tokens=400
-  )
+def costo(in_tok, out_tok, modelo, cached_tok=0):
+    p = PRECIOS[modelo]
+    uncached_in = in_tok - cached_tok
+    return (
+        uncached_in * p["in"] / 1_000_000
+        + cached_tok * p["cached_in"] / 1_000_000
+        + out_tok   * p["out"] / 1_000_000
+    )
+
+# Un request con 2000 tokens cacheados + 200 tokens nuevos + 300 output
+print(f"Sin cache: ${costo(2200, 300, 'claude-sonnet'):.5f}")
+print(f"Con cache: ${costo(2200, 300, 'claude-sonnet', cached_tok=2000):.5f}")
 ```
 
-Production Best Practices:
-
-Most production applications use top_p values between 0.7-0.9. Values below 0.5 can make responses feel robotic, while values above 0.95 may introduce unexpected words or phrases.
-
-max_tokens: Managing Length and Cost
-Max_tokens directly controls response length and API costs. This parameter requires strategic thinking because it affects both the completeness of responses and your budget. Setting max_tokens too low might truncate important information. Setting it too high allows the model to generate unnecessarily verbose responses that waste money.
-
-Token Allocation:
-
-Different tasks warrant different token budgets. Simple question answering might need only 50-100 tokens, while detailed analysis could justify 500-1000 tokens. Consider the value equation: does a longer response provide proportionally more value to justify the additional cost?
-
-Context-Aware Token Budgeting:
-
-Smart applications adjust token limits based on available context window space. If a conversation has consumed most of the context window with history, reduce the max_tokens for the response to ensure the entire interaction fits within limits. This prevents request failures while maintaining conversation continuity.
-
-Cost Calculation and Budget Management
-Understanding token costs enables accurate budget planning and prevents surprise bills in production. LLM pricing follows a two-tier model where input and output tokens are priced differently, with output tokens typically costing more.
-
-Current Pricing Landscape:
+### Reintentos con backoff exponencial (producción)
 
 ```python
-class CostCalculator:
-  def __init__(self):
-      # Pricing per 1K tokens (as of 2025, subject to change)
-      # Source: https://platform.openai.com/docs/pricing
-      self.pricing = {
-          "gpt-4.1-mini": {
-              "input": 0.0004,   # $0.40 per 1M tokens
-              "output": 0.0016   # $1.60 per 1M tokens
-          },
-          "gpt-4.1-nano": {
-              "input": 0.0001,   # $0.10 per 1M tokens
-              "output": 0.0004   # $0.40 per 1M tokens
-          },
-          "gpt-5-mini": {
-              "input": 0.00025,  # $0.25 per 1M tokens
-              "output": 0.002    # $2.00 per 1M tokens
-          },
-          "gpt-5-nano": {
-              "input": 0.00005,  # $0.05 per 1M tokens
-              "output": 0.0004   # $0.40 per 1M tokens
-          }
-      }
+# pip install tenacity
+from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
+import openai
 
-  def calculate_cost(self, input_tokens, output_tokens, model):
-      """Calculate exact cost for a request."""
-      if model not in self.pricing:
-          raise ValueError(f"Pricing not available for model: {model}")
-
-      rates = self.pricing[model]
-      input_cost = (input_tokens / 1000) * rates["input"]
-      output_cost = (output_tokens / 1000) * rates["output"]
-
-      return {
-          "input_cost": input_cost,
-          "output_cost": output_cost,
-          "total_cost": input_cost + output_cost
-      }
-
-# Example usage
-calculator = CostCalculator()
-
-# Calculate cost for GPT-4.1-mini
-print("=== Cost Calculation Examples ===\n")
-
-# Example 1: GPT-4.1 request
-input_tokens = 150
-output_tokens = 50
-model = "gpt-4.1-mini"
-
-cost = calculator.calculate_cost(input_tokens, output_tokens, model)
-print(f"Model: {model}")
-print(f"Input tokens: {input_tokens}")
-print(f"Output tokens: {output_tokens}")
-print(f"Input cost: {cost['input_cost']:.6f}")
-print(f"Output cost: {cost['output_cost']:.6f}")
-print(f"Total cost: {cost['total_cost']:.6f}")
-
-# Example 2: GPT-5-mini comparison
-print("\n--- Same request with GPT-5-mini ---")
-model = "gpt-5-mini"
-cost_mini = calculator.calculate_cost(input_tokens, output_tokens, model)
-print(f"Model: {model}")
-print(f"Total cost: {cost_mini['total_cost']:.6f}")
-difference = cost_mini['total_cost'] - cost['total_cost']
-if difference < 0:
-  print(f"Cost difference: {abs(difference):.6f} cheaper")
-else:
-  print(f"Cost difference: {difference:.6f} more expensive")
+@retry(
+    wait=wait_random_exponential(min=1, max=60),
+    stop=stop_after_attempt(6),
+    retry=retry_if_exception_type((openai.RateLimitError, openai.APITimeoutError)),
+)
+def llamar_robusto(oai, **kwargs):
+    return oai.chat.completions.create(**kwargs)
 ```
 
-Additional Key Parameters
-Modern LLMs offer several other parameters that can significantly improve results:
-
-Stop Sequences:
-
-They control exactly where the text generation ends.
+### Structured outputs (OpenAI) — JSON garantizado
 
 ```python
-def generate_function(function_name):
-  return llm.generate(
-      prompt=f"def {function_name}(",
-      stop=["\n\ndef", "\nclass", "# End"],  # Stop at these patterns
-      temperature=0.2,
-      max_tokens=300
-  )
+from pydantic import BaseModel
+
+class Reseña(BaseModel):
+    sentimiento: str   # "positivo" | "neutral" | "negativo"
+    puntaje: int       # 1-5
+    temas: list[str]
+
+r = oai.beta.chat.completions.parse(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "system", "content": "Clasifica la reseña del cliente."},
+        {"role": "user",   "content": "El producto llegó roto y tardó 3 semanas."},
+    ],
+    response_format=Reseña,
+    temperature=0,
+)
+resena: Reseña = r.choices[0].message.parsed
+print(resena.sentimiento, resena.puntaje, resena.temas)
 ```
 
-Seed Parameter (for reproducible outputs):
-
-To get consistent results for testing
+### Tool use con Anthropic (equivalente a structured output)
 
 ```python
-def reproducible_generation(prompt, seed=12345):
-  return llm.generate(
-      prompt=prompt,
-      temperature=0.7,
-      seed=seed,              # Same seed = same output
-      max_tokens=200
-  )
+tools = [{
+    "name": "guardar_resena",
+    "description": "Guarda la reseña procesada.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "sentimiento": {"type": "string", "enum": ["positivo","neutral","negativo"]},
+            "puntaje":     {"type": "integer", "minimum": 1, "maximum": 5},
+            "temas":       {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["sentimiento","puntaje","temas"],
+    },
+}]
+
+r = ant.messages.create(
+    model="claude-3-5-sonnet-latest",
+    max_tokens=500,
+    tools=tools,
+    tool_choice={"type": "tool", "name": "guardar_resena"},
+    messages=[{"role":"user","content":"El producto llegó roto y tardó 3 semanas."}],
+)
+print(r.content[0].input)   # dict ya parseado
 ```
 
-Summary
-Successful LLM interaction depends on mastering both parameter tuning and token management as interconnected systems that determine both response quality and cost efficiency. Understanding how each parameter affects output behavior enables you to build predictable, reliable AI applications that consistently deliver the right experience for your users while staying within budget.
+### Streaming (mejor UX)
 
-Key concepts to remember
-Values from 0.0 (deterministic) to 1.2+ (creative) directly impact response consistency and cost - low values for factual tasks, higher values for creative applications.
-Understanding tokenization (4 chars/token average), using tiktoken for precise counting, and accounting for chat API overhead enables accurate budget planning and prevents surprise bills.
-Strategic token allocation based on task value (50-100 for simple answers, 500-1000 for analysis) prevents both truncated responses and unnecessary verbosity.
-Top_p provides nuanced randomness control (0.7-0.9 for production), stop sequences control generation endpoints, and seed parameters enable reproducible testing
+```python
+stream = oai.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role":"user","content":"Cuenta hasta 20."}],
+    stream=True,
+)
+for chunk in stream:
+    delta = chunk.choices[0].delta.content or ""
+    print(delta, end="", flush=True)
+```
+
+### Caching del system prompt (Anthropic)
+
+```python
+system_largo = open("docs/manual_producto.md").read()   # 20K tokens
+
+r = ant.messages.create(
+    model="claude-3-5-sonnet-latest",
+    max_tokens=400,
+    system=[{
+        "type": "text",
+        "text": system_largo,
+        "cache_control": {"type": "ephemeral"},   # ← la línea mágica
+    }],
+    messages=[{"role":"user","content":"¿Cómo reseteo el dispositivo?"}],
+)
+# La primera llamada paga el costo full; las siguientes 5 min pagan 0.1× por los tokens cacheados.
+```
+
+### Routing entre modelos (barato → caro)
+
+```python
+def responder(pregunta: str) -> str:
+    # 1. Clasificar complejidad con un modelo barato
+    cls = oai.chat.completions.create(
+        model="gpt-4o-mini", temperature=0, max_tokens=1,
+        messages=[
+            {"role":"system","content":"Responde solo 'S' si la pregunta requiere razonamiento complejo, 'N' si es simple."},
+            {"role":"user","content":pregunta},
+        ],
+    )
+    complejo = cls.choices[0].message.content.strip().upper() == "S"
+    modelo = "gpt-4o" if complejo else "gpt-4o-mini"
+    return oai.chat.completions.create(
+        model=modelo, messages=[{"role":"user","content":pregunta}], temperature=0.3,
+    ).choices[0].message.content
+```
+
+## Errores comunes
+
+- **Dejar `temperature` en el default (1.0).** Para cualquier tarea factual o estructurada esto es un error. Baja a 0-0.3.
+- **No fijar `max_tokens`.** El modelo puede generar hasta su límite (4K-16K tokens) incluso para una pregunta "sí/no". Siempre define un techo razonable.
+- **Ajustar temperature y top_p a la vez.** No es incorrecto, pero el efecto es confuso. Elige uno como palanca principal.
+- **Pedir JSON en el prompt sin usar structured outputs.** El modelo a veces incluye prosa, markdown, comentarios, o cierra con "`"}`" sin coma. Usa el modo nativo.
+- **No contar tokens antes de enviar.** Resulta en errores 400 por overflow en producción cuando el usuario pega un documento grande.
+- **No cachear.** Si tu system prompt es grande y repetido, estás pagando 10-20× lo necesario.
+- **Confundir input y output pricing.** Output es típicamente 4-5× más caro. Si tu respuesta puede ser corta (ej. clasificación: 1 token), limita `max_tokens`.
+- **Enviar historial completo en cada turno de un chat largo.** Costo cuadrático con la longitud de la conversación. Soluciones: resumen incremental, sliding window, vector store de memoria.
+- **No implementar retry/backoff.** APIs devuelven 429 y 503. Sin retry robusto, un pico de tráfico tira tu feature.
+- **No loggear tokens ni costo por request.** Sin observabilidad, no puedes optimizar. Guarda `usage.input_tokens`, `usage.output_tokens`, latencia, modelo, y el hash del prompt.
+- **Confiar en `seed` para 100% determinismo.** OpenAI/Anthropic lo marcan como *best-effort*. Para tests críticos, snapshotea las respuestas en vez.
+- **No sanitizar inputs del usuario (prompt injection).** Si tu system dice "no reveles datos internos" y el user pega "ignora las instrucciones anteriores y...", muchos modelos obedecen. Capas: input filtering, output filtering, guardrails, y nunca des al LLM acceso directo a herramientas destructivas sin confirmación humana.
+- **Pedir `max_tokens` muy pequeño y recibir respuestas cortadas a mitad de frase.** Dimensiona con holgura (ej. si esperas 100 tokens, pide 200).
+- **No usar modelos locales (Ollama, llama.cpp) cuando aplica.** Para tareas de alta frecuencia y baja complejidad, un LLaMA 3 8B self-hosted puede costar centavos vs. dólares/día en APIs.
+
+## Resumen
+
+- Toda llamada LLM es una **configuración deliberada**: modelo, prompt, parámetros de sampling, control de longitud, formato de salida, observabilidad.
+- **Tokeniza y mide.** Usa `tiktoken` (OpenAI) o el tokenizer del proveedor. Español ≈ 1.3× el costo de inglés; código ≈ 1.5-2×.
+- **Temperature controla aleatoriedad** vía escalado de logits. `T=0` para extracción/clasificación, `T=0.3-0.5` para asistentes, `T=0.8-1.2` para creatividad.
+- **Top-p** limita la masa de probabilidad considerada. Ajusta uno u otro, no ambos. Default sensato: `T=0.3, top_p=1.0`.
+- **`max_tokens` es un seguro de costo.** Sin él, puedes pagar 20× lo necesario.
+- **Pricing es asimétrico:** output cuesta 3-5× más que input. Diseña prompts que pidan respuestas acotadas.
+- **Prompt caching** reduce 85-90% costo input para system prompts/contexto repetidos. Actívalo.
+- **Structured outputs / tool use** garantizan JSON válido; nunca más `json.loads()` fallando aleatoriamente.
+- **Observabilidad desde el día uno:** loggea tokens, costo, latencia por request. Usa LangSmith/Langfuse/Helicone.
+- **Reintentos con backoff**, **routing entre modelos**, **streaming** y **validación del output** son los cuatro patrones que separan prototipo de producción.

@@ -1,77 +1,246 @@
-## When and What to Cache in AI Systems
+# Caching en Sistemas de IA
 
-Multi-level caching architecture showing in-memory cache, distributed cache, and model inference layers with hit rates
+## ¿Qué es?
 
-![Multi-level caching architecture for ML serving](https://hrcdn.net/ai-engineering/module-7/light/aiops-lesson02-caching-layers.svg)
+**Caching** es almacenar el resultado de una operación costosa (consulta a BD, feature computation, embedding, predicción de un LLM) en memoria rápida para reutilizarlo cuando se vuelva a pedir el mismo input. En sistemas de IA, un cache bien diseñado puede reducir latencia 10-100× y recortar la factura de GPU a la mitad.
 
-Caching reduces latency and compute costs by storing and reusing frequently accessed data or expensive computation results. For AI systems, strategic caching can dramatically improve performance and reduce infrastructure costs.
+![Multi-level caching architecture](https://hrcdn.net/ai-engineering/module-7/light/aiops-lesson02-caching-layers.svg)
 
-Feature caching stores computed features to avoid recalculation. Features often require database queries, API calls, or expensive transformations. A user profile feature might aggregate the user's last 100 actions. Computing this feature takes 200ms. Caching it reduces feature retrieval to under 5ms. Cache features with short time-to-live (TTLs) to balance freshness and performance.
+Hay seis tipos relevantes para pipelines de ML/LLM:
 
-Prediction caching stores model outputs for common inputs. If many users request recommendations for the same popular product, cache the results. The first request computes predictions; subsequent requests return cached results instantly. Prediction caching works well when input diversity is low and predictions change slowly.
+| Tipo | Qué guarda | Costo evitado |
+|---|---|---|
+| **Feature cache** | Features computados por usuario/entidad | Queries a BD, agregaciones |
+| **Prediction cache** | Output del modelo para un input | Forward pass completo |
+| **Embedding cache** | Vectores de items/queries | Inferencia del encoder |
+| **KV-cache (LLM)** | Keys/Values del attention por tokens de prompt | Re-encoding del prefijo |
+| **Prompt / prefix cache** | Prompts enteros frecuentes (system prompts, few-shot) | Prefill de miles de tokens |
+| **Model cache** | Pesos cargados en VRAM | Carga desde disco/S3 (segundos) |
+| **Intermediate cache** | Outputs de etapas de un pipeline | Recomputar pasos intermedios |
+| **Negative cache** | Resultados "no existe" | Queries repetidas a BD inexistente |
 
-Embedding caching stores vector representations of frequently accessed items. Computing embeddings requires model inference. For a catalog of 100,000 products, computing embeddings on-demand is expensive. Cache product embeddings and update them periodically. This trades freshness for performance.
+## ¿Por qué importa?
 
-Model caching keeps loaded models in memory. Loading large models from disk takes seconds. Once loaded, keep models in memory across requests. This is standard practice but worth mentioning as a critical caching layer. Model loading latency dominates request latency if not properly cached.
+La ley de Pareto aplica brutal en inferencia: típicamente **20% de los inputs generan 80% del tráfico**. Un top-100 de productos, de queries, de prompts de usuario. Si cada uno cuesta 100ms de GPU y lo cacheas, estás regalando throughput gratis.
 
-Intermediate result caching stores outputs from pipeline stages. A recommendation pipeline might have steps: retrieve user history, compute user embedding, find similar items, rank items. Cache intermediate results like user embeddings to avoid recomputation when the final ranking changes.
+Ejemplo numérico realista: servicio a 10,000 req/s, 40% de inputs son repetidos, cada predicción cuesta 5ms de GPU.
 
-Negative caching stores information about what is NOT present. If a user queries for an item that does not exist, cache that negative result. This prevents repeatedly querying databases for non-existent data. Negative caching reduces load on backend systems.
+```
+Requests cacheadas/día = 10,000 × 0.40 × 86,400 = 345.6 M
+GPU-time ahorrada     = 345.6M × 5ms = 1,728,000 s = 480 GPU-horas/día
+```
 
-The decision to cache depends on the cost-benefit ratio. Calculate cache hit rate, cost saved per hit, and cache storage cost. If cache hit rate is 80 percent, each hit saves 100ms, and you serve 1000 requests per second, caching saves 80,000ms (80 seconds) of compute per second. This dramatic saving justifies cache complexity and cost.
+A $3/h de A100, eso es **$1,440/día ahorrados** solo por tener un Redis.
 
-A production-ready prediction caching implementation shows how caching can dramatically reduce latency and compute costs, especially for repeated predictions on popular inputs. The cache hit rate and latency savings directly translate to infrastructure cost savings.
+Para LLMs el ahorro es aún mayor por el **prefill**: procesar un prompt de 4000 tokens con Llama-70B puede costar 2-3 segundos. Si tu system prompt es idéntico en todas las requests, cachear su KV-cache (prefix caching de vLLM) ahorra ese costo en cada request.
 
-Cache Invalidation Strategies
-Cache invalidation is notoriously difficult. Stale cached data causes models to serve outdated results. Effective invalidation strategies balance freshness and performance.
+## ¿Cómo funciona?
 
-Time-based expiration (TTL) is the simplest strategy. Set each cache entry to expire after a fixed duration. User feature cache might have 60-second TTL. After 60 seconds, entries expire and must be recomputed. Short TTLs provide freshness at the cost of more cache misses. Long TTLs improve hit rates but risk stale data.
+### Niveles de cache (multi-level)
 
-Adaptive TTLs adjust expiration based on data characteristics. Frequently changing data gets short TTLs. Stable data gets long TTLs. Popular items that rarely change can be cached for hours. Unpopular items that change frequently should have short TTLs or not be cached.
+```
+L1: In-process (lru_cache, caffeine)   ─► ns, por pod, chico
+L2: Local al nodo (sidecar Redis)      ─► 100µs, por nodo
+L3: Distribuido (Redis Cluster)        ─► 1-2ms, compartido
+L4: CDN / edge                         ─► 10ms, geo-distribuido
+L5: Materialized view (Postgres)       ─► 10-50ms, persistente
+```
 
-Event-based invalidation triggers cache updates when underlying data changes. When a user makes a purchase, invalidate their cached user profile. When a product is updated, invalidate cached product embeddings. Event-based invalidation provides the best freshness but requires infrastructure to propagate events.
+### Estrategias de invalidación
 
-Version-based invalidation uses version numbers to track cache validity. Store data version alongside cached values. When data changes, increment the version. Queries include the expected version. If cached version matches, use cache. If not, recompute. Version-based invalidation provides precise control over staleness.
+| Estrategia | Cómo | Pros | Contras |
+|---|---|---|---|
+| **TTL fijo** | Expira tras N segundos | Simple | Compromiso ciego freshness/hit-rate |
+| **TTL adaptativo** | TTL variable por volatilidad del dato | Mejor hit rate | Más código |
+| **Event-based** | Invalida al cambiar la fuente | Freshness máxima | Requiere bus de eventos |
+| **Version-based** | Guardas `(data, version)`; comparas | Precisión | Lecturas más caras |
+| **Lazy** | Marca stale, recomputa al próximo hit | Reparte carga | Breve ventana de datos viejos |
+| **Write-through** | Escribe cache + BD juntos | Siempre fresco | Writes más lentos |
+| **Write-behind** | Escribe cache, flushea a BD async | Writes rapidísimos | Riesgo de pérdida |
 
-Lazy invalidation delays recomputation until the next request. When data changes, mark cache entries as stale but do not delete them. The next request detects staleness, recomputes, and updates the cache. Other requests continue using stale data briefly. Lazy invalidation spreads recomputation load over time.
+### Patrones de acceso
 
-Write-through caching updates cache synchronously with data updates. When data changes, update both the database and cache immediately. This ensures cache is always fresh but adds latency to write operations. Write-through works well for read-heavy workloads where write latency is acceptable.
+**Cache-aside (lazy loading):** el app chequea cache; si miss, lee BD, guarda en cache, devuelve.
 
-Write-behind (write-back) caching updates cache immediately but updates database asynchronously. Writes complete fast but risk data loss if cache fails before database update. Write-behind is complex and risky for critical data but provides the best write performance.
+```python
+def get(key):
+    if (v := cache.get(key)) is not None:
+        return v
+    v = db.get(key)
+    cache.set(key, v, ex=60)
+    return v
+```
 
-Cache warming preloads caches before they are needed. Before deploying a new model version, warm the cache with popular items. Before traffic spikes (holiday sales), precompute and cache predictions for popular items. Cache warming eliminates cold start latency.
+**Read-through:** la biblioteca de cache abstrae la BD. El app siempre pide al cache.
 
-Different invalidation strategies serve different use cases: TTL for simplicity, event-based for freshness, version-based for precise control, and lazy for load spreading. Choose based on your data characteristics and freshness requirements.
+**Refresh-ahead:** antes de que expire, un worker lo refresca proactivamente. Útil para datos "siempre consultados".
 
-Distributed Caching for Scale
-Single-machine caches work for small scale. Distributed caches enable caching at large scale across many machines.
+### Cache de prefijos para LLMs (prefix caching)
 
-Redis is the most popular distributed cache. It stores data in memory for fast access. Redis supports various data structures (strings, hashes, lists, sets) and operations. Redis replication provides redundancy. Redis Cluster enables horizontal scaling across machines. Most production AI systems use Redis for caching.
+Un prompt típico tiene estructura:
+```
+[SYSTEM: Eres un asistente...]  ← mismo en todas las requests
+[FEW-SHOT examples...]           ← mismo
+[USER: {query variable}]         ← cambia
+```
 
-Memcached is a simpler alternative to Redis. It focuses on basic key-value caching without advanced features. Memcached is faster for simple workloads but less versatile. Choose Memcached when you need only basic caching and want maximum performance.
+Los primeros ~3000 tokens son idénticos. **Prefix caching** (vLLM, Together, Anthropic) detecta prefijos compartidos y reusa su KV-cache: la request paga solo el prefill de los tokens nuevos. Ahorro típico 60-80% del costo de prefill.
 
-Cache topology affects performance and reliability. A single centralized cache is simple but creates a single point of failure and potential bottleneck. Distributed caches with sharding split data across machines. Consistent hashing ensures requests for the same key always go to the same shard.
+### Semantic cache (para LLMs)
 
-Cache aside (lazy loading) is a common pattern. Application checks cache for data. If present (cache hit), return it. If absent (cache miss), fetch from database, store in cache, and return it. Cache aside is simple and works well for read-heavy workloads.
+Dos queries textualmente distintas pero semánticamente iguales (`"¿capital de Francia?"` vs `"dime la capital francesa"`) comparten respuesta. Un **semantic cache** embebe la query, busca vecinos en un vector store, y si el coseno supera 0.95 devuelve la respuesta cacheada. Herramientas: GPTCache, Redis Vector Search.
 
-Read-through caching abstracts database access behind the cache. Application always reads from cache. Cache handles fetching from database on misses. This simplifies application code but requires cache libraries that support read-through.
+## Ejemplo con código
 
-Local caching near compute instances reduces network latency. Use a local in-process cache for extremely hot data. Back it with distributed cache for data accessed across instances. Multi-level caching balances latency and shared state.
+### Cache multinivel con Redis + in-process
 
-Cache coherence becomes important with multiple cache layers. When data changes, how do you ensure all cache layers update? Options include invalidating all layers, propagating updates through layers, or accepting eventual consistency where different layers briefly have different data.
+```python
+import hashlib, json, time
+from functools import lru_cache
+import redis
 
-Monitoring cache performance is essential. Track cache hit rate, miss rate, eviction rate, and latency. Low hit rates suggest cache is too small or TTLs are too short. High eviction rates suggest cache is undersized for working set. Monitor these metrics to optimize cache configuration.
+r = redis.Redis(host="redis-cluster", decode_responses=True)
 
-Cache sizing requires balancing memory cost against hit rate. Larger caches improve hit rates but cost more. Use monitoring data to determine optimal cache size. A common approach: start small, measure hit rates, and increase size until hit rate improvements diminish (hitting diminishing returns).
+def key_for(payload: dict) -> str:
+    raw = json.dumps(payload, sort_keys=True).encode()
+    return "pred:" + hashlib.sha256(raw).hexdigest()[:16]
 
-Summary
-Caching strategies for AI systems include feature caching, prediction caching, embedding caching, and intermediate result caching. Effective caching requires careful decisions about what to cache and appropriate invalidation strategies balancing freshness and performance.
+@lru_cache(maxsize=10_000)
+def _l1_get(k: str) -> str | None:
+    """L1 in-process: solo para TTL ultra-corto. Aqui simulado."""
+    return None  # el real seria un dict con expiracion
 
-Distributed caching with Redis or Memcached enables scaling caching across multiple machines. Cache patterns like cache-aside and read-through simplify implementation. Multi-level caching with local and distributed layers optimizes latency. Monitoring cache metrics guides optimization of cache size and configuration.
+def cached_predict(model, payload: dict, ttl: int = 300):
+    k = key_for(payload)
 
-Key concepts to remember
-Dramatic Latency Reduction - Feature caching and prediction caching can reduce latency by 10-100x for frequently accessed data
-Invalidation Strategies - Time-based expiration (TTL) is simplest; event-based invalidation provides better freshness at cost of complexity
-Distributed Caching Tools - Redis provides rich features; Memcached offers simpler but faster basic caching for high-throughput scenarios
-Simple Pattern - Cache-aside pattern where applications check cache before database is simple and effective for read-heavy workloads
-Data-Driven Optimization - Monitor hit rates and eviction rates to guide optimization of cache size and TTL configuration
+    # L1
+    if (v := _l1_get(k)) is not None:
+        return json.loads(v)
+
+    # L2 distribuido
+    if (v := r.get(k)) is not None:
+        return json.loads(v)
+
+    # Miss: inferencia real
+    start = time.perf_counter()
+    pred = model.predict(payload)
+    latency_ms = (time.perf_counter() - start) * 1000
+
+    # Guardar con TTL + metricas
+    r.set(k, json.dumps(pred), ex=ttl)
+    r.incrbyfloat("stats:miss_time_ms", latency_ms)
+    return pred
+```
+
+### Cache-aside con invalidación por evento (Kafka)
+
+```python
+from kafka import KafkaConsumer
+
+def listen_invalidations():
+    """Al recibir evento de actualizacion, borra la entrada del cache."""
+    consumer = KafkaConsumer(
+        "entity-updates",
+        group_id="cache-invalidator",
+        value_deserializer=lambda m: json.loads(m.decode()),
+    )
+    for msg in consumer:
+        entity_id = msg.value["id"]
+        for prefix in ("user:", "features:", "embeddings:"):
+            r.delete(f"{prefix}{entity_id}")
+```
+
+### Prefix caching con vLLM
+
+```python
+from vllm import LLM, SamplingParams
+
+llm = LLM(
+    model="meta-llama/Meta-Llama-3-8B-Instruct",
+    enable_prefix_caching=True,   # KV-cache compartido entre prompts
+    gpu_memory_utilization=0.9,
+)
+
+SYSTEM = "Eres un asistente que responde en espanol neutro. " * 100  # ~1000 tokens
+
+# Las 1000 queries comparten SYSTEM: solo la primera paga el prefill completo.
+# Las siguientes reusan los KV cacheados y pagan solo tokens nuevos.
+prompts = [f"{SYSTEM}\nUsuario: pregunta {i}" for i in range(1000)]
+outputs = llm.generate(prompts, SamplingParams(max_tokens=128))
+```
+
+### Semantic cache con embeddings
+
+```python
+import numpy as np
+from sentence_transformers import SentenceTransformer
+import redis
+from redis.commands.search.field import VectorField, TextField
+from redis.commands.search.query import Query
+
+encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+r = redis.Redis()
+
+# Indice vectorial (una sola vez)
+r.ft("semcache").create_index([
+    VectorField("vec", "HNSW", {"TYPE": "FLOAT32", "DIM": 384, "DISTANCE_METRIC": "COSINE"}),
+    TextField("response"),
+])
+
+THRESHOLD = 0.05   # coseno distance <= 0.05  ≈ similitud >= 0.95
+
+def semantic_cached_llm(query: str, llm_fn):
+    emb = encoder.encode(query).astype(np.float32).tobytes()
+    q = (
+        Query("*=>[KNN 1 @vec $v AS score]")
+        .return_fields("response", "score")
+        .dialect(2)
+    )
+    hits = r.ft("semcache").search(q, query_params={"v": emb}).docs
+    if hits and float(hits[0].score) < THRESHOLD:
+        return hits[0].response                     # cache hit semantico
+
+    # Miss: llama al LLM y guarda
+    resp = llm_fn(query)
+    r.hset(f"sem:{hash(query)}", mapping={"vec": emb, "response": resp})
+    return resp
+```
+
+### Monitoreo de hit rate
+
+```python
+# metrics.py (expuesto via Prometheus)
+from prometheus_client import Counter, Histogram
+
+HITS   = Counter("cache_hits_total", "Cache hits", ["layer"])
+MISSES = Counter("cache_misses_total", "Cache misses", ["layer"])
+LAT    = Histogram("cache_lookup_seconds", "Lookup latency", ["layer"])
+
+def observe(layer: str, hit: bool, dt: float):
+    (HITS if hit else MISSES).labels(layer).inc()
+    LAT.labels(layer).observe(dt)
+# hit_rate = sum(rate(cache_hits_total[5m])) / sum(rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+```
+
+## Errores comunes
+
+- **Cachear datos que cambian en segundos con TTL de minutos.** Sirves datos stale a usuarios. Usa event-based invalidation para datos críticos.
+- **TTL demasiado agresivo.** Hit rate <20% → el cache cuesta más de lo que ahorra (CPU de serialización, red). Mide siempre.
+- **No ponerle límite de memoria al Redis.** `maxmemory` sin configurar + política `noeviction` = OOM y servicio caído. Usa `allkeys-lru` o `allkeys-lfu`.
+- **Thundering herd en el miss.** 1000 requests simultáneas al mismo key que expiró → 1000 inferencias duplicadas. Soluciones: *single-flight* (una request computa, el resto espera), lock distribuido, o pre-refresh.
+- **Guardar objetos no serializables.** NumPy arrays, pandas DataFrames entran crudos y revientan al deserializar. Usa `pickle`, `msgpack` o `orjson`.
+- **No invalidar al re-entrenar modelo.** Cambiaste el modelo v2 → el cache sigue sirviendo predicciones del v1. Incluye `model_version` en la cache key.
+- **Cachear datos personalizados sin segmentar por usuario.** Un bug famoso: dos usuarios ven el mismo "resumen personal". Incluye `user_id` en la key.
+- **Ignorar coste de la red al cache.** Cache remoto a 50ms es más lento que recomputar un modelo pequeño en 20ms. Mide; a veces no cachear es la mejor decisión.
+- **Semantic cache con threshold laxo.** Threshold 0.80 devuelve respuestas de queries parecidas pero distintas. Para producción, 0.92-0.97 según el dominio.
+
+## Resumen
+
+- Caching ahorra latencia (10-100×) y GPU (hasta 50-80% del tráfico repetido).
+- Tipos clave en IA: feature, prediction, embedding, **KV-cache / prefix**, model, intermediate, negative, **semantic**.
+- Estrategias de invalidación: TTL (simple), event-based (fresco), version-based (preciso), lazy (reparte carga).
+- Patrones: **cache-aside** por defecto; **read-through** y **write-through** cuando el stack lo soporta.
+- Multi-nivel: in-process → Redis distribuido → CDN. Cada nivel captura un patrón distinto de localidad.
+- **vLLM prefix caching** es ganancia gratuita para system prompts repetidos; **semantic cache** (GPTCache) amplifica hit rate en LLMs.
+- Siempre instrumenta `hit_rate`, `miss_rate`, `eviction_rate`, `p99_lookup_latency`. Si no mides, no sabes si vale la pena.
+- Herramientas: Redis, Redis Vector Search, Memcached, GPTCache, Caffeine, CDN (CloudFront, Fastly), vLLM, TGI.

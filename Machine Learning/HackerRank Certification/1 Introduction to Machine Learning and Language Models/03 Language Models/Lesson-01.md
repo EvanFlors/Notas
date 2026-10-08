@@ -1,265 +1,343 @@
-## Understanding Language Modeling and Core Applications
-Imagine you are building a customer support system that needs to automatically route incoming emails to the right department, or developing a content moderation system that flags inappropriate posts.
+# Modelado de Lenguaje: Clasificación y Reconocimiento de Entidades (NER)
 
-Language modeling forms the foundation of modern AI applications, from the ChatGPT interface you might use daily to the spam detection protecting your inbox. In this lesson, you will understand what language modeling actually means, explore its core applications through classification and Named Entity Recognition (NER), and learn how to identify which approach fits different business problems.
+## ¿Qué es?
 
-By the end of this lesson, you will be able to distinguish between language modeling tasks, recognize real-world applications in production systems, and make informed decisions about which approach to use for specific engineering challenges.
+El **modelado de lenguaje** (Language Modeling) es la disciplina dentro del NLP (Natural Language Processing) que enseña a una computadora a **entender, representar y manipular lenguaje humano** mediante patrones estadísticos aprendidos a partir de grandes volúmenes de texto. Un *modelo de lenguaje* (LM) es, formalmente, una **distribución de probabilidad sobre secuencias de tokens**:
 
-What is Language Modeling?
-Language modeling is fundamentally about teaching computers to understand and work with human language in a structured, predictable way. At its core, a language model learns patterns in text data to make predictions or extract meaningful information.
+```
+P(w₁, w₂, …, wₙ) = Π P(wᵢ | w₁, …, wᵢ₋₁)
+```
 
-Think of language modeling as giving a computer the ability to "read" text and perform specific tasks with it; whether that is categorizing customer feedback, extracting important information from legal documents, or determining the sentiment of social media posts.
+Esta formulación —la **regla de la cadena** aplicada al texto— es la base matemática que une tanto a los modelos n-gram clásicos de los años 80 como a los LLMs modernos tipo GPT-4. Un LM responde a la pregunta: *"¿qué tan plausible es esta secuencia de palabras?"*. A partir de esa capacidad se derivan tareas concretas:
 
-What is Language Modeling?
-Language modeling is fundamentally about teaching computers to understand and work with human language in a structured, predictable way. At its core, a language model learns patterns in text data to make predictions or extract meaningful information.
+- **Clasificación de texto:** asignar una etiqueta (o varias) a un documento completo.
+- **Reconocimiento de entidades nombradas (NER):** encontrar y etiquetar fragmentos específicos (personas, lugares, organizaciones, fechas).
+- **Generación de texto:** completar o producir texto nuevo.
+- **Traducción, resumen, respuesta a preguntas, etc.**
 
-Think of language modeling as giving a computer the ability to "read" text and perform specific tasks with it; whether that is categorizing customer feedback, extracting important information from legal documents, or determining the sentiment of social media posts.
+En esta lección nos enfocamos en los dos pilares más usados en producción: **clasificación** y **NER**.
 
-Language modeling tasks generally fall into two categories:
+> **Dato histórico:** Claude Shannon, en *A Mathematical Theory of Communication* (1948), fue el primero en usar modelos probabilísticos de lenguaje para estimar la entropía del inglés escrito. Shannon modeló letras y palabras como procesos de Markov, sembrando la semilla matemática del campo.
 
-Classification Tasks assign labels or categories to entire pieces of text. When Gmail decides whether an email is spam or legitimate, that is classification. When a news app categorizes articles as "Sports," "Technology," or "Politics," that is also classification.
+### Jerarquía conceptual
 
-Information Extraction Tasks find and pull out specific pieces of information from within text. When a resume parsing system identifies someone's job titles and companies from their work history, that is information extraction. When a medical system pulls drug names and dosages from doctor's notes, that is information extraction too.
+```
+Procesamiento de Lenguaje Natural (NLP)
+└── Modelado de Lenguaje (LM)
+    ├── Modelos estadísticos (n-grams, HMM)
+    ├── Modelos neuronales clásicos (RNN, LSTM)
+    └── Modelos basados en Transformers
+        ├── Encoder-only  → BERT, RoBERTa      (entendimiento)
+        ├── Decoder-only  → GPT, LLaMA, Claude (generación)
+        └── Encoder-Decoder → T5, BART         (seq2seq)
+```
 
-![Named Entity Recognition](https://hrcdn.net/ai-engineering/module-1/light/language-models-lesson01-classification-vs-ner.svg)
+## ¿Por qué importa?
 
-Text Classification
-Text classification solves the problem of organizing and routing text-based content automatically. Instead of hiring teams of people to manually categorize thousands of customer emails, support tickets, or product reviews, you can train a model to do this consistently and instantly.
+El texto no estructurado representa, según IDC, más del **80% de los datos empresariales**: correos, tickets, contratos, chats, publicaciones, documentación. Procesar manualmente ese volumen es inviable. El modelado de lenguaje convierte texto crudo en **señal accionable**:
 
-Classification Applications
-Customer Support Routing: Companies like Zendesk use classification to automatically route incoming support tickets. A ticket saying "I can not log into my account" gets routed to the authentication team, while "Your app keeps crashing" goes to the technical support team. This reduces response times from hours to minutes.
+- **Enrutamiento automático de tickets:** reduce tiempos de respuesta de horas a segundos.
+- **Moderación de contenido:** detecta discursos de odio o spam antes del humano.
+- **Análisis de sentimiento:** mide satisfacción de clientes a escala.
+- **Extracción estructurada:** convierte un contrato PDF en filas de base de datos.
+- **Compliance y legal:** identifica PII (datos personales) para GDPR o HIPAA.
 
-Content Moderation: Social media platforms use classification to identify potentially harmful content before human moderators review it. A model might classify posts as "safe," "needs review," or "policy violation" based on the text content.
+Sin modelado de lenguaje, no existirían Gmail (filtro de spam), LinkedIn (parseo de CVs), Zendesk (routing), Grammarly (corrección), ni los asistentes conversacionales que usamos hoy.
 
-Sentiment Analysis: E-commerce platforms analyze product reviews to understand customer satisfaction. Instead of manually reading thousands of reviews, they classify them as positive, negative, or neutral, then use this data to improve products or identify issues early.
+### Impacto económico
 
-Classification in Practice
-When building a classification system, you are essentially teaching a model to recognize patterns that humans would use to make the same decisions. For a customer support system, you might feed the model thousands of examples like:
+| Industria | Caso de uso | Beneficio típico |
+|---|---|---|
+| Atención al cliente | Clasificación de tickets | -40% en tiempo de resolución |
+| Reclutamiento | NER sobre CVs | 10x candidatos filtrados por hora |
+| Legal / M&A | Extracción de cláusulas en contratos | 70% menos horas de abogado junior |
+| Salud | NER de medicamentos y dosis | Reducción de errores de medicación |
+| Finanzas | Clasificación de reclamos | Automatización de triage |
 
-"Password reset not working" → Authentication Team
-"Billing question about my invoice" → Billing Team
-"Feature request for mobile app" → Product Team
+## ¿Cómo funciona?
 
-Customer Support Email Classifier
-This demonstrates the core concept of text classification - teaching a model to categorize text based on patterns, like routing customer emails to the right team.
+Un sistema de modelado de lenguaje opera en tres fases:
+
+1. **Preprocesamiento y tokenización:** convertir texto en unidades discretas (tokens) y luego en vectores numéricos.
+2. **Modelo:** una función que mapea esos vectores a predicciones (etiquetas o probabilidades).
+3. **Evaluación:** métricas específicas de la tarea (accuracy, F1, precision/recall por entidad).
+
+### Clasificación de texto
+
+En clasificación, dado un documento `x`, el modelo predice una etiqueta `y ∈ {C₁, C₂, …, Cₖ}`:
+
+```
+ŷ = argmax_{c ∈ C}  P(c | x)
+```
+
+Para calcular `P(c | x)` existen múltiples enfoques:
+
+| Enfoque | Representación | Modelo | Cuándo usarlo |
+|---|---|---|---|
+| Bolsa de palabras (BoW) + Naive Bayes | Conteos de palabras | Multinomial NB | Baseline rápido, datasets pequeños |
+| TF-IDF + Regresión Logística / SVM | Pesos TF-IDF | LogReg, SVM lineal | Clasificación de texto corto, interpretable |
+| Embeddings estáticos + CNN/LSTM | Word2Vec, GloVe | Red neuronal | Datasets medianos (10k–100k ejemplos) |
+| Transformers fine-tuned | BERT, DistilBERT | Encoder + head | Alto rendimiento, datos abundantes |
+| LLMs con zero/few-shot | Prompt engineering | GPT-4, Claude | Sin datos de entrenamiento |
+
+#### Tipos de clasificación
+
+- **Binaria:** spam vs. no-spam.
+- **Multiclase:** categorizar noticia en {deportes, política, ciencia, ...}.
+- **Multi-etiqueta:** un correo puede ser {urgente, facturación} simultáneamente.
+- **Jerárquica:** categorías anidadas (electrónica → smartphones → Android).
+
+### Named Entity Recognition (NER)
+
+NER es un problema de **etiquetado de secuencias**: a cada token le asignamos una etiqueta de entidad. El esquema estándar es **BIO (Beginning–Inside–Outside)**:
+
+```
+Token:  John   Smith   trabaja  en   Google   Mountain  View
+BIO:    B-PER  I-PER    O       O    B-ORG    B-LOC     I-LOC
+```
+
+- `B-X`: inicio de una entidad de tipo X.
+- `I-X`: continuación de esa entidad.
+- `O`: fuera de toda entidad.
+
+Variantes: **BIOES** (añade `E` para fin y `S` para entidades de un solo token), útil cuando necesitas delimitar límites con precisión.
+
+![Esquema BIO para NER](https://hrcdn.net/ai-engineering/module-1/light/language-models-lesson01-bio-tagging-scheme.svg)
+
+#### Entidades típicas
+
+| Tipo | Ejemplo | Dominio donde importa |
+|---|---|---|
+| PER (persona) | "Marie Curie" | Noticias, biografías |
+| ORG (organización) | "Google", "ONU" | Finanzas, prensa |
+| LOC (lugar) | "Berlín" | Logística, viajes |
+| DATE | "15 de marzo de 2024" | Contratos, legal |
+| MONEY | "$1,250.00" | Facturación, finanzas |
+| EMAIL / PHONE | contacto@ejemplo.com | CRM, soporte |
+| DRUG, DOSE | "ibuprofeno 400 mg" | Salud |
+| LAW, CASE | "Art. 123 LFT" | Legal |
+
+![Clasificación vs. NER](https://hrcdn.net/ai-engineering/module-1/light/language-models-lesson01-classification-vs-ner.svg)
+
+### Pipeline completo
+
+```
+Texto crudo
+    ↓
+Normalización (lowercase, acentos, Unicode NFC)
+    ↓
+Tokenización (whitespace, regex, subword BPE)
+    ↓
+Vectorización (BoW, TF-IDF, embeddings)
+    ↓
+Modelo (clasificador o etiquetador de secuencia)
+    ↓
+Post-procesamiento (umbrales, consolidación BIO)
+    ↓
+Métricas (accuracy, F1 por entidad)
+```
+
+### Métricas específicas
+
+Para clasificación:
+
+- **Accuracy** si las clases están balanceadas.
+- **Precision, Recall, F1** por clase, y **macro-F1** o **weighted-F1** si no lo están.
+
+Para NER, la métrica estándar es **F1 a nivel de entidad** (no de token): una entidad cuenta como correcta sólo si *tanto el tipo como los límites exactos* coinciden. Es más estricta que el F1 por token.
+
+## Ejemplo con código
+
+### 1. Clasificador de tickets de soporte
 
 ```python
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
 
-# Training examples: what humans would classify manually
+# Dataset de entrenamiento
 training_data = [
-  ("Password reset not working", "Authentication"),
-  ("Can't log into my account", "Authentication"),
-  ("Billing question about invoice", "Billing"),
-  ("Charge on my credit card", "Billing"),
-  ("App keeps crashing", "Technical"),
-  ("Feature request for mobile app", "Product")
+    ("No puedo iniciar sesión en mi cuenta",   "Autenticación"),
+    ("Olvidé mi contraseña",                   "Autenticación"),
+    ("La verificación en dos pasos falla",     "Autenticación"),
+    ("Cobro duplicado en mi tarjeta",          "Facturación"),
+    ("Pregunta sobre mi factura mensual",      "Facturación"),
+    ("Quiero cancelar mi suscripción",         "Facturación"),
+    ("La app se cierra sola",                  "Técnico"),
+    ("No carga los datos del dashboard",       "Técnico"),
+    ("Error 500 al guardar cambios",           "Técnico"),
+    ("Me gustaría una función de exportar",    "Producto"),
+    ("Sugerencia: modo oscuro en móvil",       "Producto"),
 ]
 
-# Separate text and labels
-emails, teams = zip(*training_data)
+X, y = zip(*training_data)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
 
-# Train the classifier
-vectorizer = TfidfVectorizer()
-classifier = MultinomialNB()
+pipeline = Pipeline([
+    ("tfidf", TfidfVectorizer(ngram_range=(1, 2), min_df=1, sublinear_tf=True)),
+    ("clf", MultinomialNB(alpha=0.5)),
+])
 
-X = vectorizer.fit_transform(emails)
-classifier.fit(X, teams)
+pipeline.fit(X_train, y_train)
+y_pred = pipeline.predict(X_test)
 
-# Test with new emails
-new_emails = [
-  "I forgot my password",
-  "Wrong amount charged",
-  "App won't load data"
+print(classification_report(y_test, y_pred, zero_division=0))
+
+# Predicción con umbral de confianza (para enrutar casos ambiguos a humano)
+nuevos = [
+    "Me cobraron de más este mes",
+    "El botón de guardar no responde",
+    "Pueden añadir integración con Slack?",
 ]
+probs = pipeline.predict_proba(nuevos)
+clases = pipeline.classes_
 
-for email in new_emails:
-  X_new = vectorizer.transform([email])
-  prediction = classifier.predict(X_new)[0]
-  print(f"'{email}' → {prediction} Team")
+for texto, p in zip(nuevos, probs):
+    top = max(zip(clases, p), key=lambda kv: kv[1])
+    categoria, conf = top
+    destino = categoria if conf >= 0.60 else "Revisión humana"
+    print(f"'{texto}' → {destino} (confianza={conf:.2f})")
 ```
 
-The model learns that certain words and phrases correlate with specific categories, then applies this knowledge to new, unseen text.
+**Observa el umbral de confianza:** en producción nunca debes forzar cada caso a una categoría. Enrutar lo ambiguo a un humano protege la experiencia del usuario y provee datos valiosos para re-entrenar.
 
-Production Considerations for Classification
-In production systems, classification models need to handle edge cases gracefully. What happens when a customer email does not fit neatly into any category? Good systems include an "uncertain" category or confidence thresholds that route ambiguous cases to human reviewers.
+### 2. NER basado en reglas (regex)
 
-On classification Machine Learning models, usually we need to add a new category to catch ambiguous cases and not forcing them into existing categories.
-
-You will also need to monitor for concept drift—when the types of incoming text change over time. A classification model trained on pre-pandemic customer emails might struggle with COVID-related queries, requiring retraining with new examples.
-
-## Named Entity Recognition: Extracting Structured Information
-Named Entity Recognition (NER) goes beyond simple classification by finding and extracting specific pieces of information within text. While classification tells you what type of document you are dealing with, NER tells you what important things are mentioned inside that document.
-
-Understanding NER Through Examples
-Think of NER as teaching a computer to highlight text the way a human might with different colored markers. In the sentence "John Smith works at Google in Mountain View," a NER system would identify:
-
-"John Smith" as a PERSON
-"Google" as an ORGANIZATION
-"Mountain View" as a LOCATION
-This structured extraction transforms unstructured text into data you can store in databases, use for analytics, or integrate with other systems.
-
-Basic NER Implementation
-This shows how NER identifies and extracts specific entities from text, which is essential for converting unstructured documents into structured data for business systems.
+Útil como baseline y para entidades estructuradas (emails, teléfonos, dinero):
 
 ```python
 import re
 from collections import defaultdict
 
 class SimpleNER:
-  def __init__(self):
-      # Simple patterns for demonstration - production systems use much more sophisticated approaches
-      self.patterns = {
-          'PERSON': [
-              r'\b[A-Z][a-z]+ [A-Z][a-z]+\b',  # First Last
-              r'\bMr\. [A-Z][a-z]+\b',         # Mr. Last
-              r'\bMs\. [A-Z][a-z]+\b',         # Ms. Last
-          ],
-          'EMAIL': [
-              r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-          ],
-          'PHONE': [
-              r'\b\d{3}-\d{3}-\d{4}\b',        # 123-456-7890
-              r'\(\d{3}\) \d{3}-\d{4}\b',      # (123) 456-7890
-          ],
-          'MONEY': [
-              r'\$[\d,]+\.?\d*\b',             # $1,000.00
-          ]
-      }
+    def __init__(self):
+        self.patterns = {
+            "PERSON": [
+                r"\b[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+ [A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\b",
+                r"\b(?:Sr|Sra|Dr|Dra)\.?\s[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\b",
+            ],
+            "EMAIL": [r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"],
+            "PHONE": [
+                r"\b\d{3}-\d{3}-\d{4}\b",
+                r"\(\d{3}\)\s?\d{3}-\d{4}\b",
+                r"\+\d{1,3}\s?\d{2,}\s?\d{4,}\b",
+            ],
+            "MONEY": [r"\$\s?[\d,]+(?:\.\d{2})?\b"],
+            "DATE":  [r"\b\d{1,2}/\d{1,2}/\d{2,4}\b"],
+        }
 
-  def extract_entities(self, text):
-      entities = defaultdict(list)
+    def extract(self, text: str):
+        found = defaultdict(list)
+        for tipo, patrones in self.patterns.items():
+            for pat in patrones:
+                for m in re.finditer(pat, text):
+                    found[tipo].append({"text": m.group(), "start": m.start(), "end": m.end()})
+        return dict(found)
 
-      for entity_type, patterns in self.patterns.items():
-          for pattern in patterns:
-              matches = re.finditer(pattern, text)
-              for match in matches:
-                  entities[entity_type].append({
-                      'text': match.group(),
-                      'start': match.start(),
-                      'end': match.end()
-                  })
 
-      return dict(entities)
-
-  def annotate_text(self, text):
-      """Show entities in context"""
-      entities = self.extract_entities(text)
-
-      # Sort all entities by position for proper annotation
-      all_entities = []
-      for entity_type, entity_list in entities.items():
-          for entity in entity_list:
-              all_entities.append((entity['start'], entity['end'],
-                                 entity['text'], entity_type))
-
-      all_entities.sort(key=lambda x: x[0])
-
-      # Annotate text
-      result = text
-      offset = 0
-
-      for start, end, text_span, entity_type in all_entities:
-          tag = f"[{text_span}|{entity_type}]"
-          result = result[:start + offset] + tag + result[end + offset:]
-          offset += len(tag) - len(text_span)
-
-      return result
-
-# Example usage
 ner = SimpleNER()
+texto = "Contacta a Sra. López en lopez@empresa.com o (555) 123-4567 por el contrato de $12,500.00 vencido el 15/03/2024."
+for tipo, lista in ner.extract(texto).items():
+    print(f"{tipo}: {[e['text'] for e in lista]}")
+```
 
-sample_texts = [
-  "Contact John Smith at john.smith@company.com or call (555) 123-4567 for the $2,500 contract.",
-  "Sarah Johnson earned $75,000 last year working at Tech Corp.",
-  "Please send the invoice to Ms. Davis at davis@email.com for $1,200.50."
+### 3. NER profesional con spaCy
+
+```python
+# pip install spacy && python -m spacy download es_core_news_md
+import spacy
+
+nlp = spacy.load("es_core_news_md")
+
+texto = ("Elon Musk anunció en Austin que Tesla invertirá 10 mil millones de dólares "
+         "en una nueva planta durante 2025, en colaboración con Panasonic.")
+
+doc = nlp(texto)
+for ent in doc.ents:
+    print(f"{ent.text:<25} {ent.label_:<10} ({ent.start_char}-{ent.end_char})")
+
+# Entrenamiento rápido con tus propias entidades (patrones):
+from spacy.pipeline import EntityRuler
+ruler = nlp.add_pipe("entity_ruler", before="ner")
+patterns = [
+    {"label": "DRUG",  "pattern": "ibuprofeno"},
+    {"label": "DOSE",  "pattern": [{"LIKE_NUM": True}, {"LOWER": {"IN": ["mg", "ml"]}}]},
 ]
-
-print("NER Entity Extraction Results:")
-print("=" * 50)
-
-for i, text in enumerate(sample_texts, 1):
-  print(f"Example {i}: {text}")
-
-  entities = ner.extract_entities(text)
-  print("Extracted Entities:")
-
-  for entity_type, entity_list in entities.items():
-      print(f"  {entity_type}: {[e['text'] for e in entity_list]}")
-
-  print(f"Annotated: {ner.annotate_text(text)}")
-  print()
+ruler.add_patterns(patterns)
 ```
 
-NER Applications
-Resume Parsing
-Recruiting platforms like LinkedIn use NER to automatically extract skills, job titles, company names, and education details from uploaded resumes. This saves recruiters from manually entering information and enables better search and matching capabilities.
+### 4. Clasificación con BERT (vista previa)
 
-Financial Document Processing
-Banks use NER to extract key information from loan applications, contracts, and financial reports. Instead of employees manually entering account numbers, dates, and monetary amounts, NER systems can identify and extract this information automatically.
+```python
+# pip install transformers torch
+from transformers import pipeline
 
-NER Implementation Challenges
-Unlike classification, which assigns one label to an entire text, NER must identify multiple entities within the same document and determine their boundaries accurately. The system needs to recognize that "New York" is one entity (a city), not two separate words.
+clf = pipeline("sentiment-analysis",
+               model="nlptown/bert-base-multilingual-uncased-sentiment")
 
-Text Preprocessing for NER
-NER systems require different preprocessing than classification. You need to preserve capitalization (since "Apple" the company versus "apple" the fruit matters), maintain punctuation that helps identify entity boundaries, and carefully handle tokenization to avoid splitting entities incorrectly.
-
-Sequence Labeling Approach
-NER works by labeling each word (or token) in a sequence. For "John Smith works at Google," the model assigns:
-
-```
-- "John" → B-PERSON (Beginning of person entity)
-- "Smith" → I-PERSON (Inside person entity)
-- "works" → O (Outside any entity)
-- "at" → O
-- "Google" → B-ORG (Beginning of organization entity)
+for frase in ["Me encantó el producto", "Pésima atención", "Está bien, nada especial"]:
+    print(frase, "→", clf(frase)[0])
 ```
 
-This BIO tagging scheme (Beginning, Inside, Outside) helps the model understand entity boundaries. The preprocessing must ensure that tokenization aligns properly with these labels—if "John Smith" gets split incorrectly, the labeling breaks down.
+Verás BERT en profundidad en la Lesson 02; aquí basta notar que con 3 líneas obtenemos un clasificador multilingüe listo para producción.
 
-![BIO Tagging Example](https://hrcdn.net/ai-engineering/module-1/light/language-models-lesson01-bio-tagging-scheme.svg)
+## Errores comunes
 
-Feature Engineering for NER
-While classification might use bag-of-words effectively, NER typically requires more sophisticated features:
+- **Confundir clasificación con NER.** Clasificación etiqueta el *documento entero*; NER etiqueta *fragmentos internos*. Mezclar objetivos conduce a modelos imposibles de evaluar.
+- **Preprocesar demasiado para NER.** Para clasificación bajar a minúsculas puede ayudar; para NER *destruye* señal: "Apple" (empresa) y "apple" (fruta) deben distinguirse.
+- **Forzar todo a categorías existentes.** Siempre añade una categoría `"otros"` o `"revisión_humana"` con umbral de confianza para evitar errores silenciosos.
+- **Olvidar BIO en NER.** Si no modelas los límites, "Nueva York" aparecerá como dos entidades `LOC` separadas.
+- **Clases desbalanceadas sin ajuste.** 99% "no-spam" + 1% "spam" → accuracy 99% con un modelo que predice siempre "no-spam". Usa `class_weight="balanced"` o técnicas de resampling (SMOTE).
+- **Data leakage por normalización global.** Calcular TF-IDF sobre todo el corpus (train + test) antes del split filtra información del test al train.
+- **Concept drift ignorado.** Un clasificador entrenado en 2019 no reconoce "COVID" o "stake" (cripto). Reentrena con feedback real.
+- **Métricas en el nivel equivocado.** NER evaluado a nivel de token sobreestima el desempeño; usa F1 a nivel de entidad.
+- **No manejar OOV (out-of-vocabulary).** Con tokenización por palabras, cualquier palabra nueva en producción se vuelve `UNK`. Prefiere subword tokenization (BPE, WordPiece, SentencePiece).
+- **Ambigüedad semántica sin contexto.** "Apple" sin el resto de la oración es irresoluble; esto motivó la transición de Word2Vec a embeddings contextuales como ELMo (2018) y BERT (2018).
 
-Word embeddings capture semantic meaning ("CEO" and "President" should be similar) Character-level features help identify patterns (many person names are capitalized, email addresses contain "@")
-Contextual features from surrounding words (words after "Mr." are likely person names)
-Gazetteer features from known entity lists (lists of company names, cities, etc.)
-Context matters significantly in NER. The word "Apple" could refer to the fruit or the technology company, depending on surrounding text. Production NER systems need sophisticated context understanding to make these distinctions reliably.
+## Herramientas del ecosistema
 
-Combining Classification and NER
-Many production systems combine both approaches. A legal tech company might first classify documents by type (contract, court filing, correspondence), then use NER to extract specific information relevant to each document type. Contracts might have entities extracted for parties, dates, and monetary amounts, while court filings might focus on case numbers, judge names, and legal statutes.
+| Herramienta | Propósito | Fortaleza |
+|---|---|---|
+| **NLTK** | Didáctica, baseline académico | Tokenizadores, corpora clásicos |
+| **spaCy** | NER + pipelines productivos | Rápido, multilingüe, API limpia |
+| **scikit-learn** | Clasificación tradicional | TF-IDF, SVM, LogReg, pipelines |
+| **gensim** | Topic modeling, Word2Vec | LDA, embeddings estáticos |
+| **HuggingFace Transformers** | LLMs y encoders modernos | 100k+ modelos, `pipeline()` |
+| **tiktoken** | Tokenización de OpenAI | Rápido, consistente con GPT |
+| **Flair** | NER con embeddings contextuales | Buen SOTA para NER |
+| **Stanza (Stanford)** | NLP multilingüe académico | Modelos para 70+ idiomas |
 
-Choosing the Right Approach for Your Use Case
-The decision between classification and NER—or using both—depends on your specific business requirements and what you plan to do with the extracted information.
+## Combinando clasificación y NER
 
-Use Classification When:
+Los sistemas reales suelen encadenar ambos:
 
-You need to route, organize, or categorize entire documents
-You need simple, fast decisions for high-volume text processing
-Use NER When:
+```
+Documento legal
+    ↓
+Clasificador  → "Contrato de arrendamiento"
+    ↓
+NER especializado para arrendamientos
+    ↓
+{partes: ["Juan Pérez", "InmoSA"], renta: "$15,000 MXN",
+ vigencia: "12 meses", inicio: "2024-04-01"}
+    ↓
+Base de datos estructurada
+```
 
-You need to extract specific data points for storage or analysis
-You are building systems that need structured data from unstructured text
-The valuable information is scattered throughout documents
-Use Both When:
+Esta combinación es la base de productos como **DocuSign Insight**, **Hyperscience** o **UiPath Document Understanding**.
 
-Different document types require different extraction strategies
-You need both routing logic and data extraction capabilities
+## Resumen
 
-Common Pitfalls and Solutions
-Insufficient Training Data Quality: Both classification and NER models require high-quality, representative training data. Spending time on data quality upfront prevents accuracy issues in production. Ensure your training data reflects the variety and complexity of real-world text your system will encounter.
-
-Ignoring Edge Cases: Production text is messier than training data. Plan for typos, unusual formatting, multiple languages, and text that doesn't fit your expected categories. Build fallback mechanisms and human review processes for uncertain cases.
-
-Summary
-Language modeling provides the foundation for solving real-world text processing challenges in production systems. Classification helps you organize and route text-based content automatically, while NER extracts specific structured information from unstructured documents.
-
-Key concepts to remember
-Classification assigns categories to entire documents, perfect for routing and organization tasks
-NER extracts specific entities within text, ideal for converting unstructured data into structured information
-Choose your approach based on whether you need document-level decisions or detailed information extraction
-Production systems often combine both approaches for comprehensive text processing pipelines
-Plan for edge cases, data quality, and ongoing maintenance from the beginning
-
+- Un **modelo de lenguaje** asigna probabilidad a secuencias de texto; esa capacidad habilita clasificación, NER, generación y más.
+- La **clasificación** etiqueta documentos enteros; el **NER** etiqueta fragmentos internos mediante esquemas como **BIO**.
+- Para clasificación clásica, el stack **TF-IDF + regresión logística/Naive Bayes** sigue siendo un baseline competitivo y barato.
+- Para NER usa **spaCy** (producción) o **BERT fine-tuned** (SOTA); los regex sirven para entidades estructuradas.
+- Las **métricas** importan: F1 a nivel entidad para NER, macro/weighted-F1 para clases desbalanceadas, umbrales de confianza para casos ambiguos.
+- **Preprocesamiento ≠ NER-friendly:** lowercase y stemming ayudan a clasificar pero destruyen pistas para NER.
+- Los sistemas reales **combinan ambos**: primero clasifican el tipo de documento, luego aplican el NER correcto.
+- Monitorea **concept drift**, maneja **OOV con subwords**, incluye una categoría de **"revisión humana"** y audita **sesgos** por grupo (género, región, idioma).
+- Shannon (1948) sentó la base probabilística; de ahí evolucionamos a n-grams, luego a RNN/LSTM, hasta llegar a los Transformers que verás en las siguientes lecciones.

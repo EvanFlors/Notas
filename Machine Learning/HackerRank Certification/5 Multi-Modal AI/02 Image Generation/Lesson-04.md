@@ -1,519 +1,488 @@
-## Image Generation Applications
-You understand how to generate images using OpenAI's Image Generation API and craft effective prompts. Now you need to build a production application that generates images at scale, handles errors gracefully, manages costs effectively, and ensures content quality. How do you architect such a system? What patterns should you follow?
+# Aplicaciones de Generación de Imágenes en Producción
 
-Building production image generation applications requires careful consideration of architecture, cost management, content moderation, and scalability. By the end of this lesson, you will understand how to structure production image generation systems, implement cost optimization strategies, handle content moderation, and deploy applications that generate images reliably at scale.
+## ¿Qué es?
 
-Application Architecture Patterns
-Production image generation applications require architectures that handle asynchronous processing, error recovery, and scalability.
+Una **aplicación de generación de imágenes en producción** es un sistema que, de forma confiable, convierte peticiones de usuarios en imágenes generadas, almacenadas y servidas, gestionando:
 
-Service Layer Architecture:
+- **Arquitectura en capas**: prompt processing, generación, moderación, almacenamiento, delivery.
+- **Procesamiento asíncrono y colas**: la generación tarda 5-30 segundos; no se puede bloquear request HTTP.
+- **Optimización de costos**: caching, deduplicación, elección de calidad adecuada por caso de uso.
+- **Moderación de contenido**: filtros antes (prompt) y después (imagen) para cumplir políticas.
+- **Observabilidad**: logging, métricas, trazas; sin esto no se puede operar un sistema que gasta USD/request.
+- **Resiliencia**: retries, fallbacks, circuit breakers, degradación elegante.
+- **Multi-modelo**: enrutar a DALL-E 3, GPT-Image, Flux o SD según costo/calidad.
 
-Structure your application in layers:
+Es la diferencia entre un notebook y un servicio con SLA.
 
-```python
-# Layer 1: Prompt Processing
-class PromptProcessor:
-  """Process and optimize prompts."""
+## ¿Por qué importa?
 
-  def validate_prompt(self, prompt):
-      """Validate prompt for content policy compliance."""
-      pass
+Un error de arquitectura en generación de imágenes es más caro que en texto:
 
-  def optimize_prompt(self, prompt):
-      """Optimize prompt for better results."""
-      pass
+- **Costo marginal 100-1000× mayor** que un LLM call (USD 0.04-0.19 vs USD 0.001).
+- **Latencia 10× mayor** (10-30s vs 1-3s), incompatible con request síncronos HTTP.
+- **Impacto legal** si no moderas (deepfakes, contenido ilegal, infracción de copyright).
+- **Reputación de marca** si imágenes malas llegan al usuario sin revisión.
+- **Scaling cost blowups**: sin cache ni rate limiting, un bot puede quemar USD 10k en una noche.
 
-# Layer 2: Image Generation Service
-class ImageGenerationService:
-  """Handle image generation API calls."""
+Las empresas que generan a escala (Canva, Shopify, Adobe) invierten tanto en infraestructura como en los modelos mismos.
 
-  def generate(self, prompt, options):
-      """Generate image with retry logic."""
-      pass
+## ¿Cómo funciona?
 
-  def download_image(self, url):
-      """Download generated image."""
-      pass
+### Arquitectura en capas (clean architecture)
 
-# Layer 3: Storage and Delivery
-class ImageStorage:
-  """Handle image storage and delivery."""
-
-  def store_image(self, image_data, metadata):
-      """Store generated image."""
-      pass
-
-  def get_image_url(self, image_id):
-      """Get URL for stored image."""
-      pass
-
-# Layer 4: Application Logic
-class ImageGenerationApp:
-  """Main application orchestrating image generation."""
-
-  def __init__(self):
-      self.prompt_processor = PromptProcessor()
-      self.generation_service = ImageGenerationService()
-      self.storage = ImageStorage()
-
-  def generate_and_store(self, prompt, options):
-      """Generate image and store result."""
-      # Validate and optimize prompt
-      processed_prompt = self.prompt_processor.optimize_prompt(prompt)
-
-      # Generate image
-      result = self.generation_service.generate(processed_prompt, options)
-
-      # Download and store
-      image_data = self.generation_service.download_image(result['url'])
-      stored_image = self.storage.store_image(image_data, {
-          'prompt': processed_prompt,
-          'options': options
-      })
-
-      return stored_image
+```
+┌─────────────────────────────────────────────┐
+│  API Gateway (FastAPI/Express)               │
+│  - Rate limiting por usuario                 │
+│  - Autenticación                             │
+└──────────────┬──────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────┐
+│  Prompt Processor                            │
+│  - Validación (content policy)               │
+│  - Optimización (templates, enrichment)      │
+│  - Deduplicación / cache lookup              │
+└──────────────┬──────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────┐
+│  Job Queue (Redis / SQS / Celery)            │
+│  - Prioridad por tier (free/paid)            │
+│  - Dead letter queue                         │
+└──────────────┬──────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────┐
+│  Generation Workers (async pool)             │
+│  - Model router (DALL-E / Flux / SDXL)       │
+│  - Retry + backoff                           │
+│  - Fallback a modelo alternativo             │
+└──────────────┬──────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────┐
+│  Post-processing                             │
+│  - Moderación de la imagen (Rekognition)     │
+│  - Upscaling, watermark                      │
+│  - Thumbnail generation                      │
+└──────────────┬──────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────┐
+│  Storage + CDN (S3 + CloudFront)             │
+└──────────────┬──────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────┐
+│  Notification (webhook / WebSocket / email) │
+└─────────────────────────────────────────────┘
 ```
 
-Async Processing Architecture:
+### Patrones de procesamiento
 
-Use async processing for better performance:
+| Patrón | Cuándo usarlo | Latencia percibida |
+|---|---|---|
+| **Síncrono bloqueante** | Prototipos, demos | Usuario espera 15-30s |
+| **Polling** | Dashboards simples | Cliente consulta cada 2s |
+| **WebSocket** | SaaS con feedback en vivo | Push instantáneo |
+| **Webhook** | Pipeline B2B, batch | Server-to-server |
+| **Email / notificación push** | Jobs largos (upscale 4K) | Minutos a horas |
+
+### Estrategias de optimización de costos
+
+| Estrategia | Ahorro típico |
+|---|---|
+| **Cache por hash de prompt+params** | 30-70% en workloads repetitivos |
+| **Deduplicación en batch** | 10-40% |
+| **Elegir calidad adecuada** (standard vs HD) | 50% |
+| **Enrutamiento a modelo barato** cuando basta | 60-90% |
+| **Pre-generar top-N prompts populares** | depende |
+| **Lazy generation** (solo cuando usuario pide) | evita waste |
+| **Watermark + compression antes de servir** | ahorro CDN |
+
+### Comparativa de precios de referencia (2025)
+
+| Modelo | Precio aprox. por imagen 1024² |
+|---|---|
+| DALL-E 2 | $0.016 - $0.020 |
+| DALL-E 3 standard | $0.040 |
+| DALL-E 3 HD | $0.080 - $0.120 |
+| GPT-Image-1 low | $0.011 |
+| GPT-Image-1 medium | $0.042 |
+| GPT-Image-1 high | $0.167 - $0.190 |
+| Flux.1 schnell (Replicate) | $0.003 |
+| Flux.1 pro (Replicate) | $0.055 |
+| SDXL (Replicate) | $0.0023 / sec |
+| Self-hosted SDXL en GPU A10G | ~$0.001 por imagen |
+
+### Moderación de contenido
+
+Dos capas obligatorias:
+
+1. **Pre-generación (prompt)**: regex de términos prohibidos + llamada a `/v1/moderations` de OpenAI o modelo local.
+2. **Post-generación (imagen)**: AWS Rekognition, Google Vision Safe Search, o un modelo CLIP-based clasificador NSFW.
+
+## Ejemplo con código
+
+### 1. Servicio base con capas separadas
+
+```python
+from dataclasses import dataclass
+from typing import Protocol
+import hashlib, base64, logging
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class GenerationRequest:
+    prompt: str
+    user_id: str
+    size: str = "1024x1024"
+    quality: str = "standard"
+    model: str = "dall-e-3"
+
+@dataclass
+class GenerationResult:
+    image_bytes: bytes
+    url: str | None
+    cost_cents: float
+    model_used: str
+    revised_prompt: str | None = None
+
+
+class PromptProcessor:
+    FORBIDDEN = {"nude", "gore", "exploit"}
+
+    def validate(self, prompt: str) -> tuple[bool, str]:
+        low = prompt.lower()
+        for term in self.FORBIDDEN:
+            if term in low:
+                return False, f"blocked term: {term}"
+        if len(prompt) > 4000:
+            return False, "prompt too long"
+        return True, "ok"
+
+    def enrich(self, prompt: str) -> str:
+        if not any(k in prompt.lower()
+                   for k in ("quality", "detail", "8k", "4k")):
+            prompt += ", high detail, professional quality"
+        return prompt
+
+
+class ImageCache(Protocol):
+    def get(self, key: str) -> bytes | None: ...
+    def set(self, key: str, data: bytes) -> None: ...
+
+
+class S3Storage:
+    def __init__(self, client, bucket: str, cdn_base: str):
+        self.s3, self.bucket, self.cdn = client, bucket, cdn_base
+
+    def store(self, data: bytes, key: str) -> str:
+        self.s3.put_object(
+            Bucket=self.bucket, Key=key, Body=data,
+            ContentType="image/png", CacheControl="public, max-age=31536000",
+        )
+        return f"{self.cdn}/{key}"
+
+
+class ModelRouter:
+    """Elige modelo según caso de uso y presupuesto."""
+    def pick(self, req: GenerationRequest) -> str:
+        if req.quality == "low":
+            return "gpt-image-1-mini"
+        if req.quality == "hd":
+            return "gpt-image-1"
+        return "dall-e-3"
+```
+
+### 2. Generación con reintentos y fallback
+
+```python
+import time
+from openai import OpenAI, RateLimitError, APIError, BadRequestError
+
+client = OpenAI()
+
+def _call(model: str, prompt: str, size: str, quality: str) -> dict:
+    params = {"model": model, "prompt": prompt, "size": size, "n": 1}
+    if model.startswith("dall-e"):
+        params["response_format"] = "url"
+    if model == "dall-e-3":
+        params["quality"] = quality
+    return client.images.generate(**params).model_dump()
+
+def generate_with_fallback(prompt: str, size="1024x1024",
+                           quality="standard",
+                           primary="dall-e-3",
+                           fallback="gpt-image-1-mini",
+                           max_retries=3) -> dict:
+    for model in (primary, fallback):
+        for attempt in range(max_retries):
+            try:
+                return {"ok": True, "model": model,
+                        "response": _call(model, prompt, size, quality)}
+            except BadRequestError as e:
+                return {"ok": False, "error": f"policy: {e}"}
+            except RateLimitError:
+                time.sleep(2 ** attempt)
+            except APIError as e:
+                if e.status_code in (401, 403):
+                    return {"ok": False, "error": str(e)}
+                time.sleep(2 ** attempt)
+        logger.warning(f"model {model} exhausted retries, trying fallback")
+    return {"ok": False, "error": "all models failed"}
+```
+
+### 3. Worker asíncrono con semáforo
 
 ```python
 import asyncio
 from openai import AsyncOpenAI
 
-class AsyncImageGenerator:
-  """Async image generation service."""
+class AsyncImageService:
+    def __init__(self, max_concurrent: int = 10):
+        self.client = AsyncOpenAI()
+        self.sem = asyncio.Semaphore(max_concurrent)
 
-  def __init__(self, model="gpt-image-1-mini"):
-      self.client = AsyncOpenAI(
-          api_key="API_KEY",
-          base_url="BASE_URL",
-      )
-      self.model = model
-      self.semaphore = asyncio.Semaphore(10)  # Limit concurrent requests
+    async def generate(self, req: GenerationRequest) -> dict:
+        async with self.sem:
+            params = {
+                "model": req.model, "prompt": req.prompt,
+                "size": req.size, "n": 1,
+            }
+            if req.model.startswith("dall-e"):
+                params["response_format"] = "url"
+                params["quality"] = req.quality
+            r = await self.client.images.generate(**params)
+            d = r.data[0]
+            return {
+                "url": getattr(d, "url", None),
+                "b64": getattr(d, "b64_json", None),
+                "revised": getattr(d, "revised_prompt", None),
+            }
 
-  async def generate(self, prompt, options):
-      """Generate image asynchronously with concurrency control."""
-      async with self.semaphore:
-          try:
-              params = {
-                  "model": self.model,
-                  "prompt": prompt,
-                  "size": options.get('size', '1024x1024'),
-                  "n": 1
-              }
-
-              # Only DALL-E models support response_format parameter
-              if self.model.startswith("dall-e"):
-                  params["response_format"] = "url"
-
-              response = await self.client.images.generate(**params)
-
-              # Handle different response formats
-              if self.model.startswith("dall-e"):
-                  return {
-                      'success': True,
-                      'url': response.data[0].url,
-                      'revised_prompt': getattr(response.data[0], 'revised_prompt', None)
-                  }
-              else:
-                  # GPT Image models return base64
-                  return {
-                      'success': True,
-                      'b64_json': response.data[0].b64_json
-                  }
-          except Exception as e:
-              return {'success': False, 'error': str(e)}
-
-  async def generate_batch(self, prompts, options):
-      """Generate multiple images concurrently."""
-      tasks = [self.generate(prompt, options) for prompt in prompts]
-      return await asyncio.gather(*tasks)
+    async def generate_batch(self, reqs: list[GenerationRequest]) -> list[dict]:
+        return await asyncio.gather(*(self.generate(r) for r in reqs))
 ```
 
-Cost Optimization Strategies
-Image generation can be expensive. Implement cost optimization strategies:
-
-Prompt Caching:
-
-Cache generated images to avoid redundant generation:
+### 4. Cache con Redis
 
 ```python
-import hashlib
-import json
+import hashlib, json, redis
 
-class ImageCache:
-  """Cache generated images."""
+class RedisImageCache:
+    def __init__(self, url: str, ttl_days: int = 30):
+        self.r = redis.from_url(url)
+        self.ttl = ttl_days * 86400
 
-  def __init__(self, storage_backend):
-      self.storage = storage_backend
+    def _key(self, req: GenerationRequest) -> str:
+        payload = json.dumps({
+            "p": req.prompt, "s": req.size,
+            "q": req.quality, "m": req.model,
+        }, sort_keys=True)
+        return "img:" + hashlib.sha256(payload.encode()).hexdigest()
 
-  def get_cache_key(self, prompt, options):
-      """Generate cache key."""
-      key_data = json.dumps({
-          'prompt': prompt,
-          'size': options.get('size'),
-          'quality': options.get('quality')
-      }, sort_keys=True)
-      return hashlib.sha256(key_data.encode()).hexdigest()
+    def get(self, req: GenerationRequest) -> str | None:
+        return self.r.get(self._key(req))
 
-  def get(self, prompt, options):
-      """Get cached image."""
-      key = self.get_cache_key(prompt, options)
-      return self.storage.get(key)
-
-  def set(self, prompt, options, image_data):
-      """Cache image."""
-      key = self.get_cache_key(prompt, options)
-      self.storage.set(key, image_data)
+    def set(self, req: GenerationRequest, cdn_url: str) -> None:
+        self.r.setex(self._key(req), self.ttl, cdn_url)
 ```
 
-Batch Optimization:
-
-Optimize batch processing to reduce costs:
+### 5. Moderación con OpenAI Moderation API
 
 ```python
-class BatchOptimizer:
-  """Optimize batch image generation."""
+def moderate_prompt(prompt: str) -> dict:
+    r = client.moderations.create(
+        model="omni-moderation-latest",
+        input=prompt,
+    )
+    result = r.results[0]
+    return {
+        "flagged": result.flagged,
+        "categories": result.categories.model_dump(),
+    }
 
-  def optimize_batch(self, prompts):
-      """Optimize batch by deduplicating and caching."""
-      # Check cache first
-      cached_results = {}
-      uncached_prompts = []
-
-      for prompt in prompts:
-          cached = self.cache.get(prompt)
-          if cached:
-              cached_results[prompt] = cached
-          else:
-              uncached_prompts.append(prompt)
-
-      # Generate only uncached prompts
-      if uncached_prompts:
-          new_results = self.generate_batch(uncached_prompts)
-          # Cache new results
-          for prompt, result in zip(uncached_prompts, new_results):
-              self.cache.set(prompt, result)
-              cached_results[prompt] = result
-
-      return cached_results
+check = moderate_prompt("a peaceful mountain landscape")
+if check["flagged"]:
+    raise ValueError(f"prompt blocked: {check['categories']}")
 ```
 
-Quality vs. Cost Trade-offs:
-
-Choose appropriate quality settings:
+### 6. Moderación de imagen con AWS Rekognition
 
 ```python
-def select_quality_setting(use_case, budget_constraints):
-  """Select quality setting based on use case."""
-  quality_map = {
-      'thumbnail': {'quality': 'standard', 'size': '512x512'},
-      'social_media': {'quality': 'standard', 'size': '1024x1024'},
-      'print': {'quality': 'hd', 'size': '1024x1024'},
-      'preview': {'quality': 'standard', 'size': '1024x1024'}
-  }
+import boto3
 
-  if budget_constraints == 'low':
-      return {'quality': 'standard', 'size': '1024x1024'}
+rek = boto3.client("rekognition", region_name="us-east-1")
 
-  return quality_map.get(use_case, {'quality': 'standard', 'size': '1024x1024'})
+def is_safe(image_bytes: bytes, max_confidence: float = 70.0) -> tuple[bool, list]:
+    r = rek.detect_moderation_labels(
+        Image={"Bytes": image_bytes},
+        MinConfidence=max_confidence,
+    )
+    labels = r.get("ModerationLabels", [])
+    return len(labels) == 0, labels
 ```
 
-Content Moderation
-Implement content moderation to ensure generated images meet quality and policy standards:
-
-Prompt Validation:
-
-Validate prompts before generation:
+### 7. Orquestador completo
 
 ```python
-class ContentModerator:
-  """Moderate content before and after generation."""
+class ImageGenerationApp:
+    def __init__(self, cache: RedisImageCache, storage: S3Storage,
+                 router: ModelRouter, processor: PromptProcessor):
+        self.cache = cache
+        self.storage = storage
+        self.router = router
+        self.processor = processor
+        self.service = AsyncImageService(max_concurrent=10)
 
-  FORBIDDEN_TERMS = ['explicit', 'violence', 'hate']  # Simplified
+    async def handle(self, req: GenerationRequest) -> GenerationResult:
+        # 1. Validar
+        ok, reason = self.processor.validate(req.prompt)
+        if not ok:
+            raise ValueError(reason)
 
-  def validate_prompt(self, prompt):
-      """Validate prompt for policy compliance."""
-      prompt_lower = prompt.lower()
-      for term in self.FORBIDDEN_TERMS:
-          if term in prompt_lower:
-              return {
-                  'valid': False,
-                  'reason': f'Contains forbidden term: {term}'
-              }
-      return {'valid': True}
+        mod = moderate_prompt(req.prompt)
+        if mod["flagged"]:
+            raise ValueError("prompt violates policy")
 
-  def moderate_image(self, image_url):
-      """Moderate generated image."""
-      # In production, use image moderation API
-      # This is simplified
-      return {'approved': True}
+        # 2. Enrich + enrutar
+        req.prompt = self.processor.enrich(req.prompt)
+        req.model = self.router.pick(req)
+
+        # 3. Cache hit
+        if (cached := self.cache.get(req)) is not None:
+            logger.info("cache hit")
+            return GenerationResult(
+                image_bytes=b"", url=cached.decode(),
+                cost_cents=0, model_used="cache",
+            )
+
+        # 4. Generar
+        gen = await self.service.generate(req)
+
+        # 5. Obtener bytes
+        if gen["url"]:
+            import requests
+            img_bytes = requests.get(gen["url"], timeout=30).content
+        else:
+            img_bytes = base64.b64decode(gen["b64"])
+
+        # 6. Moderar imagen
+        safe, labels = is_safe(img_bytes)
+        if not safe:
+            raise ValueError(f"image blocked: {labels}")
+
+        # 7. Guardar en S3 + CDN
+        key = f"gen/{req.user_id}/{hashlib.md5(img_bytes).hexdigest()}.png"
+        cdn_url = self.storage.store(img_bytes, key)
+
+        # 8. Cachear
+        self.cache.set(req, cdn_url)
+
+        return GenerationResult(
+            image_bytes=img_bytes,
+            url=cdn_url,
+            cost_cents=4.0 if req.model == "dall-e-3" else 1.1,
+            model_used=req.model,
+            revised_prompt=gen.get("revised"),
+        )
 ```
 
-Post-Generation Review:
-
-Review generated images:
+### 8. Observabilidad: métricas Prometheus
 
 ```python
-class ImageReviewer:
-  """Review generated images."""
+from prometheus_client import Counter, Histogram
 
-  def review(self, image_url, prompt):
-      """Review image for quality and compliance."""
-      # Check image quality
-      quality_score = self.assess_quality(image_url)
+GEN_TOTAL = Counter("image_gen_total",
+                    "Total generations",
+                    ["model", "status"])
+GEN_LATENCY = Histogram("image_gen_latency_seconds",
+                        "Generation latency",
+                        ["model"])
+GEN_COST = Counter("image_gen_cost_cents_total",
+                   "Cumulative cost in cents",
+                   ["model"])
 
-      # Check compliance
-      compliance = self.check_compliance(image_url, prompt)
-
-      return {
-          'approved': quality_score > 0.7 and compliance['approved'],
-          'quality_score': quality_score,
-          'compliance': compliance
-      }
+async def generate_tracked(req: GenerationRequest) -> GenerationResult:
+    with GEN_LATENCY.labels(req.model).time():
+        try:
+            res = await app.handle(req)
+            GEN_TOTAL.labels(req.model, "success").inc()
+            GEN_COST.labels(req.model).inc(res.cost_cents)
+            return res
+        except Exception:
+            GEN_TOTAL.labels(req.model, "error").inc()
+            raise
 ```
 
-Error Handling and Resilience
-Implement comprehensive error handling:
-
-Retry Logic:
+### 9. API FastAPI con cola Celery
 
 ```python
-import time
-from openai import RateLimitError, APIError
+from fastapi import FastAPI, HTTPException
+from celery import Celery
 
-class ResilientImageGenerator:
-  """Image generator with error handling."""
+app_api = FastAPI()
+celery = Celery("gen", broker="redis://localhost:6379/0")
 
-  def generate_with_retry(self, prompt, options, max_retries=3):
-      """Generate with retry logic."""
-      for attempt in range(max_retries):
-          try:
-              return self.generate(prompt, options)
-          except RateLimitError as e:
-              wait_time = 2 ** attempt
-              time.sleep(wait_time)
-          except APIError as e:
-              if e.status_code in [400, 401, 403]:
-                  raise  # Don't retry on these errors
-              wait_time = 2 ** attempt
-              time.sleep(wait_time)
+@celery.task(bind=True, max_retries=3)
+def generate_task(self, prompt: str, user_id: str, webhook: str | None):
+    try:
+        req = GenerationRequest(prompt=prompt, user_id=user_id)
+        result = asyncio.run(app.handle(req))
+        if webhook:
+            import requests
+            requests.post(webhook, json={
+                "status": "done", "url": result.url,
+                "model": result.model_used,
+            }, timeout=10)
+        return result.url
+    except Exception as e:
+        raise self.retry(exc=e, countdown=2 ** self.request.retries)
 
-      raise Exception("Failed after retries")
+@app_api.post("/generate")
+async def enqueue(payload: dict):
+    task = generate_task.delay(
+        payload["prompt"], payload["user_id"], payload.get("webhook"),
+    )
+    return {"job_id": task.id, "status": "queued"}
+
+@app_api.get("/jobs/{job_id}")
+async def status(job_id: str):
+    r = generate_task.AsyncResult(job_id)
+    return {"status": r.status, "result": r.result if r.ready() else None}
 ```
 
-Fallback Strategies:
+## Errores comunes
 
-Implement fallbacks when generation fails:
+- **Request HTTP síncrono para generación de 15-30s**: timeouts, UX terrible, workers bloqueados. Siempre usa cola + polling/WebSocket/webhook.
+- **No cachear**: usuarios piden lo mismo (promos, templates, placeholders). Sin cache gastas 10-100× más.
+- **Cache key sin incluir `model` y `size`**: devuelves imagen incorrecta cuando el usuario cambia parámetros.
+- **No descargar URLs de DALL-E inmediatamente**: expiran en ~1h; links rotos en producción.
+- **No moderar prompt O imagen**: solo moderar texto no detecta ataques como "a girl in a bikini on a beach" que pasa el filtro de prompt pero genera contenido NSFW.
+- **Hardcode de un solo modelo**: cuando OpenAI tiene outage, todo cae. Implementa fallback a Flux/SD.
+- **Falta de rate limiting por usuario**: un bot free-tier puede quemarte USD 1,000/día.
+- **No pasar `user=user_id`** a OpenAI: pierdes trazabilidad para disputas.
+- **Loggear el prompt completo con PII** sin cuidado: GDPR violation.
+- **No fijar límites de concurrencia** (`asyncio.Semaphore`): saturas rate limits y empeoras latencia global.
+- **Guardar en S3 sin `CacheControl` ni compresión**: costos de egress inflados.
+- **No implementar circuit breaker**: cuando el proveedor falla, intentas infinitamente y acumulas latencia.
+- **Elegir siempre HD cuando basta standard**: 2× precio por diferencia imperceptible en thumbnails.
+- **No monitorear costo diario**: enteras del gasto cuando llega la factura. Alerta en Prometheus a USD/hora.
+- **Mezclar generación con delivery**: la lógica de serving (CDN, thumbnails, watermark) debe ir en una capa separada, no en el worker de generación.
+- **No manejar `revised_prompt` de DALL-E 3**: usuarios ven resultado inesperado y no saben por qué.
+- **Confiar en moderación perfecta**: siempre deja un botón "report" para humanos.
 
-```python
-class ImageGeneratorWithFallback:
-  """Generator with fallback strategies."""
+## Resumen
 
-  def generate_with_fallback(self, prompt, options):
-      """Generate with fallback options."""
-      try:
-          # Try primary generation
-          return self.primary_generator.generate(prompt, options)
-      except Exception as e:
-          # Fallback 1: Try with simplified prompt
-          try:
-              simplified = self.simplify_prompt(prompt)
-              return self.primary_generator.generate(simplified, options)
-          except Exception:
-              # Fallback 2: Use cached similar image
-              similar = self.find_similar_cached(prompt)
-              if similar:
-                  return similar
-              # Fallback 3: Return error
-              raise
-```
-
-Monitoring and Observability
-Monitor image generation applications:
-
-Key Metrics:
-
-Generation success rate
-Average generation time
-Cost per image
-Cache hit rate
-Error rates by type
-Logging:
-
-```python
-import logging
-import time
-
-logger = logging.getLogger(__name__)
-
-class MonitoredImageGenerator:
-  """Image generator with monitoring."""
-
-  def generate_with_monitoring(self, prompt, options):
-      """Generate with logging and metrics."""
-      start_time = time.time()
-
-      try:
-          result = self.generate(prompt, options)
-
-          latency = time.time() - start_time
-          logger.info(f"Image generated successfully: {latency:.2f}s")
-
-          # Record metrics
-          self.record_metric('success', 1)
-          self.record_metric('latency', latency)
-          self.record_metric('cost', self.calculate_cost(options))
-
-          return result
-
-      except Exception as e:
-          latency = time.time() - start_time
-          logger.error(f"Image generation failed: {e} ({latency:.2f}s)")
-
-          self.record_metric('error', 1)
-          self.record_metric('error_type', type(e).__name__)
-
-          raise
-```
-
-Deployment Strategies
-Queue-Based Processing:
-
-Use queues for high-volume generation:
-
-```python
-from queue import Queue
-import threading
-
-class ImageGenerationQueue:
-  """Queue-based image generation."""
-
-  def __init__(self, worker_count=5):
-      self.queue = Queue()
-      self.workers = []
-      for _ in range(worker_count):
-          worker = threading.Thread(target=self._worker)
-          worker.start()
-          self.workers.append(worker)
-
-  def _worker(self):
-      """Worker processes queue items."""
-      while True:
-          item = self.queue.get()
-          if item is None:
-              break
-          try:
-              result = self.generate(item['prompt'], item['options'])
-              item['callback'](result)
-          except Exception as e:
-              item['error_callback'](e)
-          finally:
-              self.queue.task_done()
-
-  def enqueue(self, prompt, options, callback, error_callback):
-      """Add generation task."""
-      self.queue.put({
-          'prompt': prompt,
-          'options': options,
-          'callback': callback,
-          'error_callback': error_callback
-      })
-```
-
-Webhook Notifications:
-
-Notify when generation completes:
-
-```python
-import requests
-
-class WebhookNotifier:
-  """Notify via webhook when generation completes."""
-
-  def notify_completion(self, webhook_url, result):
-      """Send webhook notification."""
-      try:
-          requests.post(webhook_url, json={
-              'status': 'completed',
-              'image_url': result['url'],
-              'prompt': result['prompt']
-          })
-      except Exception as e:
-          logger.error(f"Webhook notification failed: {e}")
-```
-
-Real-World Application Examples
-E-commerce Product Image Generation:
-
-```python
-class ProductImageGenerator:
-  """Generate product images for e-commerce."""
-
-  def generate_product_image(self, product):
-      """Generate product image."""
-      prompt = self.build_product_prompt(product)
-
-      # Validate prompt
-      if not self.moderator.validate_prompt(prompt)['valid']:
-          raise ValueError("Invalid prompt")
-
-      # Generate with caching
-      cached = self.cache.get(prompt, {'size': '1024x1024'})
-      if cached:
-          return cached
-
-      # Generate new image
-      result = self.generator.generate(prompt, {
-          'size': '1024x1024',
-          'quality': 'standard'
-      })
-
-      # Download and store
-      image_data = self.download_image(result['url'])
-      stored = self.storage.store(image_data, {
-          'product_id': product['id'],
-          'prompt': prompt
-      })
-
-      # Cache result
-      self.cache.set(prompt, {'size': '1024x1024'}, stored)
-
-      return stored
-```
-
-Social Media Content Generation:
-
-```python
-class SocialMediaImageGenerator:
-  """Generate social media images."""
-
-  def generate_for_post(self, post_content, platform):
-      """Generate image for social media post."""
-      prompt = self.build_social_prompt(post_content, platform)
-
-      # Generate asynchronously
-      result = await self.async_generator.generate(prompt, {
-          'size': self.get_platform_size(platform),
-          'quality': 'standard'
-      })
-
-      # Store and return
-      return self.storage.store_and_get_url(result['url'])
-```
-
-Summary
-Building production image generation applications requires careful architecture, cost optimization, content moderation, and error handling. By structuring applications in layers, implementing caching and batch optimization, moderating content, and handling errors gracefully, you can build reliable image generation systems.
-
-Monitoring, logging, and deployment strategies ensure applications scale and remain reliable in production environments.
-
-Key concepts to remember
-Layer your architecture - Separate prompt processing, generation, storage, and application logic
-Handle model differences - DALL·E models return URLs, GPT Image models return base64
-Optimize costs - Cache results, batch process, choose appropriate quality settings
-Moderate content - Validate prompts and review generated images
-Handle errors gracefully - Implement retries, fallbacks, and comprehensive error handling
-Monitor and observe - Track metrics, log comprehensively, monitor costs and performance
-Further learning resources
+- Una app de generación en producción se estructura en capas: **API gateway → prompt processor → queue → workers → post-processing → storage/CDN → notification**.
+- **Nunca generes síncronamente en el request HTTP**: usa cola (Celery/SQS) + polling/WebSocket/webhook.
+- **Optimización de costos**: cache por hash (prompt+size+quality+model), deduplicación en batch, elegir calidad adecuada, enrutar a modelo barato cuando basta.
+- Un **router de modelos** decide entre DALL-E 3 (calidad), GPT-Image-1 (SOTA/inpaint), Flux (barato/open), SDXL (self-hosted).
+- **Moderación en dos capas**: pre (prompt via `/moderations`) y post (imagen via Rekognition / Google Vision).
+- **Resiliencia**: retries con backoff exponencial, fallback a modelo alternativo, circuit breakers, dead letter queues.
+- **Observabilidad obligatoria**: métricas (Prometheus), logs estructurados, trazas (OpenTelemetry), alertas de costo por hora.
+- **Rate limiting por usuario** y `user=user_id` en requests a OpenAI para trazabilidad.
+- **Storage**: S3 + CDN (CloudFront) con `CacheControl: public, max-age=31536000` para archivos inmutables.
+- **URLs de DALL-E expiran en ~1h**: descarga inmediatamente y guarda en S3.
+- Precios de referencia (2025): DALL-E 3 $0.04-$0.12, GPT-Image $0.011-$0.19, Flux $0.003-$0.055, SDXL self-host ~$0.001.
+- Patrones de delivery: polling (simple), WebSocket (realtime SaaS), webhook (B2B), email (jobs largos).
+- Casos de uso: e-commerce (product + lifestyle), social media (hero graphics), prototipado UI, personalización 1:1, data augmentation.
+- Siempre deja un **botón "report"** para feedback humano; ninguna moderación es perfecta.
+- Separa claramente **generación** (workers) de **delivery** (CDN) para escalar independiente.

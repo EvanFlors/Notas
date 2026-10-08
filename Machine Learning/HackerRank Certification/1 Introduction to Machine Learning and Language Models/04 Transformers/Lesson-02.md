@@ -1,320 +1,482 @@
-Transformer's Complete Architecture
-You have learned how attention mechanisms allow models to focus on relevant information across long sequences. But attention is just one piece of a larger puzzle. In this lesson, you will discover how attention combines with other key components to create the transformer blocks that power every modern language model.
+# Arquitectura Completa del Transformer
 
-Think of a transformer block like a smart assembly line in a factory. Each station has a specific job: first, raw materials (tokens) get converted into workable parts (vectors), then attention mechanisms figure out what information each part needs, and finally, processing stations do the actual work to create the final product. All of this happens within carefully managed workspace limits that keep everything running efficiently.
+## ¿Qué es?
 
-By the end of this lesson, you will understand how tokens become vectors, how these vectors flow through each transformer component, why there are limits to how much text models can process at once, and how all these pieces work together to create the powerful language models you use every day.
+El **Transformer** es una arquitectura de red neuronal basada enteramente en atención, introducida por Vaswani et al. en *"Attention Is All You Need"* (NeurIPS 2017). Elimina la recurrencia (RNN/LSTM) y la convolución, y las reemplaza por **bloques apilados** que combinan **multi-head self-attention**, **feed-forward networks**, **conexiones residuales** y **layer normalization**.
 
-How Tokens Become Vectors
-Before any attention can happen, transformers must convert words into numbers that computers can work with. This is like translating a recipe written in English into a format that a robot chef can understand.
+Un **bloque Transformer** es la unidad de repetición. Un modelo completo apila `N` bloques (BERT-base: 12, GPT-3: 96, LLaMA 3 70B: 80). Dentro de cada bloque, el flujo canónico es:
 
-Consider this simple function being processed by a language model:
-
-```python
-def authenticate_user(token):
+```
+          ┌─────────────────────────────────────┐
+Input ───▶│  LayerNorm → MHA → + (residual)     │
+          │  LayerNorm → FFN → + (residual)     │─▶ Output al siguiente bloque
+          └─────────────────────────────────────┘
 ```
 
-This gets broken down into smaller pieces (tokens): ["def", "auth", "ent", "icate", "_", "user", "(", "token", ")", ":"]
+> **Analogía:** piensa en una línea de ensamble inteligente. Cada estación tiene un trabajo específico: tokenizar (romper el input en piezas), embedir (traducir a vectores), atender (buscar contexto relevante), procesar (razonar en el FFN) y estabilizar (normalizar). Todo esto se repite N veces, cada vez con un entendimiento más abstracto.
 
-Each token then becomes a vector; a list of numbers that captures its meaning. But this isn't just a simple lookup table. Three important things happen:
+### Las piezas del bloque
 
-Token Embeddings: Learning What Words Mean
-Think of embeddings like a smart dictionary that learns relationships. The word "auth" doesn't just get random numbers; it learns to be similar to other security-related words and different from words about cooking or sports. This happens during training as the model sees millions of examples.
+| Componente | Qué hace | Dónde está la mayoría del cómputo |
+|---|---|---|
+| **Token embedding** | Convierte cada token (entero) en un vector denso `d_model` | — |
+| **Positional encoding** | Inyecta posición (sinusoidal, aprendida, RoPE, ALiBi) | — |
+| **Multi-Head Attention** | Cada token mira a los demás y recoge contexto | O(n²·d) por capa |
+| **Residual connection** | `x + Sublayer(x)` para preservar información y gradientes | — |
+| **Layer Normalization** | Estabiliza la escala de las activaciones | — |
+| **Feed-Forward Network** | "Pensamiento" por posición: expande → activa → comprime | ~2/3 de los parámetros |
+| **Output head** | Capa final: softmax sobre vocab (LLM), clasificador (BERT), etc. | — |
 
-Positional Encodings: Remembering Word Order
-Since transformers look at all words at once (unlike humans who read left to right), they need a way to remember that "def" comes before "authenticate_user" and that "(" comes before ")". Positional encodings add location information to each word, like putting line numbers on a document.
+## ¿Por qué importa?
 
-Token to Vector Conversion Process
-Shows how text becomes vectors that transformers can process, including embeddings and positional encoding.
+Antes del Transformer, el estado del arte en NLP eran las RNN con atención (Bahdanau 2014). Problemas serios:
+
+- **No paralelizables** — el estado `h_t` depende de `h_{t-1}`, imposible procesar la secuencia en paralelo en GPU.
+- **Gradientes inestables** — el backpropagation through time (BPTT) sufre vanishing/exploding en secuencias largas.
+- **Memoria comprimida** — toda la historia pasada se mete en un vector de estado fijo.
+
+El Transformer soluciona los tres problemas de un plumazo:
+
+1. **Paralelismo total** — todas las posiciones se procesan a la vez; el entrenamiento aprovecha completamente la GPU/TPU.
+2. **Gradientes directos** — gracias a las residuales, los gradientes fluyen sin diluirse, permitiendo apilar 96+ capas.
+3. **Memoria explícita** — la atención accede *directamente* a cualquier token, sin cuellos de botella.
+
+Esto desbloqueó las *scaling laws* (Kaplan 2020, Hoffmann 2022 "Chinchilla"): más parámetros + más datos + más cómputo → mejor rendimiento, de forma predecible. Es la base de **BERT, GPT, T5, LLaMA, Claude, Mistral, Gemini** y prácticamente todo LLM post-2018.
+
+### Hitos arquitecturales
+
+| Año | Modelo | Novedad arquitectural |
+|---|---|---|
+| 2017 | Transformer original | Encoder-decoder, 6+6 capas, 65M parámetros, traducción EN→DE |
+| 2018 | BERT | Encoder-only, pre-entrenamiento Masked LM + NSP |
+| 2019 | GPT-2 | Decoder-only, zero-shot sorprendente, 1.5B parámetros |
+| 2019 | T5 | "Text-to-Text Transfer Transformer", todo como seq2seq |
+| 2020 | GPT-3 | 175B parámetros, few-shot in-context learning |
+| 2022 | PaLM, Chinchilla | Scaling laws corregidos, Multi-Query Attention |
+| 2023 | LLaMA, Mistral | RoPE, GQA, SwiGLU, pre-norm, open weights |
+| 2024+ | Mixture of Experts (Mixtral, DeepSeek), long context (1M+ tokens) |
+
+## ¿Cómo funciona?
+
+### Paso 0: Tokenización
+
+El texto crudo se parte en **subword tokens** usando un algoritmo como:
+
+- **BPE (Byte Pair Encoding)** — GPT-2/3/4, LLaMA.
+- **WordPiece** — BERT.
+- **SentencePiece / Unigram** — T5, mT5, LLaMA.
+- **tiktoken** (BPE optimizado) — modelos de OpenAI.
+
+Ejemplo con GPT-2:
+
+```python
+from transformers import AutoTokenizer
+tok = AutoTokenizer.from_pretrained("gpt2")
+print(tok.tokenize("def authenticate_user(token):"))
+# ['def', 'Ġauthent', 'icate', '_', 'user', '(', 'token', '):']
+```
+
+El símbolo `Ġ` representa un espacio. **Palabras raras** se descomponen en piezas conocidas → el modelo puede manejar palabras que nunca vio en entrenamiento combinando subwords.
+
+### Paso 1: Token embedding + positional encoding
+
+Cada token (entero) se busca en una matriz de embeddings aprendida `E ∈ ℝ^(V × d_model)`:
+
+```python
+x = E[token_id]          # vector de dimensión d_model
+x = x + PE[position]     # suma la codificación posicional
+```
+
+Las dos variantes principales:
+
+- **Sinusoidal** (Transformer original, se suma):
+  ```
+  PE(pos, 2i)   = sin(pos / 10000^(2i/d))
+  PE(pos, 2i+1) = cos(pos / 10000^(2i/d))
+  ```
+- **RoPE** (LLaMA, Mistral, Qwen): se aplica *rotando* Q y K dentro de la atención, no se suma al embedding.
 
 ![Token to Vector Conversion Process](https://hrcdn.net/ai-engineering/module-1/light/transformers-lesson02-tokenization-embedding-pipeline.svg)
 
-```python
-import numpy as np
+### Paso 2: Self-Attention multi-cabeza
 
-def simulate_tokenization_and_embedding():
-  """
-  Demonstrate how text becomes vectors in a transformer.
-  Shows tokenization, embedding lookup, and positional encoding.
-  """
-
-  # Example: Processing a simple function definition
-  text = "def authenticate_user(token):"
-
-  # Step 1: Tokenization (simplified)
-  tokens = ["def", "auth", "ent", "icate", "_", "user", "(", "token", ")", ":"]
-  print(f"Original text: {text}")
-  print(f"Tokens: {tokens}")
-  print()
-
-  # Step 2: Token embeddings (simplified 4D vectors instead of 768D)
-  token_embeddings = {
-      "def": [0.2, 0.1, 0.8, 0.3],      # function keyword
-      "auth": [0.7, 0.3, 0.2, 0.9],     # security related
-      "ent": [0.1, 0.4, 0.1, 0.2],      # suffix
-      "icate": [0.3, 0.6, 0.1, 0.4],    # suffix
-      "_": [0.0, 0.0, 0.1, 0.0],        # separator
-      "user": [0.8, 0.2, 0.4, 0.7],     # entity
-      "(": [0.0, 0.1, 0.0, 0.1],        # punctuation
-      "token": [0.6, 0.4, 0.3, 0.8],    # security concept
-      ")": [0.0, 0.1, 0.0, 0.1],        # punctuation
-      ":": [0.0, 0.2, 0.0, 0.1]         # punctuation
-  }
-
-  # Step 3: Positional encodings (simple pattern)
-  def create_positional_encoding(position, dim=4):
-      """Create simple positional encoding for demonstration"""
-      encoding = []
-      for i in range(dim):
-          if i % 2 == 0:
-              encoding.append(np.sin(position / (10000 ** (i / dim))))
-          else:
-              encoding.append(np.cos(position / (10000 ** (i / dim))))
-      return encoding
-
-  print("Token Processing:")
-  print(f"{'Token':<10} {'Embedding':<25} {'Position':<25} {'Final Vector'}")
-  print("-" * 80)
-
-  final_vectors = []
-  for pos, token in enumerate(tokens):
-      embedding = token_embeddings[token]
-      pos_encoding = create_positional_encoding(pos)
-
-      # Combine embedding + positional encoding
-      final_vector = [e + p for e, p in zip(embedding, pos_encoding)]
-      final_vectors.append(final_vector)
-
-      print(f"{token:<10} {str(embedding):<25} {str([round(x,2) for x in pos_encoding]):<25} {[round(x,2) for x in final_vector]}")
-
-  print(f"\nResult: {len(tokens)} tokens → {len(tokens)} vectors of dimension {len(final_vectors[0])}")
-  print("Each vector now contains both meaning and position information")
-
-  return tokens, final_vectors
-
-simulate_tokenization_and_embedding()
-```
-
-Handling New Words
-The subword approach means the model can understand words it's never seen before. Even if "authenticate" wasn't in training, it can combine the meanings of "auth", "ent", and "icate" to figure out what it means.
-
-Context Windows: Why There Are Limits
-Remember from the previous lesson that attention is expensive—every word must look at every other word. This creates real limits on how much text models can process at once.
-
-Here's the simple math:
-
-```code
-Text Length → Memory Needed → Processing Time
-1,000 words → Small amount  → Fast
-2,000 words → 4x more      → 4x slower
-4,000 words → 16x more     → 16x slower
-```
-
-Why These Limits Exist:
-
-Processing a 100,000-word document would need billions of calculations and huge amounts of memory. Current computers make this impractical for everyday use.
-
-How Models Handle Long Documents:
-
-Sliding Windows: Process chunks of text with some overlap
-Hierarchical Processing: Break into sections and process at different levels
-Smart Chunking: Break documents at natural boundaries (paragraphs, sections)
-This is why ChatGPT has context limits and why longer conversations cost more—it's not artificial scarcity, it's real computational physics.
-
-Residual Connections: Keeping Information Flowing
-Imagine you are passing a message through a long chain of people. Without careful planning, the message gets garbled by the time it reaches the end. Residual connections solve this problem by creating shortcuts.
-
-Here's the simple idea:
+Ya cubierto en Lesson-01. Resumen operativo dentro del bloque:
 
 ```python
-# Without shortcuts:
-output = process_layer(input)
-
-# With shortcuts (residual connections):
-output = process_layer(input) + input
+attn_out = MultiHeadAttention(x)         # (B, N, d_model)
 ```
 
-Why This Matters:
-
-Deep Networks: Allows models to have 12-96 layers instead of just 2-3
-Information Preservation: Important context doesn't get lost in deep processing
-Training Stability: Makes it possible to train very large models reliably
-Think of residual connections like having both local roads and highways in a city; information can take fast shortcuts when needed while still going through detailed processing.
-
-Layer Normalization: Keeping Things Stable
-Layer normalization is like a quality control check at each step of the assembly line. It ensures that no single number gets too big and overwhelms the others, keeping the processing stable and predictable.
-
-This might seem like a minor detail, but it is essential for training the massive models that power modern AI systems. Without it, training would become unstable and fail.
-
-Feed-Forward Networks
-After attention gathers all the relevant information for each word, feed-forward networks do the actual "thinking." This is where most of the heavy computation happens.
-
-The Simple Pattern:
-
-Expand: Give each word access to a much larger "thinking space" (often 4x bigger)
-Process: Apply complex transformations to reason about the information
-Compress: Squeeze the results back down to the original size
+### Paso 3: Residual connection
 
 ```python
-# Conceptual example:
-thinking_space = expand(word_representation)  # 768 → 3072 dimensions
-processed = complex_reasoning(thinking_space)
-final_output = compress(processed)            # 3072 → 768 dimensions
+x = x + attn_out
 ```
 
-In most transformer models, these feed-forward layers contain about 2/3 of all the parameters. For GPT-3's 175 billion parameters, roughly 110 billion are in these processing stages. This is why optimizing these layers is crucial for making models run efficiently.
+**¿Por qué?** Sin residuales, apilar 24+ capas vuelve el entrenamiento inviable: los gradientes se diluyen (vanishing gradient) y las representaciones se degradan. Con `x + f(x)`, el gradiente siempre tiene un camino directo (`∂/∂x`) sin pasar por `f`.
 
-How It All Works Together
-Here is the complete journey a piece of text takes through a transformer block:
+> **He et al. 2016 (ResNet)** demostró que las conexiones residuales permitían entrenar redes de 150+ capas en visión. El Transformer adoptó la misma idea.
 
-Start: Words become number vectors with position information
-Attention: Each word gathers relevant context from other words
-Add & Normalize: Combine with original input and stabilize
-Think: Process the context-enriched information
-Add & Normalize: Combine and stabilize again
-Repeat: Send to the next layer
-Complete Transformer Block Flow
-// Add an image here Shows how all components work together in a single transformer layer.
+### Paso 4: Layer Normalization
+
+```
+LN(x) = γ · (x - μ) / √(σ² + ε) + β
+```
+
+Donde `μ, σ²` se calculan **por token** (sobre las `d_model` dimensiones). `γ, β` son parámetros aprendibles.
+
+**Por qué importa:**
+
+- Mantiene las activaciones en un rango estable → gradientes bien escalados.
+- Permite usar learning rates más altos.
+- A diferencia de BatchNorm, no depende del tamaño del batch (crítico para seq2seq con tamaños variables).
+
+**Pre-norm vs post-norm:**
+
+- **Post-norm** (Transformer original): `x = LN(x + Sublayer(x))`. Fácil de divergir en modelos grandes.
+- **Pre-norm** (GPT-2, LLaMA, estándar moderno): `x = x + Sublayer(LN(x))`. Mucho más estable para 50+ capas.
+
+**Variantes modernas:**
+
+- **RMSNorm** (LLaMA): omite la media, solo normaliza por la raíz del promedio cuadrático. ~10-30% más rápido, igual de efectivo.
+
+### Paso 5: Feed-Forward Network (FFN)
+
+Red fully-connected de 2 capas aplicada **por posición** (independiente para cada token):
+
+```
+FFN(x) = W_2 · activation(W_1 · x + b_1) + b_2
+```
+
+- `W_1 ∈ ℝ^(d_model × d_ff)` — expande (típicamente `d_ff = 4 · d_model`).
+- Activación: **ReLU** (original) → **GELU** (BERT, GPT-2) → **SwiGLU** (LLaMA, PaLM, estándar moderno).
+- `W_2 ∈ ℝ^(d_ff × d_model)` — comprime de vuelta.
+
+En GPT-3 (`d_model=12288`, `d_ff=49152`): el FFN tiene `12288 · 49152 · 2 ≈ 1.2B parámetros por capa`. Con 96 capas → **~110B parámetros**, aproximadamente **2/3 del total** (175B). Esta es la razón por la que los FFN son el principal objetivo de **cuantización** y **Mixture of Experts**.
+
+**SwiGLU** (variante moderna):
+
+```
+SwiGLU(x) = (W_1 x ⊙ σ(W_g x)) · W_2
+```
+
+Donde `⊙` es producto Hadamard y `σ` es la sigmoide SiLU. Ligeramente mejor que GELU/ReLU empíricamente.
+
+### Paso 6: Segunda residual + norm
 
 ```python
-def simulate_transformer_block():
-  """
-  Demonstrate the complete flow through one transformer block.
-  Shows how attention, residual connections, and feed-forward work together.
-  """
-
-  # Starting with token representations (simplified to 4D)
-  tokens = ["The", "cat", "sat"]
-  input_vectors = [
-      [0.5, 0.2, 0.8, 0.1],  # "The"
-      [0.3, 0.7, 0.4, 0.9],  # "cat"
-      [0.6, 0.1, 0.5, 0.3]   # "sat"
-  ]
-
-  print("Transformer Block Processing:")
-  print("=" * 40)
-  print(f"Input tokens: {tokens}")
-  print(f"Input vectors: {input_vectors}")
-  print()
-
-  # Step 1: Multi-Head Attention
-  print("Step 1: Multi-Head Attention")
-  print("- Each word gathers context from all words")
-
-  def simple_attention(vectors):
-      """Simplified attention that averages with slight modifications"""
-      attended = []
-      for i, vector in enumerate(vectors):
-          # Simulate attention weights (normally learned)
-          if tokens[i] == "cat":
-              # "cat" pays more attention to "sat" (subject-verb relationship)
-              weights = [0.2, 0.5, 0.3]
-          else:
-              # Equal attention (simplified)
-              weights = [0.33, 0.33, 0.34]
-
-          # Weighted sum of all vectors
-          attended_vector = [
-              sum(w * vectors[j][dim] for j, w in enumerate(weights))
-              for dim in range(len(vector))
-          ]
-          attended.append(attended_vector)
-
-      return attended
-
-  attention_output = simple_attention(input_vectors)
-  print(f"Attention output: {[[round(x, 2) for x in vec] for vec in attention_output]}")
-  print()
-
-  # Step 2: Residual Connection + Layer Norm
-  print("Step 2: Add & Norm (Residual Connection)")
-  print("- Add input to attention output")
-  print("- Normalize to keep values stable")
-
-  def add_and_norm(original, processed):
-      """Add residual connection and normalize"""
-      added = [
-          [orig + proc for orig, proc in zip(orig_vec, proc_vec)]
-          for orig_vec, proc_vec in zip(original, processed)
-      ]
-
-      # Simplified normalization (subtract mean, divide by std)
-      normalized = []
-      for vector in added:
-          mean = sum(vector) / len(vector)
-          centered = [x - mean for x in vector]
-          std = (sum(x**2 for x in centered) / len(centered))**0.5
-          norm_vec = [x / (std + 1e-6) for x in centered]  # Add small epsilon
-          normalized.append(norm_vec)
-
-      return normalized
-
-  residual_1 = add_and_norm(input_vectors, attention_output)
-  print(f"After add & norm: {[[round(x, 2) for x in vec] for vec in residual_1]}")
-  print()
-
-  # Step 3: Feed-Forward Network
-  print("Step 3: Feed-Forward Network")
-  print("- Expand to larger space, process, then compress")
-
-  def feed_forward(vectors):
-      """Simulate feed-forward processing"""
-      processed = []
-      for vector in vectors:
-          # Expand (4D → 8D), apply non-linearity, compress (8D → 4D)
-          expanded = vector + vector  # Simple expansion
-          activated = [max(0, x) for x in expanded]  # ReLU activation
-          compressed = [
-              (activated[i] + activated[i+4]) / 2  # Simple compression
-              for i in range(4)
-          ]
-          processed.append(compressed)
-      return processed
-
-  ff_output = feed_forward(residual_1)
-  print(f"Feed-forward output: {[[round(x, 2) for x in vec] for vec in ff_output]}")
-  print()
-
-  # Step 4: Second Residual Connection + Layer Norm
-  print("Step 4: Final Add & Norm")
-  final_output = add_and_norm(residual_1, ff_output)
-  print(f"Final output: {[[round(x, 2) for x in vec] for vec in final_output]}")
-  print()
-
-  print("🎉 One transformer block complete!")
-  print("This output becomes input to the next layer")
-  print(f"In real models, this happens {12}-{96} times!")
-
-simulate_transformer_block()
+x = x + FFN(LN(x))
 ```
 
-This entire process repeats for 6-96 layers, with each layer building more sophisticated understanding of the input.
+Fin del bloque. Output del tamaño exacto del input → se apila directamente al siguiente bloque.
 
-Common Pitfalls and Solutions
-Ignoring Context Limits
+### Pseudocódigo del bloque completo (pre-norm, estilo moderno)
 
-Many developers try to process very long documents by just cutting them off, losing important information.
+```python
+def transformer_block(x):
+    x = x + multi_head_attention(layer_norm(x))
+    x = x + feed_forward(layer_norm(x))
+    return x
+```
 
-Better Approach: Break documents intelligently at natural boundaries, use summarization for long sections, or implement sliding window approaches that maintain context across chunks.
+### Context window: por qué hay límites
 
-Not Understanding Tokenization
+Como vimos en Lesson-01, la atención tiene complejidad O(n²) en tiempo y memoria. Con `n = 100,000` tokens, la matriz de atención por cabeza pesa `100K² × 4 bytes = 40 GB` en fp32 → ni siquiera cabe en un H100 (80 GB) para una sola cabeza.
 
-When working with specialized text (code, medical terms, legal language), general models might break words inefficiently.
+Estrategias para contextos largos:
 
-Better Approach: Test how your specific content gets tokenized. Consider specialized models for technical domains, or factor tokenization efficiency into your cost planning.
+| Técnica | Mecanismo |
+|---|---|
+| **Flash Attention** | Reorganiza en bloques, nunca materializa la matriz n×n completa |
+| **Sliding Window** | Cada token solo atiende a una ventana local (Mistral 7B: w=4096) |
+| **Sparse / BigBird** | Patrones de atención dispersos (global + local + random) |
+| **Sliding + Attention Sinks** (StreamingLLM) | Mantiene los primeros K tokens siempre visibles |
+| **Chunking jerárquico** | Resumir chunks, luego atender a resúmenes |
+| **RAG** | No ampliar contexto: recuperar pasajes relevantes externamente |
+| **State-space models** (Mamba) | O(n) complejidad reemplazando atención por recurrencia selectiva |
 
-Focusing Only on Attention
+### Variantes de modelo: BERT vs GPT vs T5 vs LLaMA
 
-Developers often worry about attention complexity while ignoring that feed-forward layers use most of the computation.
+| | **BERT** (2018) | **GPT-3** (2020) | **T5** (2019) | **LLaMA 3** (2024) |
+|---|---|---|---|---|
+| Tipo | Encoder-only | Decoder-only | Encoder-Decoder | Decoder-only |
+| Atención | Bidireccional | Causal (masked) | Bi (enc) + causal (dec) + cross | Causal + GQA |
+| Pre-training | Masked LM + Next Sentence | Next-token prediction | Span corruption (text-to-text) | Next-token |
+| Positional enc. | Aprendida absoluta | Aprendida absoluta | Relativa (bucketized) | **RoPE** |
+| Normalización | Post-norm LayerNorm | Pre-norm LayerNorm | Pre-norm RMSNorm (T5v1.1) | **Pre-norm RMSNorm** |
+| Activación FFN | GELU | GELU | ReLU (v1) / GEGLU (v1.1) | **SwiGLU** |
+| Parámetros | 110M (base) / 340M (large) | 175B | 11B (XXL) | 8B / 70B / 405B |
+| Context | 512 | 2048 | 512 | 8K → 128K |
+| Tarea natural | Clasificación, NER, QA | Generación, few-shot | Traducción, resumen, QA | Chat, código, razonamiento |
+| Open weights | ✅ | ❌ | ✅ | ✅ |
 
-Better Approach: When optimizing for speed, consider techniques like model compression, quantization, or distillation that target the feed-forward layers where most parameters live.
+### Diagrama de encoder-only vs decoder-only vs encoder-decoder
 
-Summary
-Transformer blocks elegantly combine multiple innovations to create powerful language processing units. The journey from words to vectors through embeddings, the information gathering through attention, the stability from residual connections and normalization, and the processing power of feed-forward networks all work together within managed memory constraints.
+```
+ENCODER-ONLY (BERT)             DECODER-ONLY (GPT)             ENCODER-DECODER (T5)
+                                                               
+Input tokens                    Input tokens                   Input tokens → ENCODER
+     ↓                               ↓                                           ↓
+[Embed + PE]                    [Embed + PE]                   [cross-attend from DEC]
+     ↓                               ↓                                           ↓
+┌─────────────┐                 ┌──────────────┐              Target tokens → DECODER
+│  N bloques  │                 │  N bloques   │                                 ↓
+│  self-attn  │                 │  causal attn │                              Output
+│  bidirec    │                 └──────────────┘
+└─────────────┘                        ↓
+     ↓                            [LM head]
+[CLS/mask head]                        ↓
+     ↓                             Next token
+Classification
+```
 
-Key concepts to remember
-Words become vectors through embeddings (meaning) + positional encodings (order), with subword tokenization enabling understanding of new words by combining smaller pieces.
-Memory requirements grow quadratically with text length due to attention mechanics - these are real computational constraints requiring smart chunking strategies for long documents.
-Residual connections prevent information loss, layer normalization maintains stability, and feed-forward networks (containing ~2/3 of parameters) do the heavy computational processing.
-Understanding this architecture helps optimize applications - focus on feed-forward layers for efficiency, test tokenization on your content type, and implement proper context management for real-world deployment.
+## Ejemplo con código
 
+### 1. Bloque Transformer completo en PyTorch (pre-norm)
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(self, d_model, n_heads, causal=False, dropout=0.1):
+        super().__init__()
+        assert d_model % n_heads == 0
+        self.n_heads = n_heads
+        self.d_k = d_model // n_heads
+        self.causal = causal
+        self.qkv = nn.Linear(d_model, 3 * d_model, bias=False)
+        self.out = nn.Linear(d_model, d_model, bias=False)
+        self.drop = nn.Dropout(dropout)
+
+    def forward(self, x, attn_mask=None):
+        B, N, D = x.shape
+        qkv = self.qkv(x).reshape(B, N, 3, self.n_heads, self.d_k).permute(2, 0, 3, 1, 4)
+        Q, K, V = qkv[0], qkv[1], qkv[2]                     # (B, h, N, d_k)
+
+        scores = (Q @ K.transpose(-2, -1)) / (self.d_k ** 0.5)
+        if self.causal:
+            m = torch.triu(torch.ones(N, N, device=x.device), diagonal=1).bool()
+            scores = scores.masked_fill(m, float("-inf"))
+        if attn_mask is not None:
+            scores = scores.masked_fill(~attn_mask[:, None, None, :], float("-inf"))
+        attn = F.softmax(scores, dim=-1)
+        attn = self.drop(attn)
+
+        y = (attn @ V).transpose(1, 2).reshape(B, N, D)
+        return self.out(y)
+
+
+class FeedForward(nn.Module):
+    """FFN con SwiGLU, estilo LLaMA."""
+    def __init__(self, d_model, d_ff, dropout=0.1):
+        super().__init__()
+        self.w1 = nn.Linear(d_model, d_ff, bias=False)
+        self.w_g = nn.Linear(d_model, d_ff, bias=False)
+        self.w2 = nn.Linear(d_ff, d_model, bias=False)
+        self.drop = nn.Dropout(dropout)
+
+    def forward(self, x):
+        return self.drop(self.w2(F.silu(self.w_g(x)) * self.w1(x)))
+
+
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model, n_heads, d_ff, causal=False, dropout=0.1):
+        super().__init__()
+        self.norm1 = nn.LayerNorm(d_model)
+        self.attn = MultiHeadSelfAttention(d_model, n_heads, causal, dropout)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.ffn = FeedForward(d_model, d_ff, dropout)
+
+    def forward(self, x, attn_mask=None):
+        x = x + self.attn(self.norm1(x), attn_mask)       # residual 1
+        x = x + self.ffn(self.norm2(x))                   # residual 2
+        return x
+```
+
+### 2. Un GPT mínimo (decoder-only)
+
+```python
+class MiniGPT(nn.Module):
+    def __init__(self, vocab_size, d_model=256, n_heads=8, d_ff=1024,
+                 n_layers=6, max_len=512):
+        super().__init__()
+        self.tok_emb = nn.Embedding(vocab_size, d_model)
+        self.pos_emb = nn.Embedding(max_len, d_model)
+        self.blocks = nn.ModuleList([
+            TransformerBlock(d_model, n_heads, d_ff, causal=True)
+            for _ in range(n_layers)
+        ])
+        self.norm = nn.LayerNorm(d_model)
+        self.head = nn.Linear(d_model, vocab_size, bias=False)
+        # Weight tying: comparte pesos entre embedding de entrada y proyección de salida
+        self.head.weight = self.tok_emb.weight
+
+    def forward(self, idx):                               # idx: (B, N)
+        B, N = idx.shape
+        pos = torch.arange(N, device=idx.device)
+        x = self.tok_emb(idx) + self.pos_emb(pos)         # (B, N, d_model)
+        for blk in self.blocks:
+            x = blk(x)
+        x = self.norm(x)
+        logits = self.head(x)                             # (B, N, vocab)
+        return logits
+
+    @torch.no_grad()
+    def generate(self, idx, max_new_tokens=50, temperature=1.0, top_k=None):
+        self.eval()
+        for _ in range(max_new_tokens):
+            idx_cond = idx[:, -self.pos_emb.num_embeddings:]
+            logits = self(idx_cond)[:, -1, :] / temperature
+            if top_k is not None:
+                v, _ = torch.topk(logits, top_k)
+                logits[logits < v[:, [-1]]] = -float("inf")
+            probs = F.softmax(logits, dim=-1)
+            next_id = torch.multinomial(probs, num_samples=1)
+            idx = torch.cat([idx, next_id], dim=1)
+        return idx
+
+
+model = MiniGPT(vocab_size=10000)
+inp = torch.randint(0, 10000, (2, 32))
+print(model(inp).shape)        # (2, 32, 10000)
+```
+
+### 3. Positional encoding sinusoidal
+
+```python
+def sinusoidal_pe(max_len, d_model):
+    pe = torch.zeros(max_len, d_model)
+    pos = torch.arange(max_len).unsqueeze(1).float()
+    div = torch.exp(torch.arange(0, d_model, 2).float() * -(torch.log(torch.tensor(10000.0)) / d_model))
+    pe[:, 0::2] = torch.sin(pos * div)
+    pe[:, 1::2] = torch.cos(pos * div)
+    return pe
+
+PE = sinusoidal_pe(max_len=512, d_model=128)
+print(PE.shape)        # (512, 128)
+```
+
+### 4. RoPE (rotary position embedding) simplificado
+
+```python
+def apply_rope(x, pos):
+    # x: (..., N, d), d par
+    d = x.shape[-1]
+    freqs = 1.0 / (10000 ** (torch.arange(0, d, 2).float() / d))
+    angles = pos[:, None] * freqs[None, :]            # (N, d/2)
+    cos, sin = angles.cos(), angles.sin()
+    x1, x2 = x[..., 0::2], x[..., 1::2]
+    x_rot = torch.stack([x1 * cos - x2 * sin,
+                         x1 * sin + x2 * cos], dim=-1).flatten(-2)
+    return x_rot
+```
+
+### 5. Uso práctico con HuggingFace
+
+```python
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+tok = AutoTokenizer.from_pretrained("gpt2")
+model = AutoModelForCausalLM.from_pretrained("gpt2")
+
+inputs = tok("The transformer architecture", return_tensors="pt")
+out = model.generate(**inputs, max_new_tokens=30, do_sample=True, top_p=0.9)
+print(tok.decode(out[0], skip_special_tokens=True))
+
+# Inspección: ver todos los módulos del modelo
+print(model)
+# GPT2LMHeadModel(
+#   (transformer): GPT2Model(
+#     (wte): Embedding(50257, 768)             ← token embedding
+#     (wpe): Embedding(1024, 768)              ← positional embedding
+#     (h): ModuleList(                         ← 12 bloques
+#       (0-11): GPT2Block(
+#         (ln_1): LayerNorm
+#         (attn): GPT2Attention                ← MHA causal
+#         (ln_2): LayerNorm
+#         (mlp): GPT2MLP                       ← FFN
+#       )
+#     )
+#     (ln_f): LayerNorm                        ← LN final
+#   )
+#   (lm_head): Linear(768, 50257, bias=False)  ← cabeza de salida
+# )
+```
+
+### 6. Fine-tuning con LoRA (eficiente en parámetros)
+
+```python
+# pip install peft bitsandbytes accelerate
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
+from peft import LoraConfig, get_peft_model
+from trl import SFTTrainer
+from datasets import load_dataset
+
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-3.2-1B",
+    load_in_4bit=True,          # cuantización 4-bit para caber en GPU pequeña
+)
+tok = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
+
+lora = LoraConfig(
+    r=16, lora_alpha=32, lora_dropout=0.05,
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],   # solo las proyecciones de atención
+    task_type="CAUSAL_LM",
+)
+model = get_peft_model(model, lora)
+model.print_trainable_parameters()
+# trainable params: 4.2M || all params: 1.24B || trainable%: 0.34
+
+ds = load_dataset("tatsu-lab/alpaca", split="train[:1000]")
+trainer = SFTTrainer(
+    model=model, tokenizer=tok, train_dataset=ds,
+    args=TrainingArguments(output_dir="out", per_device_train_batch_size=4,
+                           num_train_epochs=1, bf16=True, learning_rate=2e-4),
+    dataset_text_field="text", max_seq_length=512,
+)
+trainer.train()
+```
+
+## Errores comunes
+
+- **Olvidar el positional encoding.** Sin PE, el modelo trata la secuencia como un *bag of words*: "el perro mordió al hombre" ≡ "el hombre mordió al perro". El output degenera.
+- **Positional encoding mal escalado respecto al embedding.** Si `||PE|| >> ||token_emb||`, el modelo solo ve posición y pierde contenido. Si al revés, pierde orden. Los embeddings suelen inicializarse con `std ≈ 0.02` por una razón.
+- **Post-norm en modelos profundos.** Diverge en entrenamientos de 24+ capas sin warmup extremo. Usa **pre-norm** por defecto en nuevos modelos.
+- **Olvidar la máscara causal en decoders.** El modelo "espía" el futuro durante el entrenamiento → loss cae rapidísimo pero inferencia es basura.
+- **No manejar `attention_mask` con padding.** Los tokens `[PAD]` reciben atención real si no se enmascaran. Siempre pasar `attention_mask` al tokenizer.
+- **`d_model` no divisible entre `n_heads`.** Falla silenciosamente o lanza un error críptico. Verifica: `d_model % n_heads == 0`.
+- **Materializar la matriz n² en secuencias largas.** Para `n > 4K`, usa `torch.nn.functional.scaled_dot_product_attention` (que invoca Flash Attention internamente desde PyTorch 2.0) o `flash-attn` explícitamente.
+- **Tokenizer y modelo descoincidentes.** Cargar el modelo `gpt2` con el tokenizer `bert-base-uncased` → embeddings garbage. Siempre usa el mismo checkpoint para ambos.
+- **No activar `model.eval()` en inferencia.** Dropout queda activo, resultados estocásticos y mal rendimiento.
+- **Olvidar el weight tying.** En LLMs pequeños, compartir pesos entre embedding de entrada y cabeza de salida ahorra `V · d_model` parámetros y mejora la generalización.
+- **No usar gradient checkpointing en modelos grandes.** El forward guarda todas las activaciones intermedias → OOM. `model.gradient_checkpointing_enable()` cambia memoria por recomputo.
+- **Ignorar que el FFN domina los parámetros.** Al optimizar velocidad/memoria, atacar los FFN (cuantización, pruning, MoE) rinde más que atacar la atención.
+- **Chunking brutal de documentos largos.** Cortar texto a mitad de frase pierde contexto. Fragmenta en límites naturales (párrafos, secciones) y mantén overlap.
+
+## Herramientas
+
+- **PyTorch / `torch.nn.TransformerEncoderLayer`, `TransformerDecoderLayer`** — implementaciones de referencia.
+- **HuggingFace Transformers** — todos los modelos pre-entrenados con API uniforme.
+- **PEFT** — LoRA, QLoRA, prefix tuning, adapters.
+- **Accelerate / DeepSpeed / FSDP** — entrenamiento distribuido en múltiples GPUs.
+- **bitsandbytes** — cuantización 8-bit y 4-bit.
+- **vLLM, TGI, llama.cpp** — motores de inferencia optimizados.
+- **flash-attn** — kernels CUDA de Flash Attention 2.
+- **tiktoken** — tokenizer BPE de OpenAI.
+- **nanoGPT** (Karpathy) — implementación educativa de ~300 líneas de un GPT entrenable.
+
+## Resumen
+
+- El **Transformer** = atención + feed-forward + residuales + layer norm, apilados en N bloques, sin recurrencia ni convolución.
+- Flujo canónico de un bloque: `Embed+PE → MHA → +residual → LN → FFN → +residual → LN`. Los modelos modernos usan **pre-norm** por estabilidad.
+- Los **tokens** son enteros tras pasar por un tokenizer subword (BPE, WordPiece, SentencePiece). Se convierten en vectores vía una matriz de embedding aprendida.
+- El **positional encoding** compensa la invariancia a permutaciones de la atención. Variantes: sinusoidal, aprendida, **RoPE** (LLaMA), ALiBi.
+- Las **conexiones residuales** permiten entrenar 50+ capas sin vanishing gradient; la **LayerNorm (o RMSNorm)** estabiliza las activaciones.
+- El **FFN** (expand-activate-compress) contiene ~2/3 de los parámetros del modelo. Activación moderna: **SwiGLU**.
+- La atención es O(n²): el **context window** está limitado por memoria. Soluciones: **Flash Attention**, sliding window, atención dispersa, Mamba.
+- Las **variantes arquitecturales** (BERT, GPT, T5, LLaMA) reutilizan los mismos bloques en configuraciones distintas: encoder-only, decoder-only, encoder-decoder.
+- **BERT vs GPT vs T5 vs LLaMA**: cambia el patrón de máscara, la posicional, la normalización, la activación y el objetivo de pre-entrenamiento.
+- **Errores clásicos**: olvidar máscara causal, PE mal escalado, post-norm en modelos profundos, tokenizer incorrecto, no enmascarar padding.
+- Dominar esta arquitectura es la base para entender fine-tuning, LoRA, cuantización, RAG, agentes y todo lo que viene en los módulos siguientes.

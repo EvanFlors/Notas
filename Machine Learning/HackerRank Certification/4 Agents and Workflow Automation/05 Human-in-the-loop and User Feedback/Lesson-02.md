@@ -1,184 +1,310 @@
-## Designing Approval Workflows
-Your code review agent is ready to post a suggestion: "This function should be refactored into three smaller functions." It is a significant change, and you want a human to verify before posting. But how? Does the agent wait? For how long? Who reviews it? What if they are busy?
+# Diseño de workflows de aprobación
 
-Approval workflows answer these questions. They define the mechanics of human review: how requests are queued, who sees them, what happens when approvers are unavailable, and how human edits get incorporated.
+## ¿Qué es?
 
-In this lesson, you will learn how to design approval workflows that feel natural, handle edge cases gracefully, and capture human feedback for agent improvement.
+Un **workflow de aprobación** es la mecánica concreta que convierte "esta acción necesita humano" en una experiencia operativa: cómo se encola la petición, quién la ve, cuánto tiempo tiene para responder, qué pasa si no responde, cómo se registran sus modificaciones y qué efecto final tiene el "approve" o "reject".
 
-By the end, you will have patterns for building approval systems that make human-agent collaboration efficient rather than frustrating.
+> **Checkpoint:** cualquier punto del plan del agente donde la ejecución se **pausa** hasta recibir una señal humana. El estado del agente se persiste para poder **resumir** sin perder contexto.
 
-Workflow Fundamentals
-Approval workflows create checkpoints where humans review agent decisions before they take effect. The workflow design determines how smoothly humans and agents collaborate.
+Un workflow bien diseñado se siente natural: el humano recibe una notificación con todo lo que necesita, decide en segundos, y el agente continúa. Un workflow mal diseñado se siente burocrático: notificaciones a destiempo, contexto insuficiente, decisiones que se pierden en una cola sin dueño.
 
-A code review agent might generate a comprehensive review with multiple comments and a recommendation. Rather than posting immediately, it submits the review for approval. A human reviewer sees the proposed comments, edits any that seem off, and approves the batch. The agent then posts the final version.
+### Elementos de todo workflow
 
-The key workflow elements are: what triggers approval, who approves, what information they see, how they respond, and what happens after.
+| Elemento | Pregunta que responde |
+|---|---|
+| **Trigger** | ¿Qué condición dispara la aprobación? (tipo de acción, umbral de confianza, riesgo calculado) |
+| **Routing** | ¿Quién puede aprobar y a quién le llega? (pool de aprobadores, load balancing, expertise) |
+| **Presentation** | ¿Qué ve el humano? (resumen, findings, diff, confianza) |
+| **Response** | ¿Qué puede responder? (approve / reject / modify / escalate) |
+| **Timeout** | ¿Qué pasa si no responde? (escalate / auto-approve / auto-reject) |
+| **Post-action** | ¿Qué ejecuta el agente al recibir la respuesta? ¿Qué se registra? |
+
+## ¿Por qué importa?
+
+Sin workflow, HITL es una buena intención. Con un workflow mal diseñado, se vuelve el cuello de botella de todo el sistema: el agente puede generar 500 reviews por hora, pero si cada uno requiere aprobación de un solo tech lead, el throughput real es 10 por hora. Peor: la cola crece sin control, los tiempos de respuesta se degradan y el humano empieza a rubber-stamp.
+
+Un workflow correcto permite:
+
+- **Throughput alto** sin sacrificar supervisión: el agente trabaja en paralelo mientras los humanos revisan por batches.
+- **Resiliencia** ante vacaciones, incidentes y rotación: múltiples aprobadores elegibles con fallback automático.
+- **Trazabilidad regulatoria**: quién aprobó qué, cuándo, con qué contexto. Obligatorio en finanzas, salud y gobierno.
+- **Aprendizaje**: las modificaciones humanas son la fuente de verdad para mejorar el agente.
+
+### Interrupt-and-resume
+
+El patrón técnico subyacente es **interrupt-and-resume**: el agente ejecuta su grafo de decisiones hasta un nodo marcado como "requiere humano", persiste su estado completo (checkpoint), notifica, y queda esperando. Cuando el humano responde, se restaura el estado y la ejecución continúa como si no hubiera pausa. Frameworks como **LangGraph** (`interrupt()`), **Temporal** (durable workflows) y **OpenAI Assistants** (`required_action`) implementan esta primitiva.
+
+## ¿Cómo funciona?
+
+### Ciclo de vida de una PendingAction
+
+```
+submit → pending → [approved | rejected | modified | expired | escalated] → executed
+                      ↑           ↑           ↑           ↑            ↑
+                      └───────────┴───────────┴───────────┴────────────┘
+                              Transiciones registradas (audit log)
+```
+
+### Políticas de timeout
+
+| Política | Cuándo usarla | Riesgo |
+|---|---|---|
+| `escalate` | Cualquier acción no trivial | Default seguro |
+| `auto_approve` | Acciones bajas de riesgo con default razonable | Si se mal-calibra, pierdes el valor del HITL |
+| `auto_reject` | Acciones donde "no hacer nada" es seguro | Puede frustrar al usuario final |
+| `hold` | Decisiones críticas que deben esperar | Puede bloquear flujos dependientes |
+
+### Load balancing entre aprobadores
+
+Distribuir solicitudes al aprobador con **menor carga actual** evita saturar a una sola persona. Variantes:
+
+- **Round robin** por simplicidad.
+- **Least loaded** por fairness (ordena por items pendientes).
+- **Expertise match** por calidad (routea a quien conoce el área).
+- **Follow the sun** para equipos globales (horario laboral del aprobador).
+
+### Capturar modificaciones como señal
+
+Cuando el humano aprueba *con edits*, esos edits son **oro para fine-tuning**. Un patrón recurrente ("el humano siempre quita el emoji del comentario") se puede traducir a una guideline de prompt o a un ejemplo negativo en el dataset.
+
+## Ejemplo con código
+
+### Estructura base y motor de aprobación
 
 ```python
-from dataclasses import dataclass
-from enum import Enum
+import uuid
+import asyncio
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from enum import Enum
 
-class ApprovalStatus(Enum):
-  PENDING = "pending"
-  APPROVED = "approved"
-  REJECTED = "rejected"
-  MODIFIED = "modified"
-  EXPIRED = "expired"
+class ApprovalStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    MODIFIED = "modified"
+    EXPIRED = "expired"
+    ESCALATED = "escalated"
 
 @dataclass
 class PendingAction:
-  action_id: str
-  action_type: str
-  payload: dict
-  created_at: datetime
-  expires_at: datetime
-  status: ApprovalStatus = ApprovalStatus.PENDING
-  required_approvers: list = None
-  approvals_received: list = None
+    action_id: str
+    action_type: str
+    payload: dict
+    created_at: datetime
+    expires_at: datetime
+    required_approvers: list[str] = field(default_factory=list)
+    approvals_received: list[str] = field(default_factory=list)
+    status: ApprovalStatus = ApprovalStatus.PENDING
+    priority: int = 0
+    modifications: list[dict] = field(default_factory=list)
+
+@dataclass
+class Workflow:
+    action_type: str
+    timeout_hours: int
+    min_approvals: int
+    on_timeout: str  # "escalate" | "auto_approve" | "auto_reject"
+    eligible_approvers: list[str]
+
+class ApprovalEngine:
+    def __init__(self, storage, notifier):
+        self.storage = storage
+        self.notifier = notifier
+        self.workflows: dict[str, Workflow] = {}
+
+    def register(self, workflow: Workflow):
+        self.workflows[workflow.action_type] = workflow
+
+    async def submit(self, action_type: str, payload: dict, context: dict) -> PendingAction:
+        wf = self.workflows[action_type]
+        approvers = await self._pick_approvers(wf, context)
+
+        pending = PendingAction(
+            action_id=str(uuid.uuid4()),
+            action_type=action_type,
+            payload=payload,
+            created_at=datetime.utcnow(),
+            expires_at=datetime.utcnow() + timedelta(hours=wf.timeout_hours),
+            required_approvers=approvers,
+            priority=context.get("priority", 0),
+        )
+        await self.storage.save(pending)
+        for a in approvers:
+            await self.notifier.request_approval(pending, a)
+        return pending
+
+    async def respond(self, action_id: str, approver: str,
+                       decision: str, edits: dict | None = None,
+                       reason: str | None = None) -> PendingAction:
+        pending = await self.storage.get(action_id)
+        if pending.status != ApprovalStatus.PENDING:
+            raise ValueError(f"Acción {action_id} ya no está pendiente ({pending.status})")
+
+        if decision == "approved":
+            pending.approvals_received.append(approver)
+            if edits:
+                pending.payload = self._apply_edits(pending.payload, edits)
+                pending.modifications.append({"approver": approver, "edits": edits})
+            wf = self.workflows[pending.action_type]
+            if len(pending.approvals_received) >= wf.min_approvals:
+                pending.status = ApprovalStatus.MODIFIED if edits else ApprovalStatus.APPROVED
+        elif decision == "rejected":
+            pending.status = ApprovalStatus.REJECTED
+            pending.payload["rejection_reason"] = reason
+
+        await self.storage.save(pending)
+        return pending
 ```
 
-Approval Engine Implementation
-The approval engine manages the lifecycle of pending actions—from submission through approval or rejection.
+### LangGraph: interrupt para pedir aprobación humana
 
 ```python
-class ApprovalEngine:
-  async def submit_for_approval(self, action_type: str, payload: dict,
-                                 context: dict) -> PendingAction:
-      workflow = self._get_workflow(action_type)
-      approvers = await self._find_approvers(workflow, context)
+from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import interrupt, Command
+from typing import TypedDict
 
-      pending = PendingAction(
-          action_id=str(uuid.uuid4()),
-          action_type=action_type,
-          payload=payload,
-          created_at=datetime.utcnow(),
-          expires_at=datetime.utcnow() + timedelta(hours=workflow.timeout_hours),
-          required_approvers=approvers
-      )
+class ReviewState(TypedDict):
+    pr_number: int
+    draft_review: str
+    confidence: float
+    human_decision: str | None
+    final_review: str | None
 
-      await self.storage.save_pending(pending)
-      for approver in approvers:
-          await self.notifier.request_approval(pending, approver)
+def generate_review(state: ReviewState) -> ReviewState:
+    # Llamar al LLM para producir el borrador
+    draft = f"Review borrador para PR #{state['pr_number']}"
+    return {"draft_review": draft, "confidence": 0.72}
 
-      return pending
+def needs_approval(state: ReviewState) -> str:
+    return "wait_human" if state["confidence"] < 0.85 else "auto_post"
+
+def wait_human(state: ReviewState) -> ReviewState:
+    # El grafo se pausa aquí; el checkpointer persiste el estado
+    decision = interrupt({
+        "question": "¿Publicar este review?",
+        "draft": state["draft_review"],
+        "confidence": state["confidence"],
+    })
+    return {"human_decision": decision["action"],
+            "final_review": decision.get("edited_text") or state["draft_review"]}
+
+def auto_post(state: ReviewState) -> ReviewState:
+    return {"final_review": state["draft_review"], "human_decision": "auto"}
+
+def publish(state: ReviewState) -> ReviewState:
+    if state["human_decision"] in ("approve", "auto"):
+        print(f"Publicando: {state['final_review']}")
+    else:
+        print("Rechazado por humano; nada se publica.")
+    return state
+
+graph = StateGraph(ReviewState)
+graph.add_node("generate", generate_review)
+graph.add_node("wait_human", wait_human)
+graph.add_node("auto_post", auto_post)
+graph.add_node("publish", publish)
+graph.set_entry_point("generate")
+graph.add_conditional_edges("generate", needs_approval,
+                             {"wait_human": "wait_human", "auto_post": "auto_post"})
+graph.add_edge("wait_human", "publish")
+graph.add_edge("auto_post", "publish")
+graph.add_edge("publish", END)
+
+app = graph.compile(checkpointer=MemorySaver())
+
+# Primera invocación: se pausa en interrupt
+config = {"configurable": {"thread_id": "pr-42"}}
+app.invoke({"pr_number": 42}, config)
+
+# Más tarde (horas después, en otro proceso): resumir con decisión humana
+app.invoke(Command(resume={"action": "approve", "edited_text": None}), config)
 ```
 
-The engine routes actions to appropriate approvers, tracks responses, and handles timeouts. Different action types can have different workflows—code reviews might need one approval, while auto-merge might need two.
-
-Understanding the approval engine's key elements helps you design workflows that handle real-world scenarios.
-
-Implementing Review Queues
-Approval requests need a queue system that tracks pending items, handles timeouts, and routes to available reviewers.
+### Cola con timeout y escalation
 
 ```python
 class ApprovalQueue:
-  async def get_queue_for_approver(self, approver: str) -> list:
-      """Get all items an approver can act on"""
-      all_pending = await self.storage.get_pending_items()
+    def __init__(self, storage, engine):
+        self.storage = storage
+        self.engine = engine
 
-      approver_items = [
-          item for item in all_pending
-          if approver in item.required_approvers
-          and item.status == ApprovalStatus.PENDING
-      ]
+    async def process_timeouts(self):
+        now = datetime.utcnow()
+        for item in await self.storage.list_pending():
+            if item.status != ApprovalStatus.PENDING or now <= item.expires_at:
+                continue
+            wf = self.engine.workflows[item.action_type]
+            if wf.on_timeout == "escalate":
+                item.status = ApprovalStatus.ESCALATED
+                await self._escalate(item)
+            elif wf.on_timeout == "auto_approve":
+                item.status = ApprovalStatus.APPROVED
+            else:
+                item.status = ApprovalStatus.EXPIRED
+            await self.storage.save(item)
 
-      # Sort by priority, then by age
-      approver_items.sort(key=lambda x: (-x.priority, x.created_at))
-      return approver_items
+    async def _escalate(self, item: PendingAction):
+        # Buscar aprobador senior o manager
+        new_approver = await self._find_escalation_target(item)
+        await self.engine.notifier.escalate(item, new_approver)
 
-  async def process_timeouts(self):
-      """Handle expired approvals"""
-      pending_items = await self.storage.get_pending_items()
-      now = datetime.utcnow()
+class LoadBalancer:
+    def __init__(self, storage):
+        self.storage = storage
 
-      for item in pending_items:
-          if item.status == ApprovalStatus.PENDING and now > item.expires_at:
-              await self._handle_expiry(item)
+    async def pick(self, eligible: list[str], count: int) -> list[str]:
+        loads = {}
+        for a in eligible:
+            loads[a] = len(await self.storage.pending_for(a))
+        return sorted(eligible, key=lambda a: loads[a])[:count]
 ```
 
-Timeout handling defines what happens when approvals are not received in time:
+### UI de aprobación en Slack (Block Kit)
 
 ```python
-async def _handle_expiry(self, pending: PendingAction):
-  workflow = self._get_workflow(pending.action_type)
-
-  if workflow.on_timeout == "escalate":
-      pending.status = ApprovalStatus.ESCALATED
-      await self._escalate(pending)
-  elif workflow.on_timeout == "auto_approve":
-      pending.status = ApprovalStatus.APPROVED
-      await self._execute_action(pending)
-  else:  # auto_reject
-      pending.status = ApprovalStatus.REJECTED
-      await self.notifier.notify_rejection(pending, "Approval timed out")
-
-  await self.storage.save_pending(pending)
+def build_slack_approval(pending: PendingAction) -> dict:
+    return {
+        "blocks": [
+            {"type": "header", "text": {"type": "plain_text",
+                                         "text": f"Aprobación requerida: PR #{pending.payload['pr_number']}"}},
+            {"type": "section", "text": {"type": "mrkdwn",
+                                          "text": f"*Confianza:* {pending.payload['confidence']:.0%}\n"
+                                                  f"*Expira:* <!date^{int(pending.expires_at.timestamp())}^{{time}}|pronto>"}},
+            {"type": "section", "text": {"type": "mrkdwn",
+                                          "text": f"```{pending.payload['draft_review'][:500]}```"}},
+            {"type": "actions", "elements": [
+                {"type": "button", "text": {"type": "plain_text", "text": "Aprobar"},
+                 "style": "primary", "value": pending.action_id, "action_id": "approve"},
+                {"type": "button", "text": {"type": "plain_text", "text": "Editar"},
+                 "value": pending.action_id, "action_id": "edit"},
+                {"type": "button", "text": {"type": "plain_text", "text": "Rechazar"},
+                 "style": "danger", "value": pending.action_id, "action_id": "reject"},
+            ]},
+        ]
+    }
 ```
 
-Load balancing distributes approval requests fairly among available reviewers:
+## Errores comunes
 
-```python
-class ApprovalLoadBalancer:
-  async def select_approvers(self, eligible: list, count: int) -> list:
-      """Select approvers with balanced workload"""
-      loads = {}
-      for approver in eligible:
-          loads[approver] = await self._get_approver_load(approver)
+- **Punto único de falla.** Solo una persona puede aprobar; cuando se enferma, todo se detiene. Define un **pool** y balancea carga.
+- **Fatiga de aprobación por saturación.** Si el aprobador recibe 200 solicitudes al día, aprueba sin leer. Calibra el trigger y agrupa por batches.
+- **Modificaciones perdidas.** El humano edita, el agente publica la versión editada, pero nadie guarda que hubo edición. Se pierde la señal de aprendizaje más valiosa.
+- **Sin timeout.** Un item queda pendiente seis meses porque el aprobador olvidó la notificación. Siempre define `expires_at` y comportamiento post-timeout.
+- **Timeout con `auto_approve` para acciones críticas.** Patrón peligroso: "si no responden en 10 minutos, se aprueba solo". Convierte el HITL en teatro.
+- **Sin reasignación.** El aprobador designado está en PTO y nadie lo cubre. Detecta ausencia (Slack status, calendar) y reasigna automáticamente.
+- **Contexto a destiempo.** Mostrar el diff completo de 5 mil líneas cuando el aprobador solo necesita saber que afecta `auth/`. Resume primero, expande bajo demanda.
+- **Workflow único para todo.** `code review` y `database migration` tienen necesidades distintas de aprobación (1 vs. 2 aprobaciones, 2h vs. 24h de timeout). Workflow por tipo de acción.
+- **No separar `approve` de `approve_with_edits`.** Si tratas ambos como "approved" en el audit log, pierdes la señal de que el humano no estaba de acuerdo con el borrador.
+- **Olvidar auditoría.** Sin log inmutable de quién aprobó qué y cuándo, el workflow no sirve para regulación.
 
-      # Sort by load (ascending) and select
-      sorted_approvers = sorted(eligible, key=lambda a: loads[a])
-      return sorted_approvers[:count]
-```
+## Resumen
 
-Now that you understand review queue implementation, consider how to prevent common problems like approval fatigue.
-
-Modification and Feedback Capture
-When approvers modify agent-proposed actions, capturing these modifications improves future agent performance.
-
-```python
-class ApprovalWithModification:
-  async def approve_with_edits(self, action_id: str, approver: str,
-                                edits: dict, feedback: str = None) -> dict:
-      """Approve an action with modifications"""
-      pending = await self.storage.get_pending(action_id)
-
-      # Apply edits
-      if "comments" in edits:
-          pending.payload["comments"] = self._merge_comments(
-              pending.payload.get("comments", []), edits["comments"]
-          )
-
-      # Record modification as feedback
-      await self.tracker.record_modification(pending, approver, edits)
-
-      # Complete approval
-      return await self.engine.process_approval(action_id, approver, "approved", edits)
-```
-
-Modifications serve as valuable training signals. If a human consistently edits agent suggestions in a particular way, that pattern can inform prompt improvements.
-
-Common Pitfalls and Solutions
-Single point of failure: If only one person can approve, vacations or busy periods block the system. Solution: define pools of eligible approvers with load balancing.
-
-Approval fatigue: Too many requests cause approvers to rubber-stamp without reviewing. Solution: calibrate what truly needs approval versus what can proceed automatically.
-
-Lost modifications: Human edits are applied but not recorded. Solution: capture every modification for feedback analysis.
-
-No reassignment: If an approver becomes unavailable, the request hangs. Solution: detect unavailability and automatically reassign to another eligible approver.
-
-Summary
-Approval workflows create structured checkpoints for human review. The workflow design includes trigger conditions, approver selection, timeout handling, and modification support.
-
-Queue systems track pending approvals and handle timeouts with configurable behaviors—escalate, auto-approve, or auto-reject. Load balancing distributes work fairly among approvers.
-
-Modification tracking captures when humans edit agent proposals, providing valuable feedback for improving agent performance.
-
-Key Takeaways:
-
-Design workflows around what triggers approval, who approves, and what happens after
-Implement queues that track pending items and handle timeouts gracefully
-Balance approval load across available reviewers
-Allow modifications during approval to capture human corrections
-Record modifications as feedback for agent improvement
-Support multiple escalation paths when approvals are not received in time
+- Un workflow de aprobación define **trigger, routing, presentation, response, timeout y post-action** de forma explícita.
+- El patrón técnico es **interrupt-and-resume**: el agente pausa su ejecución, persiste estado, notifica, y continúa cuando el humano responde. LangGraph `interrupt()`, OpenAI `required_action` y Temporal lo implementan.
+- **Pools de aprobadores con load balancing** eliminan puntos únicos de falla.
+- Las políticas de **timeout** (`escalate`, `auto_approve`, `auto_reject`) definen qué pasa cuando el humano no responde. Elige según el riesgo.
+- **Capturar modificaciones** convierte las correcciones humanas en señal de entrenamiento para mejorar el agente.
+- Errores recurrentes: fatiga por sobre-triggering, punto único de aprobador, modificaciones no registradas, timeouts peligrosos y workflows únicos para acciones de riesgos distintos.
+- Buen workflow = **invisible cuando funciona, rastreable cuando falla**.

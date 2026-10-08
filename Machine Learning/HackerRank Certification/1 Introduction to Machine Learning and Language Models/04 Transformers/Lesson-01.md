@@ -1,254 +1,419 @@
-## Attention Mechanisms
-You have learned about BERT and GPT; two revolutionary language models that transformed how we process text. But what is the core innovation that makes these models so powerful? It is the attention mechanisms, specifically the Query/Key/Value framework that we will explore in this lesson.
+# Mecanismos de Atención (Attention)
 
-Imagine you are debugging a complex codebase and need to understand how a variable declared 200 lines earlier affects a function call you are currently examining. Your brain does not re-read every line instead, it selectively focuses on the most relevant parts while maintaining awareness of the broader context. This is exactly what attention mechanisms do for AI models, and it is the breakthrough that enabled ChatGPT, Claude, and GitHub Copilot to understand and generate coherent long-form content.
+## ¿Qué es?
 
-By the end of this lesson, you will understand the Query/Key/Value framework that powers modern transformers, grasp why attention has quadratic complexity (and what that means for your applications), and see how multi-head attention enables models to process multiple types of relationships simultaneously.
+El **mecanismo de atención** es la operación matemática que permite a un modelo *decidir dinámicamente*, para cada palabra (token) de una secuencia, **cuáles otras palabras son relevantes** y en qué proporción. En lugar de procesar el texto como un flujo rígido de izquierda a derecha (como las RNN/LSTM), la atención permite que *cualquier* token mire a *cualquier* otro token y pondere su influencia.
 
-The Problem Attention Solves
-Before attention mechanisms, neural networks processed sequences like a person reading with severe short-term memory loss. They could only remember the last few words when generating or understanding text, making them useless for tasks requiring long-range understanding.
+La fórmula canónica, introducida en *"Attention Is All You Need"* (Vaswani et al., 2017), es la **scaled dot-product attention**:
 
-Consider this scenario:
+```
+Attention(Q, K, V) = softmax( Q · Kᵀ / √d_k ) · V
+```
+
+Donde:
+
+- **Q (Query)** — "¿qué estoy buscando?". Vector que representa la pregunta del token actual.
+- **K (Key)** — "¿qué ofrezco yo?". Vector que indexa el contenido de cada token candidato.
+- **V (Value)** — "¿qué información entrego si me eligen?". Vector con el contenido semántico real.
+- **d_k** — dimensión de las keys. El `√d_k` evita que los productos escalares crezcan demasiado y saturen el softmax (inestabilidad numérica).
+- **softmax** — normaliza los scores a una distribución de probabilidad (suman 1).
+
+### Analogía: Google para tu texto
+
+Cuando buscas *"mejor pizza cerca"*:
+
+- Tu **query** es la frase que escribes.
+- Las **keys** son los títulos y descripciones indexados.
+- Los **values** son los sitios web completos que recibes.
+
+La atención hace exactamente lo mismo *dentro* del modelo: cada token emite una query, se compara contra las keys de los demás tokens, y recibe una mezcla ponderada de sus values.
+
+> **Definición operativa:** la atención es una **lookup diferenciable y suave** sobre una memoria. En vez de "elige el token X" (hard), devuelve "mezcla el 73% del token X con el 15% del Y y el 12% del Z" (soft), lo cual es derivable y entrenable con backpropagation.
+
+### Jerarquía: Atención → Self-Attention → Multi-Head → Transformer
+
+```
+Atención (concepto general: Q, K, V)
+└── Self-Attention              ← Q, K, V vienen de la MISMA secuencia
+    └── Multi-Head Attention    ← varias cabezas de self-attention en paralelo
+        └── Bloque Transformer  ← MHA + FFN + residuales + LayerNorm
+            └── Modelo completo ← apilar N bloques (12, 24, 96…)
+```
+
+## ¿Por qué importa?
+
+Antes de la atención, las redes neuronales procesaban secuencias con **memoria a corto plazo severa**. RNN y LSTM comprimían toda la historia pasada en un vector de estado fijo que inevitablemente olvidaba lo lejano. Entrenarlas era lento (recurrencia impide paralelismo) y las dependencias a larga distancia se diluían con el *vanishing gradient*.
+
+Considera este fragmento:
 
 ```python
 class PaymentProcessor:
-  """
-  Handles payment processing for e-commerce transactions.
-  Supports multiple payment methods including credit cards, PayPal, and bank transfers.
-  All methods require valid authentication tokens.
-  """
+    """
+    Procesa pagos para transacciones e-commerce.
+    Todos los métodos requieren tokens de autenticación válidos.
+    """
 
-  def __init__(self, api_key, environment="sandbox"):
-      # ... 50 lines of initialization code ...
+    def __init__(self, api_key, environment="sandbox"):
+        # ... 50 líneas de inicialización ...
 
-  def validate_transaction(self, amount, currency, method):
-      # ... complex validation logic ...
-
-  def process_payment(self, transaction_data):
-      """Process the payment using the specified method."""
-      if self.is_authenticated():  # How does this relate to the class description?
-          # ... processing logic ...
+    def process_payment(self, transaction_data):
+        if self.is_authenticated():   # ¿cómo se relaciona esto con el docstring?
+            # ... lógica ...
 ```
 
-Without attention, a model processing this code would have forgotten the class-level context about "authentication tokens" by the time it reached is_authenticated(). The model could not connect that method call back to the authentication requirements mentioned in the docstring 60 lines earlier.
+Un modelo sin atención ya habría *olvidado* el docstring para cuando llega a `is_authenticated()`. La atención permite al modelo **saltar directamente** desde la línea 60 hasta la línea 3, sin importar la distancia.
 
-Attention mechanisms solved this by allowing models to directly access any part of the input when processing each element, regardless of distance. This is why modern language models can maintain context across thousands of tokens and understand complex relationships in code, documents, and conversations.
+### Beneficios concretos
 
-Query, Key, and Value
-Think of attention as a smart search system, like Google for your text. When you search "best pizza near me," Google uses:
+- **Dependencias a larga distancia** — pronombres, referencias cruzadas, código con closures.
+- **Paralelización masiva** — todas las posiciones se calculan a la vez en GPU, sin recurrencia.
+- **Interpretabilidad parcial** — los pesos de atención se pueden visualizar como heatmaps.
+- **Transferencia** — las representaciones pre-entrenadas con atención se transfieren muy bien (BERT, GPT).
+- **Escala predecible** — doblar parámetros + datos + cómputo mejora el modelo de forma suave (scaling laws de Kaplan 2020, Chinchilla 2022).
 
-Your query ("best pizza near me")
-Keys (website titles, descriptions, location tags)
-Values (the actual content of relevant websites)
-Attention works the same way, but instead of searching websites, it searches through all the words in your text to find the most relevant context.
+### Contexto histórico
 
-A Simple Example: Understanding "It"
-Consider this sentence: "The laptop was expensive, but it was worth the investment."
+| Año | Hito |
+|---|---|
+| 2014 | Bahdanau et al.: atención aditiva para traducción (seq2seq con RNN) |
+| 2015 | Luong et al.: atención multiplicativa (dot-product) |
+| 2017 | **Vaswani et al.: "Attention Is All You Need"** → Transformer puro, sin RNN |
+| 2018 | **BERT** (Google): encoder-only, pre-entrenamiento masked LM |
+| 2019 | **GPT-2** (OpenAI): decoder-only, 1.5B parámetros |
+| 2020 | **GPT-3**: 175B parámetros, few-shot learning emergente |
+| 2022 | ChatGPT, Flash Attention, Chinchilla scaling laws |
+| 2023 | GPT-4, LLaMA, Mistral, context windows de 100K+ tokens |
+| 2024+ | Grouped-Query Attention, Mixture of Experts, atención subcuadrática (Mamba, RWKV) |
 
-When the model processes the word "it," it needs to figure out what "it" refers to. Here is how Query/Key/Value works:
+## ¿Cómo funciona?
+
+### Ejemplo intuitivo: resolver "it"
+
+Considera: *"The laptop was expensive, but **it** was worth the investment."*
+
+Para procesar *"it"*, el modelo:
+
+1. Genera un **query** desde "it" que esencialmente pregunta: *"¿a qué sustantivo me refiero?"*
+2. Cada otra palabra expone una **key** que describe su "índice semántico":
+   - `laptop` → "soy un sustantivo concreto, objeto físico"
+   - `expensive` → "soy un adjetivo de costo"
+   - `investment` → "soy un sustantivo abstracto, dinero"
+3. Se calcula el producto escalar entre el query y cada key → **score de similitud**.
+4. Softmax normaliza los scores → **pesos de atención** (suman 1).
+5. La nueva representación de "it" = suma ponderada de los **values** de todas las palabras.
+
+Como `laptop` tiene la key más alineada con el query ("busco un sustantivo físico"), recibe el mayor peso y "it" termina representado principalmente como "laptop".
 
 ![Query/Key/Value Diagram](https://hrcdn.net/ai-engineering/module-1/light/transformers-lesson01-query-key-value-framework.svg)
 
-Query: "What does 'it' refer to?"
+### Las tres matrices aprendibles: W_Q, W_K, W_V
 
-The model generates a query vector that essentially asks this question
-Keys: Every word becomes searchable
+Los vectores Q, K, V **no** son los embeddings crudos de los tokens. Se obtienen proyectando los embeddings `X` (de dimensión `d_model`) por tres matrices aprendibles:
 
-"laptop" gets a key that says "I'm a noun, I'm a physical object"
-"expensive" gets a key that says "I'm an adjective describing cost"
-"investment" gets a key that says "I'm a noun related to money"
-Values: The actual meaning representations
-
-Each word has a rich vector containing its semantic meaning
-The Magic: The model compares the query "what does 'it' refer to?" against all the keys. "laptop" has the highest similarity score because pronouns typically refer to nouns, not adjectives or abstract concepts.
-
-The final representation of "it" becomes a weighted combination of all the values, but "laptop" gets the highest weight. This is how the model "knows" that "it" refers to "the laptop."
-
-Why This Matters for Code Understanding
-Let's see this with a programming example:
-
-```python
-user = authenticate_user(token)
-permissions = get_user_permissions(user)
-if permissions.can_delete:
-  delete_record(record_id)  # Who can delete?
+```
+Q = X · W_Q        shape: (n, d_k)
+K = X · W_K        shape: (n, d_k)
+V = X · W_V        shape: (n, d_v)
 ```
 
-When processing delete_record(), the model's query might be "what conditions allow this action?" The attention mechanism finds high similarity with:
+Donde `n` = longitud de secuencia, y `W_Q, W_K, W_V` son los parámetros que el modelo *aprende* para producir buenas queries, keys y values. Esta es la razón por la que la atención es **entrenable**: ajustamos `W_Q, W_K, W_V` por gradiente para que las queries y keys relevantes se alineen.
 
-authenticate_user() (authentication context)
-permissions.can_delete (authorization condition)
-user (the subject performing the action)
-This gives the model rich context about the security requirements for the delete operation, even though that information is scattered across multiple lines.
+### Por qué `√d_k`: estabilidad numérica
 
-Query/Key/Value Attention Calculation
-Shows how attention calculates similarity scores to determine which words are most relevant to each other.
+Si `Q · Kᵀ` crece con `d_k`, el softmax entra en una región de gradientes casi nulos (saturación). Dividir por `√d_k` mantiene la varianza en torno a 1:
+
+```
+Var(Q·Kᵀ) ≈ d_k         →         Var(Q·Kᵀ / √d_k) ≈ 1
+```
+
+Omitir este factor es un **error clásico** al implementar atención desde cero: el modelo no entrena.
+
+### Self-Attention
+
+Cuando Q, K y V se derivan todos de **la misma secuencia** (`X`), hablamos de *self-attention*: cada token atiende a los demás tokens del mismo input. Es la operación central del Transformer.
+
+- **Encoder self-attention** (BERT): bidireccional, todos los tokens se ven entre sí.
+- **Masked / causal self-attention** (GPT): un token solo puede mirar a los anteriores (se aplica una máscara triangular que pone `-∞` en las posiciones futuras antes del softmax).
+- **Cross-attention** (encoder-decoder, T5): Q viene del decoder, K y V vienen del encoder.
+
+### Multi-Head Attention
+
+Una sola cabeza de atención aprende *un* tipo de relación. Para capturar varias (sintaxis, correferencia, semántica, posición) en paralelo, el Transformer usa **h cabezas** independientes, cada una con sus propias `W_Q^i, W_K^i, W_V^i`:
+
+```
+head_i = Attention(X·W_Q^i, X·W_K^i, X·W_V^i)
+MHA(X) = Concat(head_1, …, head_h) · W_O
+```
+
+En BERT-base: `h=12`, `d_model=768`, cada cabeza opera en `d_k=64`. En GPT-3: `h=96`, `d_model=12288`.
+
+Analogía: en lugar de un solo experto leyendo el texto, tienes 12 especialistas (uno enfocado en sintaxis, otro en entidades, otro en tiempo verbal…) y luego combinas sus notas.
+
+### Positional Encoding
+
+La atención es **permutation-invariant**: si barajas los tokens, el output es el mismo (solo reordenado). Pero el orden importa en el lenguaje. Hay que **inyectar posición** explícitamente.
+
+**1. Positional encoding sinusoidal** (Vaswani 2017, usado en el Transformer original):
+
+```
+PE(pos, 2i)   = sin(pos / 10000^(2i/d_model))
+PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
+```
+
+Se **suma** al embedding del token. Ventajas: no requiere parámetros, generaliza a longitudes no vistas, codifica distancias relativas via identidades trigonométricas.
+
+**2. Positional embeddings aprendidos** (BERT, GPT-2): una matriz `(max_len, d_model)` entrenable. Simple pero no extrapola más allá de `max_len`.
+
+**3. RoPE — Rotary Position Embedding** (Su et al., 2021, usado en LLaMA, GPT-NeoX, Qwen): **rota** los pares de dimensiones de Q y K según la posición. Preserva la norma del vector y codifica *posición relativa* dentro del producto escalar `Q·Kᵀ`. Permite extrapolar a contextos más largos de los vistos en entrenamiento.
+
+**4. ALiBi** (Press et al., 2022): añade un **sesgo lineal negativo** proporcional a la distancia directamente en los scores de atención. Simple y robusto a longitudes largas.
+
+### Complejidad O(n²): por qué el contexto es caro
+
+Cada token debe comparar su query contra las keys de los `n` tokens → `n²` productos escalares. En memoria, la matriz de atención es `n × n`:
+
+```
+Longitud (n)   Operaciones   Costo relativo
+    1,000        1 M            1x
+    2,000        4 M            4x
+    4,000       16 M           16x
+    8,000       64 M           64x
+   32,000     1,024 M        1024x
+  100,000    10,000 M       10000x
+```
+
+Esto explica:
+
+- **Precios de API** — un contexto de 128K no cuesta 32× más que 4K, cuesta ~1000× más en cómputo.
+- **Latencia** — doblar la longitud cuadruplica el tiempo.
+- **Límites de contexto** — la memoria GPU se agota (`O(n²)` para almacenar los scores).
+
+### Variantes modernas para romper el O(n²)
+
+| Variante | Idea central | Dónde se usa |
+|---|---|---|
+| **Flash Attention** (Dao 2022) | Reorganiza el cálculo en bloques que caben en SRAM, evita materializar la matriz n×n en HBM | GPT-4, LLaMA, estándar en 2024+ |
+| **Multi-Query Attention (MQA)** | Una sola K y V compartidas entre todas las cabezas (solo las Q son múltiples) | PaLM, Falcon |
+| **Grouped-Query Attention (GQA)** | Compromiso: grupos de cabezas comparten K/V | LLaMA 2, LLaMA 3, Mistral |
+| **Sliding Window Attention** | Cada token solo atiende a una ventana local de tamaño `w` | Longformer, Mistral 7B |
+| **Sparse Attention** | Patrones de atención dispersos (strided, dilated) | GPT-3 (parcial), BigBird |
+| **Linear Attention** | Reescribe softmax para obtener O(n) | Performer, Linformer |
+| **State-Space / RNN moderna** | Abandona atención, usa recurrencia selectiva O(n) | Mamba, RWKV, Hyena |
+
+### Encoder vs Decoder vs Encoder-Decoder (resumen rápido, se desarrolla en Lesson-03)
+
+| Arquitectura | Atención | Tarea natural | Ejemplos |
+|---|---|---|---|
+| Encoder-only | Bidireccional | Comprensión, clasificación, embeddings | BERT, RoBERTa, DeBERTa |
+| Decoder-only | Causal (masked) | Generación autoregresiva | GPT-2/3/4, LLaMA, Claude, Mistral |
+| Encoder-decoder | Encoder bidireccional + decoder causal + cross-attention | Transformación (traducción, resumen) | T5, BART, mT5, Flan-T5 |
+
+## Ejemplo con código
+
+### 1. Self-attention mínima con NumPy
 
 ```python
 import numpy as np
 
-def simple_attention_example():
-  """
-  Demonstrate how Query/Key/Value attention works with a concrete example.
-  Shows the core calculation that determines which words pay attention to which.
-  """
-  # Sentence: "The laptop was expensive but it was worth it"
-  # Focus on the word "it" (position 6) referring back to "laptop" (position 1)
+def softmax(x, axis=-1):
+    x = x - x.max(axis=axis, keepdims=True)       # estabilidad numérica
+    e = np.exp(x)
+    return e / e.sum(axis=axis, keepdims=True)
 
-  words = ["The", "laptop", "was", "expensive", "but", "it", "was", "worth", "it"]
+def scaled_dot_product_attention(Q, K, V, mask=None):
+    """
+    Q: (n, d_k)   queries
+    K: (m, d_k)   keys
+    V: (m, d_v)   values
+    mask: (n, m) booleana. True = posicion permitida.
+    """
+    d_k = Q.shape[-1]
+    scores = Q @ K.T / np.sqrt(d_k)               # (n, m)
+    if mask is not None:
+        scores = np.where(mask, scores, -1e9)     # -inf en posiciones prohibidas
+    weights = softmax(scores, axis=-1)            # (n, m)
+    output = weights @ V                          # (n, d_v)
+    return output, weights
 
-  # Simplified word vectors (in reality these are 512+ dimensions)
-  # These represent the meaning of each word
-  word_vectors = {
-      "The": [0.1, 0.2, 0.0],       # article
-      "laptop": [0.8, 0.1, 0.9],    # concrete noun, technology
-      "was": [0.0, 0.5, 0.1],       # verb
-      "expensive": [0.2, 0.3, 0.1], # adjective
-      "but": [0.0, 0.1, 0.0],       # conjunction
-      "it": [0.3, 0.1, 0.8],        # pronoun (needs reference)
-      "worth": [0.1, 0.4, 0.2]      # adjective/noun
-  }
+# Ejemplo: 4 tokens, dimensión 8
+rng = np.random.default_rng(0)
+n, d = 4, 8
+X = rng.normal(size=(n, d))
 
-  # For the word "it" at position 5, we create a query
-  query = word_vectors["it"]  # What does "it" refer to?
+# Proyecciones aprendidas (aquí aleatorias para demostración)
+W_Q = rng.normal(size=(d, d))
+W_K = rng.normal(size=(d, d))
+W_V = rng.normal(size=(d, d))
 
-  print("Finding what 'it' refers to:")
-  print(f"Query (for 'it'): {query}")
-  print("\nCalculating similarity with each word:")
+Q, K, V = X @ W_Q, X @ W_K, X @ W_V
+out, attn = scaled_dot_product_attention(Q, K, V)
 
-  # Calculate attention scores (simplified dot product)
-  attention_scores = {}
-  for word, key_vector in word_vectors.items():
-      if word != "it":  # Don't compare with itself
-          # Dot product measures similarity
-          score = sum(q * k for q, k in zip(query, key_vector))
-          attention_scores[word] = score
-          print(f"'{word}': {score:.2f}")
-
-  # Find the word with highest attention
-  best_match = max(attention_scores, key=attention_scores.get)
-  print(f"\nHighest attention: '{best_match}' (score: {attention_scores[best_match]:.2f})")
-  print(f"Therefore, 'it' most likely refers to '{best_match}'")
-
-simple_attention_example()
-
-# This shows the core mechanism: queries find the most similar keys
-# In reality, this happens with much higher dimensional vectors
+print("Pesos de atención (filas suman 1):")
+print(attn.round(2))
 ```
 
-Quadratic Complexity: Why Longer Text Gets Much More Expensive
-Here is the tricky part about attention: it does not scale nicely. When your text gets longer, the processing cost does not just increase; it explodes.
-
-The Simple Rule: Double your text length = 4x the processing cost
-
-Think of it like a group conversation:
-
-10 people talking: Each person listens to 9 others = 90 conversations total
-20 people talking: Each person listens to 19 others = 380 conversations total
-That's 4x more conversations for only 2x more people!
-In Real Numbers:
+### 2. Máscara causal (decoder-only, estilo GPT)
 
 ```python
-1,000 words    → 1 million calculations
-2,000 words    → 4 million calculations (4x more!)
-4,000 words    → 16 million calculations (16x more!)
+def causal_mask(n):
+    """Matriz triangular inferior: posicion i solo ve 0..i."""
+    return np.tril(np.ones((n, n), dtype=bool))
+
+mask = causal_mask(n)
+out_causal, attn_causal = scaled_dot_product_attention(Q, K, V, mask=mask)
+
+print("Atención causal (triangular inferior):")
+print(attn_causal.round(2))
+# Observa: la primera fila concentra todo en la posición 0,
+# la segunda se reparte entre 0 y 1, etc.
 ```
 
-This happens because every token must "look at" every other token. In a 1,000-token document, each token examines 999 other tokens. In a 4,000-token document, each token examines 3,999 other tokens—nearly 4x more work per token, and you have 4x more tokens doing that work.
-
-Why This Matters to You:
-
-API Costs: When ChatGPT offers different context limits (4K vs 128K tokens), the larger contexts are not just a little more expensive; they are dramatically more expensive to process. A 128K context requires 1,000x more computation than a 4K context.
-
-Speed: A document that is twice as long does not take twice as long to process; it takes 4x longer. This is why very long conversations with AI can feel slow.
-
-Memory: The AI needs to store attention scores between every pair of words. Longer text means exponentially more storage needed.
-
-Practical Impact: This is why most AI services have context limits and why longer contexts cost more. It is not artificial scarcity; it is genuine computational physics.
-
-Attention's Quadratic Complexity
-Demonstrates why attention gets exponentially more expensive as text length increases.
+### 3. Multi-Head Attention en PyTorch
 
 ```python
-def visualize_attention_complexity():
-  """
-  Show how attention complexity grows quadratically with sequence length.
-  Helps understand why longer contexts are so much more expensive.
-  """
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-  def calculate_attention_operations(sequence_length):
-      """Each token attends to every other token (including itself)"""
-      return sequence_length * sequence_length
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(self, d_model: int, n_heads: int, causal: bool = False):
+        super().__init__()
+        assert d_model % n_heads == 0
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.d_k = d_model // n_heads
+        self.causal = causal
 
-  # Different context sizes
-  context_sizes = [100, 500, 1000, 2000, 4000, 8000]
+        # Una sola proyección combinada para Q, K, V (3*d_model)
+        self.qkv = nn.Linear(d_model, 3 * d_model, bias=False)
+        self.out = nn.Linear(d_model, d_model, bias=False)
 
-  print("Attention Complexity: Why Longer Text Costs More")
-  print("=" * 50)
-  print(f"{'Length':<8} {'Operations':<12} {'Relative Cost':<15}")
-  print("-" * 35)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, N, D = x.shape
+        qkv = self.qkv(x)                                   # (B, N, 3D)
+        qkv = qkv.reshape(B, N, 3, self.n_heads, self.d_k)
+        qkv = qkv.permute(2, 0, 3, 1, 4)                    # (3, B, h, N, d_k)
+        Q, K, V = qkv[0], qkv[1], qkv[2]
 
-  base_ops = None
-  for length in context_sizes:
-      operations = calculate_attention_operations(length)
+        scores = (Q @ K.transpose(-2, -1)) / (self.d_k ** 0.5)   # (B, h, N, N)
+        if self.causal:
+            m = torch.triu(torch.ones(N, N, device=x.device), diagonal=1).bool()
+            scores = scores.masked_fill(m, float("-inf"))
+        attn = F.softmax(scores, dim=-1)
 
-      if base_ops is None:
-          base_ops = operations
-          relative_cost = 1.0
-      else:
-          relative_cost = operations / base_ops
+        y = attn @ V                                        # (B, h, N, d_k)
+        y = y.transpose(1, 2).reshape(B, N, D)              # (B, N, D)
+        return self.out(y)
 
-      print(f"{length:<8} {operations:,<12} {relative_cost:.1f}x")
-
-  print("\nKey Insights:")
-  print("• Double the length → 4x the cost")
-  print("• This explains ChatGPT's pricing tiers")
-  print("• Why context limits exist")
-  print("• Why long conversations feel slower")
-
-  # Show the attention matrix size
-  print(f"\nFor 4000 tokens:")
-  print(f"Attention matrix size: 4000 × 4000 = 16 million scores to calculate!")
-
-def show_attention_pattern():
-  """Show what the attention matrix looks like for a small example"""
-  sentence = ["The", "cat", "sat", "on", "mat"]
-  length = len(sentence)
-
-  print(f"\nAttention Matrix for: {' '.join(sentence)}")
-  print("Each cell shows how much each word (row) attends to each word (column)")
-  print("     " + "".join(f"{word:>6}" for word in sentence))
-
-  for i, word in enumerate(sentence):
-      # Simplified attention weights (in reality these are learned)
-      weights = [0.1, 0.2, 0.3, 0.2, 0.2]  # Example weights
-      weights[i] += 0.3  # Words attend more to themselves
-
-      print(f"{word:>4} " + "".join(f"{w:6.1f}" for w in weights))
-
-  print(f"\nTotal calculations needed: {length} × {length} = {length * length}")
-
-visualize_attention_complexity()
-show_attention_pattern()
+# Prueba
+mha = MultiHeadSelfAttention(d_model=64, n_heads=8, causal=True)
+x = torch.randn(2, 10, 64)       # batch=2, seq=10, d=64
+y = mha(x)
+print(y.shape)                   # torch.Size([2, 10, 64])
 ```
 
-Real-World Implementation Patterns
-Understanding attention mechanisms helps you optimize your applications:
+### 4. Uso práctico con HuggingFace Transformers
 
-Context Window Strategy: Since attention is quadratic, carefully manage what goes in your context. Put the most important information first or structure your prompts so key information is evenly distributed.
+```python
+from transformers import pipeline
 
-Batch Processing Optimization: Group requests by similar context lengths when possible. Processing 10 requests with 1,000 tokens each is much more efficient than processing a mix of 100-token and 3,000-token requests in the same batch.
+# Clasificación de sentimiento (BERT fine-tuned)
+clf = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+print(clf("The attention mechanism is surprisingly elegant."))
+# [{'label': 'POSITIVE', 'score': 0.9998}]
 
-Prompt Engineering: Understanding attention helps explain why certain prompt structures work better. Information that needs to influence later processing should be positioned where attention mechanisms can easily find it.
+# Generación de texto (GPT-2)
+gen = pipeline("text-generation", model="gpt2")
+print(gen("Attention is", max_new_tokens=20)[0]["generated_text"])
 
-Summary
-Attention mechanisms revolutionized language models by solving the fundamental problem of long-range dependencies through the elegant Query/Key/Value framework. This database like approach allows models to dynamically retrieve relevant context from anywhere in the input sequence, enabling the complex reasoning capabilities you see in modern AI systems.
+# Inspección de los pesos de atención
+from transformers import AutoTokenizer, AutoModel
+tok = AutoTokenizer.from_pretrained("bert-base-uncased")
+mdl = AutoModel.from_pretrained("bert-base-uncased", output_attentions=True)
 
-The scaled dot-product attention provides the mathematical foundation that makes this lookup efficient and trainable, while multi-head attention amplifies the power by running multiple specialized attention mechanisms in parallel. Together, these innovations enable models to process multiple types of relationships simultaneously and maintain coherent understanding across long contexts.
+inputs = tok("The laptop was expensive but it was worth it", return_tensors="pt")
+out = mdl(**inputs)
+attn = out.attentions          # tupla de 12 tensores (una por capa)
+print(attn[0].shape)           # (1, 12_heads, seq_len, seq_len)
+```
 
-Key concepts to remember
-Attention's quadratic complexity directly explains API pricing, context limits, and memory requirements—design your systems accordingly.
-The Query/Key/Value framework helps you understand why context positioning matters in your prompts.
-Multi-head attention explains why language models can handle multiple tasks and relationship types simultaneously.
-Attention patterns can be valuable debugging tools, but do not mistake them for complete explanations of model behavior.
+### 5. Fine-tuning snippet (clasificación binaria)
 
+```python
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
+from datasets import load_dataset
+
+ds = load_dataset("imdb")
+tok = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+
+def tokenize(batch):
+    return tok(batch["text"], truncation=True, padding="max_length", max_length=256)
+
+ds = ds.map(tokenize, batched=True)
+model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
+
+args = TrainingArguments(
+    output_dir="out",
+    num_train_epochs=1,
+    per_device_train_batch_size=16,
+    learning_rate=2e-5,
+    evaluation_strategy="epoch",
+    bf16=True,                      # entrenamiento en bfloat16
+)
+
+trainer = Trainer(
+    model=model,
+    args=args,
+    train_dataset=ds["train"].select(range(2000)),
+    eval_dataset=ds["test"].select(range(500)),
+)
+trainer.train()
+```
+
+### 6. Flash Attention (producción)
+
+```python
+# Requiere: pip install flash-attn (CUDA)
+from flash_attn import flash_attn_func
+
+# Q, K, V: (B, N, h, d_k) en fp16/bf16, en GPU
+out = flash_attn_func(Q, K, V, causal=True)
+# ~2-4x más rápido y usa O(n) memoria en vez de O(n²)
+```
+
+## Errores comunes
+
+- **Olvidar `/ √d_k`.** El softmax satura, los gradientes se desvanecen, el modelo no aprende. Es el error #1 al implementar atención desde cero.
+- **Olvidar la máscara causal en decoders.** Sin la máscara triangular, el modelo "espía" los tokens futuros durante el entrenamiento → *data leakage* catastrófico. En inferencia se desploma.
+- **Positional encoding mal escalado.** Sumar PE con amplitud mucho mayor que el embedding → el modelo solo ve posición y pierde semántica. O al revés: PE insignificante → pierde orden.
+- **Padding mal manejado.** Los tokens `[PAD]` reciben atención si no se enmascaran, metiendo ruido. Siempre pasa una `attention_mask` al tokenizer de HuggingFace.
+- **Softmax sin estabilización.** `exp(x)` desborda si `x` es grande. Restar el máximo antes de exponenciar (truco estándar).
+- **Confundir cabezas con capas.** Las cabezas (`n_heads`) actúan en paralelo *dentro* de una capa. Las capas (`n_layers`) se apilan en serie. BERT-base: 12 capas × 12 cabezas.
+- **Materializar la matriz n×n en secuencias largas.** Con `n=32K`, la matriz pesa `32K² × 4 bytes = 4 GB` por cabeza en fp32. Usa Flash Attention o atención dispersa.
+- **Tokenización incorrecta.** Pasar texto sin el tokenizer correcto (BPE, WordPiece, SentencePiece) rompe los embeddings. El modelo y el tokenizer deben ser del mismo checkpoint.
+- **Interpretar los pesos de atención como "explicación causal".** Los weights muestran *dónde mira* el modelo, no necesariamente *por qué decide*. Son una señal débil, no una prueba (ver Jain & Wallace 2019 "Attention is not Explanation").
+- **No usar `torch.no_grad()` o `model.eval()` en inferencia.** Dropout se queda activo, resultados no reproducibles, y gastas memoria en gradientes.
+- **Dimensión incompatible entre cabezas.** `d_model` debe ser divisible por `n_heads`. 768/12 = 64 ✓, 768/10 = 76.8 ✗.
+- **Confiar en context windows gigantes sin medir "lost in the middle".** Los modelos tienden a prestar menos atención al centro del contexto (Liu et al., 2023). Poner la información clave al principio o al final.
+
+## Herramientas y librerías
+
+- **HuggingFace Transformers** — hub + API uniforme para 100K+ modelos pre-entrenados.
+- **PyTorch** / `torch.nn.functional.scaled_dot_product_attention` — implementación nativa optimizada (usa Flash Attention internamente desde PyTorch 2.0).
+- **flash-attn** — librería oficial de Flash Attention 2 (Dao Lab).
+- **xformers** — colección de kernels de atención eficiente (Meta).
+- **vLLM / TGI** — motores de inferencia para LLMs con atención paginada (PagedAttention).
+- **bertviz** — visualización interactiva de pesos de atención en Jupyter.
+
+## Resumen
+
+- La **atención** es una lookup suave y diferenciable sobre una memoria: para cada **query**, pesa un conjunto de **keys** y devuelve una mezcla de **values**.
+- La fórmula canónica es `softmax(Q·Kᵀ / √d_k) · V`. El `√d_k` es esencial para la estabilidad del softmax.
+- **Self-attention** usa Q, K, V derivados de la misma secuencia; es la operación central del Transformer.
+- **Multi-head attention** corre `h` cabezas en paralelo para capturar relaciones distintas (sintaxis, correferencia, semántica…).
+- La atención es **permutation-invariant** → hace falta inyectar orden con **positional encodings** (sinusoidal, aprendido, RoPE o ALiBi).
+- Las variantes **encoder-only** (BERT), **decoder-only** (GPT), **encoder-decoder** (T5) solo cambian el patrón de máscara y la dirección de la atención.
+- La **complejidad O(n²)** explica los precios de API, los límites de contexto y la latencia creciente con secuencias largas.
+- Variantes modernas (**Flash Attention, MQA, GQA, sliding window, Mamba**) atacan ese cuello de botella.
+- **Errores clásicos**: olvidar `√d_k`, olvidar la máscara causal, mal manejo de padding, mala tokenización y confiar en context windows sin medir pérdida de atención en el medio.
+- La atención no es solo matemática elegante: es el salto cualitativo que separa los modelos pre-2017 (RNN/LSTM que olvidaban) de los Transformers modernos capaces de razonar sobre miles de tokens en paralelo.

@@ -1,65 +1,68 @@
-## Quiz: Audio and Speech Processing
+# Quiz: Audio y Voz
 
-Audio and Speech Processing
-You are building a voice-enabled customer support system for a telecommunications company. The system needs to transcribe customer calls, generate spoken responses, and provide real-time voice interaction. You handle 5,000 calls daily averaging 4 minutes each, with customers speaking various accents and often having background noise from busy environments.
+Estás construyendo un sistema de atención al cliente por voz para una compañía de telecomunicaciones. El sistema debe transcribir llamadas, generar respuestas habladas y mantener interacción en tiempo real. Procesas 5.000 llamadas diarias de 4 minutos en promedio, con clientes que tienen distintos acentos y ambientes ruidosos (calle, oficina, bebés llorando).
 
+---
 
-Your system serves customers who speak English, Spanish, and Mandarin. Whisper can auto-detect language, but your transcription accuracy for Spanish speakers is lower than expected. What should you do?
+**1. Tu sistema atiende clientes en español, inglés y mandarín. Whisper puede autodetectar idioma, pero la precisión para los hablantes de español es menor de lo esperado. ¿Qué deberías hacer?**
 
-Trust auto-detection - it's designed to handle multiple languages
+- Confiar en la autodetección: está diseñada para manejar múltiples idiomas.
+- Pedir al cliente que seleccione su idioma al inicio y pasarlo en el parámetro `language`.
+- Transcribir en los tres idiomas y quedarse con el resultado de mayor confianza.
+- Hacer fine-tune de Whisper con muestras de audio en español.
 
-Ask the customer to select their language preference and pass it to the language parameter
+**Respuesta correcta: Pedir al cliente que seleccione su idioma al inicio y pasarlo en el parámetro `language`.**
 
-Transcribe in all three languages and pick the most confident result
+**Explicación:** especificar el idioma explícitamente mejora significativamente la precisión, especialmente con habla acentuada o audio ruidoso. La autodetección gasta tokens y suele fallar en audios cortos, con code-switching o con mucho ruido. Fine-tune es desproporcionado como primera medida; transcribir en tres idiomas triplica el costo sin garantizar mejor resultado.
 
-Fine-tune Whisper on Spanish audio samples
-Correct Answer!
-Explicit language specification improves accuracy, especially for accented speech.
+---
 
-A customer call recording is 25 minutes long and exceeds Whisper's file size limit. How should you handle this?
+**2. Una llamada dura 25 minutos y excede el límite de 25 MB de la API de Whisper. ¿Cómo deberías manejarla?**
 
-Compress the audio to lower bitrate until it fits the size limit
+- Comprimir el audio a bitrate más bajo hasta que entre en el límite.
+- Partir en chunks de ~10 minutos con pequeños solapes, transcribir cada uno y combinarlos.
+- Transcribir solo los primeros 10 minutos como muestra representativa.
+- Acelerar el audio 2× para que entre en el límite.
 
-Split into 10-minute chunks with small overlaps, transcribe each, then combine
+**Respuesta correcta: Partir en chunks de ~10 minutos con pequeños solapes, transcribir cada uno y combinarlos.**
 
-Transcribe only the first 10 minutes as a representative sample
+**Explicación:** el chunking con solape de 1-2 s evita cortar palabras en los bordes, y pasar el final del transcript anterior como `prompt` mantiene coherencia de contexto entre chunks. Comprimir degrada WER; acelerar distorsiona el audio y empeora el reconocimiento; transcribir solo una parte descarta información del cliente.
 
-Speed up the audio 2x to fit within the limit
-Correct Answer!
-Chunking with overlaps handles long audio while maintaining context at boundaries.
+---
 
-You need to generate voice responses for: 1) Friendly greetings, 2) Account balance information, 3) Urgent fraud alerts. How should you select voices?
+**3. Necesitas generar respuestas de voz para: 1) saludos amistosos, 2) información de saldo, 3) alertas urgentes de fraude. ¿Cómo deberías seleccionar las voces?**
 
-Use one consistent voice for brand recognition across all scenarios
+- Usar una sola voz consistente para reforzar el reconocimiento de marca en todos los escenarios.
+- Usar voz cálida (`nova`/`shimmer`) para saludos, neutra (`alloy`) para información, autoritaria (`onyx`) para alertas.
+- Dejar que el cliente elija su voz preferida en configuración.
+- Usar la voz de generación más rápida para minimizar latencia.
 
-Use warm voice (nova/shimmer) for greetings, neutral voice (alloy) for information, authoritative voice (onyx) for alerts
+**Respuesta correcta: Usar voz cálida (`nova`/`shimmer`) para saludos, neutra (`alloy`) para información, autoritaria (`onyx`) para alertas.**
 
-Let customers choose their preferred voice in settings
+**Explicación:** las características de la voz deben alinearse con el tono del mensaje. Una voz cálida genera cercanía al abrir, una neutra transmite datos sin cargarlos, y una grave señala urgencia. Una sola voz para todo pierde la señal emocional del mensaje; dejarlo al cliente genera inconsistencia; priorizar velocidad sacrifica experiencia donde no se necesita.
 
-Use the fastest-generating voice to minimize latency
-Correct Answer!
-Match voice characteristics to message tone: warm for service, clear for data, authoritative for urgency.
+---
 
-Your voice assistant has total round-trip latency of 3 seconds (STT: 800ms, LLM: 1500ms, TTS: 700ms). Users report it feels 'robotic and slow'. What is the most effective optimization?
+**4. Tu voice agent tiene una latencia total round-trip de 3 segundos (STT: 800 ms, LLM: 1500 ms, TTS: 700 ms). Los usuarios reportan que se siente "robótico y lento". ¿Cuál es la optimización más efectiva?**
 
-Use tts-1-hd for higher quality audio that sounds more natural
+- Usar `tts-1-hd` para que el audio suene más natural.
+- Pre-generar las respuestas comunes en caché y hacer streaming del TTS mientras se genera.
+- Añadir frases muletilla como "déjame revisar eso" mientras se procesa.
+- Cambiar a un LLM más rápido aunque las respuestas sean de menor calidad.
 
-Pre-generate common responses and stream TTS output as it generates
+**Respuesta correcta: Pre-generar las respuestas comunes en caché y hacer streaming del TTS mientras se genera.**
 
-Add filler phrases like 'Let me check that for you' during processing
+**Explicación:** cachear las frases que se repiten (muletillas, saludos, cierres) convierte muchos TTS en lookups instantáneos, y el streaming permite que el usuario empiece a oír audio antes de que el pipeline termine. Combinadas, bajan la latencia percibida más que cualquier intervención aislada. `tts-1-hd` **empeora** la latencia; los fillers ayudan pero sin cachear ni stream siguen sumando segundos; bajar la calidad del LLM afecta la experiencia pero deja pie el cuello de botella.
 
-Switch to a faster LLM model even if responses are lower quality
-Correct Answer!
-Caching common phrases and streaming reduces perceived latency significantly.
+---
 
-Your TTS service occasionally fails during peak hours, leaving customers with no audio response. What is the best reliability pattern?
+**5. Tu servicio de TTS falla ocasionalmente en horas pico, dejando a los clientes sin respuesta de audio. ¿Cuál es el mejor patrón de confiabilidad?**
 
-Retry failed requests up to 5 times with exponential backoff
+- Reintentar hasta 5 veces con backoff exponencial.
+- Reintentar con backoff y, si sigue fallando, degradar a respuesta en texto (o voz alternativa).
+- Encolar las requests y procesarlas cuando el servicio se recupere.
+- Pre-generar todas las respuestas posibles para evitar generación en runtime.
 
-Implement retry with backoff plus text fallback when TTS fails
+**Respuesta correcta: Reintentar con backoff y, si sigue fallando, degradar a respuesta en texto (o voz alternativa).**
 
-Queue requests and process them when the service recovers
-
-Pre-generate all possible responses to avoid runtime generation
-Correct Answer!
-Retry handles transient issues; text fallback ensures customers always get a response.
+**Explicación:** el retry con backoff cubre errores transitorios (429, 5xx puntuales), pero por sí solo no resuelve una caída prolongada del proveedor. El fallback (otra voz, otro proveedor, o texto en pantalla) garantiza que el cliente siempre reciba una respuesta, aunque sea degradada. Encolar deja al cliente esperando audio que puede llegar tarde o nunca; pre-generar todas las respuestas es imposible en un sistema conversacional dinámico donde se leen datos propios de cada cliente (saldo, nombre, número de ticket).

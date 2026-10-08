@@ -1,85 +1,80 @@
-## Quiz: Tool Integration and Function Calling
-Tool Integration and Function Calling
-Your code review agent needs to interact with GitHub APIs, security scanners, and CI systems. The agent understands what needs to be done but cannot execute actions. You must implement function calling so the agent can actually fetch PR details, run security scans, check test coverage, and post comments. The system must handle API rate limits, validate parameters, and provide clear error messages when tools fail.
+# Quiz: Tool Integration y Function Calling
 
+Tu agente de code review necesita interactuar con APIs de GitHub, scanners de seguridad y sistemas de CI. El agente entiende qué hay que hacer pero no puede ejecutar acciones. Debes implementar function calling para que pueda realmente obtener detalles de PRs, correr escaneos, chequear coverage y publicar comentarios. El sistema debe manejar rate limits, validar parámetros y dar errores claros cuando las tools fallan.
 
-In the function calling workflow, what happens during the 'selection' phase?
+---
 
-The model outputs a function call request that you parse and execute
+**1. En el workflow de function calling, ¿qué ocurre durante la fase de 'selección'?**
 
-The model decides which function to call based on the user's request and available function definitions
+- El modelo emite una tool call que tú parseas y ejecutas.
+- **El modelo decide qué función llamar basándose en la petición del usuario y las definiciones de tools disponibles.** ✅
+- Tú describes las funciones disponibles al modelo con nombre, descripción y schema.
+- El resultado de la función se devuelve al modelo para que continúe razonando.
 
-You describe available functions to the model with names, descriptions, and parameter schemas
+**Explicación:** La fase de **selección** es cuando el modelo evalúa el prompt del usuario frente a las descripciones de tools y decide cuál (o cuáles) invocar y con qué parámetros. La definición es previa, la ejecución es posterior y la integración de respuesta ocurre al final del ciclo.
 
-The function result is fed back to the model to continue reasoning
-Why is native function calling preferred over prompt-based parsing approaches?
+---
 
-Native function calling is faster than parsing text output
+**2. ¿Por qué el function calling nativo es preferible a los enfoques de prompt-based parsing?**
 
-Native function calling provides structured, validated output that matches schemas, eliminating parsing ambiguity and errors
+- Es más rápido que parsear texto.
+- **Produce salida estructurada y validada que respeta tus schemas, eliminando ambigüedad y errores de parsing.** ✅
+- Requiere menos código que los enfoques de parsing.
+- Solo funciona con modelos de OpenAI.
 
-Native function calling requires less code to implement than parsing approaches
+**Explicación:** El function calling nativo devuelve datos estructurados que ya coinciden con tus schemas, evitando bugs de JSON mal formado, texto extra o inconsistencias de formato. El modelo está entrenado específicamente para emitir estas estructuras.
 
-Native function calling only works with OpenAI models
-Correct Answer!
-Native function calling returns structured data that matches your schemas, avoiding JSON parsing errors and format inconsistencies.
+---
 
-Your agent keeps calling the wrong tools. When asked to check test coverage, it calls the security scanner. What is the most likely cause?
+**3. Tu agente llama todo el tiempo a las tools equivocadas. Cuando se le pide chequear coverage, llama al scanner de seguridad. ¿Cuál es la causa más probable?**
 
-The tool implementations are buggy
+- Las implementaciones de las tools tienen bugs.
+- **Las descripciones de los schemas son vagas o poco claras, dificultando que el modelo distinga entre tools.** ✅
+- La capa de ejecución no está enrutando correctamente.
+- La temperatura del modelo está demasiado alta.
 
-The tool schema descriptions are vague or unclear, making it difficult for the model to distinguish between tools
+**Explicación:** El modelo selecciona tools casi exclusivamente por su **description**. Descripciones vagas o solapadas son la causa #1 de selección errónea. Mejora las descripciones antes de tocar temperatura, infra o fine-tuning.
 
-The execution layer is not routing function calls correctly
+---
 
-The model's temperature setting is too high
-Correct Answer!
-The model selects tools based almost entirely on descriptions. Vague descriptions lead to incorrect tool selection.
+**4. Al diseñar parámetros de un tool schema, ¿por qué conviene usar `enum` para valores como niveles de severidad en vez de strings libres?**
 
-When designing tool schema parameters, why should you use enums for values like severity levels instead of free-form strings?
+- Hace que la tool se ejecute más rápido.
+- **Proveen validación, previenen valores inválidos y hacen explícitas las opciones aceptables para el modelo.** ✅
+- Reducen el número de tokens necesarios en la function call.
+- Son obligatorios en todas las APIs de function calling.
 
-Enums make the tool execute faster than string parameters
+**Explicación:** Los `enum` restringen los valores aceptados, previenen typos (`"HIGH"` vs `"high"`), evitan que el modelo invente opciones y comunican claramente qué valores son válidos, mejorando reliability.
 
-Enums provide validation, prevent invalid values, and make valid options explicit to the model
+---
 
-Enums reduce the number of tokens needed in function calls
+**5. ¿Cuáles son las tres responsabilidades centrales de la capa de ejecución en un sistema de function calling?**
 
-Enums are required by all LLM function calling APIs
-Correct Answer!
-Enums constrain values to valid options, prevent typos, and clearly communicate acceptable values to the model.
+- Definir schemas, seleccionar tools y ejecutar funciones.
+- **Enrutar llamadas a sus implementaciones, ejecutarlas de forma segura y formatear resultados para el modelo.** ✅
+- Validar parámetros, llamar APIs y guardar resultados en base de datos.
+- Parsear lenguaje natural, generar function calls y manejar errores.
 
-What are the three core responsibilities of the execution layer in a function calling system?
+**Explicación:** La capa de ejecución recibe el nombre y argumentos emitidos por el modelo, los enruta al impl correcto, lo ejecuta con validación/timeouts/retry, y devuelve el resultado en un formato consumible por el LLM.
 
-Defining schemas, selecting tools, and executing functions
+---
 
-Routing function calls to implementations, executing those implementations safely, and formatting results for the model
+**6. Cuando una tool falla (ej. API rate limit excedido), ¿cómo debería manejarlo la capa de ejecución para el agente?**
 
-Validating parameters, calling APIs, and storing results in a database
+- Devolver `null` o resultado vacío y dejar que el agente continúe sin saber del fallo.
+- **Devolver una respuesta de error estructurada que explique qué falló y por qué, habilitando al agente a reintentar o elegir alternativas.** ✅
+- Reintentar automáticamente hasta 3 veces antes de devolver un error.
+- Lanzar una excepción que detenga el loop del agente inmediatamente.
 
-Parsing natural language, generating function calls, and handling errors
-Correct Answer!
-The execution layer routes calls to the right implementation, executes them safely, and formats results so the model can use them.
+**Explicación:** Un error estructurado (`{"type", "message", "retryable", "recovery_options"}`) le da al agente contexto para razonar: puede reintentar con backoff, probar otra tool o pedir ayuda al usuario. Fallos silenciosos o excepciones crudas rompen la autonomía del agente.
 
-When a tool execution fails (e.g., API rate limit exceeded), how should the execution layer handle this for the agent?
+---
 
-Return null or empty result and let the agent continue without knowing about the failure
+**7. ¿Qué hace que la descripción de un tool schema sea efectiva para una selección confiable?**
 
-Return a structured error response that explains what failed and why, enabling the agent to retry or choose alternative actions
+- Descripciones cortas y concisas que quepan en una línea.
+- **Descripciones que expliquen qué hace la función, cuándo usarla, qué devuelve y cualquier limitación o constraint importante.** ✅
+- Descripciones que coincidan exactamente con el nombre de la función.
+- Descripciones escritas en jerga técnica que coincida con el código de implementación.
 
-Automatically retry the failed call up to 3 times before returning an error
-
-Throw an exception that stops the agent loop immediately
-Correct Answer!
-Clear error messages help the agent understand failures, retry with backoff, or choose alternative tools to accomplish the goal.
-
-What makes a tool schema description effective for enabling reliable tool selection?
-
-Short, concise descriptions that fit on one line
-
-Descriptions that explain what the function does, when to use it, what it returns, and any important constraints or limitations
-
-Descriptions that match the function name exactly
-
-Descriptions written in technical jargon that matches the implementation code
-Correct Answer!
-Comprehensive descriptions covering purpose, usage context, return values, and constraints help the model make accurate tool selection decisions.
+**Explicación:** Una descripción completa (qué, cuándo, qué devuelve, limitaciones) le da al modelo todo el contexto necesario para elegir la tool correcta y usarla bien. Las descripciones cortas o puramente técnicas producen selecciones erráticas.

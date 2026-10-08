@@ -1,85 +1,262 @@
-## The Three Pillars: Logs, Metrics, and Traces
+# Los Tres Pilares de la Observabilidad
 
-Three pillars of observability showing logs, metrics, and traces with their key characteristics
+![Tres pilares de observabilidad](https://hrcdn.net/ai-engineering/module-7/light/aiops-lesson02-three-pillars-observability.svg)
 
-![Logs, metrics, and traces as the three pillars of observability](https://hrcdn.net/ai-engineering/module-7/light/aiops-lesson02-three-pillars-observability.svg)
+## ¿Qué es?
 
-Observability extends beyond monitoring. Monitoring tells you something is wrong. Observability helps you understand why it is wrong and how to fix it. This requires three complementary data types: logs, metrics, and traces.
+La **observabilidad** es la capacidad de entender el estado interno de un sistema a partir de las señales que emite. No es lo mismo que monitoreo: el monitoreo responde a preguntas que **ya sabías que ibas a hacer** (dashboards, alertas); la observabilidad responde a preguntas que **surgen durante un incidente** y que no habías anticipado.
 
-Logs provide detailed records of events. Each log entry describes something that happened: a request arrived, a prediction was made, an error occurred. Logs have rich context but are expensive to store and search. You use logs to investigate specific incidents or debug particular requests. When a user reports a problem, you search logs for their request to see what happened.
+La observabilidad se construye sobre tres pilares que se complementan:
 
-Metrics aggregate many events into numbers. Request count, average latency, error rate. Metrics are efficient to store and quick to query but lack detail. You use metrics for continuous monitoring and dashboards. Metrics tell you that error rates spiked, but logs tell you which specific errors occurred and why.
+1. **Logs**: eventos discretos con contexto (qué pasó y cuándo).
+2. **Métricas**: agregaciones numéricas en el tiempo (cuánto y cuántas veces).
+3. **Traces (trazas)**: la ruta completa de un request a través de múltiples servicios (dónde se gastó el tiempo).
 
-Traces show the path of individual requests through distributed systems. A request might flow from the API gateway to the model server to the feature service to a database. Traces connect all these steps, showing where time was spent and where errors occurred. You use traces to debug performance problems and understand complex request flows.
+Para sistemas de IA, especialmente con LLMs y pipelines RAG, las trazas son el pilar más subestimado y el que marca la diferencia entre poder depurar un fallo y adivinar en la oscuridad.
 
-Together, these three provide comprehensive observability. Metrics alert you to problems. Logs provide details for investigation. Traces show request flow through systems. None alone is sufficient, but all three together enable effective debugging.
+## ¿Por qué importa?
 
-For AI systems specifically, logs should capture: input data summaries (not full data due to size), prediction outputs, confidence scores, model version used, features computed, latency breakdown by component, and any errors or warnings. This information helps debug prediction quality issues and performance problems.
+### Un pilar solo no basta
 
-Structured logging uses JSON or similar formats rather than plain text. Instead of "User 12345 got prediction fraud with confidence 0.89", log ```{"user_id": 12345, "prediction": "fraud", "confidence": 0.89, "model_version": "v1.3", "latency_ms": 45}```. Structured logs are easier to parse, search, and aggregate. Modern logging systems like Elasticsearch excel at querying structured data.
+- Solo **métricas**: ves que la latencia subió, pero no sabes por qué ni para quién.
+- Solo **logs**: ves millones de líneas sin forma de agregar ni correlacionar.
+- Solo **traces**: ves una ruta lenta, pero no sabes si es sistemática o anómala.
 
-This observability approach combines structured logging (machine-parseable JSON) with distributed tracing (timing breakdown across operations), providing comprehensive visibility into ML system behavior for debugging and optimization.
+Los tres pilares bien correlacionados permiten pasar de "algo anda mal" a "el 12% de los requests del tenant X están tardando 8s porque el reranker está haciendo cold start cada 30 segundos".
 
+### El caso específico de LLMs
 
-Distributed Tracing for ML Pipelines
-Distributed trace waterfall showing request flow through API Gateway, Model Server, Feature Service, and Database with timing
+Un pipeline RAG moderno típicamente involucra:
 
-![Distributed trace showing ML pipeline request flow](https://hrcdn.net/ai-engineering/module-7/light/aiops-lesson02-distributed-trace.svg)
+```
+usuario -> API gateway -> auth -> cache -> embedder -> vector DB
+       -> reranker -> prompt builder -> LLM provider -> guardrails -> respuesta
+```
 
-ML prediction requests often flow through multiple services: load balancer, API gateway, serving application, model server, feature service, database. Understanding request flow requires distributed tracing that connects these steps.
+Un fallo puede originarse en cualquiera de estos saltos. Sin tracing distribuido es imposible saber en qué paso se rompió o se degradó la latencia.
 
-Distributed tracing works by propagating context through requests. When a request enters your system, generate a unique trace ID. Pass this trace ID in headers to downstream services. Each service reports timing and metadata with the trace ID. The tracing system collects all these reports and assembles a complete picture of the request path.
+## ¿Cómo funciona?
 
-A trace consists of spans. Each span represents one operation: serving application took 100ms, model inference took 50ms, feature database query took 30ms. Spans have parent-child relationships showing the call hierarchy. The complete trace shows the entire request tree with timing for each component.
+### Pilar 1: Logs estructurados
 
-For ML pipelines, useful spans include: total request handling, input validation, feature retrieval from cache, feature computation, model inference, result post-processing, and response formatting. Timing each span reveals where latency is spent.
+Los logs de texto plano (`print("error occurred")`) son inservibles a escala. Los **logs estructurados** emiten JSON con campos tipados: `request_id`, `user_id`, `model`, `duration_ms`, `tokens`, etc. Esto permite buscar, filtrar y agregar en herramientas como Loki, Elasticsearch o Datadog.
 
-Implementing tracing requires instrumentation. Popular tracing systems include Jaeger, Zipkin, and cloud provider solutions like AWS X-Ray. You add tracing libraries to your applications that automatically create spans for common operations and provide APIs for custom spans.
+El campo más importante es el **`request_id`** (también llamado `trace_id` o `correlation_id`): un identificador único por request que se propaga a través de todos los servicios y aparece en cada línea de log relacionada. Sin él, correlacionar eventos entre servicios es imposible.
 
-Example instrumentation creates a span for model inference timing, records the model version and input shape as metadata, catches exceptions and marks the span as error, and ensures the span is reported even if the code fails. This provides visibility into model performance and errors.
+### Pilar 2: Métricas
 
-Trace sampling manages costs. Recording every request generates massive data volumes. Sampling records 1 percent of requests (or adaptive percentages based on latency or errors) to keep costs reasonable while maintaining insight. High-latency or error requests should always be sampled to aid debugging.
+Las métricas son **time series** agregadas en ventanas de tiempo. Permiten responder preguntas como "¿cuántos requests por segundo?" o "¿cuál es el p95 de latencia?". Son baratas de almacenar y rápidas de consultar, pero pierden detalle individual.
 
-Correlation between traces and logs enables powerful debugging. Logs include trace IDs, allowing you to find all logs for a specific trace. When investigating a slow request, you view the trace to see which component was slow, then view logs from that component to understand why.
+Tipos principales (según OpenTelemetry):
 
-Tracing helps identify bottlenecks. If 80 percent of request time is spent retrieving features from a database, optimize database queries or add caching. If 80 percent is model inference, optimize the model or use faster infrastructure. Without tracing, optimization is guesswork.
+- **Counter**: solo sube (requests totales, tokens consumidos).
+- **Gauge**: sube y baja (uso de memoria, tamaño de cola).
+- **Histogram**: distribución de valores (latencias, tamaño de respuestas).
 
+### Pilar 3: Traces distribuidos
 
-Correlating Model Behavior with Infrastructure
-Understanding how model behavior relates to infrastructure helps debug performance issues and optimize resource usage. Correlation between model metrics and infrastructure metrics reveals important patterns.
+Una **trace** es un árbol de **spans**, donde cada span representa una unidad de trabajo (una llamada HTTP, una query a base de datos, una invocación al LLM). Cada span tiene: nombre, timestamp de inicio, duración, atributos (metadatos clave-valor) y una referencia al span padre.
 
-GPU utilization affects model throughput and latency. Low GPU utilization (under 50 percent) suggests inefficient batching or CPU bottlenecks. High utilization (near 100 percent) is good but leaves no headroom for traffic spikes. Track GPU utilization alongside request rate and latency to understand the relationship.
+![Trace distribuido](https://hrcdn.net/ai-engineering/module-7/light/aiops-lesson02-distributed-trace.svg)
 
-Memory pressure affects stability. As memory usage approaches limits, systems slow down due to garbage collection or swapping. Worse, they crash with out-of-memory errors. Correlate memory usage with latency and error rates. If latency increases as memory approaches limits, you need more memory or better memory management.
+### OpenTelemetry: el estándar
 
-CPU utilization for request processing (pre and post model inference) affects overall latency. Even with fast GPU inference, slow CPU processing bottlenecks the system. Correlate CPU usage with request latency broken down by component to identify CPU bottlenecks.
+**OpenTelemetry (OTel)** es el estándar de facto para instrumentación de observabilidad. Define APIs, SDKs y un protocolo (OTLP) que son agnósticos del backend: se puede enviar la misma telemetría a Datadog, New Relic, Grafana Tempo, Honeycomb o Jaeger sin cambiar el código de la aplicación.
 
-Network bandwidth affects systems with large payloads. If requests contain 5MB images and network bandwidth is saturated, latency increases. Correlate network throughput with latency to identify network bottlenecks versus compute bottlenecks.
+Ventajas:
 
-Instance health affects prediction quality. If an instance has hardware issues, predictions might be wrong or slow. Correlate error rates or latency by instance to identify problematic instances. If one instance has 10x higher error rate than others, investigate or replace it.
+- Un solo SDK para logs, métricas y traces.
+- Context propagation automático entre servicios.
+- Instrumentaciones automáticas para FastAPI, requests, httpx, SQLAlchemy, etc.
+- Portabilidad total entre proveedores.
 
-Input data characteristics affect resource usage. Larger inputs consume more memory and processing time. Correlate input size with latency and memory usage. This helps set appropriate resource limits and identify optimization opportunities.
+### Plataformas de observabilidad para LLMs
 
-Batch size dramatically affects GPU utilization and throughput. Small batches underutilize GPUs. Large batches maximize utilization but increase latency (requests wait for batches to fill). Correlate batch size with GPU utilization and latency to find optimal settings.
+Las herramientas tradicionales (Datadog, New Relic) no entienden conceptos específicos de LLMs como "token", "prompt template" o "evaluación de respuesta". Han surgido plataformas especializadas:
 
-Cache hit rates affect latency and load on backend systems. High cache hit rates (over 80 percent) mean most requests avoid slow operations. Low hit rates mean cache provides little benefit. Correlate cache hit rate with database load and request latency to understand cache effectiveness.
+| Plataforma | Fortalezas | Débil en | Open source | Mejor para |
+|---|---|---|---|---|
+| **LangSmith** | Integración nativa con LangChain, evals, datasets | Vendor lock-in, caro a escala | No | Equipos que ya usan LangChain |
+| **Langfuse** | Open source, self-host, tracing + evals + prompts | UI menos pulida | Sí (MIT) | Startups que quieren control |
+| **Helicone** | Proxy drop-in, cero código, caching, rate limiting | Menos features de evals | Sí | Equipos pequeños, rápido setup |
+| **Arize Phoenix** | Open source, excelente para RAG, embeddings viz | Setup inicial | Sí | Análisis exploratorio y debugging |
+| **W&B Weave** | Integrado con W&B, buenos experiment tracking | Pensado más para research | Parcial | Equipos de ML research |
+| **Datadog LLM Obs** | Unificado con APM, infra, logs | Caro, propietario | No | Enterprises ya en Datadog |
 
-Model version changes might affect resource usage. A new model version might be faster or slower, use more or less memory, or have different characteristics. When deploying new models, compare infrastructure metrics between versions to understand resource implications.
+### Correlación: el superpoder
 
-Temporal patterns reveal capacity planning needs. Does latency increase during peak hours? Does it decrease on weekends? Understanding daily and weekly patterns helps plan capacity and identify when to scale up or down.
+Lo que convierte observabilidad en magia es poder saltar de un pilar a otro. Al ver un alerta de latencia alta (métrica), hacer click para ver traces de ese percentil, abrir una trace lenta y ver todos los logs asociados a su `trace_id`. Herramientas modernas como Grafana con el stack "LGTM" (Loki + Grafana + Tempo + Mimir) permiten esta navegación nativamente.
 
-Anomaly detection on correlated metrics helps identify problems. If GPU utilization suddenly drops while request rate stays constant, something changed. If memory usage increases while request volume is flat, investigate for memory leaks. Correlation context makes anomalies more actionable.
+## Ejemplo con código
 
-Visualization of correlated metrics uses tools like Grafana to create dashboards showing multiple metrics over the same time range. Seeing GPU utilization, latency, and request rate together reveals patterns that individual metrics miss.
+### Logging estructurado con `request_id` propagado
 
-Summary
-Observability for AI systems requires logs, metrics, and traces working together. Structured logs provide detailed event records for debugging. Metrics aggregate behavior for monitoring and alerting. Distributed traces show request flow through multiple services, revealing where time is spent and where errors occur.
+```python
+import logging
+import json
+import uuid
+from contextvars import ContextVar
 
-Correlating model behavior with infrastructure metrics helps debug performance issues and optimize resource usage. Understanding relationships between GPU utilization, memory pressure, network bandwidth, and model behavior enables effective troubleshooting and capacity planning.
+request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
 
-Key concepts to remember
-Three Pillars - Logs provide rich detail, metrics provide aggregated data, and traces show request flow through distributed systems
-Structured Logging - JSON format enables powerful search and aggregation of log data across ML pipelines
-Distributed Tracing - Unique trace IDs propagated through service calls reveal performance bottlenecks and request flow issues
-Resource Correlation - Correlating GPU utilization, memory usage, and request characteristics reveals optimization opportunities
-Smart Sampling - Sampling strategies balance comprehensive visibility with manageable storage costs by recording representative subsets
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        payload = {
+            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "request_id": request_id_ctx.get(),
+        }
+        if hasattr(record, "extra_fields"):
+            payload.update(record.extra_fields)
+        return json.dumps(payload)
+
+handler = logging.StreamHandler()
+handler.setFormatter(JSONFormatter())
+log = logging.getLogger("llm-service")
+log.addHandler(handler)
+log.setLevel(logging.INFO)
+
+def log_with(msg: str, **fields):
+    rec = log.makeRecord(log.name, logging.INFO, "", 0, msg, (), None)
+    rec.extra_fields = fields
+    log.handle(rec)
+
+# Middleware FastAPI que inyecta y propaga request_id
+from fastapi import FastAPI, Request
+app = FastAPI()
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    rid = request.headers.get("x-request-id") or str(uuid.uuid4())
+    token = request_id_ctx.set(rid)
+    try:
+        response = await call_next(request)
+        response.headers["x-request-id"] = rid
+        return response
+    finally:
+        request_id_ctx.reset(token)
+```
+
+### Trazas distribuidas con OpenTelemetry en un pipeline RAG
+
+```python
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+
+resource = Resource.create({"service.name": "rag-chatbot", "service.version": "1.4.2"})
+provider = TracerProvider(resource=resource)
+provider.add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint="http://otel-collector:4317"))
+)
+trace.set_tracer_provider(provider)
+tracer = trace.get_tracer(__name__)
+
+def answer_question(question: str, user_id: str) -> str:
+    with tracer.start_as_current_span("rag.answer") as root:
+        root.set_attribute("user.id", user_id)
+        root.set_attribute("question.length", len(question))
+
+        with tracer.start_as_current_span("rag.embed") as span:
+            embedding = embedder.embed(question)
+            span.set_attribute("embedding.dim", len(embedding))
+
+        with tracer.start_as_current_span("rag.retrieve") as span:
+            docs = vector_db.search(embedding, k=10)
+            span.set_attribute("retrieve.top_k", 10)
+            span.set_attribute("retrieve.hits", len(docs))
+
+        with tracer.start_as_current_span("rag.rerank") as span:
+            docs = reranker.rerank(question, docs)[:3]
+            span.set_attribute("rerank.kept", len(docs))
+
+        with tracer.start_as_current_span("rag.llm_call") as span:
+            prompt = build_prompt(question, docs)
+            span.set_attribute("llm.model", "gpt-4o-mini")
+            span.set_attribute("llm.prompt_tokens_estimate", len(prompt) // 4)
+            response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+            )
+            span.set_attribute("llm.completion_tokens", response.usage.completion_tokens)
+            span.set_attribute("llm.cost_usd",
+                               response.usage.total_tokens * 0.6 / 1_000_000)
+            return response.choices[0].message.content
+```
+
+### Instrumentación con Langfuse (nativa para LLMs)
+
+```python
+from langfuse import Langfuse
+from langfuse.openai import openai  # drop-in wrapper
+import os
+
+lf = Langfuse(
+    public_key=os.environ["LANGFUSE_PUBLIC_KEY"],
+    secret_key=os.environ["LANGFUSE_SECRET_KEY"],
+    host="https://cloud.langfuse.com",
+)
+
+def ask(question: str, user_id: str, session_id: str) -> str:
+    trace = lf.trace(
+        name="rag-chat",
+        user_id=user_id,
+        session_id=session_id,
+        input={"question": question},
+        tags=["prod", "v1.4"],
+    )
+
+    retrieval = trace.span(name="retrieve", input={"q": question})
+    docs = vector_db.search(embedder.embed(question), k=5)
+    retrieval.end(output={"docs": [d.id for d in docs]})
+
+    gen = trace.generation(
+        name="llm",
+        model="gpt-4o-mini",
+        input=[{"role": "user", "content": question}],
+    )
+    resp = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": build_prompt(question, docs)}],
+    )
+    answer = resp.choices[0].message.content
+    gen.end(
+        output=answer,
+        usage={
+            "input": resp.usage.prompt_tokens,
+            "output": resp.usage.completion_tokens,
+        },
+    )
+    trace.update(output={"answer": answer})
+    return answer
+```
+
+Langfuse captura automáticamente latencia, tokens, costo y permite adjuntar scores de evaluación posteriores (user feedback, LLM-as-judge, etc.) a cada trace.
+
+## Errores comunes
+
+- **Logs sin `request_id`**: imposible correlacionar eventos entre servicios. Cada log debe llevar el identificador propagado.
+- **Logs como texto plano**: inservibles a escala. Usar JSON estructurado desde el día uno.
+- **Loguear prompts/respuestas crudos sin anonimizar**: viola PII y puede llenar logs con secretos del usuario.
+- **No usar sampling en traces de alto volumen**: enviar el 100% de las trazas puede costar más que el propio servicio; usar head-based o tail-based sampling.
+- **Spans demasiado gruesos** (solo uno por request): se pierde la descomposición. Spans demasiado finos: ruido y overhead.
+- **Instrumentar sin estándar**: cada equipo con su propio formato. Adoptar OpenTelemetry desde el inicio.
+- **Métricas con alta cardinalidad** (`user_id` como label): explotan el storage de Prometheus. Usar logs/traces para dimensiones de alta cardinalidad.
+- **No propagar contexto entre async tasks**: el `trace_id` se pierde al cambiar de thread o enviar a una cola. Usar los wrappers oficiales de OTel.
+- **Confundir monitoreo con observabilidad**: tener dashboards no es suficiente si no puedes investigar lo inesperado.
+- **Vendor lock-in**: instrumentar con el SDK propietario de un vendor en lugar de OTel; migrar luego cuesta carísimo.
+
+## Resumen
+
+- La observabilidad se asienta en **tres pilares complementarios**: logs, métricas y traces; cada uno responde preguntas distintas.
+- Los **logs estructurados** con `request_id` son la base no negociable de cualquier sistema distribuido.
+- Las **métricas** son baratas y rápidas, pero pierden detalle individual; usar histogramas para latencias.
+- Las **traces distribuidas** son el pilar más valioso en pipelines LLM/RAG multi-servicio.
+- **OpenTelemetry** es el estándar portable que evita lock-in; una sola instrumentación, muchos backends.
+- Para LLMs, plataformas especializadas (**Langfuse, LangSmith, Helicone, Arize Phoenix**) añaden contexto que las herramientas APM tradicionales ignoran.
+- La **correlación entre pilares** —saltar de métrica a trace a log— convierte observabilidad en superpoder de debugging.
+- Instrumentar es trabajo que paga intereses compuestos: la primera vez cuesta, los incidentes futuros se resuelven en minutos en lugar de horas.

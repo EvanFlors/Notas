@@ -1,343 +1,314 @@
-## PEFT (LoRA, QLoRA) Fundamentals
+# PEFT: LoRA y QLoRA
 
-Full fine-tuning updates all model parameters, requiring substantial GPU memory (often 80GB+ for 7B models) and long training times. For your customer support chatbot, you have a 7B model and a 16GB GPU - full fine-tuning is not possible. Parameter-Efficient Fine-Tuning (PEFT) techniques like LoRA and QLoRA enable fine-tuning with minimal parameter updates, reducing memory requirements by 10-100x while maintaining performance.
+## ¿Qué es?
 
-Many teams assume full fine-tuning is necessary, leading to infrastructure costs and training times that exceed budgets. Understanding PEFT techniques enables you to fine-tune your customer support chatbot on accessible hardware, train multiple task-specific adapters efficiently, and iterate faster on fine-tuning experiments.
+**PEFT (Parameter-Efficient Fine-Tuning)** es la familia de técnicas que **congela los pesos del modelo base** y entrena sólo un pequeño conjunto adicional de parámetros ("adapters") que modifican el comportamiento del modelo para tu tarea. El objetivo: lograr la misma calidad que full fine-tuning con **10-100× menos memoria** y **2-5× menos tiempo**.
 
-In this lesson, you will learn LoRA and QLoRA fundamentals, configure adapters for your customer support chatbot, and implement PEFT fine-tuning workflows that work on your 16GB GPU.
+Las dos variantes dominantes:
 
-LoRA Fundamentals
-LoRA (Low-Rank Adaptation) adds trainable low-rank matrices to model layers instead of updating all parameters. This approach reduces trainable parameters by 100-1000x while maintaining fine-tuning effectiveness.
+- **LoRA (Low-Rank Adaptation):** añade matrices entrenables de bajo rango `A` y `B` a capas lineales específicas del modelo. El output de la capa se calcula como `h = Wx + BAx`, donde `W` queda congelado.
+- **QLoRA (Quantized LoRA):** combina LoRA con **cuantización 4-bit** del modelo base. Reduce aún más la memoria, permitiendo fine-tunear 7B en 8GB VRAM, 70B en 48GB.
 
-How LoRA Works
+Para el **chatbot de soporte** del submódulo (7B, GPU de 16GB), **LoRA es la elección por defecto**. QLoRA entra en juego si bajas a 8GB o si quieres fine-tunear modelos más grandes (13B, 34B, 70B) con hardware modesto.
 
-LoRA works by adding small, trainable adapter layers to your model instead of updating all the original weights. Think of it like adding a small adjustment layer on top of your pretrained model rather than modifying the model itself.
+### Comparación de memoria para un modelo 7B
 
-The Core Idea
+| Estrategia | Memoria VRAM | Tiempo típico (3 epochs, 2k ejemplos) | Calidad vs full FT |
+|---|---|---|---|
+| Full fine-tuning | 80-100 GB | 8-12 h | 100% (baseline) |
+| LoRA (fp16) | 14-18 GB | 2-3 h | 95-99% |
+| QLoRA (4-bit) | 6-10 GB | 2-4 h | 93-97% |
+| QLoRA + Unsloth | 5-8 GB | 1-2 h | 93-97% |
 
-Instead of updating a large weight matrix W (which has billions of parameters), LoRA learns two much smaller matrices A and B. These small matrices work together to create the same effect as updating W, but with far fewer parameters. The key insight is that most weight updates can be represented efficiently using these smaller matrices.
+## ¿Por qué importa?
 
-During Training
+Full fine-tuning de un 7B requiere una **A100 de 80GB** (~$3-5/hora en cloud) o un cluster multi-GPU. LoRA y QLoRA democratizan el fine-tuning: puedes entrenar en una **RTX 3090/4090 (24GB)**, una **RTX 3060 (12GB)** con QLoRA, o incluso en una **free Colab T4 (16GB)**.
 
-When training your customer support chatbot with LoRA:
+Además, los adapters pesan **10-50MB** (vs 14GB del modelo completo), lo que permite:
 
-Pretrained weights stay frozen: The original model weights W remain unchanged. These weights contain all the general language knowledge the model learned during pretraining.
+- **Múltiples adapters por modelo base:** uno para clasificación, otro para generación, cambias en runtime sin recargar el base.
+- **Deploy barato:** sirves el modelo base compartido + varios adapters pequeños.
+- **Experimentación rápida:** probar 10 configuraciones de LoRA cuesta lo mismo que una sola de full FT.
 
-Small adapters learn your task: Two small matrices A and B are added and trained. Matrix A starts with random values, and matrix B starts at zero. Together, they learn how to adapt the model for your specific task.
+### LoRA es casi gratis en calidad
 
-Combined computation: For each input, the model computes the output using both paths: the frozen pretrained weights (Wx) plus the adapter weights (BAx). The final output is h = Wx + BAx, combining general knowledge with task-specific adaptations.
+La investigación original de LoRA (Hu et al., 2021) y confirmaciones posteriores (QLoRA, Dettmers et al., 2023) muestran que para la mayoría de tareas, el gap vs full fine-tuning es **menor al 2%**. En varias benchmarks de instruction tuning, LoRA incluso supera a full FT por efecto regularizador.
 
-This approach lets your model learn customer support patterns without forgetting its general language understanding, and it requires training only a tiny fraction of parameters.
+## ¿Cómo funciona?
 
-After Training: Weight Merging
+### Intuición matemática de LoRA
 
-Once training is complete, you can merge the adapter weights directly into the pretrained weights. Instead of keeping W, A, and B separate, you create a single merged weight matrix W_merged = W + BA. This merged model produces identical outputs but is simpler to deploy - you only need to store one set of weights instead of three. The merged model works exactly like a fully fine-tuned model during inference, but you achieved this by training only the small A and B matrices.
+Durante fine-tuning, el update de una matriz de pesos `W ∈ ℝ^(d×k)` puede escribirse como `W_nuevo = W + ΔW`. LoRA asume que **`ΔW` es de bajo rango intrínseco** y lo factoriza como:
 
-![LoRA weight merging diagram showing during training (pretrained weights W plus low-rank matrices BA) and after training (merged weights W_merged)](https://hrcdn.net/ai-engineering/module-6/light/lora-weight-merging.svg)
-
-LoRA weight merging: training vs inference
-
-```python
-# LoRA Implementation for Customer Support Chatbot
-# This demonstrates configuring LoRA for your 7B chatbot model
-
-from peft import LoraConfig, get_peft_model
-from transformers import AutoModelForCausalLM
-
-# Configure LoRA for customer support chatbot (moderate complexity task)
-lora_config = LoraConfig(
-  r=16,  # Rank - good balance for chatbot tasks
-  lora_alpha=32,  # Scaling factor (typically 2x rank)
-  target_modules=["q_proj", "v_proj"],  # Attention layers for instruction following
-  lora_dropout=0.1,  # Dropout for regularization
-  bias="none",  # Don't train bias terms
-  task_type="CAUSAL_LM"  # Causal language modeling for chatbot
-)
-
-# Load base model (7B Llama-2 for chatbot)
-base_model = AutoModelForCausalLM.from_pretrained(
-  "meta-llama/Llama-2-7b-chat-hf",
-  torch_dtype=torch.float16,  # Use float16 to save memory
-  device_map="auto"  # Automatic device placement
-)
-
-# Apply LoRA adapter
-model = get_peft_model(base_model, lora_config)
-
-# Check trainable parameters
-trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-total_params = sum(p.numel() for p in model.parameters())
-print(f"Trainable parameters: {trainable_params:,} ({100 * trainable_params / total_params:.2f}%)")
-print(f"Memory usage: ~16GB (vs 80GB for full fine-tuning)")
-# Output: Trainable parameters: ~4M (0.05% of total)
+```
+ΔW = B · A    con A ∈ ℝ^(r×k),  B ∈ ℝ^(d×r),  r ≪ min(d, k)
 ```
 
-LoRA Configuration Parameters
+En vez de aprender `d·k` parámetros (potencialmente millones por capa), aprende sólo `r·(d+k)`. Para `d=k=4096`, `r=16`:
 
-Key parameters control LoRA behavior:
+- Full FT por capa: `4096·4096 = 16.7M` parámetros.
+- LoRA por capa: `16·(4096+4096) = 131K` parámetros (**127× menos**).
 
-r (rank): Controls adapter capacity. Lower r = fewer parameters but less capacity. Typical values: 8-64.
-lora_alpha: Scaling factor for adapter weights. Higher alpha = stronger adapter influence. Typically 2x r.
-target_modules: Which layers to adapt. Common choices: attention layers (q_proj, v_proj) or all linear layers.
-lora_dropout: Dropout rate for regularization. Typical values: 0.05-0.1.
+Durante entrenamiento, `A` se inicializa con una distribución gaussiana y `B` se inicializa en **ceros**, de forma que `BA = 0` inicialmente y el modelo se comporta idénticamente al base en el paso 0 (training estable).
 
-```python
-# LoRA Configuration for Customer Support Chatbot
-# This demonstrates choosing the right configuration for your chatbot
+En inferencia puedes **fusionar los adapters** en los pesos originales: `W_merged = W + BA`. Resultado: cero overhead de latencia respecto al modelo base.
 
-# Configuration 1: Small, efficient (for simple classification only)
-# NOT recommended for your chatbot - too limited
-small_lora = LoraConfig(
-  r=8,
-  lora_alpha=16,
-  target_modules=["q_proj", "v_proj"],  # Only attention layers
-  lora_dropout=0.1
-)
+### Hiperparámetros de LoRA
 
-# Configuration 2: Medium capacity (RECOMMENDED for your chatbot)
-# Good balance for classification + generation tasks
-medium_lora = LoraConfig(
-  r=16,
-  lora_alpha=32,
-  target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],  # All attention layers
-  lora_dropout=0.1
-)
+| Parámetro | Rol | Rango típico | Default razonable |
+|---|---|---|---|
+| `r` (rank) | Capacidad del adapter | 4-128 | **16** |
+| `lora_alpha` | Factor de escala (`BA` se multiplica por `α/r`) | `r` a `4r` | **2·r** (ej. 32 si r=16) |
+| `target_modules` | Qué capas adaptar | ver tabla abajo | q_proj + v_proj (mínimo), all-linear (máximo) |
+| `lora_dropout` | Regularización en el adapter | 0.0-0.1 | 0.05-0.1 |
+| `bias` | Entrenar sesgos | `none`/`lora_only`/`all` | **none** |
 
-# Configuration 3: High capacity (for very complex multi-task scenarios)
-# Use if you need advanced reasoning or complex multi-step tasks
-large_lora = LoraConfig(
-  r=64,
-  lora_alpha=128,
-  target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],  # All linear layers
-  lora_dropout=0.05
-)
+### Target modules por arquitectura
 
-# For your customer support chatbot (classification + generation):
-# Use medium_lora - it handles varied instructions well without overfitting
-```
+| Arquitectura | Mínimo (atención) | Recomendado | Máximo (all-linear) |
+|---|---|---|---|
+| **Llama / Mistral** | `q_proj, v_proj` | `q_proj, k_proj, v_proj, o_proj` | `+ gate_proj, up_proj, down_proj` |
+| **GPT-2 / GPT-NeoX** | `c_attn` | `c_attn, c_proj` | `+ c_fc` |
+| **T5** | `q, v` | `q, k, v, o` | `+ wi, wo` |
+| **Falcon** | `query_key_value` | `query_key_value, dense` | `+ dense_h_to_4h, dense_4h_to_h` |
 
-Memory and Training Benefits
+Regla práctica: `peft` acepta `target_modules="all-linear"` para auto-detectar.
 
-LoRA reduces memory requirements significantly. Your 7B customer support chatbot model requires 80GB for full fine-tuning, but only needs 16GB with LoRA - perfect for your 16GB GPU. This enables training on accessible hardware without cloud compute costs.
+### Hiperparámetros típicos por tamaño de modelo
 
-Training time also decreases because fewer parameters are updated. LoRA typically trains 2-5x faster than full fine-tuning while achieving similar or better performance. Your chatbot training that would take 8 hours with full fine-tuning might complete in 2-3 hours with LoRA.
+| Modelo | `r` | `alpha` | `lr` | `batch` (eff.) | VRAM (LoRA fp16) |
+|---|---|---|---|---|---|
+| 1-3B (TinyLlama, Phi-2) | 8-16 | 16-32 | 3e-4 | 16-32 | 4-8 GB |
+| 7B (Llama 3 8B, Mistral 7B) | 16-32 | 32-64 | 2e-4 | 16 | 14-18 GB |
+| 13B (Llama 2 13B) | 16-32 | 32-64 | 1e-4 | 8-16 | 26-32 GB |
+| 70B (Llama 3 70B) | 8-16 | 16-32 | 5e-5 | 4-8 | 140 GB (requiere QLoRA) |
 
-QLoRA Fundamentals
-QLoRA (Quantized LoRA) combines quantization with LoRA to further reduce memory requirements. QLoRA enables fine-tuning 7B models on 8GB GPUs by using 4-bit quantization for the base model while keeping adapters in full precision.
+### QLoRA: cuantización 4-bit del base
 
-How QLoRA Works
+QLoRA guarda los pesos base en **NF4 (NormalFloat 4-bit)**, un formato diseñado específicamente para pesos de redes neuronales, cuya distribución es aproximadamente normal. Durante el forward/backward, los pesos se **dequantizan** on-the-fly a `bfloat16` para computación.
 
-QLoRA works by compressing the pretrained model weights to use less memory, then adding the same small adapter layers that LoRA uses. Think of it like storing your model in a compressed format during training, then decompressing it only when needed for computation.
+Componentes clave:
+- **NF4:** cuantización de 4 bits óptima para distribuciones normales.
+- **Double quantization:** cuantiza también las constantes de cuantización (ahorro extra de ~0.4 bits/param).
+- **Paged optimizers:** mueve estados del optimizer entre GPU y CPU para evitar OOM en picos.
 
-The Core Idea
+Los adapters LoRA se mantienen en **fp16/bf16** para preservar calidad de aprendizaje.
 
-Quantization reduces the precision of numbers stored in memory. Instead of storing weights as 16-bit or 32-bit floating-point numbers, QLoRA stores them as 4-bit integers. This reduces memory by 4x (16 bits ÷ 4 bits = 4x reduction). However, the adapter matrices A and B remain in full precision to ensure training quality.
-
-During Training
-
-When training your customer support chatbot with QLoRA:
-
-Base model is quantized: The pretrained weights W are stored in 4-bit format, reducing memory from 14GB to approximately 3.5GB for a 7B model.
-
-Adapters stay in full precision: The LoRA matrices A and B are stored in 16-bit or 32-bit precision, ensuring they can learn effectively. These small matrices (typically 10-50MB) do not significantly impact memory.
-
-Dynamic dequantization: During forward and backward passes, the quantized weights are temporarily converted back to higher precision for computation, then quantized again for storage. This process is automatic and transparent.
-
-Combined computation: The output is computed as h = W_dequantized x + BAx, where W_dequantized is the temporarily decompressed pretrained weights. The model learns task-specific adaptations just like LoRA, but uses far less memory.
-
-Why 4-bit Works
-
-4-bit quantization works because neural network weights have redundancy - many weights have similar values. Quantization maps similar weight values to the same 4-bit representation, losing some precision but preserving the overall weight distribution. Research shows that 4-bit quantization maintains 95-99% of model performance while reducing memory by 4x. The adapter matrices compensate for any quantization loss by learning task-specific adjustments.
-
-Memory Savings Breakdown
-
-For your 7B customer support chatbot:
-
-Full fine-tuning: 80-100GB (model + gradients + optimizer states)
-LoRA: 16GB (model in float16 + small adapters)
-QLoRA: 8GB (model in 4-bit + small adapters in float16)
-QLoRA enables training on consumer GPUs (8GB) that would otherwise be insufficient.
+### Workflow de entrenamiento con TRL + PEFT (LoRA)
 
 ```python
-# QLoRA Implementation for Customer Support Chatbot
-# Use this if you only have 8GB GPU instead of 16GB
-
-from transformers import BitsAndBytesConfig
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+from datasets import load_dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
+from peft import LoraConfig
+from trl import SFTTrainer, SFTConfig
 
-# Configure 4-bit quantization (reduces memory by 4x)
-bnb_config = BitsAndBytesConfig(
-  load_in_4bit=True,  # 4-bit quantization
-  bnb_4bit_quant_type="nf4",  # NormalFloat4 quantization (best quality)
-  bnb_4bit_compute_dtype=torch.float16,  # Computation in float16
-  bnb_4bit_use_double_quant=True  # Double quantization for better quality
-)
+model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+tokenizer.pad_token = tokenizer.eos_token
 
-# Load model with quantization
 model = AutoModelForCausalLM.from_pretrained(
-  "meta-llama/Llama-2-7b-chat-hf",
-  quantization_config=bnb_config,
-  device_map="auto"  # Automatic device placement
+    model_id,
+    torch_dtype=torch.bfloat16,
+    device_map="auto",
+    attn_implementation="flash_attention_2",  # si está disponible
 )
 
-# Prepare model for k-bit training
-model = prepare_model_for_kbit_training(model)
-
-# Configure LoRA adapter (same as before)
-lora_config = LoraConfig(
-  r=16,
-  lora_alpha=32,
-  target_modules=["q_proj", "v_proj"],
-  lora_dropout=0.1,
-  bias="none",
-  task_type="CAUSAL_LM"
+lora_cfg = LoraConfig(
+    r=16,
+    lora_alpha=32,
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM",
 )
 
-# Apply LoRA adapter
-model = get_peft_model(model, lora_config)
+ds = load_dataset("json", data_files={
+    "train": "data/soporte_train.jsonl",
+    "val":   "data/soporte_val.jsonl",
+})
 
-# Now model uses ~8GB GPU memory instead of 80GB
-# Perfect if you only have 8GB GPU available
-print(f"Model memory usage: ~8GB (vs 16GB for LoRA, 80GB for full fine-tuning)")
-```
-
-QLoRA vs LoRA Trade-offs
-
-QLoRA enables training on smaller GPUs but introduces slight quality degradation from quantization (typically 1-3% performance loss). LoRA requires more memory but maintains full precision.
-
-Quality Impact: The 4-bit quantization causes a small loss in model precision. For most tasks, this translates to 1-3% lower accuracy or slightly less natural outputs. For your customer support chatbot, this might mean 97% accuracy instead of 99% - often acceptable if it enables training on available hardware.
-
-Training Speed: QLoRA may be slightly slower (10-20%) than LoRA due to quantization/dequantization overhead, but both are much faster than full fine-tuning.
-
-When to Choose Each
-
-For your customer support chatbot:
-
-You have 16GB GPU: Use LoRA for maximum quality (recommended)
-If you only had 8GB GPU: Use QLoRA (acceptable 1-3% quality trade-off)
-Choose QLoRA when:
-
-GPU memory is limited (8-16GB)
-Slight quality trade-off is acceptable for your use case
-Need to train on consumer hardware
-Want to experiment with multiple models on limited hardware
-Choose LoRA when:
-
-GPU memory is available (16GB+) - your situation
-Maximum quality is required - important for customer support
-Training on professional GPUs
-Quality is more important than hardware constraints
-PEFT Training Workflow
-Implementing PEFT fine-tuning follows a standard workflow with adapter-specific considerations.
-
-Step 1: Configure Adapter
-
-Choose LoRA or QLoRA based on memory constraints and quality requirements. Configure rank, alpha, and target modules based on task complexity.
-
-Step 2: Prepare Model
-
-Load base model (with quantization for QLoRA) and apply adapter configuration.
-
-Step 3: Train Adapter
-
-Train only adapter parameters. Use standard training loops but ensure only adapter parameters have requires_grad=True.
-
-```python
-# Complete PEFT Training Workflow for Customer Support Chatbot
-# Assumes you've already configured LoRA adapter and loaded model (see earlier examples)
-
-from transformers import TrainingArguments, Trainer, AutoTokenizer
-import json
-
-# Load your prepared dataset
-with open("data/customer_support_final.json", "r") as f:
-  dataset = json.load(f)
-
-# Format dataset for instruction tuning
-def format_instruction(example):
-  instruction = example["instruction"]
-  input_text = example["input"]
-  output = example["output"]
-  prompt = f"### Instruction:\n{instruction}\n\n### Input:\n{input_text}\n\n### Response:\n{output}"
-  return {"text": prompt}
-
-formatted_dataset = [format_instruction(ex) for ex in dataset]
-
-# Configure training arguments
-training_args = TrainingArguments(
-  output_dir="./chatbot_results",
-  num_train_epochs=3,
-  per_device_train_batch_size=4,
-  gradient_accumulation_steps=4,  # Effective batch size = 16
-  learning_rate=2e-4,  # LoRA uses higher learning rates than full fine-tuning
-  logging_steps=10,
-  save_steps=500,
-  evaluation_strategy="steps",
-  eval_steps=500,
-  save_total_limit=3
+sft_cfg = SFTConfig(
+    output_dir="./ckpt_chatbot_lora",
+    num_train_epochs=3,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4,     # batch efectivo = 16
+    learning_rate=2e-4,
+    lr_scheduler_type="cosine",
+    warmup_ratio=0.03,
+    logging_steps=10,
+    eval_strategy="steps",
+    eval_steps=100,
+    save_steps=200,
+    save_total_limit=3,
+    bf16=True,
+    gradient_checkpointing=True,
+    max_seq_length=2048,
+    packing=False,                     # con chat templates mejor sin packing
+    report_to="wandb",
 )
 
-# Create trainer and train
-trainer = Trainer(
-  model=model,  # Your LoRA model from earlier setup
-  args=training_args,
-  train_dataset=formatted_dataset[:2000],
-  eval_dataset=formatted_dataset[2000:],
-  tokenizer=tokenizer
+trainer = SFTTrainer(
+    model=model,
+    args=sft_cfg,
+    train_dataset=ds["train"],
+    eval_dataset=ds["val"],
+    peft_config=lora_cfg,
+    tokenizer=tokenizer,
 )
 
 trainer.train()
-
-# Save adapter (only ~20MB, not full 14GB model)
-model.save_pretrained("./chatbot_adapter")
-print("✅ Adapter saved! Ready for deployment.")
+trainer.save_model("./ckpt_chatbot_lora/final")  # guarda SOLO el adapter (~20MB)
 ```
 
-Step 4: Save and Load Adapters
+### Workflow con QLoRA (4-bit)
 
-Save only adapter weights (typically 10-50MB) rather than full model weights. Load adapters onto base models for inference or further training.
+```python
+from transformers import BitsAndBytesConfig
+from peft import prepare_model_for_kbit_training
 
-Multiple Adapters
+bnb = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.bfloat16,
+    bnb_4bit_use_double_quant=True,
+)
 
-PEFT enables training multiple task-specific adapters on the same base model. You can train separate adapters for different tasks (e.g., one for classification, one for generation) and switch between them during inference without retraining the base model. Each adapter is small (10-50MB), making it practical to maintain multiple specialized models.
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    quantization_config=bnb,
+    device_map="auto",
+    attn_implementation="flash_attention_2",
+)
+model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
 
-To use multiple adapters, train each adapter separately with its task-specific dataset, save each adapter to a different directory, then load the appropriate adapter when needed for inference. This approach is more efficient than training separate full models for each task.
+# El resto es idéntico a LoRA; sólo cambia la carga del modelo.
+```
 
-Choosing Between LoRA and QLoRA
-Selecting between LoRA and QLoRA depends on your hardware constraints and quality requirements. For your customer support chatbot with a 16GB GPU, LoRA is the recommended choice.
+## Ejemplo con código
 
-Memory Constraints
+### 1. Verificación de parámetros entrenables
 
-8-16GB GPU: Use QLoRA (4-bit quantization required)
-16-24GB GPU: Use LoRA (full precision possible) - Your situation
-24GB+ GPU: Use LoRA for maximum quality
-Quality Requirements
+```python
+from peft import get_peft_model
 
-Maximum quality needed: Use LoRA (full precision) - Important for customer support
-Slight quality trade-off acceptable: Use QLoRA (1-3% degradation)
-Training Speed
+model = get_peft_model(model, lora_cfg)
+trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+total     = sum(p.numel() for p in model.parameters())
+print(f"Entrenables: {trainable:,} ({100*trainable/total:.3f}%)")
+# Ejemplo típico para 7B con r=16 en q/k/v/o:
+# Entrenables: 8,388,608 (0.11%)
+```
 
-QLoRA may be slightly slower due to quantization overhead, but the difference is typically minimal. Both are much faster than full fine-tuning.
+### 2. Integración con Weights & Biases
 
-Common Pitfalls
-Rank Too Low: Using rank r=4 for complex tasks leads to underfitting. Start with r=16 for most tasks, increase to r=32-64 for complex tasks.
+```python
+import wandb
+wandb.init(project="chatbot-soporte", name="llama3-8b-lora-r16")
 
-Rank Too High: Using rank r=128 for simple tasks wastes parameters and increases overfitting risk. Use lower ranks for simpler tasks.
+# W&B se enlaza automáticamente si report_to="wandb" en SFTConfig.
+# Loguea loss, lr, grad_norm, memoria GPU, y curvas eval_loss.
+```
 
-Wrong Target Modules: Adapting only q_proj may be insufficient for complex tasks. Adapt q_proj, k_proj, v_proj, o_proj for better capacity.
+### 3. Cargar un adapter LoRA para inferencia
 
-Ignoring Quantization Quality Loss: QLoRA introduces slight quality degradation. Validate that QLoRA performance meets requirements before deploying.
+```python
+from peft import PeftModel
 
-Summary
-PEFT techniques (LoRA, QLoRA) enable efficient fine-tuning with minimal parameter updates. For your customer support chatbot, LoRA reduces memory requirements from 80GB to 16GB, enabling training on your available hardware. QLoRA would enable training on 8GB GPUs with slight quality trade-offs.
+base = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16, device_map="auto")
+model_lora = PeftModel.from_pretrained(base, "./ckpt_chatbot_lora/final")
+model_lora.eval()
 
-You configured LoRA with r=16, alpha=32, targeting all attention layers - appropriate for your moderate complexity chatbot that handles classification, generation, and extraction. This configuration balances capacity and efficiency, avoiding overfitting while maintaining good performance.
+prompt = "Clasifica este ticket: Mi pedido #99 no llegó y era urgente."
+msgs = [{"role": "user", "content": prompt}]
+texto = tokenizer.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
+inputs = tokenizer(texto, return_tensors="pt").to(model_lora.device)
+out = model_lora.generate(**inputs, max_new_tokens=150, do_sample=False)
+print(tokenizer.decode(out[0], skip_special_tokens=True))
+```
 
-Key concepts to remember
-LoRA - Reduces memory 10-100x, maintains full precision (use for your 16GB GPU)
-QLoRA - Enables training on 8GB GPUs with 4-bit quantization (1-3% quality trade-off)
-Configuration - Rank r=16 with all attention layers for your chatbot
-Memory Requirements - LoRA: 16GB+ (your setup), QLoRA: 8GB+
-Training - Only adapter weights are trainable (~4M params vs 7B full model)
+### 4. Merge del adapter y push a HuggingFace Hub
+
+```python
+from huggingface_hub import login
+login()  # pide tu token
+
+merged = model_lora.merge_and_unload()
+merged.save_pretrained("./chatbot-merged", safe_serialization=True, max_shard_size="2GB")
+tokenizer.save_pretrained("./chatbot-merged")
+
+merged.push_to_hub("tu_usuario/chatbot-soporte-llama3-8b", private=True)
+tokenizer.push_to_hub("tu_usuario/chatbot-soporte-llama3-8b", private=True)
+```
+
+### 5. Múltiples adapters en el mismo base model
+
+```python
+from peft import PeftModel
+
+base = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16, device_map="auto")
+
+model = PeftModel.from_pretrained(base, "./adapter_clasificacion", adapter_name="clasif")
+model.load_adapter("./adapter_generacion", adapter_name="gen")
+model.load_adapter("./adapter_extraccion", adapter_name="extract")
+
+model.set_adapter("clasif")   # ahora usa el adapter de clasificación
+# ... después:
+model.set_adapter("gen")      # cambio instantáneo, sin recargar el base
+```
+
+### 6. QLoRA con Unsloth (2× velocidad, 50% menos VRAM)
+
+```python
+from unsloth import FastLanguageModel
+
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name="unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
+    max_seq_length=2048,
+    load_in_4bit=True,
+)
+
+model = FastLanguageModel.get_peft_model(
+    model,
+    r=16,
+    target_modules=["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"],
+    lora_alpha=32,
+    lora_dropout=0,
+    bias="none",
+    use_gradient_checkpointing="unsloth",
+)
+# De aquí en adelante, usas SFTTrainer normalmente.
+```
+
+### 7. Multi-GPU con FSDP (para 70B)
+
+```python
+# accelerate config con FSDP, luego:
+# accelerate launch --config_file fsdp.yaml train.py
+# TRL + Accelerate manejan sharding automáticamente.
+```
+
+## Errores comunes
+
+- **Rank demasiado bajo (`r=4`) para tareas complejas:** underfitting; aumenta a `r=16` o `r=32`.
+- **Rank demasiado alto (`r=128`) para tareas simples:** overfitting y desperdicio de parámetros.
+- **`alpha` mal escalado:** si no usas la regla `alpha = 2·r`, el update efectivo es demasiado débil o demasiado fuerte. Alternativa: `use_rslora=True` normaliza por `sqrt(r)`.
+- **Adaptar sólo `q_proj`:** suficiente para tareas de estilo, insuficiente para razonamiento complejo. Adapta al menos `q_proj, k_proj, v_proj, o_proj`.
+- **Olvidar `prepare_model_for_kbit_training` en QLoRA:** sin esto, el `gradient_checkpointing` rompe el grafo computacional.
+- **Learning rate copiado de full FT:** full FT usa `1e-5 ~ 5e-5`; LoRA requiere `1e-4 ~ 3e-4` (10× mayor) porque los adapters son pequeños.
+- **Guardar sin merge y después olvidar cargar el adapter:** cargas sólo el base model → el modelo "no aprendió nada".
+- **Entrenar sin `gradient_checkpointing`** con batch grande → OOM.
+- **Mezclar precisiones (`bf16` + `fp16`)** en una misma GPU vieja (sin soporte bf16) → NaN loss.
+- **Flash Attention sin verificar soporte GPU:** sólo Ampere+ (A100, A6000, 3090, 4090, H100). En T4/V100 usa `attn_implementation="sdpa"`.
+- **No fijar `use_double_quant=True` en QLoRA:** ahorro gratis que mucha gente omite.
+
+## Resumen
+
+- **PEFT** entrena un pequeño conjunto de parámetros manteniendo congelado el modelo base, reduciendo memoria 10-100× y tiempo 2-5×.
+- **LoRA** aprende factorizaciones de bajo rango `BA` por capa; `r=16, alpha=32, target q/k/v/o` es un default sólido.
+- **QLoRA** añade cuantización 4-bit del base model, permitiendo 7B en 8GB y 70B en una A100.
+- Los adapters pesan **10-50MB**, se pueden **mergear** para cero latencia o cargar **múltiples** sobre el mismo base.
+- Herramientas estándar: **HuggingFace TRL + PEFT + bitsandbytes**, con alternativas de velocidad como **Unsloth** (2× más rápido) y **Axolotl** (configs YAML).
+- Para multi-GPU usa **Accelerate + FSDP** o **DeepSpeed**; para servicios serverless, **Modal** o **Lambda Labs**.
+- Para el chatbot de soporte del submódulo: Llama 3 8B + LoRA (`r=16, alpha=32, q/k/v/o`), `lr=2e-4`, 3 epochs, batch efectivo 16, con W&B para monitoreo.
+- Mergea sólo cuando vayas a hacer deploy único; para servir muchas tareas con el mismo base, mantén adapters separados.

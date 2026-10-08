@@ -1,333 +1,238 @@
-## Retrieval Metodologies
+# Metodologías de Retrieval
 
-In the previous lesson, you learned how vector databases store and search through millions of embeddings efficiently using approximate nearest neighbor algorithms. You now have the infrastructure foundation for similarity search at scale. The next critical component is understanding how to determine which documents are most relevant to a user's query.
+## ¿Qué es?
 
-Retrieval is the process of finding the most relevant documents from your knowledge base given a user query. This process bridges the gap between a user's information need and the vast collection of documents in your vector database. The quality of retrieval directly determines the quality of your RAG system's responses - poor retrieval leads to irrelevant context, which causes the LLM to generate unhelpful or inaccurate answers.
+**Retrieval** (recuperación) es el proceso de encontrar, dado una consulta del usuario, los documentos (o *chunks*) más relevantes dentro de una base de conocimiento. Es la "R" de **RAG** (Retrieval-Augmented Generation) y determina qué información recibe el LLM como contexto para generar su respuesta.
 
-This lesson introduces the fundamental approaches to retrieval and the mathematical methods for measuring similarity between queries and documents. You will learn about:
+Formalmente, dada una consulta `q` y una colección de documentos `D = {d₁, d₂, ..., dₙ}`, un sistema de retrieval produce un ranking:
 
-Dense retrieval using neural embeddings for semantic understanding
-Sparse retrieval using traditional keyword matching techniques
-Similarity metrics that determine document ranking and relevance scoring
-Understanding these retrieval methodologies is essential for building effective RAG applications that can accurately identify and return the most relevant information for any given query.
-
-Dense vs. Sparse Retrieval
-Retrieval methods fall into two main categories, each with distinct strengths and use cases.
-
-Sparse Retrieval
-Sparse retrieval represents the traditional approach to information retrieval, utilizing high-dimensional vectors where most values are zero. This method operates on exact term matching principles, similar to how search engines functioned before neural embeddings. The term "sparse" refers to vectors containing mostly zero values, as documents typically include only a small subset of all possible vocabulary terms.
-
-How Sparse Retrieval Works:
-
-```python
-Document: "Python programming tutorial for beginners"
-Sparse Vector: [0, 0, 0.8, 0, 0, 0.6, 0, 0, 0.4, 0, 0, 0.7, 0, ...]
-                     ↑python    ↑tutorial   ↑beginners  ↑programming
-
-Query: "Python tutorial"
-Sparse Vector: [0, 0, 0.9, 0, 0, 0.8, 0, 0, 0, 0, 0, 0, 0, ...]
-                     ↑python    ↑tutorial
+```
+rank(q, D) = ordenar D por sim(q, dᵢ) descendente, devolver top-k
 ```
 
-Advantages:
+Donde `sim(q, dᵢ)` es una función de similitud que puede operar en **espacio denso** (embeddings neuronales), **espacio disperso** (frecuencias de términos) o una combinación de ambos.
 
-Precise term matching: Excellent for technical documentation and specific terminology
-Interpretability: Clear understanding of retrieval reasoning
-Computational efficiency: Fast processing with optimized algorithms
-Predictable behavior: Consistent results that users can understand
-Limitations:
+### Dos familias fundamentales
 
-Vocabulary mismatch: Cannot handle synonyms or alternative phrasings
-Semantic gaps: Struggles with conceptual relationships between terms
-Sparse Retrieval with TF-IDF
+| Familia | Representación | Qué captura | Ejemplo clásico |
+|---|---|---|---|
+| **Sparse (disperso)** | Vector de dimensión = tamaño del vocabulario, casi todo ceros | Coincidencia léxica exacta | TF-IDF, BM25 |
+| **Dense (denso)** | Vector de dimensión fija (384, 768, 1536…) con valores no cero en todas las dimensiones | Significado semántico | OpenAI `text-embedding-3`, `all-MiniLM-L6-v2`, BGE, E5 |
 
-Below example demonstrates how production search systems convert text to sparse vectors and find matches using cosine similarity.
+Un tercer enfoque, **learned sparse** (SPLADE, ColBERT), combina la interpretabilidad léxica con el aprendizaje neuronal y se encuentra en producción desde ~2020.
+
+## ¿Por qué importa?
+
+La calidad del retrieval **limita el techo** de todo el sistema RAG: si no se recupera el fragmento correcto, ningún LLM —por bueno que sea— podrá responder bien. Este principio se conoce como *"garbage retrieval in, garbage generation out"*.
+
+- **Dense retrieval** entiende sinónimos (`automóvil` ≈ `coche`), parafrasis y conceptos, pero puede fallar con **términos exactos** poco frecuentes (nombres de API, códigos de producto, identificadores).
+- **Sparse retrieval** acierta con *keywords* exactos pero no entiende semántica: busca `coche` y no encontrará `automóvil`.
+- **Hybrid** combina ambos y suele superar a cualquiera de los dos por separado en benchmarks como BEIR y MTEB.
+
+### Contexto histórico
+
+| Año | Hito |
+|---|---|
+| 1976 | Robertson & Spärck Jones formalizan el modelo probabilístico que lleva a **BM25** (Best Match 25). |
+| 1994 | BM25 se consolida en el TREC-3 como baseline de referencia en IR. |
+| 2013 | Word2Vec populariza los embeddings densos. |
+| 2019 | DPR (Dense Passage Retrieval) demuestra que embeddings aprendidos superan a BM25 en Open-QA. |
+| 2020 | **ColBERT** introduce late interaction (interacción tardía) y SPLADE populariza sparse aprendido. |
+| 2021 | **Reciprocal Rank Fusion (RRF)** se vuelve estándar para fusionar rankings. |
+| 2022 | **HyDE** (Hypothetical Document Embeddings) propone generar documentos falsos para mejorar la consulta. |
+| 2023+ | Rerankers cross-encoder (Cohere Rerank, bge-reranker, Jina) se vuelven obligatorios en producción. |
+
+## ¿Cómo funciona?
+
+### Sparse retrieval: TF-IDF y BM25
+
+**TF-IDF** (Term Frequency – Inverse Document Frequency) pondera cada término `t` en un documento `d`:
+
+```
+tf-idf(t, d) = tf(t, d) · log( N / df(t) )
+```
+
+Donde `N` es el total de documentos y `df(t)` el número de documentos que contienen `t`. Palabras raras pesan más.
+
+**BM25** (Robertson, 1976) es una mejora probabilística de TF-IDF con dos hiperparámetros (`k₁`, `b`) y normalización por longitud:
+
+```
+                      f(t,d) · (k₁ + 1)
+BM25(q,d) = Σ idf(t) · ─────────────────────────────────────────
+            t∈q         f(t,d) + k₁ · (1 − b + b · |d|/avgdl)
+```
+
+- `f(t,d)`: frecuencia del término `t` en el documento `d`.
+- `|d|` / `avgdl`: longitud del documento normalizada por la longitud media.
+- `k₁ ∈ [1.2, 2.0]`: controla la saturación de la frecuencia (BM25 ignora repeticiones excesivas).
+- `b ∈ [0, 1]`, típicamente 0.75: controla cuánto se penaliza la longitud.
+- `idf(t) = log( (N − df(t) + 0.5) / (df(t) + 0.5) + 1 )`
+
+BM25 sigue siendo el **baseline a batir** en 2026, incluso frente a modelos neuronales modernos en dominios de nicho.
+
+### Dense retrieval
+
+Un modelo de embeddings `E` convierte texto en un vector `v ∈ ℝᵈ`:
+
+```
+v_query = E("¿cómo reinicio mi contraseña?")   # p.ej. ℝ⁷⁶⁸
+v_docᵢ  = E(docᵢ)                              # pre-calculado offline
+score    = cos(v_query, v_docᵢ) = (v_q · v_d) / (||v_q||·||v_d||)
+```
+
+Los embeddings se buscan con un índice ANN (HNSW, IVF, ScaNN) en el *vector store* (Qdrant, Weaviate, Pinecone, Milvus, pgvector).
+
+Modelos modernos requieren **prefijos de instrucción**:
+
+- **E5**: `"query: ..."` para consultas y `"passage: ..."` para documentos.
+- **BGE**: `"Represent this sentence for searching relevant passages: ..."` solo en la consulta.
+- **GTE / Jina**: generalmente sin prefijo.
+
+Omitir el prefijo degrada el recall en 5-15 puntos.
+
+### Comparativa dense vs sparse vs hybrid
+
+| Criterio | Sparse (BM25) | Dense (embeddings) | Hybrid (RRF) |
+|---|---|---|---|
+| Coincidencia exacta de keywords | Excelente | Débil | Excelente |
+| Sinónimos y paráfrasis | Muy pobre | Excelente | Muy bueno |
+| Nombres propios, códigos, SKUs | Excelente | Pobre | Excelente |
+| Cross-lingual (ES→EN) | Nulo | Bueno con modelos multilingües | Bueno |
+| Coste de indexación | Muy bajo | Alto (GPU para embeddings) | Alto |
+| Coste de consulta | Bajo (índice invertido) | Medio (ANN) | Medio-alto |
+| Interpretabilidad | Alta (se ven qué términos pesan) | Baja (vector opaco) | Media |
+| Benchmark BEIR (NDCG@10 promedio) | ~0.42 | ~0.45 | ~0.52 |
+
+### Fusión de rankings: Reciprocal Rank Fusion (RRF)
+
+Para combinar los rankings de dense y sparse se usa RRF (Cormack et al., 2009):
+
+```
+RRF(d) = Σ   1 / (k + rank_s(d))
+         s∈S
+```
+
+Donde `S` es el conjunto de sistemas (dense, sparse), `rank_s(d)` es la posición de `d` en el ranking `s`, y `k = 60` por convención. RRF es **sin parámetros** (robusto) y suele batir a combinaciones ponderadas lineales.
+
+### Métricas de similitud
+
+| Métrica | Fórmula | Cuándo usar |
+|---|---|---|
+| **Cosine** | `(A·B) / (||A||·||B||)` | Default para texto. Ignora magnitud. |
+| **Dot product** | `Σ A[i]·B[i]` | Cuando los embeddings están normalizados (equivale a cosine) y se busca velocidad. |
+| **Euclidean (L2)** | `√Σ(A[i]−B[i])²` | Raro en texto; útil en datos de baja dimensionalidad. |
+
+## Ejemplo con código
+
+### BM25 con `rank_bm25`
 
 ```python
-# pip install scikit-learn numpy
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+# pip install rank_bm25
+from rank_bm25 import BM25Okapi
 
-# Sample customer support documents
-documents = [
-  "Python programming tutorial for beginners",
-  "Machine learning with Python libraries",
-  "JavaScript web development guide",
-  "Data science using Python pandas",
-  "How to reset your password in the app",
-  "Python best practices for code quality"
+corpus = [
+    "Cómo reiniciar tu contraseña desde el portal de clientes",
+    "Política de reembolsos en los primeros 30 días",
+    "Autenticación con la API usando el endpoint auth/v2/token",
+    "Guía de integración OAuth2 con nuestro servicio",
 ]
 
-# Create TF-IDF vectorizer (converts text to sparse vectors)
-vectorizer = TfidfVectorizer()
-doc_vectors = vectorizer.fit_transform(documents)
+# Tokenización mínima (en producción: lowercase, acentos, stemming)
+tokenized_corpus = [doc.lower().split() for doc in corpus]
+bm25 = BM25Okapi(tokenized_corpus, k1=1.5, b=0.75)
 
-# User query
-query = "Python tutorial"
-query_vector = vectorizer.transform([query])
+query = "endpoint auth/v2/token".lower().split()
+scores = bm25.get_scores(query)
 
-# Calculate similarities (higher = more similar)
-similarities = cosine_similarity(query_vector, doc_vectors)[0]
-
-# Show results ranked by relevance
-print("Search Results for: 'Python tutorial'\n")
-results = [(similarities[i], documents[i]) for i in range(len(documents))]
-results.sort(reverse=True)  # Sort by similarity score
-
-for score, doc in results:
-  print(f"Score: {score:.3f} - {doc}")
+for score, doc in sorted(zip(scores, corpus), reverse=True):
+    print(f"{score:5.2f}  {doc}")
 ```
 
-Key Learning Points:
-
-TF-IDF automatically weights rare words higher than common words
-Cosine similarity ignores document length differences
-Only documents containing query words get non-zero scores
-Try It: Change the query to "JavaScript" or "reset password" and see how scores change. Notice that only documents containing those exact words get retrieved.
-
-Dense Retrieval
-Dense retrieval utilizes neural networks to create fixed-size, dense vectors where every dimension typically has a non-zero value. These are the embeddings learned about in previous lessons. Dense retrieval excels at capturing semantic meaning beyond exact word matches, enabling the system to understand concepts and relationships between different terms.
-
-How Dense Retrieval Works:
+### Dense retrieval con `sentence-transformers` (prefijo E5)
 
 ```python
-Document: "Python programming tutorial for beginners"
-Dense Vector: [0.2, -0.8, 0.5, 0.1, -0.3, 0.9, -0.1, 0.4, ...]
-              ↑ Every dimension captures semantic concepts
-
-Query: "Python tutorial"
-Dense Vector: [0.3, -0.7, 0.6, 0.0, -0.2, 0.8, -0.2, 0.5, ...]
-              ↑ Similar patterns indicate similar meanings
-```
-
-Advantages:
-
-Semantic understanding: Captures meaning beyond exact word matches
-Synonym handling: Finds "automobile" when searching for "car"
-Context awareness: Distinguishes "Python programming" from "Python snake"
-Cross-lingual capability: Can match concepts across different languages
-Limitations:
-
-Exact keyword gaps: May miss specific technical terms or product names
-Computational overhead: Requires more processing power than sparse retrieval
-Model dependency: Quality depends on the underlying embedding model
-Dense Retrieval with Embeddings
-
-Below example demonstrates how modern RAG systems work - using neural embeddings to understand meaning and find semantically similar documents.
-
-```python
-
+# pip install sentence-transformers
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-# Load pre-trained embedding model (downloads automatically first time)
-model = SentenceTransformer('all-MiniLM-L6-v2', local_files_only=True)
+model = SentenceTransformer("intfloat/multilingual-e5-base")
 
-# Sample customer support documents with varied phrasing
-documents = [
-  "Python programming tutorial for beginners",
-  "Learn coding in Python step by step",
-  "JavaScript web development guide",
-  "How to reset your account password",
-  "Change your login credentials securely",
-  "Machine learning with Python libraries"
+docs = [
+    "passage: Cómo reiniciar tu contraseña desde el portal",
+    "passage: Política de reembolsos de 30 días",
+    "passage: Autenticación con la API usando auth/v2/token",
 ]
+doc_emb = model.encode(docs, normalize_embeddings=True)
 
-# Generate dense embeddings (each document becomes a 384-dimensional vector)
-print("Generating embeddings...")
-doc_embeddings = model.encode(documents)
-print(f"Created {len(doc_embeddings)} embeddings, each with {len(doc_embeddings[0])} dimensions")
+query = "query: ¿cómo cambio mi password?"
+q_emb = model.encode([query], normalize_embeddings=True)
 
-# Query using synonyms/paraphrasing
-query = "Python tutorial"
-query_embedding = model.encode([query])
-
-# Calculate cosine similarities efficiently
-similarities = np.dot(query_embedding, doc_embeddings.T)[0]
-
-# Show results ranked by semantic similarity
-print(f"\nSearch Results for: '{query}'\n")
-results = [(similarities[i], documents[i]) for i in range(len(documents))]
-results.sort(reverse=True)
-
-for score, doc in results:
-  print(f"Score: {score:.3f} - {doc}")
+sims = (q_emb @ doc_emb.T)[0]      # dot = cosine si están normalizados
+for s, d in sorted(zip(sims, docs), reverse=True):
+    print(f"{s:.3f}  {d[9:]}")      # quitamos 'passage: '
 ```
 
-Key Learning Points:
-
-Dense embeddings capture semantic meaning beyond exact word matches
-Documents with similar meanings get high similarity scores even without shared words
-All documents get some similarity score (unlike sparse retrieval)
-Try It: Change the query to "learn Python" or "change password" and see how it finds conceptually similar documents even with different wording.
-
-When to Use Each Approach
-Use Sparse Retrieval when:
-
-You need exact keyword matching (legal documents, technical specifications)
-Working with domain-specific terminology that embeddings may not capture well
-Computational resources are limited
-Interpretability is crucial (need to explain why documents were retrieved)
-Use Dense Retrieval when:
-
-You need semantic understanding (synonyms, paraphrases, concepts)
-Working with multiple languages or cross-lingual scenarios
-Users express queries in natural language rather than keywords
-You have sufficient computational resources for embedding generation
-Hybrid Approaches: Many production systems combine both methods, using sparse retrieval for precise keyword matching and dense retrieval for semantic understanding.
-
-Similarity Metrics
-Once you have vector representations of queries and documents, you need mathematical methods to measure their similarity. The choice of similarity metric affects which documents are retrieved and in what order.
-
-Cosine Similarity
-Cosine similarity measures the angle between two vectors, focusing on their direction rather than magnitude. This characteristic makes it particularly suitable for text retrieval where document length variations should not affect relevance scoring.
-
-Mathematical Definition:
+### Hybrid search con Qdrant (dense + sparse + RRF)
 
 ```python
-cosine_similarity(A, B) = (A · B) / (||A|| × ||B||)
+# pip install qdrant-client fastembed
+from qdrant_client import QdrantClient, models
 
-Where:
-- A · B is the dot product of vectors A and B
-- ||A|| and ||B|| are the magnitudes (lengths) of the vectors
+client = QdrantClient(":memory:")
+
+client.create_collection(
+    collection_name="docs",
+    vectors_config={
+        "dense": models.VectorParams(size=384, distance=models.Distance.COSINE),
+    },
+    sparse_vectors_config={"sparse": models.SparseVectorParams()},
+)
+
+# Suponiendo que ya calculamos dense y sparse (p.ej. con FastEmbed + SPLADE)
+# ...upsert de puntos omitido por brevedad...
+
+results = client.query_points(
+    collection_name="docs",
+    prefetch=[
+        models.Prefetch(query=dense_vec,  using="dense",  limit=20),
+        models.Prefetch(query=sparse_vec, using="sparse", limit=20),
+    ],
+    query=models.FusionQuery(fusion=models.Fusion.RRF),   # Reciprocal Rank Fusion
+    limit=5,
+)
 ```
 
-Score Interpretation:
-
-1.0: Vectors point in identical directions (perfect semantic match)
-0.8+: Very high similarity (typically good retrieval results)
-0.5-0.8: Moderate similarity
-< 0.5: Low relevance for most applications
-0.0: Vectors are perpendicular (no relationship)
-Implementation Example:
+### Hybrid con Weaviate (alpha-weighted)
 
 ```python
-import numpy as np
+import weaviate
+client = weaviate.connect_to_local()
+collection = client.collections.get("Docs")
 
-def cosine_similarity(a, b):
-  dot_product = np.dot(a, b)
-  magnitude_a = np.linalg.norm(a)
-  magnitude_b = np.linalg.norm(b)
-  return dot_product / (magnitude_a * magnitude_b)
-
-# Example usage
-vec1 = np.array([1, 2, 3])
-vec2 = np.array([2, 4, 6])  # Same direction, different length
-similarity = cosine_similarity(vec1, vec2)  # Returns 1.0
+response = collection.query.hybrid(
+    query="endpoint de autenticación",
+    alpha=0.5,        # 0 = puro BM25, 1 = puro vector; 0.5 = balance
+    limit=5,
+)
 ```
 
-Key Point: Document length does not affect similarity - cosine similarity focuses on direction/pattern, making it ideal for text retrieval.
+## Errores comunes
 
-Dot Product
-Dot product directly multiplies corresponding vector elements and sums the results. Unlike cosine similarity, it considers both direction and magnitude.
+- **Usar solo dense retrieval en dominios técnicos.** Nombres de API, SKUs, códigos de error (`ERR_42`) raramente aparecen en el corpus de pre-entrenamiento del embedding → se pierden en coincidencia léxica. Siempre añade BM25 en paralelo.
+- **No filtrar por metadata.** Buscar en 10 millones de chunks cuando el usuario pertenece al tenant `A` o pregunta por documentos del 2024 trae ruido masivo. Filtra por `tenant_id`, `doc_type`, `date` **antes** del ANN.
+- **`top_k` mal elegido.** Muy bajo (1-2) → pierdes contexto relevante; muy alto (50+) → diluyes la señal y rebasas la ventana del LLM. Patrón robusto: recupera `top_k=20-50`, re-rankea a 3-5.
+- **Olvidar el prefijo de instrucción.** Modelos como E5 y BGE requieren `"query: ..."` / `"passage: ..."`. Sin ellos, el recall cae drásticamente.
+- **No normalizar embeddings.** Si usas dot product sin normalizar obtendrás scores sensibles a la magnitud y rankings inconsistentes.
+- **Confiar en cosine > 0.5 como "relevante".** El umbral depende totalmente del modelo. BGE da scores más altos que `all-MiniLM`. Calibra con tu propio *golden set*.
+- **No re-rankear.** Dense/sparse te dan candidatos; un cross-encoder los re-ordena mucho mejor. Ver Lección 2.
+- **Mezclar modelos de embedding distintos en el mismo índice.** Los vectores viven en espacios incomparables → similitudes sin sentido. Si cambias de modelo, re-indexa todo.
 
-Mathematical Definition:
+## Resumen
 
-```python
-dot_product(A, B) = Σ(A[i] × B[i]) for all i
-```
-
-Characteristics:
-
-Range: -∞ to +∞ (depends on vector magnitudes)
-Magnitude sensitive: Longer vectors produce higher scores
-Computationally efficient: Fastest similarity calculation
-Equivalent to cosine similarity: When vectors are normalized
-
-Usage Example:
-
-```python
-
-python
-import numpy as np
-
-vec_a = np.array([1, 2, 3])
-vec_b = np.array([2, 4, 6])  # 2x longer, same direction
-
-dot_product = np.dot(vec_a, vec_b)  # 28 (magnitude affects result)
-cosine_sim = np.dot(vec_a, vec_b) / (np.linalg.norm(vec_a) * np.linalg.norm(vec_b))  # 1.0
-```
-
-When to Use:
-
-When vector magnitudes carry meaningful information
-When computational speed is critical
-With normalized embeddings (becomes equivalent to cosine similarity)
-Euclidean Distance
-Euclidean distance measures the straight-line distance between two points in vector space.
-
-Mathematical Definition:
-
-```python
-euclidean_distance(A, B) = √(Σ(A[i] - B[i])²) for all i
-```
-
-Characteristics:
-
-Range: 0 to +∞ (0 = identical, larger = more different)
-Sensitive to all dimensions: Large differences in any dimension affect the result
-Less suitable for text: Often not optimal for high-dimensional embeddings
-
-Usage Example:
-
-```python
-import numpy as np
-
-def euclidean_distance(a, b):
-  return np.sqrt(np.sum((a - b) ** 2))
-
-vec_a = np.array([1, 2, 3])
-vec_b = np.array([1, 2, 4])  # Only last element differs
-
-distance = euclidean_distance(vec_a, vec_b)  # 1.0
-similarity = 1 / (1 + distance)  # Convert to similarity: 0.5
-```
-
-Choosing the Right Similarity Metric
-For Text Embeddings:
-
-Cosine similarity: Default choice for most applications
-Reason: Normalizes for document length variations
-For Performance-Critical Applications:
-
-Dot product: When embeddings are normalized and speed is crucial
-Reason: Fastest computation with equivalent results to cosine similarity
-For Specific Use Cases:
-
-Euclidean distance: When absolute magnitude differences matter
-Best for: Low-dimensional numerical data, not typically for text
-Practical Implementation Considerations
-Performance Optimization
-
-Vector Normalization:
-
-```python
-# Normalize embeddings for faster similarity computation
-normalized_embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
-# Now dot product equals cosine similarity
-similarities = np.dot(query_embedding, normalized_embeddings.T)
-```
-
-Key Optimization Principles:
-
-Pre-normalize embeddings to use faster dot product operations
-Batch process multiple queries simultaneously
-Monitor embedding quality as it fundamentally limits retrieval performance
-
-Common Pitfalls
-Using inappropriate similarity metrics: Euclidean distance can be misleading for high-dimensional embeddings. Stick with cosine similarity for text applications.
-
-Ignoring embedding normalization: Unnormalized embeddings lead to inconsistent similarity scores. Always normalize when using dot product operations.
-
-Over-relying on single retrieval methods: Dense retrieval may miss exact keywords; sparse retrieval may miss semantic matches. Consider hybrid approaches for comprehensive coverage.
-
-Summary
-Retrieval forms the foundation of effective RAG systems. Dense retrieval excels at semantic understanding and handling synonyms, while sparse retrieval provides exact keyword matching and interpretability. The choice of similarity metric affects which documents are retrieved, with cosine similarity being the most common choice for text embeddings.
-
-Understanding these fundamentals prepares you for the more advanced topics in the next lessons: chunking strategies that determine how documents are split and indexed, and building complete RAG pipelines that combine these components effectively.
-
-Key concepts to remember
-Dense retrieval captures semantic meaning while sparse retrieval provides exact keyword matching
-Cosine similarity is the most common choice for text embeddings due to its magnitude independence
-The quality of retrieval directly impacts the quality of RAG system responses
-Production systems often combine multiple retrieval approaches for optimal results
+- **Retrieval = encontrar los chunks correctos**; su calidad fija el techo del RAG.
+- **Sparse (BM25)** domina la coincidencia léxica exacta; **dense** entiende semántica; **hybrid + RRF** suele ganar en benchmarks (BEIR).
+- **BM25** es la fórmula probabilística de 1976 que sigue siendo baseline obligatorio en 2026.
+- Para texto usa **cosine similarity** (o dot product sobre vectores normalizados).
+- Modelos modernos (E5, BGE) requieren **prefijos de instrucción** distintos para query y passage.
+- Herramientas estándar: `rank_bm25`, Elasticsearch / OpenSearch, Qdrant, Weaviate, Milvus, pgvector.
+- En la Lección 2 veremos **re-rankers** (Cohere, bge-reranker, cross-encoders) y en la Lección 3 técnicas de **optimización de la consulta** (HyDE, multi-query, MMR).

@@ -1,295 +1,379 @@
-## Advanced Ranking and Response Validation
+# Re-ranking avanzado y validación de respuestas
 
-In the previous lesson, you learned to build quality assurance frameworks that monitor RAG system performance. But even with solid QA in place, you need sophisticated ranking and validation mechanisms to ensure users receive the most relevant information with appropriate confidence indicators.
+## ¿Qué es?
 
-Production RAG systems face a critical challenge: basic similarity search often returns documents that seem relevant but don't provide the best answers. Users need results ranked by true relevance to their specific questions, along with clear indicators of response confidence. Without these mechanisms, even technically correct systems can frustrate users with poorly ordered results and overconfident wrong answers.
+**Re-ranking** es una segunda etapa de recuperación que **reordena** los candidatos obtenidos por la búsqueda vectorial inicial, usando un modelo más preciso pero más caro. **Response validation** es el conjunto de mecanismos (self-critique, confidence scoring, filtrado adaptativo) que miden la calidad de la respuesta generada **antes de entregársela al usuario**.
 
-This lesson teaches you to implement advanced ranking strategies that go beyond simple similarity scores, build self-critique mechanisms that validate response quality, and develop confidence scoring systems that communicate uncertainty appropriately. These techniques transform RAG systems from basic document retrievers into intelligent assistants that users can trust for critical decisions.
+El flujo típico en producción es:
 
-Re-ranking
-Understanding Re-ranking
-Re-ranking is a two-stage retrieval process where an initial broad search retrieves candidate documents, followed by a more sophisticated ranking model that reorders these candidates for optimal relevance. This approach balances computational efficiency with ranking quality.
-
-| Stage       | Purpose                     | Method                               | Trade-off               |
-|-------------|-----------------------------|--------------------------------------|-------------------------|
-| First-stage | Fast candidate retrieval     | Approximate search (embedding similarity) | Speed over precision     |
-| Second-stage| Precise relevance ranking    | Cross-encoder or ML models          | Accuracy over speed      |
-
-Cross-Encoder Re-ranking
-Most RAG systems use bi-encoders for initial retrieval—they process queries and documents separately, convert them to embedding vectors, and compare similarity scores. This is fast because document embeddings can be pre-computed.
-
-Cross-encoders work differently: they analyze the query and each document together as a single input, allowing them to understand how well the query and document relate to each other. This is more accurate than comparing them separately, but takes more computation time since each query-document pair must be processed individually.
-
-The optimal strategy combines both: use bi-encoders for fast initial retrieval (get ~100 candidates), then cross-encoders for precise re-ranking (rank the top ~10).
-
-Cross-Encoder Re-ranking Implementation
-
-Below example demonstrates how to implement cross-encoder re-ranking to improve document relevance ordering in production RAG systems.
-
-```python
-from sentence_transformers import CrossEncoder
-import numpy as np
-
-class CrossEncoderReranker:
-  def __init__(self, model_name='cross-encoder/ms-marco-MiniLM-L-6-v2'):
-      self.cross_encoder = CrossEncoder(model_name, local_files_only=True)
-
-  def rerank(self, query, documents, top_k=5):
-      """
-      Re-rank documents using cross-encoder for better relevance
-      """
-      # Prepare query-document pairs for joint encoding
-      query_doc_pairs = [(query, doc['content']) for doc in documents]
-
-      # Get cross-encoder relevance scores
-      cross_scores = self.cross_encoder.predict(query_doc_pairs)
-
-      # Combine with original similarity scores
-      for i, doc in enumerate(documents):
-          doc['cross_encoder_score'] = float(cross_scores[i])
-          # Weighted combination: prioritize cross-encoder scores
-          doc['final_score'] = (
-              0.3 * doc.get('similarity_score', 0) +
-              0.7 * doc['cross_encoder_score']
-          )
-
-      # Sort by final score and return top-k
-      reranked = sorted(documents, key=lambda x: x['final_score'], reverse=True)
-      return reranked[:top_k]
-
-# Test the re-ranker
-reranker = CrossEncoderReranker()
-
-# Mock documents from initial retrieval
-documents = [
-  {'content': 'Python programming fundamentals for beginners', 'similarity_score': 0.85},
-  {'content': 'Advanced Python data structures and algorithms', 'similarity_score': 0.82},
-  {'content': 'Python web development with Flask framework', 'similarity_score': 0.80}
-]
-
-query = "How to start learning Python programming?"
-reranked_docs = reranker.rerank(query, documents, top_k=3)
-
-print("Re-ranking Results:")
-for i, doc in enumerate(reranked_docs):
-  print(f"{i+1}. {doc['content'][:50]}...")
-  print(f"   Final Score: {doc['final_score']:.3f}")
-  print(f"   Cross-encoder: {doc['cross_encoder_score']:.3f}")
-  print()
+```
+query
+  │
+  ├── 1. Retrieval rápido (bi-encoder, top ~100)
+  │         ↓
+  ├── 2. Re-ranking preciso (cross-encoder, top ~10)
+  │         ↓
+  ├── 3. Generación con el LLM (contexto top-5)
+  │         ↓
+  ├── 4. Validación / self-critique
+  │         ↓
+  └── 5. Filtrado adaptativo según confidence
+            ↓
+         respuesta al usuario (o degradación)
 ```
 
-Key Learning Points:
+Las dos piezas son complementarias: **re-ranking** mejora la *calidad del contexto* que llega al generador; **validation** mejora la *calidad de la salida* antes de que llegue al usuario.
 
-Cross-encoders analyze query-document relationships more deeply than bi-encoders
-Weighted score combination balances fast similarity search with accurate relevance assessment
-Re-ranking operates on smaller candidate sets for computational efficiency
-Joint encoding captures semantic relationships that similarity search might miss
-Try It: Experiment with different weight combinations between similarity and cross-encoder scores to find the optimal balance for your domain.
+## ¿Por qué importa?
 
-Learning-to-Rank Integration
-Advanced systems can use learning-to-rank (LTR) models that optimize for business metrics:
+Un retriever basado solo en similitud de embeddings produce resultados *parecidos*, no necesariamente *útiles*. Documentos distintos pueden tener embeddings casi idénticos; documentos genuinamente relevantes pueden quedar en el puesto 20 por una diferencia marginal.
 
-Common LTR Features:
+- **Precisión del top-K:** el LLM solo ve 3-10 chunks. Si los más relevantes están en los puestos 15-25, el modelo responde con basura aunque el índice los tenga.
+- **Confianza calibrada:** un sistema que *siempre* responde con el mismo tono de certeza engaña al usuario. La validación permite decir *"con esta evidencia la respuesta es sólida"* vs. *"responde con cautela, la evidencia es débil"*.
+- **Degradación controlada:** cuando la confianza es baja, es preferible admitir incertidumbre a inventar. Esto se decide con métricas, no con el humor del LLM.
+- **Consistencia:** sin tie-breakers deterministas, dos queries idénticas pueden devolver documentos en orden distinto → confusión del usuario y caché inútil.
+- **Diferencia competitiva:** la calidad percibida en un RAG de producción está dominada por la calidad del top-5, no por el tamaño del índice.
 
-Content signals: similarity scores, document length, readability
-Authority signals: source credibility, citation count, domain reputation
-Freshness signals: publication date, last update, temporal relevance
-Interaction signals: click-through rates, user feedback, engagement metrics
+## ¿Cómo funciona?
 
-Tie-breaker Algorithms and Order Consistency
+### Bi-encoder vs. cross-encoder
 
-Deterministic Tie-breaking
-When documents have identical scores (whether similarity scores from initial retrieval or final scores after re-ranking), consistent ordering prevents confusing user experiences and ensures reproducible results.
+| Dimensión | Bi-encoder | Cross-encoder |
+|---|---|---|
+| **Input** | Query y documento por separado | Par `(query, documento)` concatenado |
+| **Output** | Vectores comparables por coseno | Score escalar de relevancia directa |
+| **Precomputo** | Sí (todos los docs se embeben una vez) | No (cada par se calcula al vuelo) |
+| **Velocidad** | Muy rápido (ANN) | Lento (una pasada forward por par) |
+| **Precisión** | Buena | Mejor (capta interacción query-doc) |
+| **Uso** | Primera etapa, top 50-200 | Segunda etapa, re-rank top 10-20 |
+
+### Pipeline de dos etapas
+
+```
+query → bi-encoder → ANN search (top 100)
+                         ↓
+           cross-encoder predict(query, doc) por cada candidato
+                         ↓
+           sort por score y toma top 5-10
+                         ↓
+                      LLM
+```
+
+Modelos populares:
+
+- `cross-encoder/ms-marco-MiniLM-L-6-v2` — rápido, buen baseline.
+- `cross-encoder/ms-marco-MiniLM-L-12-v2` — más preciso.
+- `BAAI/bge-reranker-large` — multilingüe, estado del arte.
+- **Cohere Rerank** / **Jina Reranker** — APIs managed si no quieres hostear.
+
+### Learning-to-Rank (LTR)
+
+Cuando tienes señales de negocio (CTR, feedback explícito, autoridad de la fuente, recencia), un modelo LTR (LambdaMART, XGBoost ranking, redes neuronales de ranking) aprende a combinar múltiples señales para optimizar métricas como nDCG. Features típicas:
+
+- **Contenido:** similitud bi-encoder, score cross-encoder, BM25, longitud, legibilidad.
+- **Autoridad:** credibilidad de la fuente, citas internas, departamento owner.
+- **Frescura:** fecha de publicación, última modificación, decay exponencial.
+- **Interacción:** CTR histórico, dwell time, thumbs up/down.
+
+### Tie-breaking determinista
+
+Dos documentos con el mismo score deben siempre ordenarse igual. Usa un **hash estable del contenido** como segundo criterio de ordenamiento:
+
+```
+sort key = (score desc, sha256(content)[:8] asc)
+```
+
+Beneficios: reproducibilidad, mejor hit-rate de caché, menos confusión del usuario.
+
+### Normalización de scores
+
+Combinar scores de distintos retrievers (bi-encoder, BM25, cross-encoder) requiere ponerlos en la misma escala:
+
+| Método | Rango | Fórmula | Cuándo |
+|---|---|---|---|
+| **Min-Max** | [0, 1] | `(x - min) / (max - min)` | General, rápido |
+| **Z-score** | ℝ | `(x - μ) / σ` | Distribución ~gaussiana |
+| **Sigmoid** | (0, 1) | `1 / (1 + e⁻ˣ)` | Scores no acotados |
+| **Reciprocal Rank Fusion** | (0, 1] | `Σ 1/(k + rank_i)` | Combinar múltiples retrievers sin normalizar scores |
+
+### Self-critique y validación
+
+Mecanismos que corren sobre `(query, contexto, respuesta)` para asignar una confianza:
+
+- **Factual consistency / grounding** — ¿la respuesta se apoya en el contexto?
+- **Completeness** — ¿cubre todas las partes de la pregunta?
+- **Source attribution** — ¿cita las fuentes correctas?
+- **Internal consistency** — ¿se contradice a sí misma?
+
+Implementación: scores heurísticos (overlap léxico, NLI, LLM-as-judge) ponderados.
+
+### Adaptive filtering
+
+Según el score de confianza final, la respuesta se entrega con distinto tratamiento:
+
+| Confidence | Acción |
+|---|---|
+| ≥ 0.80 | Entregar directamente |
+| 0.60 – 0.80 | Entregar con disclaimer *"basado en información disponible…"* |
+| < 0.60 | Degradar: *"no tengo evidencia suficiente para responder con confianza"* y sugerir reformular |
+
+## Ejemplo con código
+
+Pipeline completo: **bi-encoder + Qdrant + cross-encoder re-rank + RRF para fusión + ResponseValidator con 4 criterios + AdaptiveFilter + FastAPI.**
 
 ```python
+# requirements:
+#   fastapi uvicorn qdrant-client sentence-transformers
+#   langchain-openai numpy pydantic
+
 import hashlib
+from typing import Any
 
-class DeterministicRanker:
-  def rank_with_tiebreakers(self, documents):
-      """
-      Rank documents with deterministic tie-breaking for consistent results
-      """
-      # Add content hash for deterministic ordering
-      for doc in documents:
-          content_hash = hashlib.md5(doc['content'].encode('utf-8')).hexdigest()[:8]
-          doc['content_hash'] = content_hash
-
-      # Multi-level sorting: score first, then hash for ties
-      return sorted(documents, key=lambda x: (
-          x.get('final_score', x.get('similarity_score', 0)),
-          x['content_hash']
-      ), reverse=True)
-```
-
-Why Deterministic Ranking Matters:
-
-User experience: Consistent results prevent confusion when users repeat queries
-Testing reliability: Reproducible rankings enable reliable evaluation
-Cache efficiency: Consistent ordering improves cache hit rates
-Score Normalization
-Different retrieval methods produce scores on different scales. Normalization ensures fair comparison and consistent ranking behavior.
-
-| Normalization Method | Use Case                   | Output Range | Formula                          |
-|----------------------|----------------------------|--------------|----------------------------------|
-| Min-Max              | General purpose            | [0, 1]      | (x - min) / (max - min)         |
-| Z-Score              | Gaussian distributions     | [-∞, +∞]   | (x - μ) / σ                      |
-| Sigmoid              | Bounded output needed      | [0, 1]      | 1 / (1 + e^(-x))                 |
-
-```python
 import numpy as np
+from fastapi import FastAPI
+from pydantic import BaseModel
+from qdrant_client import QdrantClient
+from sentence_transformers import SentenceTransformer, CrossEncoder
+from langchain_openai import ChatOpenAI
 
-def normalize_scores(documents, score_field='similarity_score', method='min_max'):
-  """Normalize scores for fair comparison across different retrievers"""
-  scores = np.array([doc[score_field] for doc in documents])
+# ------------------------------------------------------------
+# Modelos
+# ------------------------------------------------------------
+BI_ENCODER    = SentenceTransformer("intfloat/multilingual-e5-base")
+CROSS_ENCODER = CrossEncoder("BAAI/bge-reranker-base")
+LLM           = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+JUDGE         = ChatOpenAI(model="gpt-4o", temperature=0)
 
-  if method == 'min_max':
-      min_score, max_score = scores.min(), scores.max()
-      normalized = (scores - min_score) / (max_score - min_score) if max_score != min_score else scores * 0.5
-  elif method == 'z_score':
-      normalized = (scores - scores.mean()) / scores.std() if scores.std() > 0 else scores * 0
+qdrant = QdrantClient(host="localhost", port=6333)
+COLLECTION = "docs_prod"
 
-  for doc, norm_score in zip(documents, normalized):
-      doc[f'normalized_{score_field}'] = float(norm_score)
 
-  return documents
-```
+# ------------------------------------------------------------
+# 1. Retrieval en dos etapas: bi-encoder -> cross-encoder
+# ------------------------------------------------------------
+def retrieve_candidates(query: str, top_k: int = 100) -> list[dict]:
+    vec = BI_ENCODER.encode(f"query: {query}").tolist()
+    hits = qdrant.search(COLLECTION, query_vector=vec, limit=top_k)
+    return [{"content": h.payload["content"],
+             "metadata": h.payload,
+             "sim_score": float(h.score)} for h in hits]
 
-Self-critique Mechanisms and Response Validation
-Response Quality Assessment
-Self-critique mechanisms enable RAG systems to evaluate their own responses and identify potential issues before presenting results to users.
 
-Response Validation Framework
+def rerank_cross_encoder(query: str, docs: list[dict],
+                         top_k: int = 10,
+                         w_sim: float = 0.3,
+                         w_cross: float = 0.7) -> list[dict]:
+    pairs = [(query, d["content"]) for d in docs]
+    cross = CROSS_ENCODER.predict(pairs, show_progress_bar=False)
+    cross_norm = _min_max(np.asarray(cross))
+    sim_norm   = _min_max(np.asarray([d["sim_score"] for d in docs]))
 
-Below example shows how this framework implements automated response validation to assess quality and confidence before delivering answers to users.
+    for i, d in enumerate(docs):
+        d["cross_score"]      = float(cross[i])
+        d["cross_score_norm"] = float(cross_norm[i])
+        d["sim_score_norm"]   = float(sim_norm[i])
+        d["final_score"]      = w_sim * sim_norm[i] + w_cross * cross_norm[i]
+        d["tie_hash"]         = hashlib.sha256(
+                                   d["content"].encode("utf-8")).hexdigest()[:8]
 
-```python
+    return sorted(docs,
+                  key=lambda x: (-x["final_score"], x["tie_hash"]))[:top_k]
+
+
+def _min_max(x: np.ndarray) -> np.ndarray:
+    rng = x.max() - x.min()
+    return (x - x.min()) / rng if rng > 0 else np.full_like(x, 0.5)
+
+
+# ------------------------------------------------------------
+# 2. Reciprocal Rank Fusion para combinar varios retrievers
+# ------------------------------------------------------------
+def rrf_fuse(rankings: list[list[dict]], k: int = 60,
+             top_k: int = 20) -> list[dict]:
+    scores: dict[str, float] = {}
+    cache:  dict[str, dict]  = {}
+    for ranking in rankings:
+        for rank, doc in enumerate(ranking, start=1):
+            key = doc["metadata"]["chunk_hash"]
+            scores[key] = scores.get(key, 0.0) + 1 / (k + rank)
+            cache.setdefault(key, doc)
+    fused = sorted(cache.values(),
+                   key=lambda d: -scores[d["metadata"]["chunk_hash"]])
+    for d in fused:
+        d["rrf_score"] = scores[d["metadata"]["chunk_hash"]]
+    return fused[:top_k]
+
+
+# ------------------------------------------------------------
+# 3. Response validator (multi-criteria + LLM judge)
+# ------------------------------------------------------------
+JUDGE_PROMPT = """Evalua la respuesta respecto al contexto. Responde JSON:
+{{"faithful": 0.0-1.0, "complete": 0.0-1.0, "reason": "..."}}
+
+Contexto:
+{context}
+
+Pregunta: {query}
+Respuesta: {response}
+"""
+
+
 class ResponseValidator:
-  def __init__(self):
-      self.validation_criteria = {
-          'factual_consistency': 0.4,    # Weight for fact-checking
-          'completeness': 0.3,           # Weight for answer completeness
-          'source_attribution': 0.3      # Weight for source citation
-      }
+    WEIGHTS = {"faithful": 0.45, "complete": 0.25,
+               "attribution": 0.15, "retrieval": 0.15}
 
-  def validate_response(self, query, response, source_documents):
-      """
-      Validate response quality using multiple criteria
-      """
-      validation_results = {}
+    def validate(self, query: str, response: str,
+                 docs: list[dict]) -> dict:
+        context = "\n".join(d["content"] for d in docs)
 
-      # Validate using multiple criteria
-      validation_results['factual_consistency'] = self._check_factual_consistency(response, source_documents)
-      validation_results['completeness'] = self._assess_completeness(query, response)
-      validation_results['source_attribution'] = self._verify_source_attribution(response, source_documents)
+        faithful, complete = self._llm_judge(query, response, context)
+        attribution = self._attribution_score(response, docs)
+        retrieval   = self._retrieval_quality(docs)
 
-      # Calculate weighted confidence score
-      overall_confidence = sum(
-          validation_results[criterion]['score'] * weight
-          for criterion, weight in self.validation_criteria.items()
-      )
-      validation_results['overall_confidence'] = overall_confidence
-      return validation_results
+        confidence = (self.WEIGHTS["faithful"]    * faithful +
+                      self.WEIGHTS["complete"]    * complete +
+                      self.WEIGHTS["attribution"] * attribution +
+                      self.WEIGHTS["retrieval"]   * retrieval)
 
-  def _check_factual_consistency(self, response, source_documents):
-      """Check if response claims are supported by source documents"""
-      source_content = ' '.join([doc['content'] for doc in source_documents])
-      response_words = set(response.lower().split())
-      source_words = set(source_content.lower().split())
-      overlap = len(response_words & source_words) / len(response_words)
+        return {
+            "confidence":    round(confidence, 3),
+            "faithfulness":  faithful,
+            "completeness":  complete,
+            "attribution":   attribution,
+            "retrieval":     retrieval,
+        }
 
-      return {'score': min(1.0, overlap * 2), 'explanation': f'Content overlap: {overlap:.2f}'}
+    def _llm_judge(self, query, response, context) -> tuple[float, float]:
+        import json
+        prompt = JUDGE_PROMPT.format(context=context, query=query,
+                                     response=response)
+        raw = JUDGE.invoke(prompt).content
+        try:
+            parsed = json.loads(raw)
+            return float(parsed["faithful"]), float(parsed["complete"])
+        except Exception:
+            return 0.5, 0.5                       # fallback neutro
 
-  def _assess_completeness(self, query, response):
-      """Assess if response adequately addresses the query"""
-      query_words = set(query.lower().split())
-      response_words = set(response.lower().split())
-      coverage = len(query_words & response_words) / len(query_words)
-      length_score = min(1.0, len(response.split()) / 50)
+    def _attribution_score(self, response, docs) -> float:
+        sources = {d["metadata"].get("source", "") for d in docs}
+        hits = sum(1 for s in sources if s and s.lower() in response.lower())
+        return min(1.0, hits / max(1, len(sources)))
 
-      return {'score': (coverage + length_score) / 2, 'explanation': f'Query coverage: {coverage:.2f}'}
+    def _retrieval_quality(self, docs) -> float:
+        """Promedio ponderado por posicion de los cross-scores."""
+        if not docs:
+            return 0.0
+        weights = np.array([1 / (i + 1) for i in range(len(docs))])
+        scores  = np.array([d.get("cross_score_norm", d["sim_score"])
+                            for d in docs])
+        return float(np.average(scores, weights=weights))
 
-  def _verify_source_attribution(self, response, source_documents):
-      """Verify appropriate source attribution in response"""
-      has_attribution = any(
-          doc.get('source', '').lower() in response.lower()
-          for doc in source_documents
-      )
-      return {'score': 1.0 if has_attribution else 0.3, 'explanation': 'Attribution found' if has_attribution else 'No attribution'}
 
-# Example usage
-validator = ResponseValidator()
-query = "What is the company vacation policy?"
-response = "According to the employee handbook, you get 20 vacation days per year."
-source_docs = [{'content': 'Employees receive 20 vacation days annually', 'source': 'employee_handbook.pdf'}]
-
-results = validator.validate_response(query, response, source_docs)
-print(f"Overall confidence: {results['overall_confidence']:.2f}")
-```
-
-Key Learning Points:
-
-Multi-criteria validation provides comprehensive quality assessment
-Weighted scoring allows prioritizing different quality aspects based on application needs
-Validation results inform confidence scoring and response delivery decisions
-Try It: Adjust validation criteria weights for your domain (e.g., prioritize factual accuracy for medical applications).
-
-Advanced Confidence Factors: Beyond the basic validation criteria, production systems can incorporate additional factors:
-
-Retrieval Quality: Position-weighted similarity scores of retrieved documents
-Source Reliability: Document authority, recency, and completeness metrics
-Coverage Completeness: How well retrieved sources cover the query topics
-Note: Weight these factors based on your application's priorities—medical applications might weight Source Reliability higher (40%), while creative applications might prioritize Response Coherence (50%).
-
-Adaptive Response Filtering
-Implement dynamic filtering that adapts response delivery based on validation results.
-
-```python
+# ------------------------------------------------------------
+# 4. Filtrado adaptativo segun confianza
+# ------------------------------------------------------------
 class AdaptiveResponseFilter:
-  def filter_response(self, response, validation_results):
-      """Filter and adapt response based on validation confidence"""
-      confidence = validation_results.get('overall_confidence', 0.5)
+    def apply(self, response: str, validation: dict,
+              citations: list) -> dict:
+        c = validation["confidence"]
+        if c >= 0.80:
+            return {"answer": response, "confidence_level": "high",
+                    "validation": validation, "citations": citations}
+        if c >= 0.60:
+            return {"answer": f"Segun la informacion disponible: {response}",
+                    "confidence_level": "medium",
+                    "note": "Confianza moderada en las fuentes",
+                    "validation": validation, "citations": citations}
+        return {"answer": "No tengo evidencia suficiente para responder con "
+                          "confianza. Intenta reformular la pregunta o "
+                          "aporta mas contexto.",
+                "confidence_level": "low",
+                "validation": validation, "citations": []}
 
-      if confidence >= 0.8:
-          return {'response': response, 'confidence_level': 'high'}
-      elif confidence >= 0.6:
-          return {
-              'response': f"Based on available information: {response}",
-              'confidence_level': 'medium',
-              'note': 'Moderate confidence in available sources'
-          }
-      else:
-          return {
-              'response': "I do not have sufficient reliable information to answer confidently.",
-              'confidence_level': 'low',
-              'suggestion': 'Try rephrasing your question or providing more context'
-          }
+
+# ------------------------------------------------------------
+# 5. Orquestacion end-to-end + FastAPI
+# ------------------------------------------------------------
+RAG_PROMPT = """Responde EXCLUSIVAMENTE con el contexto. Cita como [source:page].
+Si no hay evidencia, responde literalmente:
+"No tengo informacion suficiente para responder."
+
+Contexto:
+{context}
+
+Pregunta: {query}
+Respuesta:
+"""
+
+
+def rag_answer(query: str) -> dict:
+    candidates = retrieve_candidates(query, top_k=100)
+    reranked   = rerank_cross_encoder(query, candidates, top_k=5)
+
+    context = "\n\n".join(
+        f"[{d['metadata'].get('source','?')}:{d['metadata'].get('page','?')}] "
+        f"{d['content']}" for d in reranked
+    )
+    response = LLM.invoke(RAG_PROMPT.format(context=context,
+                                            query=query)).content
+
+    validation = ResponseValidator().validate(query, response, reranked)
+    final      = AdaptiveResponseFilter().apply(
+        response, validation,
+        [{"source": d["metadata"].get("source"),
+          "page":   d["metadata"].get("page"),
+          "score":  d["final_score"]} for d in reranked]
+    )
+    return final
+
+
+app = FastAPI()
+
+
+class QueryIn(BaseModel):
+    query: str
+
+
+@app.post("/query")
+def query_endpoint(payload: QueryIn):
+    return rag_answer(payload.query)
 ```
 
-Adaptive Filtering Benefits:
+**Qué observar:**
 
-Transparency: Users understand system confidence levels
-Risk mitigation: Low-confidence responses are handled appropriately
-User guidance: Suggestions help users get better results
+- `retrieve_candidates` trae 100 chunks con el bi-encoder (barato); `rerank_cross_encoder` reduce a 5 con el cross-encoder (caro pero preciso).
+- La **combinación ponderada** `0.3 * sim + 0.7 * cross` prioriza al cross-encoder sin ignorar al retriever inicial.
+- El **tie-breaker por hash** garantiza orden determinista para scores empatados.
+- `rrf_fuse` permite combinar varios retrievers (p.ej. vectorial + BM25 + keyword) sin preocuparse por normalizar scores.
+- El **LLM judge** usa un modelo *distinto* y más fuerte que el generador (`gpt-4o` vs. `gpt-4o-mini`).
+- `retrieval_quality` promedia los cross-scores ponderando por posición: si los top-1 y top-2 son buenos, pesa más que si lo son top-9 y top-10.
+- `AdaptiveResponseFilter` **degrada activamente** cuando la confianza es baja, en lugar de dejar pasar una respuesta frágil.
 
-Common Pitfalls and Solutions
-Over-relying on Single Ranking Signals: Using only similarity scores ignores important factors like source authority and content freshness. Implement multi-factor ranking that considers various quality signals including document authority, recency, and cross-encoder relevance scores.
+## Errores comunes
 
-Inconsistent Ranking Between Sessions: Same queries returning different document orders confuses users and reduces trust. Use deterministic tie-breaking with content hashes and implement score normalization to ensure reproducible results.
+- **Confiar en un solo signal de ranking.** Similitud de embeddings sola ignora autoridad, recencia y señales de interacción. Combina con cross-encoder y, si tienes datos de uso, LTR.
+- **No usar tie-breaker determinista.** Mismo query → distinto orden → usuarios confundidos y caché inútil. Siempre un segundo criterio estable (hash, id, fecha).
+- **Mal balance bi-encoder / cross-encoder.** `top_k=10` en la primera etapa es demasiado poco para que el cross-encoder tenga sobre qué trabajar; usa 50-200.
+- **Cross-encoder en batch de 1.** Procesar pares uno a uno destroza el throughput. Agrupa en batches y usa GPU si está disponible.
+- **No normalizar scores entre retrievers.** Mezclar scores de BM25 (rango 0-30) con cosine (0-1) hace que BM25 domine siempre. Normaliza o usa RRF.
+- **Confidence mal calibrado.** Si el 90% de las respuestas marcan `confidence > 0.8`, el score no está discriminando. Calibra con un dataset etiquetado y ajusta los umbrales.
+- **LLM judge igual al generador.** El modelo rara vez marca sus propios errores. Usa un modelo distinto y preferentemente superior.
+- **Sin degradación.** Entregar siempre una respuesta aunque la confianza sea 0.2 es la receta para alucinaciones de alta visibilidad. Mejor "no sé".
+- **Re-rankear sobre poca diversidad.** Si tu top-100 bi-encoder son 100 variantes del mismo documento, el cross-encoder no puede arreglarlo. Agrega MMR (Maximal Marginal Relevance) para forzar diversidad antes del re-rank.
+- **No cachear embeddings de queries.** Para queries repetidas (dashboards, autosuggest), cachear el embedding y los candidates ahorra 80% del costo.
+- **Olvidar el costo del LLM judge.** Usar `gpt-4o` por cada query duplica el costo. Reserva el judge para una muestra (p.ej. 10%) o para cuando la confianza heurística esté en zona gris.
 
-Poor Confidence Calibration: Systems that are overconfident in wrong answers or underconfident in correct ones mislead users. Validate confidence scores against human judgments and adjust thresholds based on real-world performance data.
+## Resumen
 
-Missing Graceful Degradation: Systems that fail completely when confidence is low provide poor user experience. Implement adaptive response strategies that handle uncertainty appropriately, from qualified responses to honest admissions of insufficient information.
-
-Summary
-Advanced ranking and response validation transform basic RAG systems into production-ready applications that users can trust. Re-ranking improves retrieval quality through sophisticated relevance models, while self-critique mechanisms and confidence scoring provide transparency about system limitations.
-
-The key to successful implementation lies in balancing multiple ranking signals, maintaining consistency across interactions, and being transparent about system confidence. These techniques enable RAG systems that not only provide accurate information but also communicate their reliability effectively.
-
-Next, we'll explore advanced indexing techniques that make these ranking and validation mechanisms scalable for massive datasets and high-throughput production environments.
-
-Key concepts to remember
-Cross-encoder re-ranking captures query-document relationships better than similarity search alone
-Deterministic tie-breaking and score normalization ensure consistent, reproducible rankings
-Multi-criteria response validation enables automated quality assessment before delivery
-Confidence scoring helps users understand system certainty and makes appropriate decisions
-Adaptive filtering adjusts response delivery based on validation confidence levels
+- **Re-ranking** convierte la búsqueda vectorial de *"documentos parecidos"* en *"documentos relevantes"* al introducir una segunda etapa con cross-encoder.
+- La arquitectura estándar es **dos etapas**: bi-encoder trae 100 candidatos rápido, cross-encoder reordena 5-10 con precisión.
+- **Reciprocal Rank Fusion (RRF)** es la forma más robusta y simple de combinar varios retrievers sin normalizar scores.
+- **Tie-breakers deterministas** (hash de contenido) garantizan reproducibilidad y hit-rate de caché.
+- **Learning-to-Rank** incorpora señales de negocio (CTR, autoridad, recencia) cuando tienes datos de uso.
+- **Response validation** opera sobre `(query, contexto, respuesta)` con criterios múltiples: faithfulness, completeness, attribution, retrieval quality.
+- Usa un **LLM-as-judge distinto y más fuerte** que el generador, con `temperature=0`.
+- **Adaptive filtering** entrega la respuesta con tres niveles: alta → directa, media → con disclaimer, baja → degradada a *"no sé"*.
+- Siempre **degrada** antes de entregar una respuesta de baja confianza — es más barato que un ticket de soporte y protege la confianza del usuario.
+- Modelos de cross-encoder recomendados: `BAAI/bge-reranker-large` (open), **Cohere Rerank** / **Jina Reranker** (managed).
+- El cuello de botella del cross-encoder es el batch size: GPU + batches de 32-64 lo hacen viable en producción.
+- Calibra umbrales de confianza contra feedback humano real; no dejes los valores por defecto en producción.

@@ -1,342 +1,385 @@
-## Production Deployment
-You have built a multi-modal application that combines vision, audio, text, and video capabilities. Now you need to deploy it to production, ensure it scales, monitor its performance, and maintain reliability. How do you deploy multi-modal applications effectively?
+# Despliegue a producción de aplicaciones multimodales
 
-Deploying multi-modal applications to production requires careful consideration of infrastructure, monitoring, scaling, and reliability. By the end of this lesson, you will understand production deployment strategies, monitoring approaches, scaling patterns, and operational best practices for multi-modal applications.
+## ¿Qué es?
 
-Deployment Architecture
-Design deployment architecture for multi-modal applications:
+Desplegar una aplicación multimodal es llevar un prototipo que funciona en un notebook a un sistema que atiende tráfico real **de forma confiable, escalable, observable y rentable**. Implica decisiones de infraestructura muy distintas a una API tradicional, porque:
 
-Production deployment diagram with API gateway, orchestration service, separate modality services, caching, queues, storage, and monitoring
+- Las cargas son **heterogéneas**: una request puede ser 2 KB de texto, otra 10 MB de video.
+- Las latencias varían de 50 ms (texto corto) a 30 s (análisis de video completo).
+- Los costos por request son 10-1000x más altos que una API clásica.
+- Muchos componentes son servicios externos (OpenAI, Anthropic, ElevenLabs) con SLA independientes y rate limits.
 
-![A production deployment pattern: gateway + orchestrator + modality services, with caching, queues, and observability](https://hrcdn.net/ai-engineering/module-5/light/multimodal-lesson02-production-architecture.svg)
+La arquitectura típica combina un **API gateway**, un **orquestador**, **microservicios por modalidad**, **colas** para carga asíncrona, **caché** para resultados repetidos, **almacenamiento** para media y una capa de **observabilidad** completa.
 
-Microservices Architecture:
+![Patrón de despliegue en producción: gateway + orquestador + servicios por modalidad, con caché, colas y observabilidad](https://hrcdn.net/ai-engineering/module-5/light/multimodal-lesson02-production-architecture.svg)
 
-Deploy modalities as separate services:
+## ¿Por qué importa?
 
-```python
-# Vision Service
-class VisionService:
-  """Deployed vision processing service."""
-  def process(self, image_data):
-      """Process image."""
-      pass
+Un modelo que funciona offline no es un producto. El 70% del esfuerzo de un proyecto multimodal en producción se va en infraestructura, observabilidad y manejo de fallos. Casos reales que ilustran por qué importa:
 
-# Audio Service
-class AudioService:
-  """Deployed audio processing service."""
-  def process(self, audio_data):
-      """Process audio."""
-      pass
+- **Air Canada chatbot (2024):** un agente conversacional dio información falsa sobre reembolsos; el tribunal falló contra la aerolínea. Lección: necesitas **monitoreo semántico** y guardrails, no solo latencia.
+- **ChatGPT voice mode (2024-2025):** OpenAI tuvo que diseñar un pipeline de voz-a-voz con latencia <500 ms a escala global; su arquitectura usa realtime API con WebRTC + edge regions.
+- **Document AI de Stripe:** procesa decenas de miles de facturas al día; usan colas (SQS) + workers con autoscaling + caché por hash de archivo para no re-procesar duplicados.
+- **Be My Eyes + GPT-4o:** millones de descripciones de imágenes para personas ciegas; el fallback cuando GPT-4o cae es derivar a un voluntario humano.
 
-# Orchestration Service
-class OrchestrationService:
-  """Orchestrates multi-modal processing."""
+## ¿Cómo funciona?
 
-  def __init__(self):
-      self.vision_service = VisionService()
-      self.audio_service = AudioService()
+### Arquitectura de microservicios por modalidad
 
-  def process(self, inputs):
-      """Orchestrate processing."""
-      pass
+Separar cada modalidad en su propio servicio tiene ventajas claras:
+
+- **Escalado independiente:** si vision domina el tráfico, escalas solo ese pod.
+- **Despliegue aislado:** actualizas el modelo de visión sin tocar el de audio.
+- **Blast radius pequeño:** una caída de TTS no derriba todo.
+- **Modelos distintos por servicio:** vision en GPU, STT en instancia optimizada para audio, LLM delegado a un proveedor externo.
+
+```
+         ┌─────────────┐
+         │ API Gateway │ (auth, rate limit, routing)
+         └──────┬──────┘
+                │
+         ┌──────▼──────┐
+         │ Orchestrator│ (lógica de negocio, tool-use)
+         └─┬────┬────┬─┘
+     ┌─────┘    │    └─────┐
+     ▼          ▼          ▼
+ ┌───────┐ ┌───────┐ ┌───────┐
+ │Vision │ │ Audio │ │ Text  │  servicios por modalidad
+ │Service│ │Service│ │Service│
+ └───┬───┘ └───┬───┘ └───┬───┘
+     └─────┬───┴────┬────┘
+           ▼        ▼
+      ┌─────────┐ ┌─────────┐
+      │  Cache  │ │ Vector  │
+      │ (Redis) │ │   DB    │
+      └─────────┘ └─────────┘
 ```
 
-API Gateway Pattern:
+### API Gateway
 
-Use API gateway to route requests:
+Un gateway (Kong, Envoy, AWS API Gateway, Cloudflare) centraliza:
+
+- **Autenticación** (API keys, OAuth, JWT).
+- **Rate limiting por usuario y por modalidad** (vision es más caro, limita más agresivo).
+- **Routing** por tipo de contenido.
+- **Validación de tamaño** (rechaza imágenes >10 MB antes de llegar al modelo).
+- **Request/response logging** redactado.
+
+### Procesamiento síncrono vs. asíncrono
+
+| Caso | Patrón | Timeout objetivo |
+|---|---|---|
+| Chat con texto | Síncrono con streaming SSE | 30 s |
+| Voice agent | Streaming bidireccional (WebRTC/WebSocket) | 500 ms end-to-end |
+| Análisis de factura | Síncrono, con retry | 10 s |
+| Análisis de video largo | Asíncrono (cola + webhook) | sin límite |
+| Generación de imagen batch | Asíncrono + progreso polling | sin límite |
+
+**Regla práctica**: si la operación tarda >5 s, hazla asíncrona con cola.
+
+### Colas y workers
+
+Patrón clásico para tareas pesadas (análisis de video, generación de imagen en batch, OCR masivo):
 
 ```python
-class APIGateway:
-  """API gateway for multi-modal services."""
+# Pipeline con Redis Queue (rq) para procesamiento asíncrono
+import redis, uuid, os
+from rq import Queue
+from fastapi import FastAPI, UploadFile, HTTPException
 
-  def route_request(self, request):
-      """Route request to appropriate service."""
-      if request.type == 'vision':
-          return self.vision_service.process(request.data)
-      elif request.type == 'audio':
-          return self.audio_service.process(request.data)
-      elif request.type == 'multi_modal':
-          return self.orchestration_service.process(request.data)
-      else:
-          raise ValueError("Unknown request type")
+r = redis.Redis(host="redis", port=6379)
+q = Queue("vision", connection=r, default_timeout=600)
+app = FastAPI()
+
+def analizar_video_job(video_path: str) -> dict:
+    """Job de worker: extrae frames, los analiza, resume."""
+    from procesadores import extraer_frames, analizar_frames, resumir
+    frames = extraer_frames(video_path, fps=1)
+    analisis = analizar_frames(frames)
+    return {"resumen": resumir(analisis), "n_frames": len(frames)}
+
+@app.post("/videos")
+async def encolar_video(file: UploadFile):
+    if file.size > 500 * 1024 * 1024:
+        raise HTTPException(413, "Video >500MB")
+    path = f"/data/videos/{uuid.uuid4()}.mp4"
+    with open(path, "wb") as f:
+        f.write(await file.read())
+    job = q.enqueue(analizar_video_job, path)
+    return {"job_id": job.id, "status_url": f"/jobs/{job.id}"}
+
+@app.get("/jobs/{job_id}")
+def status(job_id: str):
+    job = q.fetch_job(job_id)
+    if job is None:
+        raise HTTPException(404)
+    return {"status": job.get_status(), "result": job.result}
 ```
 
-Monitoring and Observability
-Monitor multi-modal applications comprehensively:
+### Caché a múltiples niveles
 
-Key Metrics:
+Las imágenes y audios son candidatos ideales a caché porque son **contenido idempotente** (misma entrada → misma salida):
 
-Request rate per modality
-Processing latency per modality
-Success/error rates
-Cost per request
-Cache hit rates
-API quota usage
-Logging:
+- **L1 (en memoria del proceso):** `functools.lru_cache` para resultados de la última hora.
+- **L2 (Redis):** caché compartido entre workers, TTL de horas-días, key = `hash(sha256(bytes))`.
+- **L3 (object storage):** resultados persistentes de operaciones caras (descripciones de imagen).
 
 ```python
-import logging
-import time
+import hashlib, json
+from redis import Redis
 
-logger = logging.getLogger(__name__)
+cache = Redis()
 
-class MonitoredProcessor:
-  """Processor with comprehensive monitoring."""
-
-  def process_with_monitoring(self, input_type, input_data):
-      """Process with monitoring."""
-      start_time = time.time()
-
-      try:
-          result = self.process(input_type, input_data)
-
-          latency = time.time() - start_time
-
-          # Log success
-          logger.info(f"{input_type} processing successful: {latency:.2f}s")
-
-          # Record metrics
-          self.record_metric(f"{input_type}.success", 1)
-          self.record_metric(f"{input_type}.latency", latency)
-          self.record_metric(f"{input_type}.cost", self.calculate_cost(input_type))
-
-          return result
-
-      except Exception as e:
-          latency = time.time() - start_time
-
-          # Log error
-          logger.error(f"{input_type} processing failed: {e} ({latency:.2f}s)")
-
-          # Record metrics
-          self.record_metric(f"{input_type}.error", 1)
-          self.record_metric(f"{input_type}.error_type", type(e).__name__)
-
-          raise
+def analizar_imagen_cacheado(image_bytes: bytes) -> dict:
+    key = f"vision:v1:{hashlib.sha256(image_bytes).hexdigest()}"
+    hit = cache.get(key)
+    if hit:
+        return json.loads(hit)
+    # miss → llamar al modelo
+    resultado = llamar_claude_vision(image_bytes)
+    cache.setex(key, 7 * 24 * 3600, json.dumps(resultado))  # 7 días
+    return resultado
 ```
 
-Health Checks:
+Impacto típico en producción: 20-40% cache hit en vision para apps de e-commerce (usuarios revisan los mismos productos). Puede recortar 30% del gasto en API.
+
+### Observabilidad: métricas, logs, traces
+
+Las **métricas RED** (Rate, Errors, Duration) por modalidad son el mínimo. Añade métricas específicas:
+
+| Métrica | Por qué | Herramienta |
+|---|---|---|
+| `requests_total{modality}` | Volumen por modalidad | Prometheus |
+| `latency_ms{modality,p50,p95,p99}` | SLO por modalidad | Prometheus + Grafana |
+| `cost_usd{modality,model}` | Spend tracking en vivo | Langfuse, Helicone |
+| `cache_hit_ratio{modality}` | Efectividad del caché | Prometheus |
+| `tokens_in / tokens_out` | Rendimiento del LLM | OpenTelemetry + Langfuse |
+| `tool_calls{tool_name}` | Patrones del agente | Arize Phoenix |
+| `safety_blocks{reason}` | Guardrails activados | DataDog |
+
+**Tracing distribuido** con OpenTelemetry: una request de voice agent toca STT, LLM, tool, TTS. Sin trace unificado es imposible encontrar dónde se gastaron 200 ms extra.
+
+### Estrategias de escalado
+
+- **Vertical:** GPU más grande (A100 → H100) para modelos propios. Simple, caro.
+- **Horizontal:** más réplicas con autoscaler (HPA en Kubernetes, Fargate, Cloud Run). Default para servicios stateless.
+- **Scale-to-zero:** servicios que ven tráfico esporádico (Cloud Run, Modal, Replicate). Cold start de 3-10 s para modelos grandes.
+- **Serverless GPU:** Modal, Replicate, RunPod, Baseten. Pagas por segundo de GPU, útil para batch.
+- **Edge:** Cloudflare Workers AI, Fastly Compute. Latencia baja para modelos pequeños.
+
+Para **voice agents** la regla es: **mantén los workers calientes** (no scale-to-zero) y haz **region pinning** (usuario en EU → bot en EU) para evitar RTT transatlántico.
+
+### Patrones de resiliencia
+
+**Circuit breaker** para evitar cascadas cuando un proveedor cae:
 
 ```python
-class HealthChecker:
-  """Health check for multi-modal services."""
+import time, asyncio
+from enum import Enum
 
-  def check_health(self):
-      """Check health of all services."""
-      health_status = {
-          'vision': self.check_vision_service(),
-          'audio': self.check_audio_service(),
-          'orchestration': self.check_orchestration_service()
-      }
+class EstadoCB(Enum):
+    CERRADO = "cerrado"       # funcionando normal
+    ABIERTO = "abierto"       # bloqueando llamadas
+    SEMI = "semi_abierto"     # probando recuperación
 
-      overall_health = all(health_status.values())
-
-      return {
-          'healthy': overall_health,
-          'services': health_status
-      }
-```
-
-Scaling Strategies
-Scale multi-modal applications effectively:
-
-Horizontal Scaling:
-
-Scale services independently:
-
-```python
-class ScalableService:
-  """Service designed for horizontal scaling."""
-
-  def __init__(self):
-      self.workers = []
-      self.load_balancer = LoadBalancer()
-
-  def scale_up(self, service_type, instances):
-      """Scale up service instances."""
-      for _ in range(instances):
-          worker = self.create_worker(service_type)
-          self.workers.append(worker)
-          self.load_balancer.add_worker(worker)
-
-  def scale_down(self, service_type, instances):
-      """Scale down service instances."""
-      workers_to_remove = [
-          w for w in self.workers
-          if w.service_type == service_type
-      ][:instances]
-
-      for worker in workers_to_remove:
-          self.workers.remove(worker)
-          self.load_balancer.remove_worker(worker)
-```
-
-Queue-Based Processing:
-
-Use queues for async processing:
-
-```python
-from queue import Queue
-import threading
-
-class QueueBasedProcessor:
-  """Queue-based processing for scalability."""
-
-  def __init__(self, worker_count=5):
-      self.queue = Queue()
-      self.workers = []
-
-      for _ in range(worker_count):
-          worker = threading.Thread(target=self._worker)
-          worker.start()
-          self.workers.append(worker)
-
-  def _worker(self):
-      """Worker processes queue items."""
-      while True:
-          item = self.queue.get()
-          if item is None:
-              break
-
-          try:
-              result = self.process_item(item)
-              item['callback'](result)
-          except Exception as e:
-              item['error_callback'](e)
-          finally:
-              self.queue.task_done()
-
-  def enqueue(self, item, callback, error_callback):
-      """Add item to queue."""
-      self.queue.put({
-          'item': item,
-          'callback': callback,
-          'error_callback': error_callback
-      })
-```
-
-Reliability and Resilience
-Ensure reliability:
-
-Circuit breaker state diagram showing closed, open, and half-open states and transitions
-
-![Circuit breakers prevent cascading failures by stopping calls during outages and testing recovery safely](https://hrcdn.net/ai-engineering/module-5/light/multimodal-lesson02-circuit-breaker-states.svg)
-
-Circuit Breaker Pattern:
-
-```python
 class CircuitBreaker:
-  """Circuit breaker for service reliability."""
+    def __init__(self, umbral_fallos=5, timeout_s=60):
+        self.umbral = umbral_fallos
+        self.timeout = timeout_s
+        self.fallos = 0
+        self.estado = EstadoCB.CERRADO
+        self.ultimo_fallo = 0
 
-  def __init__(self, failure_threshold=5, timeout=60):
-      self.failure_count = 0
-      self.failure_threshold = failure_threshold
-      self.timeout = timeout
-      self.state = 'closed'  # closed, open, half_open
-      self.last_failure_time = None
-
-  def call(self, func, *args, **kwargs):
-      """Call function with circuit breaker."""
-      if self.state == 'open':
-          if time.time() - self.last_failure_time > self.timeout:
-              self.state = 'half_open'
-          else:
-              raise Exception("Circuit breaker is open")
-
-      try:
-          result = func(*args, **kwargs)
-          if self.state == 'half_open':
-              self.state = 'closed'
-              self.failure_count = 0
-          return result
-      except Exception as e:
-          self.failure_count += 1
-          self.last_failure_time = time.time()
-
-          if self.failure_count >= self.failure_threshold:
-              self.state = 'open'
-
-          raise
+    async def call(self, func, *args, **kwargs):
+        if self.estado == EstadoCB.ABIERTO:
+            if time.time() - self.ultimo_fallo > self.timeout:
+                self.estado = EstadoCB.SEMI
+            else:
+                raise RuntimeError("Circuit breaker abierto")
+        try:
+            r = await func(*args, **kwargs)
+            if self.estado == EstadoCB.SEMI:
+                self.estado = EstadoCB.CERRADO
+                self.fallos = 0
+            return r
+        except Exception:
+            self.fallos += 1
+            self.ultimo_fallo = time.time()
+            if self.fallos >= self.umbral:
+                self.estado = EstadoCB.ABIERTO
+            raise
 ```
 
-Retry with Exponential Backoff:
+**Retry con backoff exponencial + jitter** (nunca sin jitter; evita thundering herd):
 
 ```python
-import time
+import random, asyncio
 
-def retry_with_backoff(func, max_retries=3, base_delay=1):
-  """Retry function with exponential backoff."""
-  for attempt in range(max_retries):
-      try:
-          return func()
-      except Exception as e:
-          if attempt == max_retries - 1:
-              raise
-
-          delay = base_delay * (2 ** attempt)
-          time.sleep(delay)
+async def retry(func, max_intentos=4, base=1.0):
+    for intento in range(max_intentos):
+        try:
+            return await func()
+        except Exception:
+            if intento == max_intentos - 1:
+                raise
+            delay = base * (2 ** intento) + random.uniform(0, 0.5)
+            await asyncio.sleep(delay)
 ```
 
-Cost Management
-Manage costs effectively:
+**Degradación graciosa**: si vision falla, pide al usuario que describa el problema por texto. Si TTS falla, devuelve solo texto. Nunca 500.
 
-Cost Tracking:
+### Gestión de costos
+
+| Modelo | Precio aprox (ene 2025) | Caso |
+|---|---|---|
+| Claude Sonnet 4 (text+vision) | $3 / $15 por 1M tokens | VLM de alta calidad |
+| Claude Haiku 3.5 | $0.80 / $4 | Pre-filtro, routing |
+| GPT-4o | $2.50 / $10 | Vision + razonamiento |
+| GPT-4o-mini | $0.15 / $0.60 | Voice agents económicos |
+| Whisper API | $0.006 / minuto | Transcripción |
+| ElevenLabs TTS | $0.18 / 1k chars (Turbo) | Voz humana |
+| gpt-image-1 | $0.02-0.19 / imagen | Generación |
+
+**Tácticas** para controlar spend:
+
+1. **Model cascading**: Haiku filtra; solo casos ambiguos van a Sonnet.
+2. **Image downsizing**: Claude cobra por tiles; cada imagen >1568px se escala; haz tú el resize a 1024px.
+3. **Caché agresivo** por hash.
+4. **Budget caps por tenant** con shutoff automático.
+5. **Daily spend alerts** vía Langfuse / Helicone.
+
+## Ejemplo con código
+
+Orquestador multimodal con FastAPI, caché, circuit breaker, métricas y presupuesto:
 
 ```python
-class CostTracker:
-  """Track costs across modalities."""
+import os, hashlib, time, logging, asyncio, json
+from fastapi import FastAPI, UploadFile, HTTPException, Depends
+from prometheus_client import Counter, Histogram, make_asgi_app
+import redis.asyncio as aioredis
+import httpx
 
-  def __init__(self):
-      self.costs = {
-          'vision': 0,
-          'audio': 0,
-          'text': 0,
-          'video': 0
-      }
+log = logging.getLogger("orchestrator")
+app = FastAPI()
+app.mount("/metrics", make_asgi_app())
 
-  def record_cost(self, modality, cost):
-      """Record cost for modality."""
-      self.costs[modality] += cost
+# Métricas RED
+REQS = Counter("mm_requests_total", "requests", ["modality", "status"])
+LAT = Histogram("mm_latency_seconds", "latencia", ["modality"])
+COST = Counter("mm_cost_usd_total", "spend", ["modality", "model"])
 
-  def get_total_cost(self):
-      """Get total cost."""
-      return sum(self.costs.values())
+cache = aioredis.from_url("redis://redis:6379")
 
-  def get_cost_by_modality(self):
-      """Get costs by modality."""
-      return self.costs.copy()
+class Presupuesto:
+    def __init__(self, diario=100.0):
+        self.diario = diario
+        self.gasto = 0.0
+        self.fecha = time.strftime("%Y-%m-%d")
+    def permite(self, costo):
+        hoy = time.strftime("%Y-%m-%d")
+        if hoy != self.fecha:
+            self.gasto, self.fecha = 0.0, hoy
+        return self.gasto + costo <= self.diario
+    def registrar(self, costo):
+        self.gasto += costo
+
+presup = Presupuesto(diario=float(os.getenv("DAILY_BUDGET", "100")))
+
+async def vision_service(image_bytes: bytes) -> dict:
+    key = f"v:{hashlib.sha256(image_bytes).hexdigest()}"
+    if (hit := await cache.get(key)):
+        REQS.labels("vision", "cache_hit").inc()
+        return json.loads(hit)
+
+    costo_est = 0.002
+    if not presup.permite(costo_est):
+        raise HTTPException(429, "Presupuesto diario agotado")
+
+    t0 = time.time()
+    async with httpx.AsyncClient(timeout=30) as cli:
+        resp = await cli.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": os.environ["ANTHROPIC_KEY"],
+                     "anthropic-version": "2023-06-01"},
+            json={
+                "model": "claude-3-5-sonnet-20241022",
+                "max_tokens": 500,
+                "messages": [{"role": "user", "content": [
+                    {"type": "image", "source": {
+                        "type": "base64", "media_type": "image/jpeg",
+                        "data": __import__("base64").b64encode(image_bytes).decode()
+                    }},
+                    {"type": "text", "text": "Describe la imagen en 2 frases."}
+                ]}]
+            }
+        )
+    resp.raise_for_status()
+    data = resp.json()
+    out = {"text": data["content"][0]["text"]}
+    LAT.labels("vision").observe(time.time() - t0)
+    COST.labels("vision", "claude-sonnet").inc(costo_est)
+    REQS.labels("vision", "ok").inc()
+    presup.registrar(costo_est)
+    await cache.setex(key, 7 * 24 * 3600, json.dumps(out))
+    return out
+
+@app.post("/analyze")
+async def analyze(file: UploadFile):
+    if file.content_type not in ("image/jpeg", "image/png"):
+        raise HTTPException(415, "Solo JPG/PNG")
+    data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(413, "Imagen >10MB")
+    try:
+        return await vision_service(data)
+    except httpx.HTTPError as e:
+        REQS.labels("vision", "upstream_error").inc()
+        log.exception("upstream fail")
+        # degradación: respuesta genérica
+        return {"text": "No pude analizar la imagen. Describe tu problema."}
+
+@app.get("/health")
+async def health():
+    try:
+        await cache.ping()
+        return {"ok": True, "cache": "ok", "spend_today": presup.gasto}
+    except Exception as e:
+        raise HTTPException(503, str(e))
 ```
 
-Budget Enforcement:
+**Dockerfile mínimo** y healthcheck para Kubernetes:
 
-```python
-class BudgetEnforcer:
-  """Enforce budget limits."""
-
-  def __init__(self, daily_budget):
-      self.daily_budget = daily_budget
-      self.daily_spent = 0
-
-  def check_budget(self, estimated_cost):
-      """Check if request fits within budget."""
-      if self.daily_spent + estimated_cost > self.daily_budget:
-          return False
-      return True
-
-  def record_spending(self, cost):
-      """Record spending."""
-      self.daily_spent += cost
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
 ```
 
-Summary
-Production deployment of multi-modal applications requires careful architecture, comprehensive monitoring, effective scaling, and reliability measures. Understanding these aspects enables you to deploy and operate multi-modal applications successfully.
+## Errores comunes
 
-Key considerations include microservices architecture, API gateway patterns, monitoring and observability, scaling strategies, reliability patterns, and cost management.
+- **Timeouts por defecto demasiado largos.** `httpx.AsyncClient()` sin timeout mantiene conexiones colgadas eternamente, agota file descriptors. Siempre fija `timeout=`.
+- **No separar colas por prioridad.** Si videos de 30 min comparten cola con análisis de 1 s, los cortos quedan bloqueados. Usa `high`, `medium`, `low` queues.
+- **Logs con PII.** Guardar prompts y screenshots en logs es un incumplimiento GDPR/HIPAA común. Redacta antes de loggear (Presidio, redactor propio).
+- **Sin rate limit por usuario.** Un cliente abusivo puede quemarte el presupuesto en minutos. Rate limit en gateway por API key.
+- **Deploy sin canary.** Un nuevo modelo que devuelve respuestas 10x más largas duplica tu factura. Despliega al 5% primero y mide spend + latencia + calidad.
+- **Scale-to-zero en voice agents.** Cold start de 3-8 s mata la UX. Mantén un pool caliente.
+- **Ignorar tail latency.** El P99 es lo que percibe el usuario frustrado. SLO sobre P95 y P99, no solo media.
+- **No versionar modelos externos.** OpenAI deprecia `gpt-4o-2024-05-13` y tu app rompe silenciosamente. Fija el `model=` exacto y versiona.
+- **Monitorear solo infraestructura, no calidad semántica.** La API responde 200 pero el modelo alucina. Añade evaluación continua con dataset golden y LLM-as-judge (Langfuse, Arize).
+- **No tener plan de rollback.** Si el modelo nuevo da peores respuestas, debes poder revertir en minutos. Blue-green o feature flags por tenant.
 
-Key concepts to remember
-Design for deployment - Use microservices architecture and API gateways
-Monitor comprehensively - Track metrics, log extensively, implement health checks
-Scale effectively - Use horizontal scaling and queue-based processing
-Ensure reliability - Implement circuit breakers, retries, and error handling
-Manage costs - Track costs, enforce budgets, optimize spending
+## Resumen
+
+- Producción multimodal = **microservicios por modalidad** + **API gateway** + **colas** + **caché** + **observabilidad** + **gestión de costos**.
+- Patrones de resiliencia **obligatorios**: circuit breaker, retry con jitter, degradación graciosa, health checks.
+- Observa **RED por modalidad** (Rate/Errors/Duration) más **tokens**, **cost**, **cache hit** y **safety blocks**; usa OpenTelemetry para traces end-to-end.
+- Decide sync vs async con la regla **>5 s → async con cola**; en voice usa WebRTC con workers calientes y region pinning.
+- **Caché por hash** de contenido recorta 20-40% de spend en apps con tráfico repetido.
+- **Costos** se controlan con model cascading, image downsizing, caché, budget caps y alertas.
+- Despliega con **canary / blue-green** y feature flags; versiona modelos y mantén rollback <5 min.
+- La parte más subestimada: **evaluación continua de calidad semántica**, no basta con uptime.

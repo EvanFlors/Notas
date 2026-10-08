@@ -1,448 +1,421 @@
-## Building Multi-Modal Applications
+# Construyendo aplicaciones multimodales en producción
 
-You have learned about vision-language models, image generation, audio processing, and video understanding individually. Now you need to build an application that combines all these capabilities—processing user-uploaded images, generating voice responses, analyzing video content, and creating visual outputs. How do you architect such a system? How do you orchestrate workflows across multiple modalities?
+## ¿Qué es?
 
-Building multi-modal applications requires careful architecture that integrates multiple AI capabilities seamlessly. By the end of this lesson, you will understand how to design multi-modal application architectures, orchestrate workflows across modalities, and build production systems that combine vision, audio, text, and video capabilities effectively.
+Una **aplicación multimodal** es un sistema que integra múltiples capacidades de IA —visión, audio, texto, video— en un único flujo coherente. En lugar de tratar cada modalidad como un servicio aislado, la aplicación coordina modelos especializados (VLM para imágenes, ASR para voz, LLM para razonamiento, TTS para respuesta hablada, difusión para generar imágenes) y los combina mediante una capa de **orquestación**.
 
-Multi-Modal Application Architecture
-Multi-modal applications require architectures that handle diverse input types and coordinate processing across multiple AI services.
+Una app multimodal moderna rara vez usa un solo modelo end-to-end. Combina:
 
-Layered Architecture Pattern:
+- **Modelos multimodales nativos** (Claude 3.5 Sonnet, GPT-4o, Gemini 2.0) que procesan texto + imagen en un mismo contexto.
+- **Modelos especializados** para tareas donde el nativo no basta: Whisper para transcripción, ElevenLabs para TTS, DALL-E/Flux para generación de imágenes, CLIP para embeddings cross-modal.
+- **Orquestadores** (LangChain, LlamaIndex, Pipecat, LiveKit) que gestionan el flujo entre modelos.
 
-Structure applications in layers:
+### Formas típicas de app multimodal
 
-```python
-# Layer 1: Input Processing
-class InputProcessor:
-  """Process diverse input types."""
+| Patrón | Entrada | Salida | Caso real |
+|---|---|---|---|
+| **Document AI** | PDF/imagen | JSON estructurado | Facturas, recibos, contratos |
+| **Visual search** | Imagen o texto | Imágenes similares | E-commerce (Pinterest Lens, Google Lens) |
+| **Voice agent** | Audio streaming | Audio streaming | Soporte telefónico (Vapi, Retell) |
+| **Multi-modal RAG** | Pregunta | Texto + imágenes citadas | Soporte técnico con diagramas |
+| **Computer use** | Instrucción + screenshot | Acciones (click, type) | Automatización web (Claude, Operator) |
+| **Vision-Language-Action** | Cámara + instrucción | Comandos de motor | Robótica (RT-2, π0) |
 
-  def process(self, input_data):
-      """Route input to appropriate processor."""
-      if self.is_image(input_data):
-          return self.process_image(input_data)
-      elif self.is_audio(input_data):
-          return self.process_audio(input_data)
-      elif self.is_video(input_data):
-          return self.process_video(input_data)
-      elif self.is_text(input_data):
-          return self.process_text(input_data)
-      else:
-          raise ValueError("Unsupported input type")
+## ¿Por qué importa?
 
-# Layer 2: Modality-Specific Processors
-class VisionProcessor:
-  """Process visual content."""
-  pass
+A finales de 2024 y durante 2025 cambió la forma de construir productos de IA. Hitos clave:
 
-class AudioProcessor:
-  """Process audio content."""
-  pass
+- **Anthropic Computer Use beta** (octubre 2024): Claude 3.5 Sonnet puede ver una pantalla y mover el ratón.
+- **OpenAI Operator** (enero 2025): agente que navega la web por el usuario.
+- **GPT-4o y Gemini 2.0 Flash Live** (2024-2025): voz-a-voz en tiempo real con latencia <500 ms.
+- **Google Project Mariner** (diciembre 2024): agente de navegación en Chrome.
 
-class VideoProcessor:
-  """Process video content."""
-  pass
+Esto reconfiguró lo que un ingeniero de IA necesita saber: ya no basta con llamar a un LLM, hay que **componer sistemas** que vean, escuchen, hablen y actúen.
 
-class TextProcessor:
-  """Process text content."""
-  pass
+### Casos reales en producción
 
-# Layer 3: Multi-Modal Orchestration
-class MultiModalOrchestrator:
-  """Orchestrate processing across modalities."""
+- **Document extraction:** Stripe usa Claude vision para parsear facturas de proveedores con formatos impredecibles. Reemplazó un pipeline OCR + regex con 40% menos errores.
+- **Accessibility:** Be My Eyes integra GPT-4o para describir imágenes a personas ciegas en segundos.
+- **E-commerce:** Instacart usa visual search con CLIP para que usuarios fotografíen un producto en casa y encuentren el equivalente en catálogo.
+- **Voice assistants:** Hume y Sesame construyen agentes de voz con tono emocional para salud mental y customer success.
+- **Robótica:** Physical Intelligence (π0) entrena un VLA que mapea cámara + lenguaje → acciones motoras continuas.
 
-  def __init__(self):
-      self.vision = VisionProcessor()
-      self.audio = AudioProcessor()
-      self.video = VideoProcessor()
-      self.text = TextProcessor()
+## ¿Cómo funciona?
 
-  def process_multi_modal(self, inputs):
-      """Process multiple input types together."""
-      results = {}
+Una app multimodal típica tiene **cuatro capas**:
 
-      for input_type, input_data in inputs.items():
-          if input_type == 'image':
-              results['vision'] = self.vision.process(input_data)
-          elif input_type == 'audio':
-              results['audio'] = self.audio.process(input_data)
-          elif input_type == 'video':
-              results['video'] = self.video.process(input_data)
-          elif input_type == 'text':
-              results['text'] = self.text.process(input_data)
-
-      # Integrate results
-      return self.integrate_results(results)
-
-# Layer 4: Application Logic
-class MultiModalApplication:
-  """Main application orchestrating multi-modal processing."""
-
-  def __init__(self):
-      self.orchestrator = MultiModalOrchestrator()
-
-  def handle_request(self, request):
-      """Handle multi-modal request."""
-      # Process inputs
-      results = self.orchestrator.process_multi_modal(request.inputs)
-
-      # Generate response
-      response = self.generate_response(results)
-
-      return response
+```
+┌─────────────────────────────────────────────────────┐
+│ 1. Ingesta: subida/stream (HTTP, WebSocket, SIP)    │
+├─────────────────────────────────────────────────────┤
+│ 2. Pre-procesamiento por modalidad                  │
+│    - Imagen: resize, compresión, OCR opcional       │
+│    - Audio: VAD, resampling 16kHz, chunking         │
+│    - Video: extracción de frames + audio            │
+├─────────────────────────────────────────────────────┤
+│ 3. Orquestación (secuencial / paralelo / híbrido)   │
+│    - Enrutador de modalidades                       │
+│    - Fusión de resultados                           │
+│    - Tool calls al LLM                              │
+├─────────────────────────────────────────────────────┤
+│ 4. Post-procesamiento y entrega                     │
+│    - Validación (Pydantic, guardrails)              │
+│    - Streaming de respuesta (SSE, WebSocket)        │
+└─────────────────────────────────────────────────────┘
 ```
 
-Workflow Orchestration Patterns
-Orchestrate workflows that combine multiple modalities:
+### Document AI (facturas, contratos, formularios)
 
-Sequential Processing:
-
-Process modalities in sequence:
+El patrón dominante en 2025: VLM + schema estructurado + validación con Pydantic.
 
 ```python
-class SequentialWorkflow:
-  """Process modalities sequentially."""
+import base64
+import anthropic
+from pydantic import BaseModel, Field
+from datetime import date
+from decimal import Decimal
 
-  def process(self, image_path, audio_path, text_query):
-      """Process image, then audio, then combine with text."""
-      # Step 1: Process image
-      image_analysis = self.vision_processor.analyze(image_path)
+class LineaFactura(BaseModel):
+    descripcion: str
+    cantidad: int
+    precio_unitario: Decimal
+    subtotal: Decimal
 
-      # Step 2: Process audio
-      audio_transcript = self.audio_processor.transcribe(audio_path)
+class Factura(BaseModel):
+    numero: str = Field(description="Número o folio de la factura")
+    emisor: str
+    receptor: str
+    fecha_emision: date
+    moneda: str = Field(description="ISO 4217, e.g. MXN, USD")
+    lineas: list[LineaFactura]
+    subtotal: Decimal
+    impuestos: Decimal
+    total: Decimal
 
-      # Step 3: Combine with text query
-      combined_result = self.text_processor.combine(
-          image_analysis,
-          audio_transcript,
-          text_query
-      )
+def extraer_factura(pdf_path: str) -> Factura:
+    """Extrae campos estructurados de una factura usando Claude Vision."""
+    with open(pdf_path, "rb") as f:
+        pdf_data = base64.standard_b64encode(f.read()).decode()
 
-      return combined_result
+    client = anthropic.Anthropic()
+    resp = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=2000,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "document", "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": pdf_data,
+                }},
+                {"type": "text", "text": f"""
+Extrae los campos de esta factura y devuélvelos como JSON
+que valide contra este esquema Pydantic:
+
+{Factura.model_json_schema()}
+
+Reglas:
+- Todos los importes como string decimal ("1234.56").
+- Fecha en formato ISO (YYYY-MM-DD).
+- Si un campo no es visible, usa null.
+Devuelve SOLO el JSON, sin markdown.
+"""}
+            ]
+        }]
+    )
+
+    import json
+    raw_json = resp.content[0].text
+    return Factura.model_validate_json(raw_json)
 ```
 
-Parallel Processing:
+### Multi-modal RAG (texto + imágenes con CLIP)
 
-Process modalities in parallel:
+Para buscar en una base que mezcla texto e imágenes se usan embeddings en el mismo espacio. CLIP de OpenAI (o SigLIP de Google) genera vectores comparables entre texto e imagen.
 
 ```python
-import asyncio
+import torch
+from PIL import Image
+from transformers import CLIPProcessor, CLIPModel
+from qdrant_client import QdrantClient
+from qdrant_client.models import PointStruct, VectorParams, Distance
 
-class ParallelWorkflow:
-  """Process modalities in parallel."""
+model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-  async def process_parallel(self, image_path, audio_path):
-      """Process image and audio simultaneously."""
-      # Process both in parallel
-      image_task = asyncio.create_task(
-          self.vision_processor.analyze_async(image_path)
-      )
-      audio_task = asyncio.create_task(
-          self.audio_processor.transcribe_async(audio_path)
-      )
+def embed_image(path: str) -> list[float]:
+    image = Image.open(path).convert("RGB")
+    inputs = processor(images=image, return_tensors="pt")
+    with torch.no_grad():
+        features = model.get_image_features(**inputs)
+    return features[0].numpy().tolist()
 
-      # Wait for both to complete
-      image_result, audio_result = await asyncio.gather(
-          image_task,
-          audio_task
-      )
+def embed_text(text: str) -> list[float]:
+    inputs = processor(text=[text], return_tensors="pt", padding=True)
+    with torch.no_grad():
+        features = model.get_text_features(**inputs)
+    return features[0].numpy().tolist()
 
-      # Combine results
-      return self.combine_results(image_result, audio_result)
+qdrant = QdrantClient(":memory:")
+qdrant.create_collection(
+    "productos",
+    vectors_config=VectorParams(size=512, distance=Distance.COSINE),
+)
+
+# Indexar imágenes de productos
+for i, img in enumerate(["silla.jpg", "mesa.jpg", "lampara.jpg"]):
+    qdrant.upsert("productos", [PointStruct(
+        id=i, vector=embed_image(img),
+        payload={"path": img},
+    )])
+
+# Buscar con texto natural
+query_vec = embed_text("una silla de madera estilo escandinavo")
+hits = qdrant.search("productos", query_vector=query_vec, limit=3)
+for h in hits:
+    print(h.payload["path"], h.score)
 ```
 
-Conditional Processing:
+### Voice agent end-to-end (STT → LLM → TTS)
 
-Process based on conditions:
+Pipeline clásico: audio del usuario → VAD detecta pausa → transcripción streaming → LLM con tools → TTS streaming → interrupt handling. Frameworks como **LiveKit Agents** y **Pipecat** (Daily) manejan esto.
 
 ```python
-class ConditionalWorkflow:
-  """Process based on conditions."""
+# Pipecat: pipeline de voice agent con interrupt handling
+from pipecat.pipeline.pipeline import Pipeline
+from pipecat.services.deepgram import DeepgramSTTService
+from pipecat.services.openai import OpenAILLMService
+from pipecat.services.elevenlabs import ElevenLabsTTSService
+from pipecat.transports.network.daily import DailyTransport
+from pipecat.processors.aggregators.llm_response import (
+    LLMAssistantResponseAggregator, LLMUserResponseAggregator,
+)
 
-  def process_conditionally(self, inputs, conditions):
-      """Process based on conditions."""
-      results = {}
+transport = DailyTransport(room_url="https://your.daily.co/room", token=TOKEN,
+                           bot_name="Asistente")
 
-      # Process image if condition met
-      if conditions.get('analyze_image') and 'image' in inputs:
-          results['image'] = self.vision_processor.analyze(inputs['image'])
+stt = DeepgramSTTService(api_key=DEEPGRAM_KEY)      # ASR streaming
+llm = OpenAILLMService(api_key=OPENAI_KEY, model="gpt-4o-mini")
+tts = ElevenLabsTTSService(api_key=ELEVENLABS_KEY,
+                           voice_id="21m00Tcm4TlvDq8ikWAM")  # Rachel
 
-      # Process audio if condition met
-      if conditions.get('transcribe_audio') and 'audio' in inputs:
-          results['audio'] = self.audio_processor.transcribe(inputs['audio'])
+user_resp = LLMUserResponseAggregator()
+asst_resp = LLMAssistantResponseAggregator()
 
-      # Generate response based on available results
-      return self.generate_response(results)
+pipeline = Pipeline([
+    transport.input(),   # audio del usuario
+    stt,                 # audio -> texto parcial
+    user_resp,           # agrega tokens al mensaje de usuario
+    llm,                 # llama GPT-4o-mini con historial
+    tts,                 # texto -> audio streaming
+    transport.output(),  # audio al usuario
+    asst_resp,           # cierra el turno
+])
+
+# Pipecat maneja automáticamente la interrupción:
+# si el usuario habla mientras el bot responde, se cancela el TTS
 ```
 
-Integration Patterns
-Integrate multiple modalities effectively:
+**Latencias objetivo** para voice UX natural:
 
-Vision + Audio Integration:
+| Etapa | Latencia aceptable | Herramienta típica |
+|---|---|---|
+| VAD (end-of-speech) | 200-400 ms | Silero VAD |
+| STT (primer token) | 150-300 ms | Deepgram Nova-2, Whisper streaming |
+| LLM (primer token) | 300-600 ms | GPT-4o-mini, Claude Haiku, Groq |
+| TTS (primer audio) | 100-250 ms | ElevenLabs Flash, Cartesia Sonic |
+| **Total end-to-end** | **<800 ms** | ideal <500 ms |
 
-Combine visual and audio understanding:
+### Computer use (Claude, Operator, Mariner)
+
+Los **agentes de uso de computadora** reciben screenshots y devuelven acciones (click en coordenadas, teclear, scroll). Comparativa 2024-2025:
+
+| Agente | Lanzamiento | Modelo base | Entrega | Mejor caso | Limitaciones |
+|---|---|---|---|---|---|
+| **Anthropic Computer Use** | Oct 2024 (beta) | Claude 3.5 Sonnet / Sonnet 4 | API + SDK, corre en tu VM | Automatización en tu máquina, tareas de dev | Latente (varios segundos por acción) |
+| **OpenAI Operator** | Ene 2025 | CUA (basado en GPT-4o) | Producto hosted (ChatGPT Pro) | Reservas, compras, formularios web | Cerrado, requiere aprobación en pasos sensibles |
+| **Google Project Mariner** | Dic 2024 | Gemini 2.0 | Extensión Chrome | Navegación en Chrome, scraping | Preview limitado |
+| **Browser Use (open source)** | 2024 | Cualquier LLM con vision | Librería Python | DIY, control total | Debes orquestar tú |
 
 ```python
-class VisionAudioIntegrator:
-  """Integrate vision and audio processing."""
+# Demo computer use con Anthropic (loop simplificado)
+import anthropic, subprocess, base64
 
-  def process_video_with_audio(self, video_path):
-      """Process video combining vision and audio."""
-      # Extract frames
-      frames = self.extract_frames(video_path)
+client = anthropic.Anthropic()
 
-      # Process frames
-      frame_analyses = self.vision_processor.analyze_frames(frames)
+def tomar_screenshot() -> str:
+    subprocess.run(["screencapture", "/tmp/s.png"], check=True)
+    with open("/tmp/s.png", "rb") as f:
+        return base64.standard_b64encode(f.read()).decode()
 
-      # Extract and transcribe audio
-      audio_transcript = self.audio_processor.transcribe(video_path)
-
-      # Combine visual and audio understanding
-      combined = self.combine_vision_audio(
-          frame_analyses,
-          audio_transcript
-      )
-
-      return combined
-
-  def combine_vision_audio(self, vision_results, audio_results):
-      """Combine vision and audio results."""
-      # Use language model to combine understanding
-      prompt = f"""
-      Visual analysis: {vision_results}
-      Audio transcript: {audio_results}
-
-      Provide comprehensive understanding combining both modalities.
-      """
-
-      return self.text_processor.generate(prompt)
+messages = [{"role": "user", "content": "Abre el navegador y busca 'clima CDMX'"}]
+while True:
+    resp = client.beta.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=1024,
+        tools=[{
+            "type": "computer_20250124",
+            "name": "computer",
+            "display_width_px": 1920,
+            "display_height_px": 1080,
+        }],
+        messages=messages,
+        betas=["computer-use-2025-01-24"],
+    )
+    if resp.stop_reason == "end_turn":
+        break
+    for block in resp.content:
+        if block.type == "tool_use" and block.name == "computer":
+            # Ejecutar acción: click, type, screenshot...
+            action = block.input["action"]
+            # ... implementar cada acción con pyautogui ...
+            screenshot_b64 = tomar_screenshot()
+            messages.append({"role": "assistant", "content": resp.content})
+            messages.append({"role": "user", "content": [{
+                "type": "tool_result", "tool_use_id": block.id,
+                "content": [{"type": "image", "source": {
+                    "type": "base64", "media_type": "image/png", "data": screenshot_b64,
+                }}],
+            }]})
 ```
 
-Text + Image Generation:
+### Evaluación multimodal
 
-Generate images based on text understanding:
+Evaluar sistemas multimodales es más difícil que texto puro. Dimensiones:
+
+| Dimensión | Métrica | Herramienta |
+|---|---|---|
+| Extracción (Document AI) | field-level accuracy, F1 por campo | Dataset etiquetado |
+| Visual QA | Exact match, LLM-as-judge | DocVQA, MMMU |
+| Voice latency | TTFB, end-to-end latency, interrupt rate | LiveKit Analytics, custom logs |
+| Voice quality | WER (transcripción), MOS (síntesis) | humans + whisper-eval |
+| Agent success | task completion rate, pasos innecesarios | OSWorld, WebArena, VisualWebArena |
+| Fairness | accuracy por género/etnia/acento | Fairlearn, holistic AI |
+
+**LLM-as-judge multimodal**: pasa la imagen + respuesta del modelo + rúbrica a un VLM "jurado" (Claude Sonnet 4) que puntúa. Es la práctica estándar en 2025 para evaluar outputs visuales.
+
+### Cross-modal retrieval y fusión
+
+- **Early fusion:** concatenar embeddings y pasar al modelo (CLIP, Flamingo).
+- **Late fusion:** procesar cada modalidad por separado y combinar scores.
+- **Hybrid fusion:** cross-attention entre modalidades (BLIP-2, LLaVA, Qwen2-VL).
+
+En apps prácticas: usa embeddings multimodales (CLIP, SigLIP, Nomic Embed Vision) + reranker (Cohere Rerank 3.5 multimodal, lanzado 2024).
+
+### Agentes multimodales
+
+Un agente multimodal combina **percepción** (ver, escuchar), **razonamiento** (LLM) y **acción** (hablar, generar imagen, ejecutar tool). Patrones comunes:
+
+- **Assistant personal**: elige modalidad de salida según contexto (texto si lee, voz si va caminando).
+- **Monitoring agent**: analiza frames de cámara y alerta en eventos relevantes.
+- **Field service agent**: técnico sube foto + nota de voz → agente devuelve pasos + diagrama anotado.
+
+## Ejemplo con código
+
+Mini-app de **field service**: el técnico envía una foto del equipo averiado y una nota de voz. El sistema transcribe, analiza la foto, consulta el manual (RAG), genera diagnóstico y devuelve texto + audio.
 
 ```python
-class TextImageGenerator:
-  """Generate images based on text understanding."""
+import asyncio, base64, anthropic
+from openai import OpenAI
+from pydantic import BaseModel
 
-  def generate_from_text(self, text_input):
-      """Generate image based on text."""
-      # Understand text
-      understanding = self.text_processor.analyze(text_input)
+claude = anthropic.Anthropic()
+openai = OpenAI()
 
-      # Extract key concepts
-      concepts = self.extract_concepts(understanding)
+class Diagnostico(BaseModel):
+    sintoma: str
+    causa_probable: str
+    pasos_reparacion: list[str]
+    nivel_riesgo: str  # bajo | medio | alto
 
-      # Generate image prompt
-      image_prompt = self.build_image_prompt(concepts)
+async def transcribir(audio_path: str) -> str:
+    with open(audio_path, "rb") as f:
+        r = openai.audio.transcriptions.create(
+            model="whisper-1", file=f, language="es"
+        )
+    return r.text
 
-      # Generate image
-      image = self.image_generator.generate(image_prompt)
+async def analizar_foto(img_path: str, contexto: str) -> str:
+    with open(img_path, "rb") as f:
+        img_b64 = base64.standard_b64encode(f.read()).decode()
+    resp = claude.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=800,
+        messages=[{"role": "user", "content": [
+            {"type": "image", "source": {
+                "type": "base64", "media_type": "image/jpeg", "data": img_b64}},
+            {"type": "text", "text":
+                f"Un técnico reporta: '{contexto}'. "
+                "Describe el componente visible, su estado y cualquier anomalía."}
+        ]}])
+    return resp.content[0].text
 
-      return image
+async def diagnosticar(sintoma: str, analisis_visual: str) -> Diagnostico:
+    resp = claude.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=1000,
+        messages=[{"role": "user", "content": f"""
+Síntoma reportado: {sintoma}
+Observación visual: {analisis_visual}
+
+Devuelve JSON válido para este schema:
+{Diagnostico.model_json_schema()}
+Solo el JSON, sin markdown.
+"""}])
+    return Diagnostico.model_validate_json(resp.content[0].text)
+
+async def sintetizar_voz(texto: str, out: str = "respuesta.mp3"):
+    resp = openai.audio.speech.create(
+        model="tts-1", voice="nova", input=texto
+    )
+    resp.stream_to_file(out)
+    return out
+
+async def pipeline(audio_path: str, foto_path: str) -> dict:
+    """Procesa foto y audio en paralelo, luego diagnostica."""
+    # Paralelo: STT y análisis visual son independientes
+    sintoma_task = asyncio.create_task(transcribir(audio_path))
+    # necesitamos el síntoma para contextualizar la foto, así que esperamos
+    sintoma = await sintoma_task
+    analisis = await analizar_foto(foto_path, sintoma)
+
+    # Diagnóstico y TTS pueden paralelizarse una vez tenemos el texto
+    diag = await diagnosticar(sintoma, analisis)
+    texto_voz = f"{diag.causa_probable}. Primer paso: {diag.pasos_reparacion[0]}"
+    audio_out = await sintetizar_voz(texto_voz)
+
+    return {
+        "sintoma": sintoma,
+        "diagnostico": diag.model_dump(),
+        "audio_respuesta": audio_out,
+    }
+
+if __name__ == "__main__":
+    r = asyncio.run(pipeline("nota_tecnico.m4a", "equipo.jpg"))
+    print(r)
 ```
 
-Multi-Modal Search:
+## Errores comunes
 
-Enable search across multiple modalities:
+- **No controlar la latencia end-to-end en voice agents.** Si STT + LLM + TTS suma >1 s el usuario siente la pausa como "congelada". Solución: streaming en todas las etapas, modelos pequeños (Haiku, GPT-4o-mini, Groq), TTS de baja latencia (ElevenLabs Flash, Cartesia Sonic ~90 ms).
+- **No manejar interrupciones.** Si el bot sigue hablando cuando el usuario interrumpe la conversación se siente robótica. Pipecat/LiveKit traen `interrupt handling` por defecto; úsalo.
+- **No tener fallback cuando el modelo multimodal falla.** Si la API de visión está caída, degrada a texto ("describe el problema por favor") en vez de devolver 500.
+- **Costos sin control.** Una sola imagen a Claude Sonnet 4 con detalle alto son ~1500 tokens de input. Multiplicado por 10k requests/día = cuentas de 4 cifras. Mitigación: resize a 1024px máximo, caché por hash de imagen, usar modelos pequeños para pre-filtro.
+- **No hacer privacy review de imágenes y audio.** Las fotos pueden tener rostros, placas, direcciones, documentos. El audio puede capturar conversaciones de terceros. Antes de producir: PII redaction (Presidio para texto, FaceAlign/blur para rostros), consentimiento explícito, retención corta.
+- **Mezclar embeddings de distintos modelos.** Si indexas con CLIP y consultas con SigLIP los resultados son basura. Fija el modelo de embedding y versiónalo.
+- **Confiar en el VLM para OCR exacto.** Para texto denso (facturas con muchas columnas) combina OCR tradicional (AWS Textract, Tesseract, Mistral OCR) + VLM para interpretación semántica.
+- **Ignorar accesibilidad.** Si tu app genera imágenes, genera también alt-text con el mismo LLM. Es un diferenciador real y a veces un requisito legal (EAA en UE desde junio 2025).
+- **Sobre-usar tools en el agente.** Más de 10-15 tools degradan el rendimiento del LLM. Agrupa tools relacionados o usa routing por capacidad.
+- **No instrumentar.** Sin trazas por modalidad no sabes dónde falla. Instrumenta con OpenTelemetry + Langfuse o Arize Phoenix (ambos soportan multimodal en 2025).
 
-```python
-class MultiModalSearch:
-  """Search across multiple modalities."""
+## Resumen
 
-  def search(self, query, content_types=['image', 'audio', 'video', 'text']):
-      """Search across multiple content types."""
-      results = {}
-
-      # Search images
-      if 'image' in content_types:
-          results['images'] = self.search_images(query)
-
-      # Search audio transcripts
-      if 'audio' in content_types:
-          results['audio'] = self.search_audio_transcripts(query)
-
-      # Search video content
-      if 'video' in content_types:
-          results['videos'] = self.search_videos(query)
-
-      # Search text
-      if 'text' in content_types:
-          results['text'] = self.search_text(query)
-
-      # Rank and combine results
-      return self.rank_results(results)
-```
-
-Production Considerations
-Error Handling:
-
-Handle errors across modalities gracefully:
-
-```python
-class ResilientMultiModalProcessor:
-  """Multi-modal processor with error handling."""
-
-  def process_with_fallback(self, inputs):
-      """Process with fallback strategies."""
-      results = {}
-
-      # Try vision processing
-      try:
-          if 'image' in inputs:
-              results['vision'] = self.vision_processor.process(inputs['image'])
-      except Exception as e:
-          logger.error(f"Vision processing failed: {e}")
-          # Fallback: use text description if available
-          if 'text_description' in inputs:
-              results['vision'] = self.text_processor.describe(inputs['text_description'])
-
-      # Try audio processing
-      try:
-          if 'audio' in inputs:
-              results['audio'] = self.audio_processor.process(inputs['audio'])
-      except Exception as e:
-          logger.error(f"Audio processing failed: {e}")
-          # Fallback: skip audio processing
-
-      return results
-```
-
-Cost Optimization:
-
-Optimize costs across modalities:
-
-```python
-class CostOptimizedProcessor:
-  """Optimize costs across modalities."""
-
-  def process_with_budget(self, inputs, budget):
-      """Process within budget constraints."""
-      # Estimate costs
-      cost_estimates = self.estimate_costs(inputs)
-
-      # Prioritize processing based on budget
-      prioritized = self.prioritize_by_budget(inputs, cost_estimates, budget)
-
-      # Process prioritized inputs
-      results = {}
-      remaining_budget = budget
-
-      for input_type, input_data in prioritized:
-          cost = cost_estimates[input_type]
-          if remaining_budget >= cost:
-              results[input_type] = self.process(input_type, input_data)
-              remaining_budget -= cost
-          else:
-              logger.warning(f"Insufficient budget for {input_type}")
-
-      return results
-```
-
-Performance Optimization:
-
-Optimize performance:
-
-```python
-class PerformanceOptimizedProcessor:
-  """Optimize performance across modalities."""
-
-  async def process_optimized(self, inputs):
-      """Process with performance optimization."""
-      # Identify independent processing tasks
-      independent_tasks = self.identify_independent_tasks(inputs)
-
-      # Process independent tasks in parallel
-      parallel_results = await asyncio.gather(*[
-          self.process_task(task) for task in independent_tasks
-      ])
-
-      # Process dependent tasks sequentially
-      dependent_results = []
-      for task in self.identify_dependent_tasks(inputs):
-          result = await self.process_task(task)
-          dependent_results.append(result)
-
-      # Combine results
-      return self.combine_results(parallel_results, dependent_results)
-```
-
-Real-World Application Examples
-Customer Support Multi-Modal System:
-
-```python
-class CustomerSupportSystem:
-  """Multi-modal customer support system."""
-
-  def handle_support_request(self, request):
-      """Handle support request with multiple input types."""
-      results = {}
-
-      # Process screenshot if provided
-      if request.screenshot:
-          results['screenshot_analysis'] = self.vision_processor.analyze(
-              request.screenshot,
-              "Identify the error or issue in this screenshot."
-          )
-
-      # Transcribe audio message if provided
-      if request.audio_message:
-          results['audio_transcript'] = self.audio_processor.transcribe(
-              request.audio_message
-          )
-
-      # Process text description
-      if request.text_description:
-          results['text_analysis'] = self.text_processor.analyze(
-              request.text_description
-          )
-
-      # Generate response combining all inputs
-      response = self.generate_support_response(results)
-
-      # Generate voice response
-      voice_response = self.audio_processor.text_to_speech(response)
-
-      return {
-          'text_response': response,
-          'voice_response': voice_response
-      }
-```
-
-Content Creation Pipeline:
-
-```python
-class ContentCreationPipeline:
-  """Multi-modal content creation pipeline."""
-
-  def create_content(self, topic, content_type):
-      """Create content combining multiple modalities."""
-      # Generate text content
-      text_content = self.text_processor.generate_content(topic)
-
-      # Generate image
-      image_prompt = self.text_processor.extract_image_prompt(text_content)
-      image = self.image_generator.generate(image_prompt)
-
-      # Generate voiceover
-      voiceover = self.audio_processor.text_to_speech(text_content)
-
-      # Combine into final content
-      return {
-          'text': text_content,
-          'image': image,
-          'audio': voiceover
-      }
-```
-
-Summary
-Building multi-modal applications requires careful architecture that integrates multiple AI capabilities. Understanding workflow orchestration patterns, integration strategies, and production considerations enables you to build effective multi-modal systems.
-
-Key patterns include layered architectures, sequential and parallel processing, conditional workflows, and integration across modalities. Production considerations include error handling, cost optimization, and performance optimization.
-
-Key concepts to remember
-Layer your architecture - Separate input processing, modality-specific processors, orchestration, and application logic
-Orchestrate workflows - Use sequential, parallel, or conditional processing patterns
-Integrate modalities - Combine vision, audio, text, and video understanding effectively
-Handle errors gracefully - Implement fallbacks and error recovery
-Optimize costs and performance - Balance quality, cost, and performance across modalities
+- Una app multimodal **compone** varios modelos (VLM, STT, TTS, generación de imagen, agente) y los coordina con una capa de orquestación.
+- Patrones productivos en 2025: **Document AI** con VLM + Pydantic, **multi-modal RAG** con CLIP, **voice agents** end-to-end con LiveKit/Pipecat, **computer use** con Claude/Operator/Mariner.
+- Para voice UX natural el presupuesto total es **<800 ms**; cada etapa (VAD, STT, LLM, TTS) debe ser streaming.
+- La **arquitectura por capas** (ingesta → preprocesamiento → orquestación → entrega) permite escalar y degradar con gracia.
+- El agente multimodal añade **tool use** y **percepción activa** (ver cámara, escuchar micrófono, actuar).
+- Evaluación multimodal combina métricas clásicas (WER, F1 por campo), latencia y **LLM-as-judge** sobre outputs visuales.
+- Los errores más caros no son del modelo sino de ingeniería: **latencia descontrolada**, **costo descontrolado**, **sin fallback**, **sin privacy review**.
+- Lo que viene: agentes autónomos de nivel OSWorld, modelos vision-language-action para robótica, y voice agents indistinguibles de humanos para soporte de alta frecuencia.

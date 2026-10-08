@@ -1,89 +1,379 @@
-## Blue-Green Deployments for Zero-Downtime Updates
-
-Blue-green deployment showing two identical environments with atomic traffic switching
+# Blue-Green Deployments for Zero-Downtime Updates
 
 ![Blue-green deployment with instant traffic switching](https://hrcdn.net/ai-engineering/module-7/light/aiops-lesson04-blue-green-deployment.svg)
 
-Blue-green deployment is a pattern where you maintain two identical production environments and switch traffic between them. This enables zero-downtime deployments and instant rollback when problems occur.
+## ¿Qué es?
 
-The concept is straightforward: Blue is your current production environment serving all user traffic. Green is an identical environment running the new model version with no traffic. You thoroughly test Green, then switch all traffic from Blue to Green atomically. If problems arise, you switch traffic back to Blue instantly.
+Un **progressive delivery pattern** controla cómo una nueva versión del modelo recibe tráfico de producción. En lugar de un corte binario "apaga v1, enciende v2", se usan patrones que **limitan el radio de daño** y permiten **rollback inmediato**. Los cuatro fundamentales:
 
-Consider deploying a new recommendation model. Your blue environment runs model v1.2 serving 100 percent of traffic. You deploy v1.3 to the green environment, which has identical infrastructure but receives no user traffic. You run automated tests against green, manually verify predictions look good, and check for any errors or anomalies. Once confident, you update the load balancer to send all traffic to green. Blue becomes idle and can be decommissioned or kept as a rollback target.
+### Blue-Green
 
-The key advantage is atomic cutover. Traffic switches from old to new all at once, not gradually. This works well when you want clean separation between versions and have high confidence in the new version. The switch can be done in seconds with no user-visible disruption.
+Mantienes dos entornos idénticos: **Blue** (actual, recibe 100% de tráfico) y **Green** (nuevo, recibe 0%). Validas Green con smoke tests, luego **cambias el selector del Service** y el 100% de tráfico va a Green instantáneamente. Blue queda idle como seguro de rollback.
 
-Implementation requires infrastructure that supports traffic switching. In Kubernetes, you might have two Deployments: blue and green. A Service selector determines which Deployment receives traffic. To switch, you update the Service selector from blue to green. In AWS, you might use two Auto Scaling Groups and switch an Elastic Load Balancer target group. In any environment, the core concept is the same: two environments, one traffic switch.
+### Canary
 
-Resource cost is the main disadvantage. Running two full production environments doubles infrastructure costs during deployment. A deployment might take 2 hours from starting green to decommissioning blue, costing 2 hours of double infrastructure. For large deployments, this is significant. However, the safety and speed of rollback often justify the cost.
+Despliegas v2 junto a v1 y envías un **pequeño porcentaje** (5-10%) de tráfico a v2. Monitoreas métricas lado a lado. Si todo bien, incrementas (10% → 25% → 50% → 100%). Si algo falla, rollback = volver el porcentaje a 0.
 
-Testing green before cutover is critical. You can run automated tests, manual verification, or even send internal traffic to green for testing. Some teams route employee traffic to green for a final check before directing customer traffic. This pre-cutover validation catches issues before customers are affected.
+### Shadow (dark launch / traffic mirroring)
 
-Blue-green works best when your model and infrastructure are stateless. If state is shared between blue and green (like a database), switching traffic is more complex. You need to ensure both versions work with the shared state, or carefully manage state migration. For stateless model serving, this is rarely a problem.
+**El patrón más seguro.** v2 corre en producción pero sus respuestas **no se sirven**. Cada request se envía a v1 (que responde al usuario) y una **copia** se envía a v2 (cuya respuesta se logea). Comparas outputs offline. Cero riesgo para usuarios; costo = doble inferencia durante el período shadow.
 
-Database schema changes require careful coordination with blue-green deployments. If the new model version expects different data schemas, you need a migration strategy. Typically, you make the schema backward-compatible, deploy the green version, then clean up old schema elements after blue is decommissioned.
+### A/B testing para modelos
 
+Divide usuarios en cohortes aleatorias y mide **métricas de negocio** (CTR, conversión, revenue), no solo técnicas. Dura días o semanas hasta alcanzar significancia estadística. Puede combinarse con canary.
 
-Canary Releases and Traffic Splitting
-Canary deployment showing gradual traffic increase from 5% to 100% with monitoring feedback
+## ¿Por qué importa?
+
+- **Reduce blast radius:** un bug que afectaría 100% de usuarios afecta 5%, dando tiempo a detectar y mitigar.
+- **Rollback instantáneo:** un deploy incorrecto en producción es inevitable; lo que separa a los equipos buenos de los malos es cuán rápido pueden revertir.
+- **Validación con producción real:** staging nunca refleja distribuciones reales. Shadow permite validarlo sin riesgo.
+- **Confianza para iterar:** equipos que pueden deployar con seguridad lo hacen más seguido, aprenden más rápido y envían mejor producto.
+- **Cumplimiento regulatorio:** finanzas y salud requieren documentar rollout gradual y evidencia de pruebas.
+
+El costo de **no** usar estos patrones se mide en incidentes P0, SLO budget quemado, usuarios perdidos y burnout del equipo oncall.
+
+## ¿Cómo funciona?
+
+### Blue-Green con K8s: swap de selector
+
+Dos Deployments (`sentiment-blue`, `sentiment-green`), un Service cuyo selector determina a cuál se enruta:
+
+```yaml
+# Antes del cutover: todo tráfico a blue
+apiVersion: v1
+kind: Service
+metadata: { name: sentiment }
+spec:
+  selector: { app: sentiment, color: blue }
+  ports: [ { port: 80, targetPort: 8000 } ]
+```
+
+Validas `green` por el ClusterIP o un Service separado (`sentiment-green-preview`). Cuando estás listo:
+
+```bash
+kubectl patch svc sentiment -p '{"spec":{"selector":{"app":"sentiment","color":"green"}}}'
+```
+
+Rollback = mismo patch volviendo a `blue`. Tiempo: segundos.
+
+### Canary con K8s + Istio
+
+```yaml
+# Istio VirtualService: 90% v1, 10% v2
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata: { name: sentiment }
+spec:
+  hosts: [ sentiment ]
+  http:
+    - route:
+        - destination: { host: sentiment, subset: v1 }
+          weight: 90
+        - destination: { host: sentiment, subset: v2 }
+          weight: 10
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata: { name: sentiment }
+spec:
+  host: sentiment
+  subsets:
+    - name: v1
+      labels: { version: v1-3-0 }
+    - name: v2
+      labels: { version: v1-4-0 }
+```
+
+Promueves cambiando pesos: 10 → 25 → 50 → 100. Rollback: pesos a 0 en v2.
+
+### Canary con feature flag (LaunchDarkly)
+
+A diferencia del traffic split por red, las feature flags permiten controlar a **nivel de aplicación**: por usuario, por tenant, por región, por experimento.
+
+```python
+import ldclient
+from ldclient import Context
+from ldclient.config import Config
+
+ldclient.set_config(Config("sdk-key-prod"))
+client = ldclient.get()
+
+def route_prediction(user_id: str, payload: dict) -> dict:
+    ctx = Context.builder(user_id).kind("user").set("plan", "pro").build()
+    # El flag retorna "v2" para 10% canary, "v1" para el resto
+    variant = client.variation("sentiment-model-version", ctx, default="v1")
+    if variant == "v2":
+        return call_model("http://sentiment-v2.ml-prod:80/predict", payload)
+    return call_model("http://sentiment-v1.ml-prod:80/predict", payload)
+```
+
+El panel de LaunchDarkly / Unleash / Flagsmith permite cambiar el porcentaje sin deploy. Rollback = porcentaje a 0.
+
+### Shadow (traffic mirroring)
 
 ![Canary deployment with gradual traffic shifting and monitoring](https://hrcdn.net/ai-engineering/module-7/light/aiops-lesson04-canary-deployment.svg)
 
-Canary releases gradually roll out new model versions by sending a small percentage of traffic to the new version while monitoring closely for problems. This reduces risk compared to all-at-once switches while providing real production validation.
+**Explicación detallada del patrón shadow:**
 
-The name comes from "canary in a coal mine" - the canary detects danger before humans are harmed. In deployment, a small percentage of users (the canary) test the new version first. If problems arise, only they are affected, and you can roll back before broader impact.
+1. El request llega al proxy (Envoy, Istio, NGINX con `mirror` directive).
+2. El proxy envía el request al servicio **primario** (v1) y espera su respuesta.
+3. Al mismo tiempo, el proxy clona el request y lo envía **async** al servicio **shadow** (v2).
+4. La respuesta de v2 se **descarta** (o se logea en un topic Kafka para análisis offline).
+5. El usuario recibe la respuesta de v1 — **jamás nota que v2 existe**.
+6. Un pipeline offline compara pares `(input, output_v1, output_v2)` y calcula métricas de concordancia y mejora.
 
-A typical canary rollout looks like this: Deploy model v1.3 alongside v1.2. Route 5 percent of traffic to v1.3 and 95 percent to v1.2. Monitor error rates, latency, and model metrics for both versions. If v1.3 metrics look good after 1 hour, increase to 25 percent. After another hour, increase to 50 percent. Continue until 100 percent of traffic uses v1.3, then decommission v1.2.
+```yaml
+# Istio: 100% a v1, mirror 100% a v2
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata: { name: sentiment }
+spec:
+  hosts: [ sentiment ]
+  http:
+    - route:
+        - destination: { host: sentiment, subset: v1 }
+          weight: 100
+      mirror: { host: sentiment, subset: v2 }
+      mirrorPercentage: { value: 100.0 }
+```
 
-Traffic splitting can be implemented in multiple ways. A load balancer can route requests randomly: 95 percent to v1.2, 5 percent to v1.3. An API gateway might use consistent hashing: specific users always go to the same version, making their experience consistent. A feature flag system might control which users see which version based on user attributes.
+```yaml
+# Envoy filter equivalente
+request_mirror_policies:
+  - cluster: sentiment-v2
+    runtime_fraction:
+      default_value: { numerator: 100, denominator: HUNDRED }
+    trace_sampled: false
+```
 
-Monitoring is crucial during canary rollouts. You need to compare metrics between versions. Is v1.3 latency higher than v1.2? Is error rate higher? Are prediction distributions similar? Automated monitoring with alerts enables quick detection of problems. If v1.3 error rate exceeds v1.2 by more than 2 percent, automatically roll back.
+Después, un job Spark analiza los logs:
 
-Statistical significance matters when comparing versions. With only 5 percent traffic on v1.3, you have less data, making comparisons noisier. A small number of bad requests can make v1.3 appear worse purely by chance. Wait for enough requests to make meaningful comparisons, or use statistical tests to determine if differences are real versus noise.
+```python
+# shadow_analysis.py
+from pyspark.sql import functions as F
+df = spark.read.parquet("s3://logs/shadow/sentiment/dt=2026-10-07/")
 
-Gradual rollout duration depends on your traffic volume and confidence. With high traffic, 1 hour at each step might provide enough data for confident decisions. With low traffic, you might need days at each step to accumulate sufficient data. Balance speed of deployment with confidence in metrics.
+# Métricas de concordancia
+agree = df.filter(F.col("label_v1") == F.col("label_v2")).count() / df.count()
+# Diferencias significativas de score
+diff = df.withColumn("delta", F.abs(F.col("score_v1") - F.col("score_v2"))) \
+         .agg(F.avg("delta"), F.expr("percentile(delta, 0.99)")).collect()
+# Golden set accuracy (sub-muestra etiquetada por humanos)
+golden = df.filter(F.col("golden_label").isNotNull())
+acc_v1 = golden.filter(F.col("label_v1") == F.col("golden_label")).count() / golden.count()
+acc_v2 = golden.filter(F.col("label_v2") == F.col("golden_label")).count() / golden.count()
+```
 
-The rollback decision is critical. What metric thresholds trigger automatic rollback? How do you decide manually whether to proceed or roll back? Document these criteria before deployment. During an incident, clear criteria enable faster decisions. For example: if p99 latency increases more than 50ms, roll back automatically; if prediction distributions shift more than 10 percent, investigate and decide manually.
+Si `acc_v2 > acc_v1` con significancia estadística, promueves v2 a primario.
 
-Canary releases work well for most model deployments. The gradual rollout limits blast radius of problems while providing real production validation that staging environments cannot match. The cost is slower deployment: what takes minutes with blue-green might take hours or days with canary releases.
+### Automated canary analysis con Flagger
 
-Automated canary analysis tools like Kayenta or Flagger continuously compare metrics between versions and make promotion decisions automatically. These tools implement best practices: statistical comparison, automated rollback on degradation, and gradual traffic increases. They reduce manual monitoring burden and enable teams to deploy confidently.
+**Flagger** (sobre Istio/Linkerd/Contour) ejecuta la promoción automáticamente leyendo métricas de Prometheus:
 
+```yaml
+apiVersion: flagger.app/v1beta1
+kind: Canary
+metadata: { name: sentiment, namespace: ml-prod }
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sentiment
+  service:
+    port: 80
+    targetPort: 8000
+  analysis:
+    interval: 1m
+    threshold: 5                 # 5 fallos consecutivos → rollback
+    stepWeight: 10               # +10% cada iteración
+    maxWeight: 50                # máximo canary 50% antes de promover
+    metrics:
+      - name: request-success-rate
+        thresholdRange: { min: 99 }       # min 99% éxito
+        interval: 1m
+      - name: request-duration-p99
+        thresholdRange: { max: 500 }      # p99 < 500ms
+        interval: 1m
+      - name: model-drift-score
+        templateRef: { name: drift-metric }
+        thresholdRange: { max: 0.15 }     # drift KL < 0.15
+    webhooks:
+      - name: smoke-test
+        type: pre-rollout
+        url: http://flagger-loadtester.test/
+        timeout: 30s
+        metadata:
+          cmd: "hey -z 1m -q 50 -c 5 http://sentiment-canary/predict"
+```
 
-Shadow Deployments and Safe Rollback
-Shadow deployment is the safest deployment pattern: the new model runs in production but its predictions are not served to users. You send all traffic to both old and new models, serve predictions from the old model, and log predictions from both for comparison. This validates the new model with real production data without any user impact.
+Flagger incrementa el peso automáticamente mientras las métricas estén en umbral; si fallan, rollback.
 
-Consider deploying a fraud detection model. You deploy v2 alongside v1. Every transaction is scored by both models. You use v1 scores for actual fraud decisions. You log both scores for comparison. After a week, you analyze the logs and find v2 catches 3 percent more fraud with the same false positive rate. This gives high confidence that v2 is better, so you promote it to primary.
+### Argo Rollouts (alternativa a Flagger)
 
-Shadow deployment catches issues that staging environments miss. Production data distributions, rare edge cases, and real user behaviors differ from test environments. Shadow deployment validates with actual production data while maintaining zero risk of user impact.
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata: { name: sentiment }
+spec:
+  replicas: 10
+  strategy:
+    canary:
+      steps:
+        - setWeight: 5
+        - pause: { duration: 10m }
+        - analysis: { templates: [ { templateName: success-rate } ] }
+        - setWeight: 25
+        - pause: { duration: 20m }
+        - setWeight: 50
+        - pause: { duration: 30m }
+        - setWeight: 100
+```
 
-Implementation requires duplicating traffic. Every request sent to the primary model is also sent to the shadow model. This can be done at the load balancer, API gateway, or application layer. The response from the primary model is returned immediately. The shadow model response is logged but discarded. This doubles compute cost temporarily but provides maximum safety.
+### Tabla comparativa de patterns
 
-Comparing predictions between models requires thought. For classification, you might compare predicted labels and confidence scores. For regression, you might compare predicted values and prediction distributions. For recommendations, you might compare overlap in top-N items. Define comparison metrics that matter for your use case.
+| Pattern | Tiempo deploy | Costo infra | Riesgo usuario | Rollback | Mejor para |
+|---|---|---|---|---|---|
+| Big-bang (sin pattern) | Minutos | 1x | Alto (100%) | Lento | Nunca |
+| Blue-Green | Minutos | 2x durante deploy | Bajo si validas Green | Instantáneo (swap) | Sistemas stateless con alta confianza |
+| Canary (traffic split) | Horas a días | 1.05-1.5x | Limitado al % canary | Instantáneo (reset %) | Default para la mayoría de modelos |
+| Canary (feature flag) | Horas a días | 1x | Limitado al % flag | Instantáneo (toggle) | Control fino por usuario/tenant |
+| Shadow | Días (validación) | 2x durante shadow | **Cero** | N/A (no sirve traffic) | Modelos críticos, cambios algorítmicos |
+| A/B test | Semanas | 1.05-1.5x | Limitado | Instantáneo | Validar impacto en métricas de negocio |
 
-Statistical analysis of shadow results guides promotion decisions. If 95 percent of predictions match between v1 and v2, are the differences improvements or problems? Examine the disagreements: is v2 fixing mistakes v1 made, or making new mistakes? This analysis requires domain expertise and careful evaluation.
+### Fórmulas y umbrales
 
-Shadow deployment works best for model changes where predictions can be compared objectively. Changing model architecture, training data, or algorithms while maintaining the same task enables clear comparison. Changing the task itself makes comparison harder.
+**Error budget (Google SRE):**
 
-The cost of shadow deployment is doubling compute resources during the shadow period. You are running two models instead of one. For expensive models or long shadow periods, this adds up. However, for critical models where failure has severe consequences, the cost is often justified.
+```
+error_budget = (1 - SLO) × total_requests_en_ventana
+# Ejemplo: SLO 99.9%, 10M req/mes → budget = 10,000 errores/mes
+# burn rate = errores_actuales / budget. Si burn > 1x por 1h → alerta. Si > 10x → rollback inmediato.
+```
 
-Shadow deployment does not test everything. It tests model predictions but not integration, API contracts, or deployment procedures. You still need other testing and validation. Shadow deployment is one layer in a comprehensive deployment strategy.
+**Umbral de rollback automático:**
 
-Rollback strategies are essential for any deployment pattern. How do you quickly revert to the previous model version when problems occur? The fastest rollback is keeping the old version running and simply routing traffic back to it. This requires no deployment, just traffic switching. It works for blue-green and canary patterns.
+```
+rollback_if:
+    error_rate_v2 > error_rate_v1 × 1.5    (y n > 10,000 requests)
+  OR
+    latency_p99_v2 > latency_p99_v1 × 1.3
+  OR
+    drift_kl(output_v2, output_v1) > 0.2
+```
 
-For deployments where the old version is decommissioned, rollback requires redeployment. Keep old model artifacts readily available. Test the rollback procedure regularly. Document the exact steps. During an incident, you need to execute rollback quickly and confidently.
+**Significancia estadística (z-score para dos proporciones):**
 
-Automated rollback based on metrics provides fast response to problems. If error rates spike or latency degrades, automatically revert to the previous version. This catches obvious problems within minutes instead of hours. However, automated rollback needs well-chosen triggers to avoid false positives that cause unnecessary rollbacks.
+```
+p_pool = (errors_v1 + errors_v2) / (n_v1 + n_v2)
+se = sqrt( p_pool × (1 - p_pool) × (1/n_v1 + 1/n_v2) )
+z = (error_rate_v2 - error_rate_v1) / se
+# |z| > 1.96 → significativo al 95%; > 2.58 → 99%
+```
 
-Manual rollback procedures should be straightforward. Document the commands to run, the expected outputs, and how to verify success. Practice rollback in staging environments. When an incident occurs, clear procedures enable any team member to execute rollback, not just the expert who did the deployment.
+### Rollback strategies
 
-Summary
-Progressive deployment strategies including blue-green deployments, canary releases, and shadow deployments enable safe model updates with controlled risk. Blue-green provides instant rollback and zero-downtime deployment at the cost of doubled infrastructure. Canary releases gradually increase traffic to new versions while monitoring for problems. Shadow deployments validate with production data without user impact.
+- **Automatizado por métrica:** Flagger/Argo Rollouts detectan degradación y revierten en segundos.
+- **Instantáneo manual:** `helm rollback`, `kubectl argo rollouts abort`, `kubectl patch svc` para blue-green.
+- **GitOps revert:** `git revert <sha> && git push` → ArgoCD reaplica estado anterior en ~1 min.
+- **Feature flag kill switch:** toggle a 0% desde el dashboard, sin tocar infra.
+- **Snapshot de modelo:** siempre mantén los 3 últimos modelos en S3 con tags inmutables.
 
-Effective rollback strategies are essential for all deployment patterns. Keeping previous versions readily available, automating rollback based on metrics, and documenting manual procedures enable fast recovery from problems.
+## Ejemplo con código
 
-Key concepts to remember
-Blue-Green Safety - Blue-green deployments enable instant atomic traffic switching and rollback at the cost of doubled infrastructure during deployment
-Gradual Canary Rollout - Canary releases gradually increase traffic to new models while monitoring metrics, limiting blast radius to small user percentages
-Risk-Free Validation - Shadow deployments validate new models with real production traffic without serving predictions to users
-Statistical Rigor - Statistical significance is critical when comparing model versions to distinguish real differences from noise
-Fast Recovery - Automated and well-documented rollback procedures enable fast recovery from deployment issues
+Script Python de rollback automático que monitorea Prometheus y revierte vía Argo Rollouts:
+
+```python
+# auto_rollback.py
+import time, subprocess, requests, sys
+
+PROM = "http://prometheus.monitoring:9090/api/v1/query"
+ROLLOUT = ("sentiment", "ml-prod")
+BASELINE_ERROR = 0.005        # 0.5%
+MAX_FACTOR = 1.5
+WINDOW = "5m"
+MIN_SAMPLES = 10_000
+
+def q(expr: str) -> float:
+    r = requests.get(PROM, params={"query": expr}, timeout=5).json()
+    return float(r["data"]["result"][0]["value"][1]) if r["data"]["result"] else 0.0
+
+def check():
+    canary_err = q(f'sum(rate(http_requests_total{{app="sentiment",version="canary",code=~"5.."}}[{WINDOW}])) '
+                   f'/ sum(rate(http_requests_total{{app="sentiment",version="canary"}}[{WINDOW}]))')
+    canary_n   = q(f'sum(increase(http_requests_total{{app="sentiment",version="canary"}}[{WINDOW}]))')
+    canary_p99 = q(f'histogram_quantile(0.99, sum by (le) '
+                   f'(rate(http_request_duration_seconds_bucket{{app="sentiment",version="canary"}}[{WINDOW}])))')
+    stable_p99 = q(f'histogram_quantile(0.99, sum by (le) '
+                   f'(rate(http_request_duration_seconds_bucket{{app="sentiment",version="stable"}}[{WINDOW}])))')
+
+    print(f"canary: err={canary_err:.4f} n={int(canary_n)} p99={canary_p99*1000:.0f}ms "
+          f"stable_p99={stable_p99*1000:.0f}ms")
+
+    if canary_n < MIN_SAMPLES:
+        return "wait"
+    if canary_err > BASELINE_ERROR * MAX_FACTOR:
+        return f"rollback: error_rate {canary_err:.4f} > {BASELINE_ERROR*MAX_FACTOR:.4f}"
+    if stable_p99 > 0 and canary_p99 > stable_p99 * 1.3:
+        return f"rollback: p99 {canary_p99:.3f}s > stable {stable_p99:.3f}s × 1.3"
+    return "ok"
+
+def abort_rollout():
+    subprocess.run(["kubectl", "argo", "rollouts", "abort",
+                    ROLLOUT[0], "-n", ROLLOUT[1]], check=True)
+    subprocess.run(["kubectl", "argo", "rollouts", "undo",
+                    ROLLOUT[0], "-n", ROLLOUT[1]], check=True)
+    # Alerta a PagerDuty / Slack
+    requests.post("https://hooks.slack.com/...", json={
+        "text": f":rotating_light: Auto-rollback de {ROLLOUT[0]}"
+    })
+
+if __name__ == "__main__":
+    for _ in range(60):   # 60 × 60s = 1 hora
+        verdict = check()
+        if verdict.startswith("rollback"):
+            print("ABORT:", verdict)
+            abort_rollout()
+            sys.exit(1)
+        time.sleep(60)
+    print("Canary saludable tras 1h")
+```
+
+## Errores comunes
+
+- **Deploy directo a 100%.** El error número uno. Siempre canary (al menos 5% por 15 min) incluso para hotfixes.
+- **No tener rollback plan documentado.** Durante un incidente a las 3 AM, nadie recuerda los comandos. Documenta y practica.
+- **Umbrales muy sensibles → false positives.** Rollback en cada spike aleatorio erosiona la confianza del equipo en los pipelines.
+- **Umbrales muy laxos → false negatives.** El bug llega a 100% antes de dispararse la alerta.
+- **No esperar significancia estadística.** Con 1000 requests y 1 error extra, declarar "v2 es peor" es ruido, no señal.
+- **Shadow sin análisis offline.** El patrón solo tiene valor si tienes el pipeline de comparación. Si no, solo duplicas costo.
+- **Shadow en modelos no-idempotentes.** Si v2 escribe a BD/trigger webhooks, duplicarás side effects. Shadow solo para inferencia pura o con flags de "dry-run".
+- **Blue-Green sin aislamiento de estado.** Si ambos entornos escriben a la misma BD, el swap puede inconsistir datos. Haz migraciones backward-compatible.
+- **Feature flags acumuladas.** 500 flags activas = complejidad combinatoria. Lifecycle: crear, canary, 100%, limpiar código.
+- **No monitorear métricas de negocio.** Técnicas (error, latency) pueden estar OK y aun así el modelo nuevo bajar conversión 10%.
+- **Rollout en horas pico / viernes PM.** Si falla, el oncall sufre. Rollout en horas de baja y días con equipo activo.
+- **Canary con tráfico sticky mal configurado.** Si el load balancer hace sticky session, los mismos pocos usuarios ven v2 siempre y el muestreo es sesgado.
+
+## Contexto industrial
+
+- **Google** acuñó el término "progressive rollout"; su stack interno (Spanner, Borg) deploya con canaries de 0.1% → 1% → 10% → 100% sobre semanas.
+- **Netflix** creó **Spinnaker** (ahora CNCF) y **Kayenta** (automated canary analysis), hoy evolucionados a **Managed Delivery**.
+- **Meta** canariza a nivel de cells (datacenters), con sistemas propios como **Conveyor** y **PackMan**.
+- **Stripe** promueve "deploy anytime culture": miles de deploys/día posibles por el stack de canary + feature flags.
+- **Anthropic y OpenAI** aplican **model deprecation policies** con 6+ meses de aviso: nuevas versiones salen en modo canary, los clientes pueden fijar versiones concretas, y los deprecated models se mantienen durante el período de migración.
+- **Google** anunció Gemini 1.5 primero a 0.1% de usuarios Workspace antes de generalizarlo.
+- **Microsoft Azure OpenAI** usa deployment slots (equivalente blue-green) para rollouts regionales.
+
+Herramientas industriales: **Spinnaker**, **Argo Rollouts**, **Flagger**, **Istio**, **Linkerd**, **Envoy**, **LaunchDarkly**, **Unleash**, **Flagsmith**, **Split.io**, **Statsig**, **Harness**, **CodeFresh**.
+
+## Resumen
+
+- **Blue-Green** = dos entornos, swap atómico, rollback instantáneo, costo 2x durante deploy.
+- **Canary** = introducción gradual de tráfico a v2, monitoreo lado a lado, pattern default para la mayoría de modelos.
+- **Shadow** = v2 ejecuta en producción pero no sirve respuestas; el patrón más seguro, costo doble inferencia temporal.
+- **A/B testing** = evaluación con métricas de negocio sobre semanas; combina con canary.
+- **Feature flags** (LaunchDarkly, Unleash) permiten canary **por usuario/tenant/región** y kill switch instantáneo.
+- **Flagger** y **Argo Rollouts** automatizan canary analysis leyendo Prometheus.
+- Define y automatiza **umbrales de rollback**: error rate, p99 latency, drift. Siempre con significancia estadística.
+- **Error budget** (SRE) formaliza cuánto "incidente" tolera un SLO antes de pausar deploys.
+- Nunca despliegues sin **rollback plan practicado**: GitOps revert, Helm rollback, kill switch de feature flag.
+- Cultura: deploys **pequeños, frecuentes, automáticos, reversibles y observables**. Blameless post-mortems para aprender.

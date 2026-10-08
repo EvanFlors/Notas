@@ -1,262 +1,480 @@
-## Production RAG Application Development
+# Metadata y filtrado en RAG de producción
 
-In previous lessons, you learned how to build RAG pipelines and apply them to different use cases. However, basic similarity search often retrieves too broad a set of documents. Users frequently need more specific results based on criteria like document type, creation date, department, or access permissions.
+## ¿Qué es?
 
-Metadata-based filtering solves this challenge by adding structured information to documents that enables contextual retrieval. Instead of searching all documents, you can limit results to specific sources, time periods, or categories that match user needs.
+En un RAG real los usuarios no quieren *"todo lo que se parece"*; quieren **el documento correcto, para su rol, de su período de tiempo y de su fuente autorizada**. La **búsqueda por similitud sola** devuelve un conjunto demasiado amplio: una query de un analista de finanzas puede traer de vuelta un contrato legal confidencial o un memo irrelevante del 2019.
 
-This lesson explores how to implement effective metadata strategies, apply various filtering approaches, and build sophisticated query routing systems that combine semantic search with structured constraints.
+**Metadata filtering** resuelve ese problema añadiendo **información estructurada** a cada chunk indexado — fecha, autor, departamento, tipo de documento, nivel de acceso — y aplicando filtros booleanos o rangos **antes** o **durante** la búsqueda vectorial.
 
-Understanding Metadata in RAG Systems
-What is Metadata?
-Metadata is structured information about your documents that enables filtering and organization beyond semantic content. While embeddings capture what a document means, metadata captures contextual information about the document itself.
+> **Separación conceptual:** el **embedding** captura *qué dice* el documento. La **metadata** captura *qué es, de dónde viene y quién puede verlo*. Ambas conviven en el mismo registro del vector store.
 
-Content vs. Metadata Example:
+### Contenido vs. metadata
 
 ```python
-Document Content: "Our quarterly revenue increased by 15% compared to last year..."
-Document Metadata: {
-  "document_type": "financial_report",
-  "quarter": "Q3_2024",
-  "department": "finance",
-  "access_level": "internal",
-  "created_date": "2024-10-15",
-  "author": "finance_team",
-  "file_type": "pdf"
+# Contenido (va al embedding)
+content = "Nuestros ingresos trimestrales crecieron 15% comparado con el año pasado..."
+
+# Metadata (va al filtro estructurado)
+metadata = {
+    "document_type": "financial_report",
+    "quarter": "Q3_2024",
+    "department": "finance",
+    "access_level": "internal",
+    "created_date": "2024-10-15",
+    "author": "finance_team",
+    "file_type": "pdf",
+    "source": "q3_report_2024.pdf",
+    "page": 7,
+    "chunk_id": "q3_report_2024_p07_c03"
 }
 ```
 
-Types of Metadata
-Temporal Metadata:
+### Tipos de metadata que vas a necesitar
 
-Creation date, modification date
-Validity periods, expiration dates
-Version numbers and update timestamps
-Source Metadata:
+| Categoría | Campos típicos | Para qué sirve |
+|---|---|---|
+| **Temporal** | `created_date`, `modified_date`, `valid_until`, `version` | Recencia, expiración de políticas |
+| **Fuente** | `author`, `department`, `source`, `file_type` | Atribución, routing |
+| **Acceso** | `access_level`, `permissions`, `region` | Compliance, RBAC |
+| **Contenido** | `language`, `topic`, `tags`, `quality_score` | Enriquecer el ranking |
+| **Trazabilidad** | `chunk_id`, `parent_doc_id`, `page`, `offset` | Citas, debugging |
 
-Author, department, team
-Document type, category
-Original file format, location
-Access Metadata:
+## ¿Por qué importa?
 
-Permission levels, user groups
-Confidentiality classifications
-Geographic restrictions
-Content Metadata:
+Un RAG sin metadata es un **buscador de biblioteca sin fichero**: puede encontrar libros parecidos, pero no sabe cuál es la edición vigente ni si tienes permiso para leerlo.
 
-Language, length, complexity
-Topic categories, tags
-Quality scores, review status
+- **Precisión:** elimina ruido antes de calcular similitud. Si el usuario pregunta sobre política de vacaciones *vigente*, no quieres el PDF de 2017.
+- **Compliance:** en finanzas, salud o legal, mostrar un documento al rol equivocado es una multa regulatoria. RBAC a nivel de retrieval es **obligatorio**, no opcional.
+- **Performance:** filtrar primero reduce el espacio de búsqueda. Pasar de 10M chunks a 50K antes del ANN acelera latencia 10-100x.
+- **Personalización:** el mismo índice sirve a mil equipos si cada query se filtra por tenant, idioma o región.
+- **Explicabilidad:** la metadata viaja con el chunk hasta la respuesta final, lo que permite citar fuente, fecha y versión.
 
-Benefits of Metadata Filtering
-Improved Precision: Filter out irrelevant documents before similarity matching occurs.
+Sin estos filtros, un RAG se degrada rápido: los usuarios lo abandonan después de ver resultados contradictorios, obsoletos o fuera de su contexto.
 
-User Context: Provide results appropriate to the user's role, location, or current task.
+## ¿Cómo funciona?
 
-Performance: Reduce the search space for faster query processing.
+El pipeline de ingesta y recuperación con metadata se parece a:
 
-Compliance: Ensure users only access documents they are authorized to see.
-
-Relevance: Return documents from appropriate time periods or sources.
-
-When adding documents to your vector database, include both content embeddings and structured metadata. This function demonstrates how to structure document metadata consistently for effective filtering.
-
-```python
-def add_document_with_metadata(vector_store, content, metadata):
-  """
-  Add document with both semantic content and filterable metadata
-  """
-  embedding = embedding_model.encode(content)
-
-  document = {
-      'id': str(uuid.uuid4()),
-      'content': content,
-      'embedding': embedding,
-      'metadata': {
-          'document_type': metadata.get('type', 'unknown'),
-          'created_date': metadata.get('date', datetime.now().isoformat()),
-          'department': metadata.get('dept', 'general'),
-          'access_level': metadata.get('access', 'public'),
-          'author': metadata.get('author', 'unknown')
-      }
-  }
-
-  vector_store.add(document)
-  return document
-
-# Example usage
-financial_doc = {
-  'type': 'financial_report',
-  'date': '2024-10-15',
-  'dept': 'finance',
-  'access': 'internal'
-}
-
-add_document_with_metadata(vector_store, "Q3 revenue grew 15%...", financial_doc)
+```
+┌─────────────────────────────────────────────────────────┐
+│  Documento crudo (PDF, HTML, DOCX)                      │
+│         ↓                                               │
+│  Document loader (Unstructured.io / PyMuPDF)            │
+│         ↓                                               │
+│  Metadata extraction (fecha, autor, página, tipo)       │
+│         ↓                                               │
+│  Chunking (recursive / semantic / sentence-window)      │
+│         ↓                                               │
+│  Deduplicación (hash de contenido)                      │
+│         ↓                                               │
+│  Embedding model → vector                               │
+│         ↓                                               │
+│  Upsert en vector store (vector + metadata estructurada)│
+└─────────────────────────────────────────────────────────┘
 ```
 
-Basic Query-Time Filtering
-Apply metadata filters during retrieval to constrain search results. This function combines semantic similarity search with metadata-based filtering to return only relevant documents that match specific criteria.
+En **query time**:
+
+```
+query → [intent routing] → filtros estructurados + embedding
+                                     ↓
+                        vector_store.search(vec, filter=...)
+                                     ↓
+                                re-ranking
+                                     ↓
+                        prompt con contexto + citas
+```
+
+### Data ingestion pipelines
+
+Un pipeline de ingestión robusto no es solo *"cargar PDF y chunkear"*. Debe:
+
+1. **Detectar el tipo de archivo** y usar el loader correcto.
+2. **Extraer metadata** del encabezado del archivo (autor PDF, fecha de modificación, tags DOCX).
+3. **Normalizar texto** (unicode, saltos de línea, encodings).
+4. **Chunkear preservando estructura** (headings, tablas, listas).
+5. **Enriquecer metadata** con campos derivados (idioma detectado, longitud, hash).
+6. **Deduplicar** chunks idénticos entre versiones.
+7. **Hacer upsert idempotente** (misma clave = reemplazo, no duplicado).
+
+### Document loaders
+
+| Formato | Librería recomendada | Qué extrae bien | Puntos débiles |
+|---|---|---|---|
+| **PDF** | PyMuPDF (`fitz`) | Texto, páginas, metadata, imágenes | PDFs escaneados (requiere OCR) |
+| **PDF complejo** | Unstructured.io | Tablas, layout, OCR integrado | Más lento, más dependencias |
+| **HTML** | BeautifulSoup / Unstructured | Texto limpio, enlaces, estructura | JS-rendered sites requieren Playwright |
+| **DOCX** | `python-docx` / Unstructured | Párrafos, estilos, tablas | Imágenes embebidas |
+| **Markdown** | `markdown-it-py` + LangChain | Headings, bloques de código | - |
+| **PPTX** | `python-pptx` / Unstructured | Texto por slide, notas | Diagramas |
+| **XLSX / CSV** | `pandas` / `openpyxl` | Tablas estructuradas | Fórmulas, celdas combinadas |
+
+### Chunking strategies
+
+| Estrategia | Cómo divide | Ventaja | Desventaja | Cuándo usar |
+|---|---|---|---|---|
+| **Fixed-size** | N tokens con overlap | Simple, predecible | Corta frases | Baseline / texto homogéneo |
+| **Recursive** | Jerarquía de separadores (`\n\n`, `\n`, `. `, ` `) | Respeta párrafos | No semántica | **Default razonable** |
+| **Semantic** | Agrupa frases cuyos embeddings son similares | Chunks temáticamente coherentes | Más caro (embeddings extra) | Documentos largos narrativos |
+| **Sentence-window** | 1 frase central + N vecinas como contexto | Precisión + contexto en respuesta | Más chunks indexados | QA factual |
+| **Parent-document** | Indexa chunks pequeños, retorna el padre grande | Mejor contexto al LLM | Infra más compleja | Respuestas que requieren contexto amplio |
+| **Document-based** | Un chunk = una sección/heading | Preserva estructura semántica | Tamaños muy variables | Markdown, documentación técnica |
+
+### Metadata extraction
+
+La metadata viene de tres fuentes:
+
+- **Intrínseca al archivo:** autor, fecha de creación, aplicación que lo generó.
+- **Derivada del contenido:** idioma detectado, entidades (NER), tópicos (LDA/BERTopic), resumen.
+- **Inyectada por tu negocio:** `department`, `access_level`, `tenant_id`, `project_id`.
+
+### Incremental indexing
+
+Reindexar todo cada vez que cambia un documento es inviable. El patrón es:
+
+1. Calcular un **hash estable** por chunk (`sha256(content + source + chunk_index)`).
+2. Guardar el hash como campo en el vector store.
+3. En cada ingesta: comparar hashes nuevos vs. los existentes.
+   - **Nuevo:** upsert.
+   - **Igual:** skip.
+   - **Hash viejo ya no existe en el documento:** delete (el chunk fue removido).
+
+LangChain expone esto con `SQLRecordManager` + `index()`; LlamaIndex con `IngestionPipeline` + `DocstoreStrategy.UPSERTS`.
+
+### Deduplicación
+
+Dos fuentes comunes de duplicados:
+
+- **Mismo contenido en varios archivos** (una política copiada en 10 wikis).
+- **Overlap entre chunks** del mismo documento.
+
+Soluciones:
+
+- **Hash exacto** del `content.strip().lower()`.
+- **MinHash / SimHash** para near-duplicates (umbral ~0.9).
+- **Dedup por embedding** (cosine > 0.98) — más caro, pero captura paráfrasis.
+
+### Source attribution y citation
+
+Cada chunk debe cargar lo mínimo para citar: `source` (archivo), `page` (si aplica), `url` (si vino de web), `chunk_id`. En el prompt final se le pide al LLM que **cite por `[source:page]`** y en la UI se renderizan como links clicables al documento original.
+
+### Prompt templates para RAG (grounding)
+
+El prompt debe **forzar** al modelo a responder solo con el contexto:
+
+```
+Eres un asistente que responde preguntas USANDO EXCLUSIVAMENTE el contexto provisto.
+Reglas:
+1. Si la respuesta no está en el contexto, responde literalmente: "No tengo información suficiente para responder."
+2. Cita cada afirmación con [source:page].
+3. No inventes datos, nombres, fechas ni cifras.
+4. Si el contexto es contradictorio, señálalo.
+
+Contexto:
+{context}
+
+Pregunta: {query}
+
+Respuesta (con citas):
+```
+
+### LlamaIndex vs. LangChain para RAG
+
+| Dimensión | LangChain | LlamaIndex |
+|---|---|---|
+| Enfoque | Framework general de LLM apps | Especializado en RAG / indexación |
+| Chunking | `RecursiveCharacterTextSplitter`, semantic | Node parsers con jerarquía nativa |
+| Routing | LCEL, `RunnableBranch` | `RouterQueryEngine` |
+| Metadata | Diccionario libre | Nodes tipados, propagación automática |
+| Agentes | Muy maduro | Query engines componibles |
+| Curva | Más APIs, más flexibilidad | Más opinado, menos boilerplate |
+
+Pragmático: **LlamaIndex** para RAG puro (indexación, routing, re-ranking); **LangChain** si tu app mezcla RAG con tools, agentes, memoria y orquestación.
+
+## Ejemplo con código
+
+Pipeline completo: **FastAPI + Unstructured.io + chunking semántico + Qdrant + filtros por metadata + prompt con citas.**
 
 ```python
-def filtered_search(vector_store, query, filters=None, top_k=5):
-  query_embedding = embedding_model.encode(query)
+# requirements:
+#   fastapi uvicorn qdrant-client sentence-transformers
+#   unstructured[pdf] pymupdf langchain langchain-openai
+#   openai pydantic
 
-  filter_conditions = {}
-  if filters:
-      if 'department' in filters:
-          filter_conditions['metadata.department'] = filters['department']
-      if 'date_after' in filters:
-          filter_conditions['metadata.created_date'] = {'$gte': filters['date_after']}
+import hashlib
+import uuid
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
 
-  return vector_store.search(
-      query_vector=query_embedding,
-      filter=filter_conditions,
-      limit=top_k
-  )
-
-# Example usage
-results = filtered_search(
-  vector_store,
-  query="revenue growth analysis",
-  filters={'department': 'finance', 'date_after': '2024-07-01'}
+from fastapi import FastAPI, UploadFile, HTTPException
+from pydantic import BaseModel
+from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    Distance, VectorParams, PointStruct,
+    Filter, FieldCondition, MatchValue, Range,
 )
+from sentence_transformers import SentenceTransformer
+from unstructured.partition.auto import partition
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+
+# ------------------------------------------------------------
+# Infra
+# ------------------------------------------------------------
+EMBED_MODEL = SentenceTransformer("intfloat/multilingual-e5-base")
+EMBED_DIM = 768
+COLLECTION = "docs_prod"
+
+qdrant = QdrantClient(host="localhost", port=6333)
+if COLLECTION not in [c.name for c in qdrant.get_collections().collections]:
+    qdrant.create_collection(
+        collection_name=COLLECTION,
+        vectors_config=VectorParams(size=EMBED_DIM, distance=Distance.COSINE),
+    )
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+# ------------------------------------------------------------
+# Ingesta: loader + chunking semantico + metadata + dedup
+# ------------------------------------------------------------
+def load_document(path: str) -> list[dict[str, Any]]:
+    """Usa Unstructured.io para parsear PDF/DOCX/HTML preservando layout."""
+    elements = partition(filename=path)
+    pages = []
+    for el in elements:
+        pages.append({
+            "text": str(el),
+            "category": el.category,                  # Title, NarrativeText, Table
+            "page_number": el.metadata.page_number,
+            "source": Path(path).name,
+        })
+    return pages
+
+
+def semantic_chunking(pages: list[dict]) -> list[dict]:
+    """Chunking semantico: agrupa frases por similitud de embedding."""
+    splitter = SemanticChunker(
+        OpenAIEmbeddings(model="text-embedding-3-small"),
+        breakpoint_threshold_type="percentile",
+        breakpoint_threshold_amount=95,
+    )
+    chunks = []
+    for p in pages:
+        for i, text in enumerate(splitter.split_text(p["text"])):
+            chunks.append({
+                "text": text,
+                "source": p["source"],
+                "page_number": p["page_number"],
+                "chunk_index": i,
+            })
+    return chunks
+
+
+def chunk_hash(c: dict) -> str:
+    key = f"{c['source']}|{c['page_number']}|{c['chunk_index']}|{c['text']}"
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def ingest(path: str, department: str, access_level: str) -> int:
+    """Pipeline completo: load -> chunk -> dedup -> embed -> upsert."""
+    pages = load_document(path)
+    chunks = semantic_chunking(pages)
+
+    # Deduplicacion por hash
+    seen_hashes: set[str] = set()
+    existing = {p.payload["chunk_hash"] for p in
+                qdrant.scroll(COLLECTION, limit=100_000)[0]}
+
+    points = []
+    for c in chunks:
+        h = chunk_hash(c)
+        if h in seen_hashes or h in existing:
+            continue
+        seen_hashes.add(h)
+
+        vec = EMBED_MODEL.encode(f"passage: {c['text']}").tolist()
+        points.append(PointStruct(
+            id=str(uuid.uuid4()),
+            vector=vec,
+            payload={
+                "content": c["text"],
+                "source": c["source"],
+                "page": c["page_number"],
+                "chunk_index": c["chunk_index"],
+                "chunk_hash": h,
+                "department": department,
+                "access_level": access_level,
+                "created_date": datetime.utcnow().isoformat(),
+                "lang": "es",
+            },
+        ))
+
+    if points:
+        qdrant.upsert(collection_name=COLLECTION, points=points)
+    return len(points)
+
+
+# ------------------------------------------------------------
+# Query: intent routing + filtros + re-rank + prompt con citas
+# ------------------------------------------------------------
+def detect_intent_filters(query: str, user: dict) -> dict:
+    """Mapea palabras clave de la query a filtros estructurados."""
+    q = query.lower()
+    filters = {"access_level_in": _allowed_levels(user["access_level"])}
+
+    if any(w in q for w in ["ultimo", "reciente", "actual", "nuevo"]):
+        filters["date_after"] = (datetime.utcnow() - timedelta(days=30)).isoformat()
+    if any(w in q for w in ["politica", "procedimiento", "guia"]):
+        filters["document_type"] = "policy"
+    if any(w in q for w in ["empleado", "nomina", "beneficio"]):
+        filters["department"] = "hr"
+    elif any(w in q for w in ["presupuesto", "ingreso", "finanzas"]):
+        filters["department"] = "finance"
+    return filters
+
+
+def _allowed_levels(level: str) -> list[str]:
+    hierarchy = {"public": ["public"],
+                 "internal": ["public", "internal"],
+                 "confidential": ["public", "internal", "confidential"]}
+    return hierarchy.get(level, ["public"])
+
+
+def build_qdrant_filter(f: dict) -> Filter:
+    must: list = []
+    if "department" in f:
+        must.append(FieldCondition(key="department",
+                                   match=MatchValue(value=f["department"])))
+    if "access_level_in" in f:
+        must.append(FieldCondition(key="access_level",
+                                   match=MatchValue(any=f["access_level_in"])))
+    if "date_after" in f:
+        must.append(FieldCondition(key="created_date",
+                                   range=Range(gte=f["date_after"])))
+    return Filter(must=must)
+
+
+def search_with_fallback(query: str, user: dict, top_k: int = 5) -> list[dict]:
+    """Multi-stage: estricto -> relaja fecha -> solo publico."""
+    vec = EMBED_MODEL.encode(f"query: {query}").tolist()
+    stages = [
+        detect_intent_filters(query, user),
+        {k: v for k, v in detect_intent_filters(query, user).items()
+         if k != "date_after"},
+        {"access_level_in": ["public"]},
+    ]
+    for stage, f in enumerate(stages, 1):
+        hits = qdrant.search(
+            collection_name=COLLECTION,
+            query_vector=vec,
+            query_filter=build_qdrant_filter(f),
+            limit=top_k * 4,          # recall alto para re-rank
+        )
+        if hits:
+            return [{**h.payload, "score": h.score, "stage": stage}
+                    for h in hits[:top_k]]
+    return []
+
+
+RAG_PROMPT = """Eres un asistente corporativo. Responde EXCLUSIVAMENTE con la
+informacion del contexto. Si la respuesta no esta, responde literalmente:
+"No tengo informacion suficiente para responder."
+
+Reglas:
+- Cita cada afirmacion con [source:page].
+- No inventes cifras, nombres ni fechas.
+- Si el contexto es contradictorio, senalalo.
+
+Contexto:
+{context}
+
+Pregunta: {query}
+
+Respuesta (con citas):
+"""
+
+
+def answer(query: str, user: dict) -> dict:
+    chunks = search_with_fallback(query, user, top_k=5)
+    if not chunks:
+        return {"answer": "No tengo informacion suficiente para responder.",
+                "citations": []}
+
+    context = "\n\n".join(
+        f"[{c['source']}:{c['page']}] {c['content']}" for c in chunks
+    )
+    prompt = RAG_PROMPT.format(context=context, query=query)
+    response = llm.invoke(prompt).content
+
+    return {
+        "answer": response,
+        "citations": [{"source": c["source"], "page": c["page"],
+                       "score": c["score"]} for c in chunks],
+    }
+
+
+# ------------------------------------------------------------
+# FastAPI
+# ------------------------------------------------------------
+app = FastAPI(title="RAG prod demo")
+
+
+class QueryIn(BaseModel):
+    query: str
+    department: str
+    access_level: str
+
+
+@app.post("/ingest")
+async def ingest_endpoint(file: UploadFile, department: str, access_level: str):
+    tmp = Path(f"/tmp/{file.filename}")
+    tmp.write_bytes(await file.read())
+    n = ingest(str(tmp), department, access_level)
+    return {"ingested_chunks": n}
+
+
+@app.post("/query")
+def query_endpoint(payload: QueryIn):
+    if payload.access_level not in {"public", "internal", "confidential"}:
+        raise HTTPException(400, "access_level invalido")
+    user = {"department": payload.department,
+            "access_level": payload.access_level}
+    return answer(payload.query, user)
 ```
 
-Time-Based and Source-Based Retrieval Constraints
-Time-Based Filtering
-Time-based filtering ensures users receive current, relevant information rather than outdated content. This approach combines semantic similarity with document recency by calculating a time-decay score and blending it with similarity scores.
+**Qué observar:**
 
-```python
-def time_based_search(vector_store, query, recency_weight=0.3, days_back=90):
-  base_results = vector_store.search(query, top_k=20)
-  current_time = datetime.now()
-  scored_results = []
+- `partition()` de Unstructured.io hace todo el trabajo sucio de PDF/DOCX/HTML con un solo API.
+- `SemanticChunker` genera chunks temáticamente coherentes en lugar de cortar frases.
+- `chunk_hash` + comparación con los hashes ya indexados garantiza **upsert idempotente**.
+- El filtro de Qdrant se construye **a partir del rol del usuario**, no se confía en el cliente.
+- El prompt obliga al grounding con una frase literal de rechazo.
 
-  for result in base_results:
-      doc_date = datetime.fromisoformat(result['metadata']['created_date'])
-      days_old = (current_time - doc_date).days
+## Errores comunes
 
-      if days_back and days_old > days_back:
-          continue
+- **No deduplicar chunks.** Dos copias del mismo contrato en wikis distintas aparecen dos veces en la respuesta y el LLM las trata como fuentes independientes, inflando la "confianza".
+- **Perder metadata al chunkear.** Si cortas texto sin propagar `source`, `page` y `author`, pierdes la capacidad de citar. Siempre heredar la metadata del documento padre en cada chunk hijo.
+- **No refrescar el índice cuando los documentos cambian.** Políticas que se actualizan quedan sombra'd por versiones viejas. Resuelve con incremental indexing (`SQLRecordManager` en LangChain, `IngestionPipeline` en LlamaIndex) y campo `version`.
+- **Embedding model mismatch entre ingesta y query.** Si indexaste con `text-embedding-ada-002` y buscas con `e5-base`, los vectores viven en espacios distintos y el recall colapsa. Fijar el modelo en config y versionarlo con el índice.
+- **No citar fuentes.** Un RAG sin citas es indistinguible de un LLM alucinando. Las citas también permiten al usuario auditar y corregir.
+- **Confiar en metadata provista por el cliente.** `access_level` nunca debe venir del request del usuario; sale del token de sesión o del IdP.
+- **Schemas inconsistentes.** `dept: "finance"` vs. `department: "Finance"` → filtros silenciosamente vacíos. Normaliza en ingesta (lowercase, nombres canónicos) y valida con Pydantic.
+- **Over-filtering.** Filtros estrictos devuelven cero resultados. Siempre tener fallback multi-stage que relaja progresivamente.
+- **Chunking fijo sin overlap.** Pierdes contexto entre fronteras. Mínimo 10-20% de overlap para `fixed-size`, o usa `recursive`/`semantic`.
+- **Indexar texto sin normalizar.** Unicode mixto, saltos `\r\n` de Windows, espacios no-breaking rompen la deduplicación por hash. Normaliza antes de hashear.
 
-      recency_score = max(0, 1 - (days_old / 365))
-      combined_score = (
-          (1 - recency_weight) * result['similarity'] +
-          recency_weight * recency_score
-      )
+## Resumen
 
-      scored_results.append({**result, 'combined_score': combined_score})
-
-  return sorted(scored_results, key=lambda x: x['combined_score'], reverse=True)[:5]
-```
-
-Source-Based Filtering
-Source-based filtering ensures users receive information appropriate to their role and organizational access level. This implementation defines department-based access rules and applies them during search to respect organizational boundaries.
-
-```python
-def department_search(vector_store, query, user_department, include_public=True):
-  allowed_departments = [user_department]
-  if include_public:
-      allowed_departments.append('public')
-
-  # Role-based access rules
-  if user_department == 'executive':
-      allowed_departments.extend(['finance', 'hr', 'legal'])
-  elif user_department == 'finance':
-      allowed_departments.extend(['executive'])
-  elif user_department == 'hr':
-      allowed_departments.extend(['legal'])
-
-  filters = {'department': allowed_departments}
-  return filtered_search(vector_store, query, filters)
-```
-
-Advanced Query Routing and Filtering Strategies
-Intent-Based Query Routing
-Advanced RAG systems can analyze query intent and automatically apply the right filtering strategies. This approach detects keywords in user queries and maps them to appropriate metadata filters.
-
-```python
-def analyze_query_intent(query):
-  """
-  Detect intent patterns and suggest appropriate filters
-  """
-  query_lower = query.lower()
-  filters = {}
-
-  # Time-based intent detection
-  if any(word in query_lower for word in ['latest', 'recent', 'current', 'new']):
-      filters['date_after'] = (datetime.now() - timedelta(days=30)).isoformat()
-
-  # Document type detection
-  if any(word in query_lower for word in ['policy', 'procedure', 'guideline']):
-      filters['document_type'] = 'policy'
-
-  # Department detection
-  if any(word in query_lower for word in ['employee', 'hiring', 'benefits']):
-      filters['department'] = 'hr'
-  elif any(word in query_lower for word in ['budget', 'revenue', 'financial']):
-      filters['department'] = 'finance'
-
-  return filters
-
-# Example usage
-query = "Show me the latest HR policies for employee benefits"
-auto_filters = analyze_query_intent(query)
-results = filtered_search(vector_store, query, auto_filters)
-```
-
-Multi-Stage Filtering
-When strict filters return too few results, multi-stage filtering applies progressively relaxed constraints until sufficient results are found. This ensures users always get helpful results while maintaining the highest possible relevance.
-
-```python
-def multi_stage_search(vector_store, query, user_context, max_results=5):
-  search_stages = [
-      # Stage 1: Strict filtering
-      {
-          'department': user_context['department'],
-          'access_level': user_context['access_level'],
-          'date_after': (datetime.now() - timedelta(days=90)).isoformat()
-      },
-      # Stage 2: Relaxed time constraint
-      {
-          'department': user_context['department'],
-          'access_level': user_context['access_level']
-      },
-      # Stage 3: Public documents only
-      {
-          'access_level': 'public'
-      }
-  ]
-
-  for stage_num, filters in enumerate(search_stages, 1):
-      results = filtered_search(vector_store, query, filters, top_k=max_results)
-
-      if len(results) >= max_results:
-          for result in results:
-              result['search_stage'] = stage_num
-          return results
-
-  # Fallback: search without filters
-  return filtered_search(vector_store, query, {}, top_k=max_results)
-```
-
-Common Pitfalls and Solutions
-Over-Filtering Leading to Empty Results: Aggressive filtering can eliminate all relevant documents. Implement fallback strategies that progressively relax constraints if initial filters return no results.
-
-Inconsistent Metadata Quality: Production systems often have inconsistent metadata. Build validation and normalization layers that standardize metadata formats and handle missing fields gracefully.
-
-Performance Impact of Complex Filters: Multiple metadata filters can slow retrieval. Pre-index common filter combinations and use database query optimization techniques.
-
-Metadata Schema Evolution: As business requirements change, metadata schemas evolve. Design systems that handle schema migrations and backward compatibility with existing document metadata.
-
-Summary
-Metadata-based filtering transforms basic RAG systems into sophisticated, context-aware retrieval systems. By adding structured information alongside semantic embeddings, you can provide users with precisely relevant results while respecting access controls and organizational boundaries.
-
-Effective metadata strategies require thoughtful design and consistent implementation. The investment pays off through improved user satisfaction, better compliance, and more efficient knowledge discovery.
-In the next lesson, we'll explore quality assurance and output validation techniques to ensure your RAG system consistently delivers accurate, relevant results.
-
-Key concepts to remember
-Metadata enables precise filtering beyond semantic similarity search
-Time-based and source-based constraints significantly improve result relevance
-Multi-stage filtering strategies ensure users get results even when strict filters find nothing
-User context should automatically influence filtering to provide personalized, appropriate results
+- **Metadata filtering** es lo que convierte un demo de RAG en un sistema de producción: precisión, compliance, personalización y explicabilidad.
+- El pipeline de ingesta tiene siete pasos: **load → extraer metadata → normalizar → chunkear → deduplicar → embedding → upsert idempotente**.
+- Elige la **chunking strategy** según el documento: `recursive` como default, `semantic` para texto narrativo, `sentence-window` para QA factual, `parent-document` para respuestas con contexto amplio.
+- **Unstructured.io** y **PyMuPDF** cubren casi todos los formatos que te vas a encontrar.
+- Aplica filtros **antes** del ANN para reducir espacio de búsqueda y respetar RBAC.
+- Usa **intent routing** para traducir queries naturales a filtros estructurados automáticamente.
+- Implementa **multi-stage filtering** para evitar respuestas vacías cuando los filtros estrictos no matchean nada.
+- **Incremental indexing** con hashes evita reindexar todo y mantiene el índice fresco.
+- **Dedup** por hash exacto + near-duplicate detection (MinHash) para evitar inflar el ranking.
+- El **prompt** debe forzar grounding: *"responde solo con el contexto; si no está, di que no sabes"* + citas obligatorias.
+- **LlamaIndex** para RAG puro, **LangChain** para apps que mezclan RAG con agentes y tools.
+- Nunca confíes en metadata que llegue del cliente: `access_level` sale del IdP, no del request body.

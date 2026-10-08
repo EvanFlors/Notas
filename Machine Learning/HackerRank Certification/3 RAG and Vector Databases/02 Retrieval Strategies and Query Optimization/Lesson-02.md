@@ -1,346 +1,205 @@
-## Chunking & Indexing
+# Re-ranking: refinando los candidatos recuperados
 
-In the previous lesson, you learned about retrieval methods and similarity metrics. Now we address a fundamental challenge: most documents are longer than what embedding models can process or what fits effectively in an LLM's context window.
+## ¿Qué es?
 
-Consider a research paper that's 20 pages long. Embedding models typically handle only 512 tokens (roughly 300-400 words), and even if you could embed the entire document, providing it as context would overwhelm the LLM and dilute relevant information.
+**Re-ranking** es una segunda etapa que toma los `k` candidatos devueltos por un retriever rápido (dense, sparse o hybrid) y los **re-ordena** usando un modelo más preciso pero más costoso. Es el patrón canónico de IR moderno:
 
-Document chunking solves this problem by breaking large documents into smaller, manageable pieces that maintain semantic coherence. The quality of your chunking strategy directly impacts retrieval accuracy and, consequently, your RAG system's response quality.
-
-This lesson explores chunking strategies, their impact on retrieval performance, and indexing optimization techniques that prepare your documents for the complete RAG pipeline we'll build in the next lesson.
-
-Why Chunking Matters
-Chunking serves critical purposes in RAG systems by addressing both technical constraints and quality requirements:
-
-Technical Constraints:
-
-Token Limits: Embedding models have maximum input lengths (typically 512 tokens)
-Context Windows: LLMs have limited context capacity for effective processing
-Memory Efficiency: Smaller chunks require less memory for storage and processing
-
-Quality Improvements:
-
-Precision: Smaller chunks contain more focused information relevant to specific queries
-Relevance: Reduces noise by avoiding large blocks of mixed content
-Granularity: Enables retrieval of specific facts rather than entire documents
-Example: Poor vs. Good Chunking
-
-Poor Chunking:
-
-```python
-Chunk: "Our company was founded in 1995... We specialize in software development...
-Our refund policy states that customers can return products within 30 days...
-We also offer technical support..."
-
-Query: "What is your refund policy?"
-Result: Relevant information buried in irrelevant context
+```
+Query ─► Retriever (rápido, top_k=50) ─► Re-ranker (lento, top_n=5) ─► LLM
+         bi-encoder / BM25               cross-encoder
 ```
 
-Good Chunking:
+El retriever optimiza **recall** ("¿está la respuesta entre los 50?"), el re-ranker optimiza **precision** ("¿los 5 primeros son los mejores?").
 
-```python
-Chunk 1: "Company History: Founded in 1995..."
-Chunk 2: "Refund Policy: Customers can return products within 30 days for a full refund."
-Chunk 3: "Technical Support: Available through email and phone..."
+### Bi-encoder vs cross-encoder
 
-Query: "What is your refund policy?"
-Result: Directly retrieves Chunk 2 with focused, relevant information
+| Arquitectura | Cómo compara query y doc | Latencia | Precisión |
+|---|---|---|---|
+| **Bi-encoder** (retriever) | Codifica query y doc por separado, compara con cosine | ~1 ms sobre millones de docs (ANN) | Media |
+| **Cross-encoder** (re-ranker) | Pasa `[query, doc]` juntos por el transformer y produce un score escalar | ~10-50 ms por par | Alta |
+
+El cross-encoder puede atender a cada token de la query contra cada token del documento (full attention), lo que captura relaciones imposibles para un bi-encoder.
+
+## ¿Por qué importa?
+
+Añadir un re-ranker suele subir el **NDCG@10** entre 10 y 30 puntos sobre un retriever puro, sin cambiar nada más del pipeline. Es la **mejora individual con mejor ROI** en RAG moderno.
+
+- **Mitiga falsos positivos del dense retrieval**: documentos que son semánticamente parecidos pero no responden la pregunta.
+- **Permite usar `top_k` alto en el retriever** (50-100) sin saturar al LLM: el re-ranker filtra.
+- **Es intercambiable**: puedes mejorar el pipeline cambiando solo el modelo de rerank, sin re-indexar.
+
+### Contexto histórico
+
+- **2019 — MonoBERT**: Nogueira & Cho muestran que un BERT cross-encoder re-rankea pasajes mejor que BM25.
+- **2020 — ColBERT**: Khattab & Zaharia introducen *late interaction*, un punto medio entre bi- y cross-encoder.
+- **2023 — Cohere Rerank v2** se vuelve el estándar comercial multilingüe.
+- **2023 — bge-reranker** (BAAI) abre el ecosistema open source con calidad comparable.
+- **2024 — Jina Reranker v2** y modelos nativamente multilingües dominan MTEB-Rerank.
+
+## ¿Cómo funciona?
+
+### Cross-encoder: la arquitectura
+
+Dado `(q, d)`, el cross-encoder construye la entrada:
+
+```
+[CLS] query_tokens [SEP] document_tokens [SEP]
 ```
 
-Chunking Strategies
-Fixed-Size Chunking
-The simplest approach divides text into chunks of predetermined size.
+y pasa esto por un transformer. El vector `[CLS]` final alimenta una cabeza lineal que produce un **score escalar de relevancia**.
 
-Advantages:
+Como la query se vuelve a procesar junto con cada documento, no se puede pre-calcular → latencia proporcional a `k`. Por eso solo se re-rankean 10-100 candidatos, no millones.
 
-Simple to implement and predictable chunk sizes
-Fast processing with minimal computational overhead
+### Comparativa de re-rankers populares (2026)
 
-Disadvantages:
+| Modelo | Tipo | Multilingüe | Context length | Latencia aprox. (CPU/GPU) | Licencia |
+|---|---|---|---|---|---|
+| **Cohere Rerank 3** | API comercial | Sí (100+ idiomas) | 4096 | ~100 ms / 1000 docs vía API | Comercial |
+| **bge-reranker-v2-m3** (BAAI) | Open source | Sí | 8192 | ~20 ms/par (GPU) | MIT |
+| **bge-reranker-large** | Open source | Inglés principalmente | 512 | ~15 ms/par (GPU) | MIT |
+| **jina-reranker-v2-base-multilingual** | API + open | Sí | 1024 | ~API | Apache 2.0 |
+| **mxbai-rerank-large-v1** | Open source | Inglés | 512 | ~15 ms/par (GPU) | Apache 2.0 |
+| **ms-marco-MiniLM-L-6-v2** | Open source (clásico) | Inglés | 512 | ~2 ms/par (CPU) | Apache 2.0 |
+| **ColBERTv2** | Late interaction | Inglés | 300 | Rápido (pre-computa) | MIT |
 
-May split sentences or concepts inappropriately
-No consideration of semantic boundaries
-Sentence-Based Chunking
-This approach respects sentence boundaries, grouping complete sentences together until reaching a target size.
+### Elección práctica
 
-Advantages:
+- **Prototipo rápido / local**: `cross-encoder/ms-marco-MiniLM-L-6-v2` (22 MB, CPU-friendly).
+- **Producción multilingüe**: Cohere Rerank 3 (API gestionada) o `bge-reranker-v2-m3` (self-hosted).
+- **Latencia extrema (<50 ms)**: ColBERT, que pre-computa representaciones.
 
-Preserves sentence integrity and readability
-Natural semantic boundaries
-Better context preservation than fixed-size chunking
+### Flujo típico de dos etapas
 
-Disadvantages:
+```
+1. Dense/Hybrid retrieve top-50     → 10 ms
+2. Cross-encoder rerank top-50 → 5  → 150 ms
+3. LLM genera con 5 chunks           → 1500 ms
+                                     --------
+                             Total:    1660 ms
+```
 
-Variable chunk sizes may affect processing consistency
-Still may split related concepts across chunks
+## Ejemplo con código
 
-Paragraph-Based Chunking
-Groups content by paragraphs, which often represent coherent topics or ideas.
-
-Advantages:
-
-Respects natural content organization
-Maintains topical coherence
-Good for structured documents with clear sections
-
-Disadvantages:
-
-Highly variable chunk sizes
-May create very large or very small chunks
-Depends on document structure and formatting
-
-Semantic Chunking
-Advanced approach that groups content based on semantic similarity, ensuring related concepts stay together.
-
-Semantic Chunking Implementation
-
-Below example demonstrates how to use embeddings to group semantically related sentences, producing more coherent chunks for better retrieval.
+### Cross-encoder local con `sentence-transformers`
 
 ```python
+# pip install sentence-transformers
+from sentence_transformers import CrossEncoder
 
-from sentence_transformers import SentenceTransformer
+# Modelo ligero entrenado en MS MARCO (clásico, CPU-friendly)
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+query = "¿cómo cambio mi contraseña?"
+candidates = [
+    "Política de reembolsos en 30 días.",
+    "Para reiniciar tu contraseña ve a Ajustes > Seguridad.",
+    "Nuestro horario de atención es de 9 a 18 h.",
+    "Si olvidaste tu clave usa el enlace 'Recuperar acceso'.",
+    "La API expone el endpoint /auth/v2/token.",
+]
+
+# El cross-encoder recibe pares (query, doc)
+pairs = [(query, doc) for doc in candidates]
+scores = reranker.predict(pairs)
+
+reranked = sorted(zip(scores, candidates), key=lambda x: -x[0])
+for s, d in reranked:
+    print(f"{s:+.3f}  {d}")
+```
+
+### Pipeline completo: BM25 + dense + cross-encoder rerank
+
+```python
+from rank_bm25 import BM25Okapi
+from sentence_transformers import SentenceTransformer, CrossEncoder
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 
-def semantic_chunking(text, similarity_threshold=0.5):
-  """
-  Split text into semantically coherent chunks
+docs = [...]  # corpus grande
+bi_encoder   = SentenceTransformer("intfloat/multilingual-e5-base")
+cross_encoder = CrossEncoder("BAAI/bge-reranker-v2-m3")
 
-  similarity_threshold: How similar sentences need to be to group together (0-1)
-  Higher threshold = stricter grouping, more chunks
-  """
-  model = SentenceTransformer('all-MiniLM-L6-v2', local_files_only=True)
+# ---------- INDEXACIÓN (offline) ----------
+tokenized = [d.lower().split() for d in docs]
+bm25 = BM25Okapi(tokenized)
+doc_emb = bi_encoder.encode([f"passage: {d}" for d in docs],
+                            normalize_embeddings=True)
 
-  sentences = [s.strip() for s in text.split('.') if s.strip()]
-  embeddings = model.encode(sentences)
+# ---------- CONSULTA (online) ----------
+def retrieve_and_rerank(query, k_retrieve=50, k_final=5):
+    # 1) Sparse: BM25
+    bm25_scores = bm25.get_scores(query.lower().split())
+    bm25_top = np.argsort(bm25_scores)[-k_retrieve:]
 
-  chunks = []
-  current_chunk = [sentences[0]]
-  current_embedding = embeddings[0:1]
+    # 2) Dense
+    q_emb = bi_encoder.encode([f"query: {query}"], normalize_embeddings=True)
+    dense_scores = (q_emb @ doc_emb.T)[0]
+    dense_top = np.argsort(dense_scores)[-k_retrieve:]
 
-  for i in range(1, len(sentences)):
-      sentence_embedding = embeddings[i:i+1]
+    # 3) Unión de candidatos (RRF simplificado)
+    candidates = list(set(bm25_top) | set(dense_top))
 
-      # Calculate the "center" of current chunk's meaning
-      chunk_centroid = np.mean(current_embedding, axis=0).reshape(1, -1)
+    # 4) Rerank con cross-encoder
+    pairs = [(query, docs[i]) for i in candidates]
+    rerank_scores = cross_encoder.predict(pairs)
 
-      # Cosine similarity: 0 (completely different) to 1 (identical meaning)
-      similarity = cosine_similarity(sentence_embedding, chunk_centroid)[0][0]
+    best = sorted(zip(rerank_scores, candidates), key=lambda x: -x[0])[:k_final]
+    return [(float(s), docs[i]) for s, i in best]
 
-      if similarity >= similarity_threshold:
-          # Similar enough - add to current chunk
-          current_chunk.append(sentences[i])
-          current_embedding = np.vstack([current_embedding, sentence_embedding])
-      else:
-          # Too different - start new chunk
-          chunks.append('. '.join(current_chunk) + '.')
-          current_chunk = [sentences[i]]
-          current_embedding = sentence_embedding
-
-  if current_chunk:
-      chunks.append('. '.join(current_chunk) + '.')
-
-  return chunks
-
-# Test with mixed topics
-document = """
-Python is a high-level programming language. It emphasizes code readability and simplicity.
-Python supports multiple programming paradigms. Machine learning libraries like TensorFlow use Python.
-JavaScript runs in web browsers. It enables interactive web pages.
-Node.js allows JavaScript to run on servers.
-"""
-
-chunks = semantic_chunking(document, similarity_threshold=0.3)
-for i, chunk in enumerate(chunks):
-  print(f"Chunk {i+1}: {chunk}\n")
+for score, doc in retrieve_and_rerank("endpoint de autenticación"):
+    print(f"{score:+.2f}  {doc}")
 ```
 
-Key Learning Points:
-
-Uses embedding similarity to group related content
-Adapts to content structure automatically
-Produces more coherent chunks than fixed-size methods
-Try It: Experiment with different similarity thresholds to see how it affects chunk boundaries.
-
-Advantages:
-
-Groups semantically related content together
-Improves retrieval relevance by maintaining context
-Disadvantages:
-
-Computationally expensive due to embedding generation
-Requires careful parameter tuning
-Overlap Strategies
-
-Overlapping Chunks
-
-Below example shows how overlap ensures that concepts spanning chunk boundaries are preserved, improving retrieval recall.
+### Cohere Rerank (API gestionada)
 
 ```python
-def chunking_with_overlap(text, chunk_size=200, overlap_size=50):
-  """Create overlapping chunks to maintain context continuity"""
-  chunks = []
-  start = 0
+# pip install cohere
+import cohere
 
-  while start < len(text):
-      end = min(start + chunk_size, len(text))
-      chunk = text[start:end].strip()
+co = cohere.Client(api_key="...")
 
-      if chunk:
-          chunks.append(chunk)
-
-      start += chunk_size - overlap_size
-      if end >= len(text):
-          break
-
-  return chunks
-
-# Test with sample text
-sample_text = """
-Machine learning algorithms require large datasets for training. The quality of training data directly impacts model performance. Poor quality data leads to poor model predictions. Data preprocessing is essential for cleaning and preparing datasets.
-"""
-
-chunks = chunking_with_overlap(sample_text, chunk_size=150, overlap_size=40)
-print(f"Number of overlapping chunks: {len(chunks)}")
-for i, chunk in enumerate(chunks):
-  print(f"\nChunk {i+1}: {chunk}")
-```
-
-Key Learning Points:
-
-Preserves concepts that span chunk boundaries
-Improves retrieval recall for edge cases
-Trade-off: increases storage requirements
-Try It: Experiment with different overlap sizes to see their impact on chunk content.
-
-Indexing Optimization Techniques
-Efficient indexing is crucial for production RAG systems handling large document collections.
-
-Batch Processing
-Process documents in batches to improve efficiency and resource utilization: Batch Processing:
-
-```python
-# Process documents in batches for better performance
-def batch_indexing(documents, embedding_model, batch_size=32):
-  all_embeddings = []
-  for i in range(0, len(documents), batch_size):
-      batch = documents[i:i + batch_size]
-      batch_embeddings = embedding_model.encode(batch)
-      all_embeddings.extend(batch_embeddings)
-  return all_embeddings
-```
-
-Metadata Enhancement
-Metadata adds contextual information to chunks, enabling more precise retrieval and powerful filtering capabilities. Without metadata, you can only search by content similarity, but with metadata, you can combine semantic search with structured filtering.
-
-Why Metadata Matters:
-
-Precision: Filter results by document type, date, or section
-Context: Preserve document structure and source information
-User Control: Allow users to specify search constraints
-
-Metadata Enhancement Example:
-
-```python
-def create_enhanced_chunk(content, source_info, chunk_index):
-  """Create a chunk with comprehensive metadata"""
-  return {
-      'content': content,
-      'metadata': {
-          # Source information
-          'source_file': source_info['filename'],
-          'document_title': source_info['title'],
-          'document_type': source_info['type'],  # 'manual', 'faq', 'policy'
-          'created_date': source_info['date'],
-
-          # Chunk-specific data
-          'chunk_index': chunk_index,
-          'chunk_size': len(content),
-          'section': extract_section_from_content(content),
-
-          # Searchable attributes
-          'keywords': extract_keywords(content),
-          'language': 'en',
-          'category': determine_category(content)
-      }
-  }
-
-# Example usage
-chunk_with_metadata = create_enhanced_chunk(
-  content="Our refund policy allows returns within 30 days...",
-  source_info={
-      'filename': 'customer_policies.pdf',
-      'title': 'Customer Service Guidelines',
-      'type': 'policy',
-      'date': '2024-01-15'
-  },
-  chunk_index=5
+response = co.rerank(
+    model="rerank-multilingual-v3.0",
+    query="¿cómo integro OAuth2?",
+    documents=candidates,     # lista de strings o dicts con 'text'
+    top_n=5,
+    return_documents=True,
 )
+
+for r in response.results:
+    print(f"{r.relevance_score:.3f}  {r.document.text}")
 ```
 
-Filtering Examples:
+### ColBERT (late interaction) con RAGatouille
 
 ```python
-# Find only recent policy documents
-policy_chunks = [c for c in chunks if c['metadata']['document_type'] == 'policy'
-               and c['metadata']['created_date'] > '2024-01-01']
+# pip install ragatouille
+from ragatouille import RAGPretrainedModel
 
-# Search within specific document sections
-intro_chunks = [c for c in chunks if c['metadata']['section'] == 'Introduction']
+RAG = RAGPretrainedModel.from_pretrained("colbert-ir/colbertv2.0")
+RAG.index(collection=docs, index_name="mi_corpus")
+
+results = RAG.search(query="endpoint de autenticación", k=5)
+for r in results:
+    print(r["score"], r["content"][:120])
 ```
 
-Incremental Indexing
-In production systems, you often need to add new documents without rebuilding the entire index from scratch. Incremental indexing allows you to append new content efficiently while keeping existing embeddings intact.
+## Errores comunes
 
-Why Incremental Indexing Matters:
+- **Re-rankear demasiados candidatos.** Cada par cuesta 10-50 ms; con `k=500` tu latencia se dispara. Mantén `k_retrieve ≤ 100`.
+- **Re-rankear demasiado pocos.** Si pasas solo 5 candidatos al reranker, no puede corregir errores del retriever: el documento correcto podría no estar entre esos 5. Patrón habitual: 20-50 → 3-10.
+- **Truncar documentos largos sin estrategia.** Los cross-encoders tienen límite de tokens (512 clásico, 8192 para `bge-reranker-v2-m3`). Si truncas por la mitad, la respuesta puede quedar cortada. Usa chunks acordes al modelo.
+- **No normalizar los scores del reranker.** Son *logits*, no probabilidades. Convertir con sigmoid si necesitas umbral: `score = 1/(1+exp(-logit))`.
+- **Usar modelo monolingüe para corpus multilingüe.** `ms-marco-MiniLM` fue entrenado en inglés; con español degrada notablemente. Usa `bge-reranker-v2-m3`, Cohere multilingual o Jina multilingual.
+- **Mezclar scores de retriever y reranker.** No son comparables. Usa el score del reranker como ranking final; el del retriever solo para filtrar candidatos.
+- **No cachear.** Si la misma query se repite (dashboards, autocompletado), cachea los resultados del rerank: ahorra latencia y coste.
+- **Omitir el reranker "porque todavía responde bien".** En producción, la diferencia entre `NDCG@10 = 0.65` y `0.80` se traduce en satisfacción del usuario y menos alucinaciones del LLM.
 
-Performance: Avoid re-processing thousands of existing documents
-Cost: Save computational resources and embedding API calls
-Availability: Keep the system running while adding new content
-Incremental Indexing Implementation:
+## Resumen
 
-```python
-class IncrementalIndex:
-  def __init__(self, embedding_model):
-      self.embedding_model = embedding_model
-      self.chunks = []
-      self.embeddings = []
-      self.metadata = []
-
-  def add_document(self, document, source_info):
-      """Add new document to existing index without rebuilding"""
-      # Process only the new document
-      new_chunks = self._chunk_document(document, source_info)
-      new_embeddings = self.embedding_model.encode([c['content'] for c in new_chunks])
-
-      # Append to existing collections
-      self.chunks.extend(new_chunks)
-      self.embeddings.extend(new_embeddings)
-      self.metadata.extend([c['metadata'] for c in new_chunks])
-
-  def _chunk_document(self, document, source_info):
-      """Helper method to chunk and add metadata"""
-      # Use your preferred chunking strategy
-      chunks = paragraph_based_chunking(document)
-      return [{'content': chunk, 'metadata': source_info} for chunk in chunks]
-```
-
-Common Pitfalls
-Chunk Size Issues: Avoid chunks smaller than 100 words (lose context) or larger than 1000 words (dilute relevance). Aim for 200-500 words.
-
-Ignoring Document Structure: Blindly splitting text without considering semantic boundaries leads to fragmented chunks that hurt retrieval performance.
-
-No Overlap Strategy: Implement 10-20% overlap to ensure important information is not split across chunk boundaries.
-
-Missing Metadata: Always preserve document structure information (source, section, timestamp) in chunk metadata for better filtering and ranking.
-
-Summary
-Effective chunking and indexing form the foundation of successful RAG systems. The choice of chunking strategy depends on your document types, query patterns, and performance requirements. Semantic chunking provides the best retrieval accuracy but requires more computational resources, while simpler approaches like sentence-based chunking offer good performance with lower complexity.
-
-Indexing optimization techniques such as batch processing, metadata enhancement, and incremental updates enable production systems to handle large document collections efficiently while maintaining retrieval quality.
-
-Key concepts to remember
-Chunking strategy directly impacts retrieval accuracy and system performance
-Semantic chunking provides superior context preservation but requires more computational resources
-Metadata enhancement and overlap strategies improve retrieval precision and recall
-Production systems require careful consideration of memory management and processing efficiency
-
+- **Re-ranking** es la segunda etapa que reordena los candidatos del retriever con un modelo más caro y más preciso.
+- Los **cross-encoders** procesan `[query, doc]` juntos → mucha más precisión que los bi-encoders a costa de latencia.
+- Patrón estándar: **retrieve top-50 → rerank → top-5 al LLM**.
+- Modelos de referencia 2026: **Cohere Rerank 3** (API), **bge-reranker-v2-m3** (open source multilingüe), **Jina Reranker v2**, **ColBERTv2** (late interaction).
+- Añadir un reranker suele subir **10-30 puntos de NDCG@10** sin re-indexar nada: la mejora de mayor ROI en RAG.
+- Cuidado con límites de tokens, idioma del modelo, tamaño de `k_retrieve` y normalización de scores.
+- En la Lección 3 veremos cómo mejorar la **consulta** misma (HyDE, multi-query, MMR, metadata filtering).

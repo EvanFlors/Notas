@@ -1,354 +1,335 @@
-## The Anatomy of a Tool Schema
-Your agent has access to twenty tools, but it keeps calling the wrong ones. When asked to check test coverage, it calls the security scanner. When asked to post a comment, it calls the linter. The tools work perfectly in isolation—the problem is the agent cannot figure out which to use.
+# Anatomía de un Tool Schema
 
-The issue is almost always schema quality. Tool schemas are not just technical specifications; they are the instructions that guide model behavior. Vague descriptions, confusing parameter names, and missing context lead to unreliable tool selection.
+## ¿Qué es?
 
-In this lesson, you will learn how to craft schemas that enable accurate tool selection, reduce parameter errors, and make your agent's capabilities discoverable.
+Un **tool schema** es el **contrato** entre tu agente y una capacidad. Describe, en formato estructurado (JSON Schema), qué hace una función, qué recibe y qué devuelve. No es solo documentación técnica: es la **instrucción** que guía el comportamiento del modelo. El LLM decide **qué** herramienta usar y **con qué parámetros** basándose casi exclusivamente en el schema.
 
-By the end, you will understand that schema design is not an afterthought but a core skill for building reliable agents.
+Todo schema tiene tres componentes esenciales:
 
-Schema Components
-A tool schema is the contract between your agent and its capabilities. It tells the language model what a function does, what inputs it accepts, and what constraints apply. Well-designed schemas enable reliable tool use; poorly designed ones lead to confusion, errors, and frustrated debugging.
+1. **`name`**: identificador único, action-oriented (`get_pr_details`, no `process_data`).
+2. **`description`**: el componente más importante; explica qué hace, cuándo usarse, qué devuelve y limitaciones.
+3. **`parameters`** (o `input_schema` en Anthropic): JSON Schema con tipos, descripciones, enums y requeridos.
 
-Every tool schema has three essential components: a name, a description, and a parameter specification. Each component serves a distinct purpose in helping the model make good decisions.
+![Componentes de un tool schema](https://hrcdn.net/ai-engineering/module-4/light/tool-integration-lesson02-schema-anatomy.svg)
 
-The name should be clear, action-oriented, and follow consistent conventions. For a code review agent, names like ```get_pr_details```, ```analyze_code_security```, and ```post_review_comment``` immediately convey purpose. Avoid vague names like ```process_data``` or ```do_action``` that force the model to rely entirely on descriptions.
+## ¿Por qué importa?
 
-Naming conventions matter for consistency. Choose a style and stick with it: snake_case or camelCase, verb-first or noun-first. A code review agent might use verb_noun format: ```get_pr_details```, ```check_test_coverage```, ```add_pr_comment```. Consistency helps the model recognize patterns and select appropriate tools.
+Un error muy frecuente al construir agentes: *"mi agente tiene 20 herramientas y siempre llama la equivocada"*. En el 90% de los casos **el problema no son las herramientas, es el schema**.
 
-The description is the most important part of the schema. The model decides whether to use a tool based almost entirely on its description. A good description explains:
+Descripciones vagas, nombres ambiguos y parámetros mal tipados producen:
 
-What the function does in concrete terms
-When the function should be used (and when it should not)
-What the function returns
-Any important context or constraints
-Compare these descriptions for a security scanning tool:
+- **Selección errónea de tools:** confusión entre `analyze_security` y `analyze_quality`.
+- **Alucinación de parámetros:** el modelo inventa valores porque no sabe qué enums aceptas.
+- **Loops:** el modelo reintenta porque no entiende qué devolvió la función.
+- **Deuda técnica invisible:** cada nuevo tool mal descrito empeora al resto por **tool explosion**.
 
-Poor: "Scans code for issues"
+Un schema bien escrito **reduce costos** (menos iteraciones), **mejora reliability** y es más barato que hacer fine-tuning.
 
-Good: "Analyzes source code files for security vulnerabilities including SQL injection, XSS, and authentication flaws. Use this after retrieving PR details to identify security issues that should block merge. Returns a list of vulnerabilities with severity, line numbers, and remediation suggestions. Only scans files included in the PR diff."
+### Lo que la industria aprendió
 
-The good description tells the model exactly what the tool does, when to use it in the workflow, what it returns, and what its scope is. This specificity guides correct usage.
+- **OpenAI function calling** (jun 2023) usa JSON Schema estándar.
+- **Anthropic tool use** (may 2024) también adopta JSON Schema bajo la clave `input_schema`.
+- **Pydantic** se volvió el estándar de facto en Python para generar schemas automáticamente (`model.model_json_schema()`).
+- **LangChain**, **LlamaIndex** y **MCP** proveen abstracciones que convierten funciones Python en schemas con decoradores.
 
-The parameter specification defines what inputs the function accepts. Each parameter needs a type, description, and indication of whether it is required. Optional parameters should have sensible defaults documented.
+## ¿Cómo funciona?
+
+### Nombres descriptivos
+
+Elige una convención y mantenla:
+
+- **`verb_noun`** (`get_pr_details`, `check_test_coverage`, `post_review_comment`).
+- Evita palabras vacías: `process`, `handle`, `do_action`, `manage`.
+- Snake_case consistente (OpenAI y Anthropic lo esperan).
+- Prefijos por dominio si tienes muchas tools (`github_get_pr`, `jira_create_ticket`).
+
+| Nombre pobre | Nombre bueno |
+|---|---|
+| `data` | `fetch_customer_record` |
+| `check` | `check_test_coverage` |
+| `send` | `send_email_to_user` |
+| `getStuff` | `get_pending_orders` |
+
+### Descripciones efectivas
+
+La descripción debe responder cuatro preguntas:
+
+1. **Qué hace** la función en términos concretos.
+2. **Cuándo usarla** (y cuándo no).
+3. **Qué devuelve** (formato y campos).
+4. **Limitaciones** y constraints.
+
+Compara:
+
+> **Mala:** "Escanea código buscando problemas."
+>
+> **Buena:** "Analiza archivos de código fuente en busca de vulnerabilidades de seguridad incluyendo SQL injection, XSS y fallas de autenticación. Úsala después de `get_pr_details` para identificar issues que deberían bloquear el merge. Devuelve una lista de vulnerabilidades con `severity`, `file`, `line` y `remediation`. Solo escanea archivos Python y JavaScript, máximo 50 archivos por llamada."
+
+### JSON Schema para parámetros
+
+El estándar que usan los tres providers es **JSON Schema Draft-7** (OpenAI, Anthropic) o un subset tipo OpenAPI (Gemini). Tipos soportados:
+
+| Tipo | Uso | Ejemplo |
+|---|---|---|
+| `string` | Texto | `"CDMX"` |
+| `integer` | Enteros | `1247` |
+| `number` | Float | `0.8` |
+| `boolean` | True/False | `true` |
+| `array` | Lista con `items` | `["a.py", "b.py"]` |
+| `object` | Diccionario con `properties` | `{"k": "v"}` |
+| `enum` | Valores restringidos | `["low", "med", "high"]` |
+
+Ejemplo completo:
 
 ```json
 {
-"name": "analyze_code_security",
-"description": "Analyzes source code files for security vulnerabilities...",
-"parameters": {
-  "type": "object",
-  "properties": {
-    "pr_number": {
-      "type": "integer",
-      "description": "The pull request number to analyze"
+  "name": "search_db",
+  "description": "Busca registros en la base de datos de clientes...",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Término de búsqueda. Mínimo 3 caracteres."
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Máximo de resultados. Default: 10, máximo: 100.",
+        "minimum": 1,
+        "maximum": 100
+      },
+      "status": {
+        "type": "string",
+        "enum": ["active", "inactive", "pending"],
+        "description": "Filtra por estado. Default: active."
+      }
     },
-    "file_paths": {
-      "type": "array",
-      "items": {"type": "string"},
-      "description": "Specific files to scan. If omitted, scans all changed files in the PR"
-    },
-    "severity_threshold": {
-      "type": "string",
-      "enum": ["low", "medium", "high", "critical"],
-      "description": "Minimum severity to report. Default: 'medium'"
-    },
-    "categories": {
-      "type": "array",
-      "items": {"type": "string", "enum": ["injection", "auth", "crypto", "xss", "config"]},
-      "description": "Vulnerability categories to check. Default: all categories"
-    }
-  },
-  "required": ["pr_number"]
-}
+    "required": ["query"]
+  }
 }
 ```
 
-This schema provides clear types, helpful descriptions for each parameter, enumerates valid values where applicable, and distinguishes required from optional parameters.
+### Patrones de diseño de parámetros
 
-![The three essential components of a tool schema](https://hrcdn.net/ai-engineering/module-4/light/tool-integration-lesson02-schema-anatomy.svg)
+- **Usa `enum` para valores restringidos.** Evita que el modelo invente `"HIGH"` cuando esperas `"high"`.
+- **Minimiza `required`.** Solo exige lo que no puedes defaultear; el modelo llama más fácilmente cuando puede omitir campos.
+- **Documenta defaults en la description** (JSON Schema no tiene un campo `default` que el modelo siempre respete).
+- **Un tipo claro por parámetro.** `pr_number` debe ser `integer`, nunca `string` ambiguo que acepte `"PR-1247"` o `"#1247"`.
+- **Nested objects para configuración compleja**, en vez de 15 flags planos.
+- **Arrays con `items` tipados** para listas.
 
-Writing Effective Descriptions
-Descriptions are where most schema quality issues arise. The model cannot read your code or understand your system architecture—it only knows what the description tells it. Invest time in writing descriptions that leave no ambiguity.
+![Patrones de diseño de parámetros](https://hrcdn.net/ai-engineering/module-4/light/tool-integration-lesson02-param-patterns.svg)
 
-Be specific about purpose. Instead of "Gets PR information," write "Retrieves metadata for a pull request including title, author, branch names, approval status, CI check results, and list of changed files. Use this as the first step when reviewing a PR to understand its scope."
+### Return format consistente
 
-Explain the context of use. When should this tool be called? What should happen before and after? "Call this after get_pr_details to analyze security in the changed files. The results should be included in the review summary."
-
-Describe the output format. What does the function return? "Returns a JSON object with 'vulnerabilities' array containing objects with 'severity', 'file', 'line', 'type', and 'description' fields. Returns empty array if no issues found."
-
-Note limitations and constraints. What can the tool not do? "Only analyzes Python and JavaScript files. Maximum 50 files per scan. Large files over 10,000 lines are truncated."
-
-Include examples when helpful. For complex parameters, show example values: "file_paths accepts glob patterns like 'src/*.py' or specific paths like 'auth/handler.py'"
-
-Here is a complete example of a well-documented tool:
-
-```json
-{
-"name": "check_test_coverage",
-"description": "Calculates test coverage for files changed in a pull request. Use this to verify that new or modified code has adequate test coverage before approving a PR. Returns coverage percentage per file and identifies untested functions. Requires the repository to have a configured test suite. Coverage below 80% should be flagged for review.",
-"parameters": {
-  "type": "object",
-  "properties": {
-    "pr_number": {
-      "type": "integer",
-      "description": "The pull request number to check coverage for"
-    },
-    "coverage_threshold": {
-      "type": "number",
-      "description": "Minimum acceptable coverage percentage (0-100). Default: 80. Files below this threshold are flagged."
-    },
-    "include_existing": {
-      "type": "boolean",
-      "description": "Whether to include coverage for unchanged lines in modified files. Default: false (only checks new/changed lines)"
-    }
-  },
-  "required": ["pr_number"]
-}
-}
-```
-
-This description tells the model everything it needs to use the tool correctly: what it does, when to use it, what it returns, prerequisites, and how to interpret results.
-
-Parameter Design Patterns
-How you structure parameters affects both usability and reliability. Several patterns help you design parameters that work well with LLM function calling.
-
-Use enums for constrained values. When a parameter has a fixed set of valid values, enumerate them. This prevents the model from inventing invalid options and provides clear guidance on available choices.
-
-```json
-{
-"merge_method": {
-  "type": "string",
-  "enum": ["merge", "squash", "rebase"],
-  "description": "How to merge the PR. 'squash' combines commits, 'rebase' maintains linear history"
-}
-}
-```
-
-Provide sensible defaults. Optional parameters should have defaults that work for common cases. Document the default in the description so the model knows what happens when it omits the parameter.
-
-
-```json
-{
-"severity_threshold": {
-  "type": "string",
-  "enum": ["low", "medium", "high", "critical"],
-  "description": "Minimum severity to report. Default: 'medium'. Use 'low' for thorough audits, 'critical' for quick checks"
-}
-}
-```
-
-Use objects for complex inputs. When you need structured data, use nested objects rather than multiple flat parameters or encoded strings.
-
-```json
-{
-"review_config": {
-  "type": "object",
-  "properties": {
-    "check_security": {"type": "boolean"},
-    "check_style": {"type": "boolean"},
-    "check_coverage": {"type": "boolean"},
-    "min_coverage": {"type": "number"}
-  },
-  "description": "Configuration for what aspects to review"
-}
-}
-```
-
-Use arrays for multiple items. When the model needs to specify multiple values, use arrays with item schemas.
-
-```json
-{
-"file_paths": {
-  "type": "array",
-  "items": {"type": "string"},
-  "description": "List of file paths to analyze, e.g., ['src/auth.py', 'src/handlers/*.py']"
-}
-}
-```
-
-Avoid ambiguous types. If a parameter could reasonably be multiple types, pick one and document it clearly. "pr_number" should be an integer, not a string that might contain "PR-1247" or "#1247" or just "1247".
-
-Keep required parameters minimal. Only mark parameters as required if the function truly cannot operate without them. More optional parameters with good defaults means the model can call the function with less information while still getting useful results.
-
-![Parameter design patterns for reliable function calling](https://hrcdn.net/ai-engineering/module-4/light/tool-integration-lesson02-param-patterns.svg)
-
-Schema Composition and Reuse
-As you build more tools for your code review agent, you will notice common patterns. Similar parameters appear across multiple tools: pr_number, file_paths, severity levels. Schema composition helps you maintain consistency and reduce duplication.
-
-Define common parameter patterns. Create templates for frequently used parameters:
+El modelo también lee los resultados. Mantén la **misma forma** para todas tus tools:
 
 ```python
-PR_NUMBER_PARAM = {
-  "type": "integer",
-  "description": "The pull request number"
-}
+def tool_result(success: bool, data=None, error=None, summary=None):
+    return {
+        "success": success,
+        "data": data,
+        "error": error,
+        "summary": summary,  # breve, para que el modelo no reprocese todo
+    }
+```
 
-FILE_PATHS_PARAM = {
-  "type": "array",
-  "items": {"type": "string"},
-  "description": "File paths to operate on. Supports glob patterns like 'src/*.py'"
-}
+Así el modelo aprende el patrón y navega los resultados con mucha menos fricción.
+
+### Composición y reuso
+
+Define parámetros comunes como constantes y compón schemas:
+
+```python
+PR_NUMBER_PARAM = {"type": "integer", "description": "Número del pull request"}
 
 SEVERITY_PARAM = {
-  "type": "string",
-  "enum": ["low", "medium", "high", "critical"],
-  "description": "Severity level threshold"
+    "type": "string",
+    "enum": ["low", "medium", "high", "critical"],
+    "description": "Umbral mínimo de severidad. Default: medium.",
+}
+
+def make_tool(name, description, params, required):
+    return {
+        "name": name,
+        "description": description,
+        "parameters": {"type": "object", "properties": params, "required": required},
+    }
+```
+
+## Ejemplo con código
+
+### Definir tres herramientas (get_weather, search_db, send_email)
+
+```python
+tools = [
+    {
+        "name": "get_weather",
+        "description": (
+            "Obtiene el clima actual para una ciudad. Devuelve un objeto "
+            "con 'temp_c' (float), 'condition' (string) y 'humidity' (int 0-100). "
+            "Úsala cuando el usuario pregunte por clima, temperatura o lluvia. "
+            "No soporta pronósticos a más de 24h."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "description": "Nombre de la ciudad en inglés, ej. 'Mexico City'",
+                },
+                "units": {
+                    "type": "string",
+                    "enum": ["celsius", "fahrenheit"],
+                    "description": "Unidades. Default: celsius",
+                },
+            },
+            "required": ["city"],
+        },
+    },
+    {
+        "name": "search_db",
+        "description": (
+            "Busca clientes en la base de datos interna por nombre, email o ID. "
+            "Devuelve una lista de objetos cliente con 'id', 'name', 'email', 'tier'. "
+            "Úsala antes de operaciones que requieran el customer_id. Máximo 50 resultados."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Término de búsqueda (min 3 chars)"},
+                "field": {
+                    "type": "string",
+                    "enum": ["name", "email", "id"],
+                    "description": "Campo donde buscar. Default: name",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Máx. resultados (1-50). Default: 10",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "send_email",
+        "description": (
+            "Envía un email transaccional a un cliente. Devuelve "
+            "{'sent': bool, 'message_id': str}. Úsala solo tras confirmar "
+            "la acción con el usuario; tiene efectos externos irreversibles."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "to": {"type": "string", "description": "Email del destinatario"},
+                "subject": {"type": "string", "description": "Asunto, máx. 120 chars"},
+                "body": {"type": "string", "description": "Cuerpo en Markdown"},
+                "priority": {
+                    "type": "string",
+                    "enum": ["low", "normal", "high"],
+                    "description": "Prioridad. Default: normal",
+                },
+            },
+            "required": ["to", "subject", "body"],
+        },
+    },
+]
+```
+
+### Generar schemas desde Pydantic
+
+Escribir JSON a mano es tedioso y propenso a errores. **Pydantic** convierte modelos Python en JSON Schema:
+
+```python
+from pydantic import BaseModel, Field
+from typing import Literal
+
+class GetWeatherArgs(BaseModel):
+    """Obtiene el clima para una ciudad."""
+    city: str = Field(..., description="Nombre en inglés, ej. 'Mexico City'")
+    units: Literal["celsius", "fahrenheit"] = Field(
+        "celsius", description="Unidades. Default: celsius"
+    )
+
+schema = {
+    "name": "get_weather",
+    "description": GetWeatherArgs.__doc__.strip(),
+    "input_schema": GetWeatherArgs.model_json_schema(),
 }
 ```
 
-Then compose schemas using these building blocks:
+Librerías como **LangChain** (`@tool` decorator), **Instructor** o **Marvin** automatizan esto.
 
-```python
-def create_tool_schema(name, description, params, required):
-  return {
-      "name": name,
-      "description": description,
-      "parameters": {
-          "type": "object",
-          "properties": params,
-          "required": required
-      }
-  }
-
-security_scan_schema = create_tool_schema(
-  name="analyze_code_security",
-  description="Scans code for security vulnerabilities...",
-  params={
-      "pr_number": PR_NUMBER_PARAM,
-      "file_paths": FILE_PATHS_PARAM,
-      "severity_threshold": SEVERITY_PARAM
-  },
-  required=["pr_number"]
-)
-```
-
-Maintain a schema registry. As your tool count grows, centralize schema definitions. This makes it easy to update common patterns, ensures consistency, and provides a single source of truth for available tools.
-
-```python
-class ToolRegistry:
-  def __init__(self):
-      self.tools = {}
-
-  def register(self, schema):
-      self.tools[schema["name"]] = schema
-
-  def get_schemas_for_task(self, task_type):
-      # Return relevant tools based on task
-      if task_type == "security_review":
-          return [self.tools["get_pr_details"],
-                  self.tools["analyze_code_security"],
-                  self.tools["post_review_comment"]]
-      # ... other task types
-
-  def all_schemas(self):
-      return list(self.tools.values())
-```
-
-Version your schemas. When you modify a tool's parameters, existing agents might break. Consider versioning strategies: ```analyze_code_security_v2``` alongside the original, or tracking schema versions in metadata.
-
-Testing and Validating Schemas
-Schemas require testing just like code. A schema that looks correct might cause unexpected model behavior in practice. Several testing strategies help ensure schema quality.
-
-Validate schema syntax. Use JSON Schema validators to catch structural errors before runtime. Invalid schemas cause hard-to-debug failures.
+### Validación de schemas y argumentos
 
 ```python
 import jsonschema
 
 def validate_tool_schema(schema):
-  # Validate the schema structure itself
-  meta_schema = {
-      "type": "object",
-      "required": ["name", "description", "parameters"],
-      "properties": {
-          "name": {"type": "string"},
-          "description": {"type": "string"},
-          "parameters": {"type": "object"}
-      }
-  }
-  jsonschema.validate(schema, meta_schema)
+    meta = {
+        "type": "object",
+        "required": ["name", "description", "input_schema"],
+        "properties": {
+            "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+            "description": {"type": "string", "minLength": 20},
+            "input_schema": {"type": "object"},
+        },
+    }
+    jsonschema.validate(schema, meta)
+    jsonschema.Draft7Validator.check_schema(schema["input_schema"])
 
-  # Validate parameter schema is valid JSON Schema
-  jsonschema.Draft7Validator.check_schema(schema["parameters"])
+def execute_tool(name, args, schemas, impls):
+    try:
+        jsonschema.validate(args, schemas[name]["input_schema"])
+    except jsonschema.ValidationError as e:
+        return {"success": False, "error": f"Invalid arguments: {e.message}"}
+    return impls[name](**args)
 ```
 
-Test model comprehension. Give the model scenarios and check if it selects the right tool with correct parameters. Create test cases for each tool:
+### Registro central de tools
 
 ```python
-def test_security_scan_selection():
-  response = call_model_with_tools(
-      message="Check PR 1247 for SQL injection vulnerabilities",
-      tools=[security_scan_schema, coverage_schema, comment_schema]
-  )
+class ToolRegistry:
+    def __init__(self):
+        self.tools: dict[str, dict] = {}
+        self.impls: dict[str, callable] = {}
 
-  assert response.tool_name == "analyze_code_security"
-  assert response.arguments["pr_number"] == 1247
-  assert "injection" in response.arguments.get("categories", [])
+    def register(self, schema: dict, impl: callable):
+        validate_tool_schema(schema)
+        self.tools[schema["name"]] = schema
+        self.impls[schema["name"]] = impl
+
+    def for_task(self, task: str) -> list[dict]:
+        presets = {
+            "review": ["get_pr_details", "analyze_code_security", "post_review_comment"],
+            "support": ["search_db", "send_email"],
+        }
+        return [self.tools[n] for n in presets.get(task, self.tools.keys())]
 ```
 
-Test edge cases. What happens with ambiguous requests? Missing information? Conflicting instructions?
+Exponer **menos tools por sesión** reduce la tasa de errores de selección drásticamente.
 
-```python
-def test_ambiguous_request():
-  # Model should ask for clarification or use defaults, not hallucinate
-  response = call_model_with_tools(
-      message="Review the latest PR",  # No PR number specified
-      tools=[get_pr_details_schema]
-  )
+## Errores comunes
 
-  # Model should either ask for PR number or not call the function
-  assert response.tool_name is None or "which PR" in response.content.lower()
-```
+- **Descripciones vagas.** `"Maneja operaciones de PR"` no le dice nada al modelo. Sé específico: qué, cuándo, qué devuelve, límites.
+- **No validar argumentos (type coercion).** Confiar en que el modelo mandó un `int` y crashear cuando mandó `"1247"`. Siempre valida con JSON Schema o Pydantic.
+- **Tools con side effects sin confirmación.** `delete_user`, `send_email`, `charge_payment` no deberían ejecutarse sin un paso explícito de confirmación humana (human-in-the-loop) o guardrails.
+- **Tool explosion.** 40 herramientas confunden al modelo. Agrupa por tareas y expón subconjuntos relevantes.
+- **Nombres inconsistentes.** `pr_number` en una tool y `pull_request_id` en otra para el mismo concepto. El modelo no detecta equivalencia.
+- **Faltan `enum` donde los valores son fijos.** El modelo inventará `"HIGH"`, `"H"`, `"severe"` si no restringes.
+- **Defaults no documentados.** Si `limit` default es 10, dilo en la description; JSON Schema `default` no siempre llega al modelo.
+- **No describir el formato de retorno.** Si no documentas que `search_db` devuelve `[{"id", "name"}, ...]`, el modelo adivinará campos.
+- **Descripciones que repiten el nombre.** `"get_weather: gets the weather"` no agrega valor. Describe el comportamiento, no reempaquetes el identificador.
+- **Over-specification.** No conviertas la description en una novela de 1000 tokens; cada tool compite por atención y tokens de system prompt.
 
-Test description clarity. If the model consistently misuses a tool, the description likely needs improvement. Track tool selection accuracy and iterate on descriptions for problematic tools.
+## Resumen
 
-Validate at runtime. Even with good schemas, validate actual arguments before execution:
-
-```python
-def execute_tool(tool_name, arguments, schemas):
-  schema = schemas[tool_name]
-
-  # Validate arguments against parameter schema
-  try:
-      jsonschema.validate(arguments, schema["parameters"])
-  except jsonschema.ValidationError as e:
-      return {"error": f"Invalid arguments: {e.message}"}
-
-  # Execute the actual function
-  return tool_implementations[tool_name](**arguments)
-```
-
-Common Schema Mistakes
-Learning from common mistakes helps you avoid them in your own schemas.
-
-Vague descriptions lead to misuse. "Handles PR operations" tells the model nothing. Be specific about what the function does, when to use it, and what it returns.
-
-Missing context causes selection errors. If you have both ```get_pr_comments``` and ```get_review_comments```, explain the difference. "Review comments are feedback on code changes; PR comments are general discussion on the pull request."
-
-Overly complex parameters confuse the model. If a parameter requires extensive explanation, consider splitting the function or simplifying the interface. A function with 15 parameters is harder to use correctly than three focused functions.
-
-Inconsistent naming creates confusion. If one function uses ```pr_number``` and another uses ```pull_request_id``` for the same concept, the model might not recognize they are equivalent.
-
-Missing enums for constrained values let the model invent invalid options. If only "merge", "squash", and "rebase" are valid, enumerate them rather than accepting any string.
-
-Undocumented defaults leave the model guessing. If ```severity_threshold``` defaults to "medium", say so explicitly. The model cannot read your implementation.
-
-No return value documentation makes it hard for the model to use results. If the function returns structured data, describe the format so the model knows how to interpret and use it.
-
-Investing in schema quality pays dividends in agent reliability. Well-designed schemas reduce debugging time, improve model accuracy, and make your agent system more maintainable.
-
-Summary
-Tool schemas are contracts that define how agents interact with functions. Effective schemas have clear names, detailed descriptions, and well-typed parameters. The description is most critical—it determines whether the model uses the tool correctly.
-
-Parameter design should use enums for constrained values, provide sensible defaults, and keep required parameters minimal. Schema composition and registries help maintain consistency as your tool count grows.
-
-Testing schemas includes syntax validation, model comprehension testing, edge case handling, and runtime argument validation. Common mistakes include vague descriptions, missing context, overly complex parameters, and inconsistent naming.
-
-Key Takeaways:
-
-Descriptions are the most important part of schemas—they guide model behavior more than names or types
-Be specific about what functions do, when to use them, what they return, and their limitations
-Use enums for constrained values and document defaults for optional parameters
-Compose schemas from common building blocks for consistency across tools
-Test that models select correct tools and provide valid parameters for various scenarios
-Validate arguments at runtime even with well-designed schemas
+- Un **tool schema** es el contrato que guía al modelo en la selección y parametrización de herramientas.
+- Los tres componentes clave son **name** (claro, action-oriented), **description** (lo más importante) y **parameters** (JSON Schema).
+- La **description** debe cubrir qué hace, cuándo usarse, qué devuelve y limitaciones; es la variable con mayor impacto en reliability.
+- Diseña parámetros con **enums** para valores restringidos, **defaults documentados** y **tipos sin ambigüedad**; mantén los `required` al mínimo.
+- Usa **Pydantic** o `@tool` decorators de LangChain para generar schemas automáticamente desde Python.
+- Mantén un **return format consistente** (`{"success", "data", "error", "summary"}`) para que el modelo aprenda el patrón.
+- Centraliza en un **ToolRegistry** y expón **subconjuntos por tarea** para evitar tool explosion.
+- Valida **estructuralmente** los schemas (con `jsonschema`) y **runtime** los argumentos antes de ejecutar.
+- Los errores de selección casi siempre se arreglan mejorando descripciones, no reentrenando modelos.

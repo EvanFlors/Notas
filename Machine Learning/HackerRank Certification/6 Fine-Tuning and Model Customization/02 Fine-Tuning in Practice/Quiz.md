@@ -1,65 +1,88 @@
-## Quiz: Fine-Tuning in Practice
+# Quiz: Fine-Tuning en la Práctica
 
-Fine-Tuning in Practice
-You are fine-tuning a 7B language model for a customer support chatbot. You have a dataset of 2,000 support interactions, need to train on a 16GB GPU, and want to achieve 90% accuracy on support ticket classification and response generation.
+**Contexto del escenario:** estás fine-tuneando un modelo de lenguaje de 7B parámetros para un chatbot de soporte al cliente. Dispones de 2,000 interacciones de soporte, debes entrenar en una GPU de 16 GB y buscas al menos 90% de accuracy tanto en clasificación de tickets como en generación de respuestas.
 
+---
 
-Your chatbot needs to handle varied user instructions (classify tickets, generate responses, extract information). Which tuning approach should you use?
+## Pregunta 1
 
-Completion tuning - it's more efficient
+Tu chatbot debe manejar instrucciones variadas de los usuarios (clasificar tickets, generar respuestas, extraer información). ¿Qué enfoque de tuning debes usar?
 
-Instruction tuning - it teaches models to follow varied instructions
+- Completion tuning: es más eficiente
+- **Instruction tuning: enseña al modelo a seguir instrucciones variadas** ✅
+- Cualquiera funciona igual de bien
+- Sólo full fine-tuning: los adapters no bastan
 
-Either works equally well
+**Explicación:** instruction tuning entrena al modelo a interpretar y seguir instrucciones variadas, lo que lo hace adecuado para aplicaciones interactivas que manejan múltiples tipos de tarea en una misma interfaz. El formato recomendado es `{messages: [{role, content}, ...]}` con el chat template del modelo base (Llama 3, ChatML, etc.) y máscara de loss sobre los tokens del `assistant` únicamente. Completion tuning se queda corto porque no generaliza ante reformulaciones del usuario; full fine-tuning sería innecesariamente caro para esta tarea cuando LoRA logra 95-99% de la calidad con 10-100× menos memoria.
 
-Full fine-tuning only - adapters are insufficient
-Correct Answer!
-Instruction tuning teaches models to interpret and follow varied instructions, making it suitable for interactive applications that handle multiple task types.
+---
 
-You have 2,000 examples for a chatbot that handles classification and generation. Is this sufficient?
+## Pregunta 2
 
-Yes, 2,000 is more than enough for any task
+Tienes 2,000 ejemplos para un chatbot que maneja clasificación y generación. ¿Es suficiente?
 
-Yes, 2,000 is sufficient for moderate complexity tasks like chatbots
+- Sí, 2,000 son más que suficientes para cualquier tarea
+- **Sí, 2,000 son suficientes para tareas de complejidad moderada como chatbots** ✅
+- No, necesitas al menos 10,000 ejemplos
+- No, necesitas al menos 50,000 ejemplos
 
-No, you need at least 10,000 examples
+**Explicación:** el rango típico para instruction tuning de complejidad moderada (clasificación + generación en un dominio acotado) es **2,000-5,000 ejemplos de alta calidad**. Con menos de 500 corres riesgo de underfitting; más de 10,000 rinde retornos decrecientes salvo para tareas muy abiertas. La **calidad y diversidad** importan más que el volumen: 2,000 ejemplos balanceados por categoría, con cobertura de edge cases y 90%+ de calidad, superan a 10,000 ejemplos sucios y desbalanceados. Si identificas gaps de cobertura, complétalos con 20-30% de datos sintéticos validados.
 
-No, you need at least 50,000 examples
-Correct Answer!
-2,000 examples is within the typical range (2,000-5,000) for moderate complexity tasks like chatbots that handle classification and generation.
+---
 
-You have a 16GB GPU and want to fine-tune a 7B model. Should you use LoRA or QLoRA?
+## Pregunta 3
 
-QLoRA - 16GB is not enough for LoRA
+Tienes una GPU de 16 GB y quieres fine-tunear un modelo 7B. ¿Deberías usar LoRA o QLoRA?
 
-LoRA - 16GB is sufficient and provides better quality
+- QLoRA: 16 GB no alcanza para LoRA
+- **LoRA: 16 GB es suficiente y da mejor calidad** ✅
+- QLoRA: siempre es mejor
+- Full fine-tuning: los adapters no bastan
 
-QLoRA - it's always better
+**Explicación:** LoRA sobre un 7B en `bf16` consume aproximadamente **14-18 GB** de VRAM con `gradient_checkpointing` activo y batch pequeño con acumulación — justo en el presupuesto de una GPU de 16 GB (RTX 3090/4090, A4000, Colab A100). Mantiene **precisión completa** del modelo base y evita el 1-3% de pérdida de calidad que introduce la cuantización 4-bit de QLoRA. QLoRA sería la elección si bajaras a 8 GB o si quisieras fine-tunear 13B+ en el mismo hardware. Full fine-tuning de un 7B requiere 80-100 GB, imposible en 16 GB.
 
-Full fine-tuning - adapters are insufficient
-Correct Answer!
-LoRA works on 16GB GPUs for 7B models and maintains full precision, providing better quality than QLoRA's 4-bit quantization.
+---
 
-What LoRA configuration is appropriate for a moderate complexity chatbot task?
+## Pregunta 4
 
-r=4, alpha=8, target only q_proj
+¿Qué configuración de LoRA es apropiada para una tarea de chatbot de complejidad moderada?
 
-r=16, alpha=32, target q_proj and v_proj
+- `r=4, alpha=8`, sólo `q_proj`
+- **`r=16, alpha=32`, `q_proj` y `v_proj`** ✅
+- `r=128, alpha=256`, todas las capas lineales
+- `r=8, alpha=8`, sólo `v_proj`
 
-r=128, alpha=256, target all linear layers
+**Explicación:** `r=16` con `lora_alpha=32` (regla `alpha = 2·r`) es el default estándar para tareas de complejidad moderada: suficiente capacidad para aprender patrones variados sin sobre-parametrizar. Target modules `q_proj + v_proj` es el mínimo útil para atención; una mejora frecuente es extender a `q_proj, k_proj, v_proj, o_proj` para capacidad adicional sin coste significativo. Con `r=4` apenas captas señal (underfitting); con `r=128` sobre todas las capas lineales sobre-parametrizas, aumentas riesgo de overfitting y pierdes velocidad. Para esta configuración se entrenan ~0.1% de los parámetros totales (~8M sobre 7B).
 
-r=8, alpha=8, target only v_proj
-Correct Answer!
-r=16 with alpha=32 is a standard configuration for moderate complexity tasks. Targeting q_proj and v_proj provides good capacity without overfitting.
+---
 
-During training, you observe that training loss decreases steadily but validation loss increases after epoch 2. What is happening?
+## Pregunta 5
 
-The model is learning well - continue training
+Durante el entrenamiento observas que la training loss baja de forma estable pero la validation loss aumenta después de la época 2. ¿Qué está ocurriendo?
 
-The model is overfitting - increase dropout or reduce capacity
+- El modelo aprende bien, continúa entrenando
+- **El modelo está sobreajustando (overfitting): aumenta dropout o reduce capacidad** ✅
+- El modelo está subajustando: aumenta capacidad
+- El entrenamiento es inestable: reduce el learning rate
 
-The model is underfitting - increase capacity
+**Explicación:** este patrón — `train_loss` ↓ mientras `val_loss` ↑ — es la **firma clásica del overfitting**: el modelo memoriza patrones específicos del training set que no generalizan al validation set. Las correcciones estándar son:
 
-Training is unstable - reduce learning rate
-Correct Answer!
-This is classic overfitting: the model memorizes training data (decreasing train loss) but fails to generalize (increasing val loss). Fix with increased dropout, reduced LoRA rank, or regularization.
+- Aumentar `lora_dropout` de 0.05 a 0.15.
+- Reducir `r` (ej. de 16 a 8).
+- Reducir `num_train_epochs` o activar `EarlyStoppingCallback(early_stopping_patience=3)` con `load_best_model_at_end=True`.
+- Añadir `weight_decay=0.01`.
+- Verificar que el dataset no tenga duplicados ni leaks entre train y val.
+
+Si en cambio **ambas** losses fueran altas y planas, sería underfitting (fix: más rank, más target modules, más epochs). Si la curva fuera errática con spikes, sería inestabilidad (fix: bajar LR 10×, warmup, gradient clipping).
+
+---
+
+## Resumen de conceptos clave
+
+- **Instruction vs completion tuning:** elige según interactividad y variedad de tareas.
+- **Tamaño del dataset:** 2,000-5,000 ejemplos de calidad para complejidad moderada; prioriza calidad sobre volumen.
+- **LoRA vs QLoRA:** LoRA en 16 GB+, QLoRA en 8 GB con 1-3% pérdida.
+- **Config LoRA default:** `r=16, alpha=32, dropout=0.05, q/k/v/o`, `lr=2e-4`.
+- **Lectura de curvas:** overfitting (val ↑), underfitting (ambas altas), instability (varianza), convergence (plateau).
+- **Fixes rápidos:** overfitting → dropout + menos rank; underfitting → más rank + all-linear; inestabilidad → LR 10× menor + clipping + warmup.
+- **Monitoreo:** W&B/TensorBoard siempre; early stopping y `load_best_model_at_end=True`.

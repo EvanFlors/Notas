@@ -1,392 +1,402 @@
-## Communication Between Agents
-Your security agent finds a potential SQL injection. It needs to tell the testing agent to verify with specific test cases. But how? If it just outputs natural language, the testing agent might misunderstand, miss the context, or not even receive the message.
+# Comunicación y Coordinación entre Agentes
 
-Multi-agent coordination requires structured communication. Agents need protocols for passing information, mechanisms for sharing context, and strategies for handling disagreements. Without these, collaboration breaks down into chaos.
+## ¿Qué es?
 
-In this lesson, you will learn how to design message protocols, implement shared context systems, and build coordination mechanisms that enable effective multi-agent collaboration.
+La **comunicación entre agentes** es el conjunto de **protocolos, formatos de mensaje y mecanismos de sincronización** que permiten que varios agentes LLM colaboren sin pisarse ni perder información. Es la "red + sistema operativo" de un sistema multi-agente.
 
-By the end, you will have patterns for building systems where multiple agents work together smoothly.
+Un sistema multi-agente sin protocolo de comunicación es como un equipo donde todos hablan al mismo tiempo en idiomas distintos: el trabajo "ocurre", pero el resultado es ruido. En producción, la coordinación suele consumir **más código que los propios prompts**.
 
-Structured Message Protocols
-Agents that work together need structured ways to communicate. Raw LLM outputs are ambiguous and hard for other agents to parse reliably. Effective multi-agent systems define clear message formats.
+Tres capas lógicas:
+
+| Capa | Responsabilidad | Ejemplos |
+|---|---|---|
+| **Transporte** | Entregar mensajes entre agentes | Direct call, cola, pub/sub, websocket |
+| **Formato** | Estructura del mensaje | JSON Schema, Pydantic, Protobuf, A2A, MCP |
+| **Semántica** | Qué significa cada mensaje y quién puede enviarlo | Roles, permisos, políticas de conflicto |
+
+### Protocolos emergentes (2025-2026)
+
+| Protocolo | Promotor | Qué resuelve |
+|---|---|---|
+| **MCP** (Model Context Protocol) | Anthropic | Agente ↔ herramientas / recursos externos |
+| **A2A** (Agent-to-Agent) | Google | Agente ↔ agente, cross-vendor |
+| **ACP** (Agent Communication Protocol) | IBM/BeeAI | Mensajería estándar entre agentes |
+| **OpenAI Agents SDK handoffs** | OpenAI | Hand-off nativo entre agentes del mismo stack |
+
+> MCP se enfoca en el eje agente→tool; A2A y ACP se enfocan en agente→agente. En 2026 lo normal es combinarlos: MCP para que cada agente use tools, A2A/ACP para que agentes de distintos frameworks hablen entre sí.
+
+## ¿Por qué importa?
+
+Sin comunicación estructurada, los sistemas multi-agente fallan de formas sutiles y caras:
+
+- **Hallazgos duplicados:** dos agentes reportan la misma vulnerabilidad con texto distinto; el humano la ve "dos veces" y pierde confianza.
+- **Hallazgos perdidos:** el agente A asume que B lo leyó, pero B nunca recibió el mensaje.
+- **Decisiones sobre contexto obsoleto:** el agente de performance usa una versión del diff que ya cambió.
+- **Deadlocks:** A espera a B, B espera a A, el sistema se congela.
+- **Costo descontrolado:** sin presupuesto por conversación, dos agentes pueden conversar por horas.
+
+Importa porque la **calidad del sistema no depende solo de la calidad de cada agente**, sino de cómo intercambian información. En el reporte de Anthropic *Multi-Agent Research* (2025), más de la mitad de los bugs eliminados en producción fueron de **coordinación**, no de razonamiento del modelo.
+
+### Comparación: comunicación ad-hoc vs. estructurada
+
+| Dimensión | Ad-hoc (texto libre) | Estructurada (schema) |
+|---|---|---|
+| Parseo | Frágil, regex, fallos silenciosos | Validación automática |
+| Evolución | Rompe sin aviso | Versionado explícito |
+| Debug | "¿qué quiso decir el agente?" | Trazas limpias |
+| Interop entre frameworks | Casi imposible | Natural con A2A/MCP |
+| Costo de tokens | Alto (texto redundante) | Bajo (JSON compacto) |
+
+## ¿Cómo funciona?
+
+### 1. Protocolo de mensajes estructurado
+
+Toda comunicación pasa por un `AgentMessage` validado:
 
 ```python
-from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
+from typing import Optional, Any
+from uuid import uuid4
 
-class MessageType(Enum):
-  REQUEST = "request"
-  RESPONSE = "response"
-  BROADCAST = "broadcast"
-  FINDING = "finding"
+class MessageType(str, Enum):
+    REQUEST   = "request"
+    RESPONSE  = "response"
+    BROADCAST = "broadcast"
+    FINDING   = "finding"
+    HANDOFF   = "handoff"
+    ERROR     = "error"
 
-@dataclass
-class AgentMessage:
-  message_id: str
-  message_type: MessageType
-  sender: str
-  recipient: Optional[str]  # None for broadcasts
-  content: Dict[str, Any]
-  timestamp: datetime = field(default_factory=datetime.utcnow)
-  priority: int = 0
+class AgentMessage(BaseModel):
+    message_id: str = Field(default_factory=lambda: str(uuid4()))
+    conversation_id: str
+    message_type: MessageType
+    sender: str
+    recipient: Optional[str] = None   # None = broadcast
+    content: dict[str, Any]
+    schema_version: str = "1.0"
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    priority: int = 5                 # 0 = max, 10 = min
+    in_reply_to: Optional[str] = None # message_id al que responde
 ```
 
-The message bus pattern decouples agents from direct dependencies. Agents publish messages without knowing who will receive them, and subscribe to messages they care about. This makes adding new agents straightforward.
+Clave: **versionar el schema** (`schema_version`) y validar en el receptor. Un cambio incompatible debe aumentar la versión y los agentes viejos deben rechazar o degradarse elegantemente.
 
-Shared Context Systems
-Agents often need access to common information: the PR being reviewed, findings discovered so far, decisions already made. Shared context provides this common ground.
+### 2. Message bus (pub/sub)
+
+Desacopla productores de consumidores. Agregar un agente nuevo no requiere tocar los existentes:
 
 ```python
+import asyncio
+from collections import defaultdict
+
+class MessageBus:
+    def __init__(self):
+        self._subscribers: dict[str, list] = defaultdict(list)
+        self._queue: asyncio.Queue = asyncio.Queue()
+
+    def subscribe(self, topic: str, handler):
+        self._subscribers[topic].append(handler)
+
+    async def publish(self, topic: str, msg: AgentMessage):
+        await self._queue.put((topic, msg))
+
+    async def run(self):
+        while True:
+            topic, msg = await self._queue.get()
+            for handler in self._subscribers[topic]:
+                asyncio.create_task(handler(msg))   # no bloqueante
+```
+
+### 3. Shared state (blackboard) con locking
+
+Es el patrón nativo de **LangGraph** (todos los nodos leen/escriben a un `State`):
+
+```python
+import asyncio
+from dataclasses import dataclass, field
+
 @dataclass
 class SharedContext:
-  pr_number: int
-  repo: str
-  files: List[dict]
-  findings: List[dict] = field(default_factory=list)
-  decisions: Dict[str, Any] = field(default_factory=dict)
-  analyzed_files: Dict[str, List[str]] = field(default_factory=dict)
+    pr_number: int
+    repo: str
+    files: list[dict]
+    findings: list[dict] = field(default_factory=list)
+    decisions: dict[str, Any] = field(default_factory=dict)
+    version: int = 0                   # para detectar lecturas stale
 
-  def add_finding(self, finding: dict):
-      self.findings.append(finding)
-
-  def mark_analyzed(self, file_path: str, agent_id: str):
-      if file_path not in self.analyzed_files:
-          self.analyzed_files[file_path] = []
-      self.analyzed_files[file_path].append(agent_id)
-
-  def get_unanalyzed_files(self, agent_id: str) -> List[str]:
-      """Get files this agent has not yet analyzed"""
-      return [
-          f["path"] for f in self.files
-          if agent_id not in self.analyzed_files.get(f["path"], [])
-      ]
-```
-
-Shared context must handle concurrent access safely. When multiple agents read and write simultaneously, you need synchronization to prevent race conditions.
-
-```python
 class ContextManager:
-  def __init__(self):
-      self.contexts: Dict[str, SharedContext] = {}
-      self.locks: Dict[str, asyncio.Lock] = {}
+    def __init__(self):
+        self.ctx: dict[str, SharedContext] = {}
+        self.locks: dict[str, asyncio.Lock] = {}
 
-  async def update_context(self, review_id: str, updater: callable):
-      """Safely update shared context with locking"""
-      if review_id not in self.locks:
-          self.locks[review_id] = asyncio.Lock()
+    def _lock(self, rid: str) -> asyncio.Lock:
+        return self.locks.setdefault(rid, asyncio.Lock())
 
-      async with self.locks[review_id]:
-          context = self.contexts[review_id]
-          updater(context)
-          return context
+    async def update(self, rid: str, mutator):
+        async with self._lock(rid):      # mutual exclusion
+            ctx = self.ctx[rid]
+            mutator(ctx)
+            ctx.version += 1
+            return ctx
+
+    async def read(self, rid: str, expected_version: Optional[int] = None):
+        async with self._lock(rid):
+            ctx = self.ctx[rid]
+            if expected_version is not None and ctx.version != expected_version:
+                raise StaleReadError(expected_version, ctx.version)
+            return ctx
 ```
 
-Understanding how to manage shared context safely prevents race conditions and data inconsistencies.
+### 4. Enrutamiento basado en capacidades
 
-Task Distribution Strategies
-Distributing work across agents efficiently requires strategies based on workload characteristics.
-
-Capability-based routing sends tasks to agents with relevant expertise. A task involving Python security analysis goes to an agent that specializes in Python and security.
+El router elige el agente **más idóneo + menos cargado**:
 
 ```python
-@dataclass
-class AgentCapabilities:
-  agent_id: str
-  can_analyze: List[str]      # File types: ["python", "javascript"]
-  specializations: List[str]  # ["security", "performance"]
-  max_concurrent: int = 3
-  current_load: int = 0
+from pydantic import BaseModel
+
+class AgentCapabilities(BaseModel):
+    agent_id: str
+    languages: list[str]       # ["python", "typescript"]
+    skills: list[str]          # ["security", "performance"]
+    max_concurrent: int = 3
+    current_load: int = 0
+    avg_latency_ms: int = 2000
+    cost_per_call_usd: float = 0.01
 
 class CapabilityRouter:
-  def __init__(self):
-      self.agents: Dict[str, AgentCapabilities] = {}
+    def __init__(self):
+        self.agents: dict[str, AgentCapabilities] = {}
 
-  def route_task(self, task: dict) -> Optional[str]:
-      """Find best agent for a task based on capabilities"""
-      file_types = task.get("file_types", [])
-      specialization = task.get("specialization")
-
-      candidates = []
-      for agent_id, caps in self.agents.items():
-          # Check capacity
-          if caps.current_load >= caps.max_concurrent:
-              continue
-
-          # Check file type support
-          if file_types and not any(ft in caps.can_analyze for ft in file_types):
-              continue
-
-          # Score by specialization match
-          score = 10 if specialization in caps.specializations else 0
-          score -= caps.current_load  # Prefer less loaded agents
-
-          candidates.append((score, agent_id))
-
-      if candidates:
-          candidates.sort(reverse=True)
-          return candidates[0][1]
-      return None
+    def route(self, task: dict) -> Optional[str]:
+        want_lang  = task.get("language")
+        want_skill = task.get("skill")
+        candidates = []
+        for a in self.agents.values():
+            if a.current_load >= a.max_concurrent: continue
+            if want_lang and want_lang not in a.languages: continue
+            score  = 10 if want_skill in a.skills else 0
+            score -= a.current_load               # balanceo
+            score -= a.avg_latency_ms / 1000      # preferir rápido
+            candidates.append((score, a.agent_id))
+        if not candidates: return None
+        candidates.sort(reverse=True)
+        return candidates[0][1]
 ```
 
-Priority-based scheduling ensures important work happens first. Security tasks take precedence over style checks. Large changes get reviewed before small ones.
+### 5. Priority queue
 
 ```python
+import heapq
+
 class PriorityScheduler:
-  def calculate_priority(self, task: dict) -> int:
-      """Calculate priority (lower = higher priority)"""
-      priority = 5  # Default medium
+    def __init__(self):
+        self.heap = []
+        self.seq = 0
 
-      if task.get("type") == "security":
-          priority = 0  # Highest
-      elif task.get("lines_changed", 0) > 500:
-          priority = 2
-      elif task.get("is_documentation_only"):
-          priority = 8  # Lowest
+    def _priority(self, task: dict) -> int:
+        if task.get("type") == "security":      return 0
+        if task.get("severity") == "critical":  return 1
+        if task.get("lines_changed", 0) > 500:  return 2
+        if task.get("docs_only"):               return 8
+        return 5
 
-      return priority
+    def push(self, task: dict):
+        self.seq += 1
+        heapq.heappush(self.heap, (self._priority(task), self.seq, task))
+
+    def pop(self):
+        return heapq.heappop(self.heap)[2] if self.heap else None
 ```
 
-Work stealing lets idle agents take work from busy ones. When an agent finishes its queue, it checks if other agents have pending work and takes some, balancing load dynamically.
+### 6. Barrier (fan-in sincronizado)
 
-Synchronization and Consensus
-When multiple agents contribute to a decision, synchronization ensures consistency.
-
-Barrier synchronization waits for all agents to complete a phase before proceeding. After parallel analysis, a barrier ensures all results are in before synthesis begins.
+Después de un fan-out paralelo necesitas esperar a todos antes de sintetizar:
 
 ```python
-class ReviewBarrier:
-  def __init__(self, agent_count: int):
-      self.agent_count = agent_count
-      self.waiting = 0
-      self.condition = asyncio.Condition()
+class Barrier:
+    def __init__(self, n: int):
+        self.n = n
+        self.waiting = 0
+        self.cond = asyncio.Condition()
 
-  async def wait(self, agent_id: str):
-      """Wait for all agents to reach this point"""
-      async with self.condition:
-          self.waiting += 1
-
-          if self.waiting == self.agent_count:
-              self.waiting = 0
-              self.condition.notify_all()
-          else:
-              await self.condition.wait()
+    async def wait(self):
+        async with self.cond:
+            self.waiting += 1
+            if self.waiting == self.n:
+                self.waiting = 0
+                self.cond.notify_all()
+            else:
+                await self.cond.wait()
 ```
-Voting and consensus resolves disagreements through agreement. Agents vote on contentious issues, and a threshold determines the outcome. When consensus is not reached, an arbiter makes the final call.
+
+### 7. Consenso con votación
 
 ```python
 class ConsensusManager:
-  def __init__(self, agents: List[str], threshold: float = 0.6):
-      self.agents = agents
-      self.threshold = threshold
+    def __init__(self, agents: list[str], threshold: float = 0.6):
+        self.agents = agents
+        self.threshold = threshold
 
-  async def reach_consensus(self, topic: str, context: dict) -> dict:
-      """Have agents vote and reach consensus"""
-      votes = await asyncio.gather(*[
-          self.get_agent_vote(agent, topic, context)
-          for agent in self.agents
-      ])
-
-      # Tally votes
-      vote_counts: Dict[str, int] = {}
-      for vote in votes:
-          position = vote["position"]
-          vote_counts[position] = vote_counts.get(position, 0) + 1
-
-      # Check for consensus
-      for position, count in vote_counts.items():
-          if count / len(votes) >= self.threshold:
-              return {"consensus_reached": True, "position": position}
-
-      return {"consensus_reached": False, "needs_arbitration": True}
+    async def vote(self, topic: str, ctx: dict) -> dict:
+        votes = await asyncio.gather(*[self._ask(a, topic, ctx) for a in self.agents])
+        tally: dict[str, int] = {}
+        for v in votes:
+            tally[v["position"]] = tally.get(v["position"], 0) + 1
+        for pos, count in tally.items():
+            if count / len(votes) >= self.threshold:
+                return {"consensus": True, "position": pos, "tally": tally}
+        return {"consensus": False, "needs_arbitration": True, "tally": tally}
 ```
 
-Understanding how to manage shared context safely prevents race conditions and data inconsistencies.
+Alternativas al voto plano: **voto ponderado por confianza del agente**, **debate iterativo**, o **árbitro con un modelo más capaz** (p.ej. Opus) como juez final.
 
-Task Distribution Strategies
-Distributing work across agents efficiently requires strategies based on workload characteristics.
-
-Capability-based routing sends tasks to agents with relevant expertise. A task involving Python security analysis goes to an agent that specializes in Python and security.
-
-```python
-@dataclass
-class AgentCapabilities:
-  agent_id: str
-  can_analyze: List[str]      # File types: ["python", "javascript"]
-  specializations: List[str]  # ["security", "performance"]
-  max_concurrent: int = 3
-  current_load: int = 0
-
-class CapabilityRouter:
-  def __init__(self):
-      self.agents: Dict[str, AgentCapabilities] = {}
-
-  def route_task(self, task: dict) -> Optional[str]:
-      """Find best agent for a task based on capabilities"""
-      file_types = task.get("file_types", [])
-      specialization = task.get("specialization")
-
-      candidates = []
-      for agent_id, caps in self.agents.items():
-          # Check capacity
-          if caps.current_load >= caps.max_concurrent:
-              continue
-
-          # Check file type support
-          if file_types and not any(ft in caps.can_analyze for ft in file_types):
-              continue
-
-          # Score by specialization match
-          score = 10 if specialization in caps.specializations else 0
-          score -= caps.current_load  # Prefer less loaded agents
-
-          candidates.append((score, agent_id))
-
-      if candidates:
-          candidates.sort(reverse=True)
-          return candidates[0][1]
-      return None
-````
-
-Priority-based scheduling ensures important work happens first. Security tasks take precedence over style checks. Large changes get reviewed before small ones.
-
-```python
-class PriorityScheduler:
-  def calculate_priority(self, task: dict) -> int:
-      """Calculate priority (lower = higher priority)"""
-      priority = 5  # Default medium
-
-      if task.get("type") == "security":
-          priority = 0  # Highest
-      elif task.get("lines_changed", 0) > 500:
-          priority = 2
-      elif task.get("is_documentation_only"):
-          priority = 8  # Lowest
-
-      return priority
-```
-
-Work stealing lets idle agents take work from busy ones. When an agent finishes its queue, it checks if other agents have pending work and takes some, balancing load dynamically.
-
-Synchronization and Consensus
-When multiple agents contribute to a decision, synchronization ensures consistency.
-
-Barrier synchronization waits for all agents to complete a phase before proceeding. After parallel analysis, a barrier ensures all results are in before synthesis begins.
-
-```python
-class ReviewBarrier:
-  def __init__(self, agent_count: int):
-      self.agent_count = agent_count
-      self.waiting = 0
-      self.condition = asyncio.Condition()
-
-  async def wait(self, agent_id: str):
-      """Wait for all agents to reach this point"""
-      async with self.condition:
-          self.waiting += 1
-
-          if self.waiting == self.agent_count:
-              self.waiting = 0
-              self.condition.notify_all()
-          else:
-              await self.condition.wait()
-```
-
-Voting and consensus resolves disagreements through agreement. Agents vote on contentious issues, and a threshold determines the outcome. When consensus is not reached, an arbiter makes the final call.
-
-```python
-class ConsensusManager:
-  def __init__(self, agents: List[str], threshold: float = 0.6):
-      self.agents = agents
-      self.threshold = threshold
-
-  async def reach_consensus(self, topic: str, context: dict) -> dict:
-      """Have agents vote and reach consensus"""
-      votes = await asyncio.gather(*[
-          self.get_agent_vote(agent, topic, context)
-          for agent in self.agents
-      ])
-
-      # Tally votes
-      vote_counts: Dict[str, int] = {}
-      for vote in votes:
-          position = vote["position"]
-          vote_counts[position] = vote_counts.get(position, 0) + 1
-
-      # Check for consensus
-      for position, count in vote_counts.items():
-          if count / len(votes) >= self.threshold:
-              return {"consensus_reached": True, "position": position}
-
-      return {"consensus_reached": False, "needs_arbitration": True}
-```
-
-Now that you understand task distribution strategies, apply synchronization knowledge to coordinate multi-agent phases.
-
-Defining Agent Roles
-Effective multi-agent systems define clear roles and responsibilities. Without boundaries, agents duplicate work or leave gaps.
+### 8. Definición explícita de roles
 
 ```python
 @dataclass
 class AgentRole:
-  name: str
-  responsibilities: List[str]
-  defers_to: List[str]  # Other agents to defer to on edge cases
+    name: str
+    responsibilities: list[str]
+    out_of_scope: list[str]      # qué NO debe hacer (clave)
+    defers_to: list[str]
 
-  def get_system_prompt(self):
-      return f"""You are a {self.name}. Your responsibilities:
-{chr(10).join(f'- {r}' for r in self.responsibilities)}
+    def system_prompt(self) -> str:
+        return f"""Eres {self.name}.
+Haz:
+- {chr(10) + '- '.join(self.responsibilities)}
 
-Defer to appropriate specialists for: {', '.join(self.defers_to)}
+NO hagas:
+- {chr(10) + '- '.join(self.out_of_scope)}
 
-Stay in your lane. Only report issues in your domain."""
+Para casos fuera de tu dominio delega a: {', '.join(self.defers_to)}.
+Mantente en tu carril (stay in your lane)."""
 
-# Example roles
 security_role = AgentRole(
-  name="Security Reviewer",
-  responsibilities=[
-      "Identify injection vulnerabilities",
-      "Check authentication and authorization",
-      "Find insecure data handling"
-  ],
-  defers_to=["Performance Reviewer", "Testing Reviewer"]
+    name="Security Reviewer",
+    responsibilities=[
+        "Detectar inyecciones (SQL, XSS, command)",
+        "Revisar autenticación y autorización",
+        "Flaguear secretos hardcoded",
+    ],
+    out_of_scope=["Comentar estilo de código", "Comentar performance", "Sugerir refactors"],
+    defers_to=["Performance Reviewer", "Style Reviewer"],
 )
+```
 
-performance_role = AgentRole(
-  name="Performance Reviewer",
-  responsibilities=[
-      "Identify algorithmic inefficiencies",
-      "Find N+1 query patterns",
-      "Suggest caching opportunities"
-  ],
-  defers_to=["Security Reviewer"]
-)
-````
+### 9. Work stealing
 
-Team composition selects which specialists participate based on PR characteristics. Security-focused changes get the security specialist. Performance-critical paths get the performance specialist. Small documentation changes may only need one generalist.
+Cuando un agente queda ocioso, roba trabajo de la cola de los ocupados. Útil cuando las sub-tareas son heterogéneas en duración.
 
-Common Pitfalls and Solutions
-Message format mismatches: When agents expect different message structures, communication fails silently. Define schemas and validate messages before processing.
+## Ejemplo con código
 
-Deadlocks in synchronization: Circular waits between agents freeze the system. Use timeouts and design coordination to avoid circular dependencies.
+Pipeline completo: **bus + schema + routing + barrier + consenso**.
 
-Context staleness: Agents reading outdated shared context make decisions on wrong information. Use versioning or timestamps to detect stale reads.
+```python
+import asyncio
+from typing import Any
 
-Overcommunication: Too many messages overwhelm agents and slow the system. Be selective about what gets broadcast versus sent directly.
+bus     = MessageBus()
+router  = CapabilityRouter()
+ctxmgr  = ContextManager()
 
-Summary
-Agent coordination requires structured communication, efficient task distribution, and synchronization mechanisms. Message protocols define how agents exchange information. Shared context provides common ground for collaboration.
+# --- Registrar agentes ---
+router.agents["sec-1"]  = AgentCapabilities(agent_id="sec-1",  languages=["python"], skills=["security"])
+router.agents["sec-2"]  = AgentCapabilities(agent_id="sec-2",  languages=["python"], skills=["security"])
+router.agents["perf-1"] = AgentCapabilities(agent_id="perf-1", languages=["python"], skills=["performance"])
 
-Task distribution strategies—capability routing and priority scheduling—ensure efficient resource utilization. Synchronization through barriers and consensus mechanisms maintains consistency when multiple agents contribute to decisions.
+# --- Handler genérico de un worker ---
+async def worker_handler(agent_id: str, bus: MessageBus):
+    async def handle(msg: AgentMessage):
+        router.agents[agent_id].current_load += 1
+        try:
+            # ... llamada al LLM con timeout ...
+            finding = {"agent": agent_id, "text": "placeholder"}
+            await bus.publish("findings", AgentMessage(
+                conversation_id=msg.conversation_id,
+                message_type=MessageType.FINDING,
+                sender=agent_id,
+                content=finding,
+                in_reply_to=msg.message_id,
+            ))
+        finally:
+            router.agents[agent_id].current_load -= 1
+    return handle
 
-Key Takeaways:
+# --- Colector con barrier ---
+collected: list[AgentMessage] = []
+barrier = Barrier(n=3)
 
-Define clear message protocols for inter-agent communication
-Use shared context with proper locking for concurrent access
-Route tasks based on agent capabilities and current load
-Prioritize security and high-impact tasks over routine work
-Synchronize phases when agents need to build on each other's work
-Use voting and arbitration to resolve disagreements systematically
-Define clear roles with specific responsibilities for each agent
-Handle failures gracefully with timeouts and fallbacks
+async def collector(msg: AgentMessage):
+    collected.append(msg)
+    await barrier.wait()
+
+# --- Suscripciones ---
+for aid in ["sec-1", "sec-2", "perf-1"]:
+    bus.subscribe(f"task.{aid}", await worker_handler(aid, bus))
+bus.subscribe("findings", collector)
+
+# --- Lanzar bus y publicar tareas ---
+asyncio.create_task(bus.run())
+
+tasks = [
+    {"skill": "security",    "language": "python", "payload": "<diff 1>"},
+    {"skill": "security",    "language": "python", "payload": "<diff 2>"},
+    {"skill": "performance", "language": "python", "payload": "<diff 3>"},
+]
+for t in tasks:
+    aid = router.route(t)
+    await bus.publish(f"task.{aid}", AgentMessage(
+        conversation_id="review-42",
+        message_type=MessageType.REQUEST,
+        sender="supervisor",
+        recipient=aid,
+        content=t,
+    ))
+
+# ... después de que barrier libera, se puede sintetizar ...
+```
+
+### Ejemplo mínimo con MCP (Model Context Protocol)
+
+Un agente expone recursos vía MCP y otro los consume:
+
+```python
+# server MCP (expone una herramienta "get_diff")
+from mcp.server import Server
+srv = Server("pr-tools")
+
+@srv.tool()
+async def get_diff(pr_number: int) -> str:
+    return fetch_github_diff(pr_number)
+
+# Cliente MCP dentro de un agente
+from mcp.client import ClientSession
+async with ClientSession("stdio://pr-tools") as session:
+    tools = await session.list_tools()
+    diff  = await session.call_tool("get_diff", {"pr_number": 42})
+```
+
+## Errores comunes
+
+- **Mismatch de schema silencioso:** el agente A manda `{severity: "HIGH"}`, el agente B espera `{severity: "high"}`. Valida con Pydantic y falla ruidoso.
+- **Deadlocks por espera circular:** A espera finding de B, B espera clarificación de A. Siempre define **timeouts** por mensaje y evita dependencias circulares.
+- **Lecturas stale del estado compartido:** sin versionado, el agente toma decisiones con datos de hace 10 segundos. Usa `version` o `updated_at` y rechaza lecturas desactualizadas en operaciones críticas.
+- **Overcommunication:** cada agente notificando cada paso satura el bus y multiplica tokens de los que resumen. Define qué merece broadcast y qué es "silencioso" (log, no mensaje).
+- **Race conditions en writes:** dos agentes agregan al mismo `findings[]` sin lock → mensajes perdidos. Usa `asyncio.Lock`, transacciones o estructuras CRDT.
+- **Prompts sin "stay in your lane":** la fuente #1 de hallazgos duplicados. Incluye explícitamente la lista `out_of_scope`.
+- **Confiar en el formato que "siempre devuelve" el LLM:** incluso con JSON mode, parsea defensivamente y reintenta con feedback estructurado si falla la validación.
+- **Message bus sin dead-letter queue:** mensajes que fallan N veces se pierden sin rastro. Siempre encamínalos a una DLQ para inspección manual.
+- **Priority inversion:** una tarea crítica queda atrás de muchas de baja prioridad porque el worker tomó una larga primero. Usa colas separadas por prioridad o preemption.
+
+## Resumen
+
+- La **comunicación estructurada** es lo que separa un sistema multi-agente que funciona de un chat caótico entre LLMs.
+- Los tres pilares son: **protocolo de mensajes** (schema versionado), **transporte** (bus, call directo, hand-off) y **estado compartido** (blackboard con locking).
+- Estándares emergentes: **MCP** (agente↔tools), **A2A** y **ACP** (agente↔agente cross-vendor). Combínalos.
+- Para distribuir trabajo: **capability-based routing** + **priority queue** + opcionalmente **work stealing**. El balanceo por carga evita hotspots.
+- Para sincronizar fases: **barriers** (fan-in), **locks** (mutua exclusión), **voting / consensus** (resolución de conflictos).
+- Define **roles explícitos** con `responsibilities` y `out_of_scope`; "stay in your lane" elimina la mayoría de duplicados.
+- Pon **timeouts, DLQs y validación de schema** desde el día uno: la mayoría de los bugs en MAS son de coordinación, no de razonamiento.
+- Observabilidad por agente y por mensaje (LangSmith, Langfuse, Arize Phoenix) hace la diferencia entre un sistema debuggeable y uno que es magia negra.

@@ -1,278 +1,404 @@
-## Docker for ML Model Deployment
+# Docker for ML Model Deployment
 
-Containers solve the classic "it works on my machine" problem by packaging your model with its complete runtime environment. This makes deployment reliable and reproducible across different environments.
+## ¿Qué es?
 
-A Docker container bundles your model files, serving code, Python interpreter, system libraries, and dependencies into a single artifact. You build the container image once, test it thoroughly, and deploy the exact same image to staging and production. This eliminates environment discrepancies that cause mysterious failures.
+Un **contenedor Docker** empaqueta tu modelo, código de serving, intérprete Python, librerías de sistema y dependencias en una imagen inmutable. La misma imagen se ejecuta idéntica en el laptop del dev, en staging y en producción. Es la respuesta al clásico *"funciona en mi máquina"*.
 
-Your Dockerfile defines how to build the container image. Start with a base image that includes Python and system dependencies. Copy your model files and serving code. Install Python dependencies. Specify the command to run when the container starts. This declarative approach documents your entire runtime environment.
+**Kubernetes (K8s)** orquesta esos contenedores a escala: los programa en nodos, los reinicia cuando fallan, escala el número de réplicas según carga, administra networking entre servicios y permite actualizaciones sin downtime.
 
-Here is what a complete ML serving Dockerfile looks like:
+### Containerización para ML
 
-Dockerfile
+Un contenedor para serving ML típicamente contiene:
+
+- Imagen base (python-slim, nvidia/cuda, nvcr.io/nvidia/pytorch).
+- Librerías del sistema (libgomp, libglib, libgl para OpenCV, etc.).
+- Dependencias Python con versiones pinneadas (`requirements.txt` o `pyproject.toml` + lockfile).
+- Código de serving (FastAPI, vLLM, Triton config, etc.).
+- **Opcional**: el modelo embebido. Alternativa: descargar al startup desde S3/GCS para mantener la imagen pequeña.
+
+### Kubernetes para orquestación
+
+- **Pod:** unidad mínima, 1-N contenedores con red y storage compartidos.
+- **Deployment:** declara "quiero N replicas de este Pod"; maneja rolling updates y rollback.
+- **Service:** IP y DNS estables delante de un conjunto de Pods ephemeros.
+- **HPA (Horizontal Pod Autoscaler):** escala replicas según CPU, memoria o métricas custom.
+- **ConfigMap / Secret:** inyecta configuración/credenciales al Pod sin reconstruir la imagen.
+- **Namespace:** aislamiento lógico (staging vs prod).
+- **Ingress / Gateway API:** entrada HTTP desde el exterior.
+- **PersistentVolume:** storage persistente para caches de modelos o logs.
+
+Complementos típicos en el stack:
+
+- **Helm:** gestor de paquetes para K8s (plantillas + values).
+- **Kustomize:** overlays declarativos sin plantillas.
+- **ArgoCD / Flux:** GitOps - el estado del cluster sigue a Git.
+- **Istio / Linkerd:** service mesh con traffic shaping, mTLS, observabilidad.
+
+## ¿Por qué importa?
+
+- **Reproducibilidad:** eliminas el drift entre entornos. Si pasa el test con la imagen X, la imagen X en prod se comporta igual.
+- **Isolación:** cada servicio en su propio contenedor; conflictos de dependencias desaparecen.
+- **Escalabilidad declarativa:** `kubectl scale deployment/model --replicas=50` y K8s se encarga.
+- **Zero-downtime deployments:** rolling updates reemplazan Pods gradualmente verificando health.
+- **Portabilidad multi-cloud:** la misma imagen corre en EKS, GKE, AKS, on-prem.
+- **Densidad y costo:** varios modelos pueden compartir el mismo nodo GPU con límites claros.
+- **Recuperación automática:** si un Pod muere por OOM, K8s lo reinicia en segundos.
+
+Sin estos cimientos, operar modelos en producción exige scripts frágiles, procedimientos manuales y oncalls aterradores.
+
+## ¿Cómo funciona?
+
+### Dockerfile multi-stage para ML
 
 ```dockerfile
-# Multi-stage build for smaller final image
-# Stage 1: Build stage with all build dependencies
-FROM python:3.11-slim as builder
+# =============== Stage 1: builder ===============
+FROM nvcr.io/nvidia/pytorch:24.03-py3 AS builder
 
-# Install build dependencies
+WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  gcc \
-  g++ \
-  && rm -rf /var/lib/apt/lists/*
+      build-essential libgl1 libglib2.0-0 && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies
 COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+RUN pip install --user --no-cache-dir --no-warn-script-location -r requirements.txt
 
-# Stage 2: Runtime stage with only necessary components
-FROM python:3.11-slim
+# =============== Stage 2: runtime ===============
+FROM nvcr.io/nvidia/pytorch:24.03-py3
 
-# Create non-root user for security
-RUN useradd -m -u 1000 modelserver && \
-  mkdir -p /app /models && \
-  chown -R modelserver:modelserver /app /models
+# Usuario no-root por seguridad
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app /models && \
+    chown -R appuser:appuser /app /models
 
-# Copy installed packages from builder stage
-COPY --from=builder /root/.local /home/modelserver/.local
+# Copia solo lo necesario del builder
+COPY --from=builder /root/.local /home/appuser/.local
+ENV PATH=/home/appuser/.local/bin:$PATH \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MODEL_PATH=/models \
+    LOG_LEVEL=INFO \
+    WORKERS=2
 
-# Set PATH to include user-installed packages
-ENV PATH=/home/modelserver/.local/bin:$PATH
-
-# Set working directory
 WORKDIR /app
+COPY --chown=appuser:appuser ./src /app/src
+COPY --chown=appuser:appuser ./main.py /app/
 
-# Copy application code
-COPY --chown=modelserver:modelserver ./src /app/src
-COPY --chown=modelserver:modelserver ./main.py /app/
-
-# Switch to non-root user
-USER modelserver
-
-# Expose the API port
+USER appuser
 EXPOSE 8000
 
-# Health check - ensures container is ready to serve
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Environment variables (can be overridden at runtime)
-ENV MODEL_PATH=/models/model.pkl \
-  LOG_LEVEL=INFO \
-  WORKERS=4
-
-# Start the model server
-CMD ["python", "main.py"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
 ```
 
-This Dockerfile follows production best practices: it uses multi-stage builds to minimize image size, runs as a non-root user for security, includes health checks for Kubernetes readiness probes, and uses environment variables for configuration flexibility.
+Buenas prácticas aplicadas: multi-stage para no cargar compiladores en runtime, usuario no-root, variables de entorno para config, healthcheck, `start-period` largo que da tiempo al warmup del modelo.
 
-Base image selection affects image size, build time, and security. Official Python images range from 900MB (full Debian-based) to 50MB (Alpine-based slim images). Larger images include more system tools and libraries, making them easier to work with but slower to download and deploy. Smaller images minimize attack surface and deployment time but may lack libraries your code needs.
+### requirements.txt pinneado
 
-For ML workloads, using GPU-enabled base images is common. NVIDIA provides CUDA base images that include GPU drivers and CUDA libraries. Starting from nvidia/cuda:11.8.0-runtime-ubuntu22.04 gives you GPU access without manual driver installation. This is essential for deploying models that run on GPUs.
+```text
+# Core
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
 
-Dependency management in containers requires attention to reproducibility. Pin exact versions in requirements.txt rather than using loose version constraints. tensorflow==2.13.0 is better than tensorflow>=2.0 because it ensures consistent behavior. Loose versions might install different packages when building at different times, causing subtle bugs.
+# ML stack
+torch==2.4.1
+transformers==4.44.2
+accelerate==0.34.2
+sentencepiece==0.2.0
 
-Multi-stage builds reduce final image size. You might need build tools like gcc to compile dependencies but do not need them at runtime. A multi-stage build uses one stage with build tools to compile and install dependencies, then copies only the runtime artifacts to a slim final image. This can reduce image size by 50 percent or more.
+# Infra / observabilidad
+redis==5.0.8
+prometheus-client==0.20.0
+structlog==24.4.0
+opentelemetry-sdk==1.27.0
+opentelemetry-instrumentation-fastapi==0.48b0
 
-Layer caching speeds up builds. Docker caches each layer of your image. If a layer has not changed, Docker reuses the cached version. Structure your Dockerfile to maximize cache hits: copy and install dependencies before copying code, since dependencies change less frequently than code. This makes iterative development faster.
+# ... (dependencias transitivas generadas con pip-compile o uv lock)
+```
 
-Model files present a challenge for containerization. A 5GB model file in your container image makes the entire image 5GB. Pushing and pulling 5GB images is slow and expensive. The alternative is storing models in object storage (S3) and downloading them when the container starts. This keeps images small but adds startup time and complexity.
+Alternativas modernas: **uv**, **Poetry**, **pip-tools**. Todas generan lockfiles reproducibles.
 
-Environment variables configure containers at runtime. Rather than hardcoding values like model paths or API keys, use environment variables. This lets you use the same container image in different environments with different configurations. Your production container might use MODEL_PATH=s3://prod-models/ while staging uses MODEL_PATH=s3://staging-models/.
+### Base image: elegir correctamente
 
+| Base | Tamaño | Cuándo usar |
+|---|---|---|
+| `python:3.12-alpine` | ~50 MB | CPU puro, binarios ligeros (musl). Problemas con wheels pre-compiladas. |
+| `python:3.12-slim` | ~130 MB | CPU inference, servicios REST sin GPU. |
+| `python:3.12` | ~1 GB | Debug, incluye muchas tools. Evitar en prod. |
+| `nvidia/cuda:12.4-runtime-ubuntu22.04` | ~2 GB | GPU inference, instala PyTorch tú mismo. |
+| `nvcr.io/nvidia/pytorch:24.03-py3` | ~9 GB | PyTorch + CUDA + cuDNN + NCCL + TensorRT ya optimizados. |
+| `vllm/vllm-openai:latest` | ~8 GB | Serving directo de LLMs con vLLM. |
 
-Kubernetes for Model Orchestration
-Kubernetes orchestrates containers at scale, handling deployment, scaling, networking, and failure recovery automatically. This transforms container deployment from manual process to declarative configuration.
-
-A Kubernetes Deployment defines how your model server containers should run. You specify the container image, number of replicas, resource requirements, health checks, and environment variables. Kubernetes ensures this desired state is maintained: if a container crashes, Kubernetes restarts it; if you update the deployment, Kubernetes rolls out the change safely.
-
-Pods are the basic unit in Kubernetes. A Pod runs one or more containers that share networking and storage. For model serving, you typically run one container per Pod. The Pod specification includes resource requests and limits: "this Pod needs 4 CPU cores and 8GB memory, and can use up to 8 cores and 16GB."
-
-Services provide stable networking for Pods. Pods are ephemeral and might be recreated with new IP addresses. A Service provides a stable IP and DNS name that routes traffic to healthy Pods. Your model service might have 10 Pods running, but clients connect to a single Service endpoint that load balances across them.
-
-Horizontal scaling adjusts the number of Pod replicas based on load. You might run 5 replicas normally and scale to 20 during peak traffic. The Horizontal Pod Autoscaler monitors metrics like CPU utilization or custom metrics like request queue depth and adjusts replica count automatically. This ensures you have enough capacity without over-provisioning.
-
-Resource requests and limits control how much CPU and memory each Pod can use. Requests are what the Pod is guaranteed. Limits are the maximum it can use. Set requests based on typical usage and limits based on maximum usage. A Pod requesting 2 CPU cores and limiting to 4 cores will be scheduled on a node with 2 free cores but can burst to 4 cores if available.
-
-For GPU workloads, you request GPUs as a resource. A Pod might request 1 NVIDIA GPU. Kubernetes schedules it on a node with an available GPU and ensures no other Pod uses that GPU. This simplifies GPU allocation compared to manual management. However, GPU resources are expensive, so careful resource planning is essential.
-
-Node selectors and affinity rules control where Pods run. You might have GPU nodes and CPU nodes in your cluster. Use nodeSelector to ensure GPU-requiring Pods only run on GPU nodes. Affinity rules provide more sophisticated scheduling: run Pods near their data sources, spread Pods across availability zones for reliability, or keep certain Pods apart to reduce failure blast radius.
-
-ConfigMaps and Secrets manage configuration and sensitive data. Rather than baking configuration into container images, store it in ConfigMaps that Pods mount at runtime. This lets you update configuration without rebuilding images. Secrets work similarly but encrypt sensitive data like API keys and database passwords.
-
-Rolling updates enable zero-downtime deployments. When you update a Deployment, Kubernetes gradually replaces old Pods with new ones. It creates new Pods, waits for them to become healthy, then terminates old Pods. If new Pods fail health checks, the rollout pauses and can be reverted. This provides safe, automated deployments.
-
-Namespaces isolate resources within a cluster. You might use separate namespaces for staging and production. Resources in different namespaces are logically separate, simplifying access control and organization. Your prod namespace and staging namespace can run different model versions with different configurations.
-
-Here is a complete Kubernetes deployment configuration for an ML model server:
-
-config.yaml
+### Kubernetes: Deployment, Service, HPA
 
 ```yaml
+# model-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-name: model-server
+  name: sentiment-server
+  namespace: ml-prod
+  labels: { app: sentiment, version: v1-3-0 }
 spec:
-replicas: 3
-selector:
-  matchLabels:
-    app: model-server
-strategy:
-  type: RollingUpdate
-  rollingUpdate:
-    maxSurge: 1
-    maxUnavailable: 0
-template:
-  metadata:
-    labels:
-      app: model-server
-  spec:
-    nodeSelector:
-      gpu: "true"
-    containers:
-    - name: model-server
-      image: myregistry.io/model-server:v1.0.0
-      ports:
-      - containerPort: 8000
-      resources:
-        requests:
-          memory: "4Gi"
-          cpu: "2"
-          nvidia.com/gpu: "1"
-        limits:
-          memory: "8Gi"
-          cpu: "4"
-          nvidia.com/gpu: "1"
-      livenessProbe:
-        httpGet:
-          path: /health
-          port: 8000
-        initialDelaySeconds: 30
-        periodSeconds: 10
-      readinessProbe:
-        httpGet:
-          path: /ready
-          port: 8000
-        initialDelaySeconds: 10
-        periodSeconds: 5
----
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app: sentiment }
+  template:
+    metadata:
+      labels: { app: sentiment, version: v1-3-0 }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: ml-serving
+      nodeSelector: { "nvidia.com/gpu.product": "A100-SXM4-40GB" }
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      initContainers:
+        - name: fetch-model
+          image: amazon/aws-cli:2.15.0
+          command: ["sh", "-c"]
+          args:
+            - aws s3 cp s3://my-models/sentiment-v1.3.0.tar.gz /models/m.tgz
+              && tar -xzf /models/m.tgz -C /models
+          volumeMounts:
+            - { name: models, mountPath: /models }
+      containers:
+        - name: server
+          image: 123.dkr.ecr.us-east-1.amazonaws.com/sentiment:v1.3.0
+          imagePullPolicy: IfNotPresent
+          ports: [ { containerPort: 8000, name: http } ]
+          env:
+            - name: MODEL_PATH
+              value: /models
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef: { name: ml-config, key: redis_url }
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef: { name: ml-secrets, key: api_key }
+          resources:
+            requests: { cpu: "2", memory: "8Gi", nvidia.com/gpu: "1" }
+            limits:   { cpu: "4", memory: "16Gi", nvidia.com/gpu: "1" }
+          startupProbe:
+            httpGet: { path: /ready, port: http }
+            periodSeconds: 10
+            failureThreshold: 30         # da hasta 5 min para cargar modelo
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /ready, port: http }
+            periodSeconds: 5
+            failureThreshold: 2
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 20"]   # drena in-flight antes de kill
+          volumeMounts:
+            - { name: models, mountPath: /models, readOnly: true }
+      volumes:
+        - name: models
+          emptyDir:
+            sizeLimit: 10Gi
+      terminationGracePeriodSeconds: 60
+```
+
+```yaml
+# model-service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-name: model-server
+  name: sentiment-server
+  namespace: ml-prod
 spec:
-selector:
-  app: model-server
-ports:
-- port: 80
-  targetPort: 8000
-type: LoadBalancer
----
+  selector: { app: sentiment }
+  ports:
+    - { port: 80, targetPort: 8000, name: http }
+  type: ClusterIP
+```
+
+```yaml
+# model-hpa.yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-name: model-server-hpa
+  name: sentiment-hpa
+  namespace: ml-prod
 spec:
-scaleTargetRef:
-  apiVersion: apps/v1
-  kind: Deployment
-  name: model-server
-minReplicas: 3
-maxReplicas: 10
-metrics:
-- type: Resource
-  resource:
-    name: cpu
-    target:
-      type: Utilization
-      averageUtilization: 70
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sentiment-server
+  minReplicas: 3
+  maxReplicas: 30
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - { type: Percent, value: 100, periodSeconds: 30 }
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Percent, value: 10, periodSeconds: 60 }
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
+    - type: Pods
+      pods:
+        metric: { name: inference_queue_depth }
+        target: { type: AverageValue, averageValue: "5" }
 ```
 
-This configuration creates a production-ready deployment with three replicas, health checks for automatic restarts, resource limits to prevent resource exhaustion, and autoscaling to handle traffic spikes.
+### Helm chart (templating)
 
-
-Managing Dependencies and Resource Allocation
-Getting ML models running reliably in containers requires careful dependency management and resource allocation strategies.
-
-Python dependency conflicts are common in ML projects. Your model uses TensorFlow 2.13, but another dependency requires NumPy 1.24, which conflicts with the NumPy version TensorFlow needs. Virtual environments in local development help, but in containers you need reproducible dependency resolution.
-
-The solution is pinning all transitive dependencies. Rather than just listing tensorflow==2.13.0 in requirements.txt, list every package TensorFlow depends on with exact versions. Generate this with pip freeze after installing your dependencies in a clean environment. This 200-line requirements.txt is verbose but eliminates surprise dependency conflicts.
-
-Here is an example of properly pinned dependencies for an ML serving application:
-
-requirements.txt
-
-```text
-# Core web framework - pinned to exact version
-fastapi==0.109.0
-uvicorn==0.27.0
-pydantic==2.5.3
-
-# Model serving dependencies
-numpy==1.26.3
-scikit-learn==1.4.0
-joblib==1.3.2
-
-# Monitoring and logging
-prometheus-client==0.19.0
-python-json-logger==2.0.7
-
-# HTTP client for health checks
-requests==2.31.0
-
-# All transitive dependencies (generated by pip freeze)
-annotated-types==0.6.0
-anyio==4.2.0
-certifi==2023.11.17
-charset-normalizer==3.3.2
-click==8.1.7
-h11==0.14.0
-httptools==0.6.1
-idna==3.6
-pydantic-core==2.14.6
-python-dotenv==1.0.0
-PyYAML==6.0.1
-scipy==1.11.4
-sniffio==1.3.0
-starlette==0.35.1
-threadpoolctl==3.2.0
-typing-extensions==4.9.0
-urllib3==2.1.0
-uvloop==0.19.0
-watchfiles==0.21.0
-websockets==12.0
+```yaml
+# charts/model/values.yaml
+image:
+  repository: 123.dkr.ecr.us-east-1.amazonaws.com/sentiment
+  tag: v1.3.0
+replicaCount: 3
+resources:
+  requests: { cpu: "2", memory: "8Gi", nvidia.com/gpu: "1" }
+  limits:   { cpu: "4", memory: "16Gi", nvidia.com/gpu: "1" }
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 30
+  targetCPU: 70
+model:
+  s3Path: s3://my-models/sentiment-v1.3.0.tar.gz
 ```
 
-This requirements.txt pins every dependency to an exact version, ensuring reproducible builds across different environments and preventing surprise breakages from dependency updates.
+Deploy: `helm upgrade --install sentiment ./charts/model -n ml-prod -f values.prod.yaml`.
 
-Poetry and pip-tools provide better dependency management. You declare direct dependencies in a high-level format. These tools resolve all transitive dependencies, check for conflicts, and generate a lock file with exact versions. This combines the simplicity of declaring only direct dependencies with the reproducibility of pinned versions.
+### ArgoCD Application (GitOps)
 
-System library dependencies require attention. Some Python packages need system libraries. Installing opencv-python requires libglib2.0-0 and other system libraries. If these are missing, the container fails at runtime with cryptic errors. Your Dockerfile needs apt-get install commands for these system dependencies.
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sentiment-prod
+  namespace: argocd
+spec:
+  project: ml
+  source:
+    repoURL: git@github.com:org/ml-deployments.git
+    targetRevision: main
+    path: charts/model
+    helm:
+      valueFiles: [ values.prod.yaml ]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ml-prod
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ CreateNamespace=true ]
+```
 
-Model loading time affects container startup and scaling. A 5GB model takes 30 seconds to load from disk into GPU memory. If a Pod crashes and restarts, users experience 30 seconds of unavailability. If you need to scale up quickly, new Pods take 30 seconds to become ready. Strategies to reduce this include keeping warm standby Pods, loading models lazily only when first needed, or using model caching layers.
+Cada push a `main` que modifique `values.prod.yaml` dispara un sync automático. Rollback = revertir el commit.
 
-Memory allocation requires careful tuning. Your model needs X GB in GPU memory. Python processes use Y GB in CPU memory for serving code and request processing. Kubernetes allocates memory based on your requests. Under-allocating causes out-of-memory kills. Over-allocating wastes resources and increases costs. Profile your actual memory usage under load to set appropriate values.
+### Tabla comparativa de orquestadores
 
-CPU allocation is less critical but still important. Model inference on GPUs is compute-bound on the GPU, not CPU. However, request preprocessing, post-processing, and data transfer use CPU. Under-allocating CPU can bottleneck GPU throughput. Typical allocations are 2-4 CPU cores per GPU for balanced utilization.
+| Herramienta | Mejor para | Curva aprendizaje | GPU support | Multi-cloud |
+|---|---|---|---|---|
+| Docker Compose | Dev local, 1 host | Baja | Manual | No |
+| Nomad | Simplicidad, mixta VM+contenedor | Media | Sí | Sí |
+| AWS ECS | Equipos all-in AWS | Baja | Sí (Fargate limitado) | No |
+| Kubernetes | Escala, portabilidad | Alta | Sí (device plugin) | Sí |
+| Ray + K8s | Workloads ML distribuidos | Alta | Sí | Sí |
 
-GPU sharing is complex. A single GPU can run multiple models or multiple replicas of one model. However, coordination is required to avoid memory conflicts. NVIDIA Multi-Process Service (MPS) enables GPU sharing but adds complexity. Most production systems dedicate one GPU per Pod for simplicity, though this leaves some GPU compute underutilized.
+### Fórmula de réplicas
 
-Storage considerations affect container design. Containers are stateless by default. When a container terminates, any data written to its filesystem disappears. Model serving usually does not need persistent storage, but logging and caching might. Kubernetes Persistent Volumes provide storage that survives container restarts, though they add complexity.
+```
+replicas = ceil( peak_rps × avg_latency_s / max_concurrent_por_pod × safety_factor )
 
-Init containers handle setup tasks before the main container starts. You might use an init container to download the model from S3 before starting the serving container. This separates concerns: the init container handles model retrieval; the main container handles serving. If model download fails, the Pod fails to start rather than starting with no model.
+Ejemplo: 2000 rps peak, 50 ms latencia, 10 concurrent/pod, factor 1.4
+         replicas = ceil(2000 × 0.05 / 10 × 1.4) = 14
+```
 
-Resource limits prevent noisy neighbor problems. Without limits, one Pod could use all CPU or memory on a node, starving other Pods. Limits ensure fair resource sharing. However, overly restrictive limits cause unnecessary throttling. Balance protection against resource waste.
+## Ejemplo con código
 
-Summary
-Containerization with Docker packages models with their complete runtime environment, solving deployment reproducibility problems. Kubernetes orchestrates containers at scale, handling deployment, scaling, health checks, and failure recovery automatically. Proper dependency management, resource allocation, and container design patterns are essential for reliable production ML serving.
+Deploy end-to-end: build de imagen, push a registry, aplicación a cluster, verificación.
 
-Docker best practices include using appropriate base images, pinning dependencies, leveraging multi-stage builds, and externalizing configuration. Kubernetes concepts like Deployments, Services, autoscaling, and resource requests enable scalable, resilient serving infrastructure.
+```bash
+# 1. Build de la imagen con tag inmutable (commit SHA)
+TAG=$(git rev-parse --short HEAD)
+docker build \
+  --build-arg BASE_IMAGE=nvcr.io/nvidia/pytorch:24.03-py3 \
+  -t 123.dkr.ecr.us-east-1.amazonaws.com/sentiment:${TAG} \
+  -f Dockerfile .
 
-Key concepts to remember
-Container Benefits - Docker containers package models with all dependencies and runtime requirements, eliminating environment discrepancy problems
-Optimized Images - Multi-stage Docker builds and external model storage keep container images small for faster deployment
-Zero-Downtime Deployments - Kubernetes Deployments with health checks and rolling updates enable zero-downtime deployments with automatic failure recovery
-Autoscaling - Horizontal Pod Autoscaling adjusts replica count based on load, ensuring adequate capacity without over-provisioning
-Resource Management - Careful resource allocation (CPU, memory, GPU requests and limits) is essential for reliable operation and cost efficiency
+# 2. Scan de vulnerabilidades
+trivy image --severity CRITICAL,HIGH --exit-code 1 \
+  123.dkr.ecr.us-east-1.amazonaws.com/sentiment:${TAG}
+
+# 3. Push al registry
+aws ecr get-login-password | docker login --username AWS --password-stdin 123.dkr.ecr.us-east-1.amazonaws.com
+docker push 123.dkr.ecr.us-east-1.amazonaws.com/sentiment:${TAG}
+
+# 4. Deploy via Helm (o commit a GitOps repo si usas ArgoCD)
+helm upgrade --install sentiment ./charts/model \
+  -n ml-prod \
+  --set image.tag=${TAG} \
+  --wait --timeout 10m
+
+# 5. Verificar
+kubectl -n ml-prod rollout status deployment/sentiment-server
+kubectl -n ml-prod get pods -l app=sentiment
+kubectl -n ml-prod port-forward svc/sentiment-server 8000:80 &
+curl -X POST http://localhost:8000/predict \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"amazing"}'
+```
+
+Rollback: `helm rollback sentiment` o revertir el commit en el repo GitOps.
+
+## Errores comunes
+
+- **Imágenes de 10+ GB con el modelo adentro.** `docker pull` tarda 5-10 min; autoscaling se vuelve inviable. Mueve modelos a S3/GCS y descarga en init container.
+- **No usar multi-stage builds.** Terminas con compiladores, headers y caches de pip en producción. Reduce 50-70% el tamaño.
+- **Correr como root.** Un CVE en una dep + volumen montado = escape de contenedor. `USER appuser` siempre.
+- **`latest` tag en producción.** Rollback imposible, builds no reproducibles. Usa SHA del commit o SemVer.
+- **No pin de dependencias.** `pip install torch` instala diferente según el día. Usa lockfile.
+- **Resource requests mal calibrados.** Underrequest → OOMKill. Overrequest → waste y bin-packing malo. Profilea bajo carga real.
+- **Readiness probe inexistente o mal configurada.** Pod aceptando traffic antes de que el modelo cargue → 503 masivos. Usa `startupProbe` con `failureThreshold` alto.
+- **Sin `preStop` hook.** Deploy rolling mata pods a mitad de requests. Agrega `sleep 20` y `terminationGracePeriodSeconds=60`.
+- **Sin `initContainer` para descarga de modelo.** El modelo se descarga en el main container → race conditions, bloqueo del probe.
+- **GPU sin tolerations/nodeSelector.** El Pod puede programarse en nodos sin GPU, falla al iniciar.
+- **No limitar GPU memory en frameworks.** vLLM/PyTorch por default toman toda la VRAM. Usa `--gpu-memory-utilization 0.9`.
+- **Sin HPA o con targets agresivos.** Scaling de 1 a 30 pods instantáneo satura S3 descargando el modelo.
+- **ConfigMaps/Secrets en el image.** Credenciales hardcodeadas → leak garantizado. Siempre externas y rotables.
+
+## Contexto industrial
+
+- **Google** operó Borg (antecesor de K8s) desde ~2003; K8s nace open source en 2014.
+- **Meta** usa **Tupperware** (propio) para contenedores a hiperescala con GPU scheduling custom.
+- **Spotify, Airbnb, Shopify, Pinterest** operan sobre K8s + ArgoCD/Flux + Helm.
+- **Netflix** usa **Titus** (propio) para ML, con integración profunda a sus pipelines.
+- **Hugging Face Inference Endpoints**, **Together AI**, **Modal**, **Replicate**: todos son K8s + custom schedulers debajo.
+- **CNCF** mantiene el ecosistema K8s (Prometheus, Envoy, Istio, Linkerd, ArgoCD, Flux, Flagger, Keda, Cert-Manager).
+
+Buenas prácticas de la industria: **inmutable infra** (nunca `kubectl edit` en prod), **GitOps** (todo cambio via PR), **progressive delivery** (Argo Rollouts / Flagger), **chaos engineering** (Chaos Mesh, Litmus), **cost monitoring** (OpenCost, Kubecost).
+
+## Resumen
+
+- **Docker** empaqueta tu modelo + runtime + deps en una imagen inmutable y reproducible.
+- **Kubernetes** orquesta esos contenedores: scheduling, autoscaling, health, networking, rolling updates.
+- **Multi-stage builds**, **non-root user**, **healthchecks** y **pinning estricto** son no-negociables para imágenes de producción.
+- Para modelos grandes, descarga en **initContainer** desde S3/GCS en lugar de embeberlos.
+- **HPA** escala con CPU/memoria o métricas custom (queue depth, p99 latency); afina `scaleUp` y `scaleDown` para evitar flapping.
+- **GPU scheduling** requiere `nvidia.com/gpu` en requests + nodeSelector + tolerations.
+- **Helm** templiza manifiestos; **ArgoCD/Flux** implementan GitOps (el repo es la fuente de verdad del cluster).
+- **Rolling updates** + **readiness probes** + **preStop hooks** garantizan zero-downtime.
+- Herramientas clave: Docker, Kubernetes, Helm, Kustomize, ArgoCD, Flux, Istio, Prometheus, Grafana, Trivy, OpenCost.
+- El objetivo final: deploys **frecuentes, pequeños, automáticos y reversibles**.

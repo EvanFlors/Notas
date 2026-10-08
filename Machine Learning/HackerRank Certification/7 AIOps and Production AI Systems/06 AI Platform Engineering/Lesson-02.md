@@ -1,55 +1,298 @@
-## Centralized Model Registry Patterns
-Model registries provide centralized management of trained models, their metadata, and deployment states. Without registries, organizations lose track of models, cannot reproduce results, and struggle with governance.
+# Model Registry y Prompt Library Centralizados
 
-A model registry stores model artifacts alongside comprehensive metadata. The artifact is the trained model file (weights, architecture). Metadata includes training metrics (accuracy, loss), training data version, code version, hyperparameters, training duration, author, and deployment history. Complete metadata enables understanding what a model is and how it was created.
+## ¿Qué es?
 
-Model versioning tracks changes over time. Each training run produces a new model version. Versions use semantic versioning (v1.0.0, v1.1.0, v2.0.0) or timestamps. Version history shows model evolution and enables comparing versions or rolling back to previous versions.
+Un **Model Registry** es el catálogo central y versionado de modelos entrenados, con su metadata (hiperparámetros, métricas, dataset, código, autor, lineage), sus **stages** del ciclo de vida (Dev → Staging → Prod → Archived) y los **artefactos** binarios (pesos, tokenizer, schema). Es a los modelos lo que un **container registry** es a las imágenes Docker: una fuente única de verdad.
 
-Model stages track lifecycle position. Common stages are Development (newly trained), Staging (validated for testing), Production (serving traffic), and Archived (no longer used). Transitions between stages are explicit, controlled events that can trigger automation or require approvals.
+Un **Prompt Library (Prompt Registry)** cumple la misma función pero para **prompts de LLM**: cada prompt tiene nombre, versión, variables, modelo asociado, evals, labels (`dev`/`staging`/`production`) y audit trail. Permite tratar prompts como código versionado sin desplegar la app cada vez que cambian.
 
-Model lifecycle stages showing progression from Development through Staging to Production with approval gates
+| Herramienta | Qué registra | Notas |
+|---|---|---|
+| **MLflow** | Modelos ML/DL clásicos | Open-source, standard de facto |
+| **Weights & Biases Models** | Modelos + experimentos + artifacts | SaaS, muy popular en DL |
+| **Vertex AI Model Registry** | Modelos en GCP | Integración con Vertex Pipelines |
+| **SageMaker Model Registry** | Modelos en AWS | Integración con SageMaker Pipelines |
+| **Hugging Face Hub (privado)** | Modelos y datasets | Útil para LLMs/transformers |
+| **Langfuse** | Prompts, trazas, evals | Open-source, LLM-first |
+| **Humanloop** | Prompts, evals, feedback | SaaS, foco en product teams |
+| **PromptLayer** | Prompts, logs, A/B | SaaS |
+| **LangChain Hub** | Prompts versionados | Ligero, parte del ecosistema LangChain |
 
-![Model lifecycle stages with governance approval gates](https://hrcdn.net/ai-engineering/module-7/light/aiops-lesson02-model-lifecycle-stages.svg)
+## ¿Por qué importa?
 
-Model comparison enables informed deployment decisions. Registries show metrics for multiple model versions side-by-side. Compare v1.3 accuracy (94 percent) versus v1.2 accuracy (92 percent). Evaluate if improvements justify deployment costs and risks.
+Sin registry pasa esto: alguien entrena `fraud_model_v3_FINAL_realfinal.pkl` en su laptop, lo sube a S3 "temporal", y seis meses después nadie puede responder qué dataset lo entrenó, qué métricas obtuvo ni quién aprobó su despliegue. Cuando llega la auditoría o un incidente de fraude en producción, no hay respuestas.
 
-Model search helps find models by attributes. Search for all models trained this month, all models above 90 percent accuracy, or all models using a specific dataset. Searchability prevents recreating models that already exist and enables discovering relevant work.
+Los problemas que resuelve un registry central:
 
-Model lineage tracks dependencies. A model trained with data version X, code version Y, and config version Z has traceable lineage. Lineage enables reproducing models, understanding what changed between versions, and debugging issues.
+- **Reproducibilidad.** Dado un model_id, puedo reconstruir **datos + código + hiperparámetros** exactos.
+- **Governance.** Quién promovió qué modelo a prod y cuándo, con qué approvers.
+- **Comparación.** Decidir deploy mirando v1.4 vs v1.3 lado a lado (métricas, dataset, sesgo por grupo).
+- **Rollback.** Volver a la versión anterior en segundos ante incidente.
+- **Discovery.** "¿Ya existe un modelo de intent detection?" se responde en una búsqueda.
+- **Compliance.** GDPR, HIPAA, SOC 2, EU AI Act y la mayoría de regulaciones exigen trazabilidad de modelos y datos.
+- **Deploy automático.** El evento "modelo promovido a Production" dispara CI/CD; cero clicks manuales.
 
-Integration with deployment systems enables automated workflows. When a model is promoted to Production stage, automatically trigger deployment to production infrastructure. When a model is demoted, automatically undeploy it. Integration reduces manual steps and prevents errors.
+Para prompts aplica lo mismo multiplicado: un prompt cambia 20 veces más que un modelo, cualquiera puede editarlo, y una regresión silenciosa degrada calidad sin alertas.
 
-A complete model registry implementation provides centralized tracking, versioned storage, stage-based lifecycle management, approval workflows, and complete audit trails - essential for governed AI deployments.
+## ¿Cómo funciona?
 
-Approval Workflows and Audit Trails
-Governance requires controlled model transitions and complete audit trails. Approval workflows add human oversight. Audit trails provide accountability and compliance documentation.
+### Metadata obligatoria por versión
 
-Approval workflows define who can promote models between stages. Promoting from Development to Staging might require data scientist approval. Promoting from Staging to Production might require both data scientist and engineering lead approval. Workflows prevent unauthorized or premature deployments.
+| Campo | Ejemplo |
+|---|---|
+| `model_id` | `fraud-txn-xgb` |
+| `version` | `v12` o `1.4.0` |
+| `stage` | `Dev` / `Staging` / `Production` / `Archived` |
+| `metrics` | `{"auc": 0.962, "precision@top1%": 0.78}` |
+| `params` | `{"max_depth": 8, "lr": 0.05, "seed": 42}` |
+| `dataset_uri` | `s3://data/fraud/2026-02-15/train.parquet@v37` |
+| `code_commit` | `git@corp:fraud/trainer#a1b2c3d` |
+| `trained_by` | `ana@corp` |
+| `trained_at` | `2026-02-16T14:22Z` |
+| `framework` | `xgboost==2.1.0` |
+| `signature` | input schema + output schema |
+| `tags` | `team=risk, pii=true, cost_center=CC-4421` |
 
-Automated checks supplement manual approvals. Before promoting to Production, verify the model passes performance thresholds, security scans detect no vulnerabilities, and drift tests show acceptable stability. Automated checks enforce minimum standards while manual approvals add judgment.
+### Stages y lifecycle
 
-Approval requests include context for decision-making. Show model metrics, comparison with current production model, test results, and proposed rollout plan. Approvers need information to make informed decisions, not just "approve model v1.3."
+```
+┌──────────┐  register   ┌──────────┐  validate   ┌──────────┐
+│   Dev    │────────────►│ Staging  │────────────►│Production│
+└──────────┘             └──────────┘             └──────────┘
+     ▲                        │                        │
+     │                        │ reject                 │ rollback
+     └────────────────────────┴────────────────────────┘
+                                                        │
+                                                        ▼
+                                                   ┌──────────┐
+                                                   │ Archived │
+                                                   └──────────┘
+```
 
-Notifications keep stakeholders informed. Notify relevant people when models are promoted, deployed, or rolled back. Integrate with chat tools (Slack, Teams) so teams stay aware of model changes without checking registries constantly.
+Cada transición es un **evento auditable**. Dev→Staging suele requerir aprobación del data scientist; Staging→Production requiere **doble aprobación** (DS + eng lead), checks automáticos pasados y evals en benchmark congelado por encima de umbral.
 
-Rejection workflows handle declined approvals. When an approval is rejected, document the reason. Return the model to the requester with clear feedback. Track rejection reasons to identify patterns (common issues preventing approvals) and improve processes.
+### Approval workflow (patrón estándar)
 
-Audit trails record all model state changes. Log who registered models, when, who promoted them, who approved promotions, when deployments occurred, and who rolled back. Complete audit history provides accountability and supports compliance requirements.
+1. Trainer sube `v13` → stage `Dev`.
+2. CI corre tests: schema, performance mínima, drift vs `v12`, bias por grupo, security scan.
+3. Si todo pasa → request `Dev → Staging` (auto-approve o 1 reviewer).
+4. En staging, canary al 5% de tráfico con shadow eval.
+5. Request `Staging → Production` con contexto en el PR: métricas, delta vs v12, test results, plan de rollout.
+6. Aprobaciones requeridas (configurables por riesgo del modelo).
+7. Promoción dispara CI/CD → despliegue a prod + locking de versión + notificación Slack.
+8. Si hay regresión → `rollback` instantáneo al tag anterior.
 
-Compliance reporting uses audit trails. Generate reports showing which models were deployed when, who approved them, what metrics they achieved, and how long they ran. Regulated industries (finance, healthcare) require these reports for audits.
+### Lineage
 
-Access controls restrict registry operations. Data scientists can register models. Senior data scientists can promote to Staging. Engineering leads can promote to Production. Administrators can archive models. Role-based access control prevents unauthorized changes.
+Lineage conecta `modelo → código → datos → features`. Útil para preguntas como: *"si retiramos el dataset D porque un usuario pidió deletion, ¿qué modelos están afectados?"*. Herramientas: OpenLineage, DataHub, Marquez.
 
-Version locking prevents accidental changes. Once a model is deployed to Production, lock its artifact and metadata. Locked models cannot be modified or deleted. This ensures production models remain unchanged and audit trails stay reliable.
+### Prompt library: lifecycle paralelo
 
-Summary
-Centralized model registries store models, metadata, and lifecycle stages, enabling organizations to track, compare, and govern models effectively. Model versioning, stages, and lineage provide visibility into model evolution and dependencies.
+Los prompts siguen un flujo similar: `draft` → `staging` → `production`. Cambios se hacen por PR, con evals automáticas antes de promover.
 
-Approval workflows add human oversight to model promotions, requiring appropriate approvals before production deployment. Automated checks enforce standards. Audit trails record all changes, supporting accountability and compliance. Access controls and version locking protect production models from unauthorized changes.
+```
+prompt: support/triage      versions: v1, v2, v3, v4
+labels: production → v3     staging → v4    draft → v5
+```
 
-Key concepts to remember
-Centralized Source of Truth - Model registries centralize models, metadata, and lifecycle stages for all organizational models
-Lineage Tracking - Model lineage tracking records training data, code, and configuration versions for reproducibility
-Balanced Oversight - Approval workflows require appropriate sign-offs before production deployment, balancing automation with judgment
-Compliance Support - Complete audit trails recording all model state changes support compliance requirements and provide accountability
-Protection Mechanisms - Access controls and version locking protect production models from unauthorized modifications or deletions
+La app pide siempre por **label** (`production`), no por versión fija. Rollback = mover la label.
+
+### Audit trail y compliance
+
+Todo cambio queda logueado con `(who, what, when, why, approver)`. En industrias reguladas (banca, salud) estos logs se exportan periódicamente a un sistema inmutable (S3 Object Lock, append-only DB). El EU AI Act y la FDA exigen **≥ 10 años** de retención para sistemas de alto riesgo.
+
+### Access control y version locking
+
+- **RBAC** por rol: `ds_junior` puede registrar; `ds_senior` promueve a staging; `ml_lead` promueve a prod; `admin` archiva.
+- **Version locking**: una vez `Production`, el artefacto y la metadata son **inmutables**. Nadie puede sobreescribir, solo registrar nueva versión.
+
+## Ejemplo con código
+
+### 1. MLflow: registro, promoción con approval y rollback
+
+```python
+import mlflow
+from mlflow.tracking import MlflowClient
+from mlflow.entities.model_registry import ModelVersion
+
+mlflow.set_tracking_uri("https://mlflow.internal")
+MODEL = "risk/fraud-txn-xgb"
+
+# ---------- 1. Entrenar y registrar ----------
+with mlflow.start_run(run_name="xgb-v13") as run:
+    mlflow.log_params({"max_depth": 8, "lr": 0.05, "seed": 42})
+    mlflow.log_metrics({"auc": 0.962, "precision_at_1pct": 0.78})
+    mlflow.set_tags({
+        "team": "risk",
+        "pii": "true",
+        "dataset_uri": "s3://data/fraud/2026-02-15/train.parquet@v37",
+        "code_commit": "a1b2c3d",
+    })
+    mlflow.xgboost.log_model(booster, artifact_path="model",
+                             signature=signature,
+                             registered_model_name=MODEL)
+
+client = MlflowClient()
+latest = client.get_latest_versions(MODEL, stages=["None"])[0]
+
+# ---------- 2. Checks automáticos pre-promoción ----------
+def passes_quality_gates(mv: ModelVersion) -> bool:
+    run = client.get_run(mv.run_id)
+    metrics = run.data.metrics
+    if metrics["auc"] < 0.95:
+        return False
+    # comparar con prod actual
+    prod = client.get_latest_versions(MODEL, stages=["Production"])
+    if prod:
+        prod_auc = client.get_run(prod[0].run_id).data.metrics["auc"]
+        if metrics["auc"] < prod_auc - 0.005:   # no regresión > 0.5pp
+            return False
+    return True
+
+assert passes_quality_gates(latest), "quality gate failed"
+
+# ---------- 3. Promoción con audit ----------
+client.transition_model_version_stage(
+    name=MODEL,
+    version=latest.version,
+    stage="Staging",
+    archive_existing_versions=False,
+)
+client.set_model_version_tag(MODEL, latest.version, "approved_by", "ana@corp")
+
+# ---------- 4. Después de canary OK → prod ----------
+client.transition_model_version_stage(
+    name=MODEL, version=latest.version, stage="Production",
+    archive_existing_versions=True,     # archiva el prod anterior
+)
+
+# ---------- 5. Rollback en incidente ----------
+def rollback(model_name: str):
+    archived = client.search_model_versions(
+        f"name='{model_name}' and tags.last_prod='true'"
+    )
+    prev = sorted(archived, key=lambda m: int(m.version))[-1]
+    client.transition_model_version_stage(
+        model_name, prev.version, "Production", archive_existing_versions=True
+    )
+```
+
+### 2. Approval workflow con webhook + Slack
+
+```python
+# webhook disparado por MLflow al cambiar stage
+from fastapi import FastAPI, Request
+import httpx, os
+
+app = FastAPI()
+SLACK = os.environ["SLACK_WEBHOOK_APPROVALS"]
+
+@app.post("/mlflow/webhook")
+async def on_transition(req: Request):
+    event = await req.json()
+    if event["to_stage"] == "Production":
+        msg = (
+            f":rotating_light: Promoción a *Production* solicitada\n"
+            f"• modelo: `{event['model_name']}` v{event['version']}\n"
+            f"• por: {event['user']}\n"
+            f"• AUC: {event['metrics']['auc']:.3f}\n"
+            f"<https://mlflow.internal/#/models/{event['model_name']}/versions/{event['version']}|Revisar>"
+        )
+        await httpx.AsyncClient().post(SLACK, json={"text": msg})
+    return {"ok": True}
+```
+
+### 3. Prompt library con Langfuse (versioning + labels)
+
+```python
+from langfuse import Langfuse
+
+lf = Langfuse(host="https://langfuse.internal")
+
+# ----- publicar nueva versión -----
+lf.create_prompt(
+    name="support/triage",
+    prompt=(
+        "Eres un asistente de soporte. Categoriza el ticket en "
+        "{{categories}}. Responde SOLO el nombre de la categoría.\n\n"
+        "Ticket: {{ticket}}"
+    ),
+    config={"model": "smart-chat", "temperature": 0.0, "max_tokens": 20},
+    labels=["staging"],         # entra como staging, no como production
+    tags=["support", "classification"],
+)
+
+# ----- promoción a production (tras evals OK) -----
+latest = lf.get_prompt("support/triage", label="staging")
+lf.update_prompt(name="support/triage", version=latest.version,
+                 new_labels=["production", "staging"])
+
+# ----- consumo desde la app (SIEMPRE por label) -----
+p = lf.get_prompt("support/triage", label="production")
+rendered = p.compile(categories="billing,bug,other", ticket=ticket_text)
+
+# el SDK adjunta prompt_name y prompt_version a la traza:
+with lf.start_as_current_span(name="triage", input=ticket_text) as span:
+    span.update(prompt=p)   # audit: qué versión atendió esta request
+    answer = llm.chat(rendered)
+    span.update(output=answer)
+```
+
+### 4. Audit trail estructurado (ejemplo esquema)
+
+```sql
+CREATE TABLE model_audit (
+    id            BIGSERIAL PRIMARY KEY,
+    ts            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    actor         TEXT NOT NULL,         -- user/service account
+    action        TEXT NOT NULL,         -- register|promote|archive|rollback
+    model_name    TEXT NOT NULL,
+    version       TEXT NOT NULL,
+    from_stage    TEXT,
+    to_stage      TEXT,
+    reason        TEXT,
+    approvers     JSONB,                 -- [{"user":"ana","ts":...}, ...]
+    metrics       JSONB,
+    dataset_uri   TEXT,
+    code_commit   TEXT
+);
+-- append-only: revocar DELETE/UPDATE a todos salvo auditor
+REVOKE UPDATE, DELETE ON model_audit FROM PUBLIC;
+```
+
+### 5. Comparación de registries
+
+| Capacidad | MLflow | W&B | Vertex AI | SageMaker | Langfuse (prompts) |
+|---|---|---|---|---|---|
+| Open-source | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Stages lifecycle | ✅ (aliases) | ✅ | ✅ | ✅ | ✅ (labels) |
+| Webhooks | ✅ | ✅ | ✅ (Eventarc) | ✅ (EventBridge) | ✅ |
+| RBAC fino | parcial | ✅ | ✅ | ✅ | ✅ |
+| Lineage integrado | parcial | ✅ | ✅ | ✅ | n/a |
+| Self-hosted | ✅ | ✅ (enterprise) | ❌ | ❌ | ✅ |
+| Evals de LLM | ❌ | ✅ | parcial | parcial | ✅ |
+
+## Errores comunes
+
+- **Guardar modelos en S3 sin registry.** `s3://bucket/models/final_v2_definitivo.pkl` sin metadata ni lineage. En 6 meses nadie sabe qué es, quién lo entrenó, ni si está en prod.
+- **No lockear versiones en Production.** Alguien sobreescribe `v12` y rompe reproducibilidad y auditoría. La versión promovida debe ser **inmutable**.
+- **Prompts hardcodeados en el código.** Cambiar un prompt obliga a redeploy; A/B es imposible y no hay audit. Mueve todo a prompt library con labels.
+- **Promover a prod sin checks automáticos.** Solo aprobación humana → errores pasan. Combina **gate automático** (métricas, drift, bias, PII, security) con **aprobación humana** (contexto, estrategia).
+- **Approval workflow sin contexto.** Pedir "aprobar v13" sin mostrar métricas vs v12, test results y plan de rollout → el aprobador firma a ciegas o rechaza por default.
+- **Audit trail mutable.** Logs en una tabla donde cualquiera puede hacer `UPDATE` → sin valor para auditoría. Usa append-only con permisos revocados.
+- **No alertar al promover a prod.** El equipo de SRE se entera del cambio por el incidente. Integra con Slack/Teams.
+- **Un solo entorno (no hay staging).** Todo va directo de dev a prod. Primer error en producción cuesta el 10x que en staging.
+- **Lineage incompleto.** Se registra el código pero no el **dataset_uri + version**. Reproducir el modelo es imposible y el "right to be forgotten" se vuelve un ticket imposible de cerrar.
+- **Un registry por equipo.** Cada equipo con su MLflow → se pierde discovery, se duplican modelos y la governance se vuelve imposible. **Uno central, multi-tenant con RBAC**.
+- **Rollback no probado.** El procedimiento existe en docs pero nunca se ejecutó; cuando toca usarlo (incidente a las 3am), descubres que el artefacto viejo fue garbage-collected.
+
+## Resumen
+
+- Un **Model Registry** es la fuente única de verdad de modelos: artefactos + metadata + lineage + stages + audit, versionado e inmutable en Production.
+- El **lifecycle** estándar es `Dev → Staging → Production → Archived`, con transiciones **auditadas** y aprobaciones proporcionales al riesgo.
+- Los **approval workflows** combinan checks automáticos (performance, drift, bias, security) con juicio humano sobre contexto.
+- Un **Prompt Library** (Langfuse, Humanloop, LangChain Hub) hace lo mismo para prompts: versiones, labels, evals y rollback por label.
+- **Audit trails inmutables** y **version locking** son requisitos duros para GDPR, HIPAA, SOC 2 y EU AI Act.
+- **RBAC granular** por rol (DS junior / senior / lead / admin) impide promociones no autorizadas.
+- Los errores más graves: artefactos sueltos en S3, prompts hardcodeados, promociones sin contexto y audit trails mutables.
+- **Un solo registry central multi-tenant** vence a N registries por equipo: permite discovery, governance y chargeback consistentes.

@@ -1,89 +1,80 @@
-## Quiz: Human-in-the-Loop and User Feedback
+# Quiz: Human-in-the-Loop y feedback del usuario
 
-Human-in-the-Loop and User Feedback
-Your code review agent is ready for production, but you need human oversight for high-stakes decisions. The agent should auto-post minor comments but require approval before blocking PRs or requesting changes. You also want to collect feedback to improve the agent over time. The system must handle approval workflows, timeouts, and feedback integration.
+**Contexto:** Tu agente de code review está listo para producción, pero necesitas supervisión humana para decisiones de alto riesgo. El agente debe publicar comentarios menores de forma autónoma, pero requerir aprobación antes de bloquear PRs o solicitar cambios. También quieres recolectar feedback para mejorar el agente con el tiempo. El sistema debe manejar workflows de aprobación, timeouts e integración de feedback.
 
+---
 
-Why is human-in-the-loop oversight essential for production agents?
+### 1. ¿Por qué es esencial la supervisión humana (HITL) para agentes en producción?
 
-Humans are faster than agents at making decisions
+- Los humanos son más rápidos que los agentes tomando decisiones.
+- **Los agentes cometen errores que el testing no puede prevenir completamente; la supervisión humana provee redes de seguridad para decisiones de alto riesgo y permite corregir errores del agente.**
+- La supervisión humana elimina la necesidad de hacer testing de sistemas de agentes.
+- Los agentes no pueden funcionar sin aprobación humana para cada acción.
 
-Agents make mistakes that testing cannot fully prevent; human oversight provides safety nets for high-stakes decisions and enables correction of agent errors
+**Explicación:** Los agentes son imperfectos y cometen errores de razonamiento (alucinaciones, mala interpretación de contexto, decisiones con baja evidencia). La supervisión humana captura esos errores antes de que causen daño, especialmente en acciones **irreversibles** o de **alto impacto**. HITL no es desconfianza; es "confianza calibrada": el humano no reemplaza al testing, lo complementa en el espacio donde el testing no puede llegar (edge cases nuevos, decisiones probabilísticas, contexto fuera del prompt).
 
-Human oversight eliminates the need for testing agent systems
+---
 
-Agents cannot function without human approval for every action
-Correct Answer!
-Agents are imperfect and make reasoning errors. Human oversight catches mistakes before they cause damage, especially for irreversible or high-impact actions.
+### 2. En el espectro de autonomía del agente, ¿qué significa 'agent-initiated con override'?
 
-In the spectrum of agent autonomy, what does 'agent-initiated with override' mean?
+- Los agentes proponen acciones pero los humanos deben aprobar antes de ejecutar.
+- **Los agentes ejecutan acciones automáticamente, pero los humanos pueden intervenir, editar o retractar esas acciones después de la ejecución.**
+- Los humanos toman todas las decisiones y los agentes solo proveen información.
+- Los agentes ejecutan sin ninguna intervención ni supervisión humana.
 
-Agents propose actions but humans must approve before execution
+**Explicación:** El espectro de autonomía va de **manual** (humano decide y ejecuta) a **totalmente autónomo** (agente decide y ejecuta sin intervención). "Agent-initiated con override" está en el medio-alto: el agente actúa por default, pero el humano **retiene el poder de modificar o deshacer**. Es apropiado cuando la acción es reversible y la latencia importa (ej. publicar un comentario que luego puede editarse). Se diferencia de "human-initiated", donde el agente **no** ejecuta hasta recibir aprobación previa.
 
-Agents execute actions automatically, but humans can intervene, edit, or retract those actions after execution
+---
 
-Humans make all decisions and agents only provide information
+### 3. Al determinar si una acción del agente requiere aprobación humana, ¿qué factores debes considerar?
 
-Agents execute without any human involvement or oversight
-Correct Answer!
-Agent-initiated with override means agents act autonomously, but humans retain the ability to modify or undo actions.
+- Solo el tipo de acción, sin importar contexto o impacto.
+- **Reversibilidad (qué tan fácil es deshacer la acción), alcance del impacto (cuántas personas o sistemas afecta) y nivel de confianza del agente.**
+- Solo el costo de la acción en tokens de API.
+- Solo si el agente ha tomado decisiones similares antes.
 
-When determining if an agent action requires human approval, which factors should you consider?
+**Explicación:** Las tres dimensiones son complementarias. **Reversibilidad**: borrar una rama con trabajo no mergeado es irreversible; publicar un comentario se deshace con un click. **Impacto** (blast radius): un typo-fix afecta un archivo, una migración afecta a todos los usuarios. **Confianza**: una decisión con 0.95 en un caso rutinario es muy distinta a 0.4 en un caso novedoso. La regla práctica: `requiere_humano = baja_reversibilidad OR alto_impacto OR baja_confianza`.
 
-Only the action type, regardless of context or impact
+---
 
-Reversibility (how easily actions can be undone), impact scope (how many people/systems are affected), and agent confidence level
+### 4. ¿Cuáles son los elementos clave que un workflow de aprobación debe manejar?
 
-Only the cost of the action in API tokens
+- Solo rutear solicitudes de aprobación a la persona correcta.
+- **Qué dispara la aprobación, quién aprueba, qué información ven, cómo responden y qué pasa después de aprobar o rechazar.**
+- Solo almacenar las solicitudes de aprobación en una base de datos.
+- Solo enviar notificaciones por email a los aprobadores.
 
-Only whether the agent has made similar decisions before
-Correct Answer!
-These three factors help assess risk: irreversible actions, broad impact, and low confidence all warrant human oversight.
+**Explicación:** Un workflow completo cubre el ciclo de vida entero: **trigger** (qué dispara), **routing** (quién recibe, con load balancing), **presentation** (resumen, confianza, findings, efectos de aprobar/rechazar), **response** (approve / reject / modify / escalate), **timeout** (escalate / auto-approve / auto-reject), y **post-action** (ejecución y auditoría). Omitir cualquiera genera fricción, bloqueos o auditoría pobre. Por ejemplo, no definir timeout convierte una ausencia breve del aprobador en un bloqueo indefinido.
 
-What are the key elements that an approval workflow must handle?
+---
 
-Only routing approval requests to the right person
+### 5. Cuando una solicitud de aprobación expira (el aprobador no responde dentro del deadline), ¿qué debe pasar?
 
-What triggers approval, who approves, what information they see, how they respond, and what happens after approval or rejection
+- La acción debe ejecutarse automáticamente tras el timeout.
+- **El sistema debe escalar a aprobadores alternativos, cancelar la acción, o aplicar una política default basada en el nivel de riesgo de la acción.**
+- El agente debe reintentar la solicitud indefinidamente hasta que alguien responda.
+- La solicitud debe borrarse y la acción olvidarse.
 
-Only storing approval requests in a database
+**Explicación:** El comportamiento correcto en timeout depende del **riesgo**. Para acciones críticas (merge a main, deploy): **escalate** a aprobador senior o manager. Para acciones de bajo riesgo con default seguro: **auto-approve** aceptable. Para acciones donde "no hacer nada" es seguro: **auto-reject** con notificación. Nunca uses auto-approve universal (teatro de seguridad) ni dejes el item colgado para siempre (bloqueo oculto). Reintentar indefinidamente satura al aprobador y degrada la señal.
 
-Only sending email notifications to approvers
-Correct Answer!
-Complete workflows handle the full lifecycle: triggers, routing, information presentation, response handling, and post-approval execution.
+---
 
-When an approval request times out (approver doesn't respond within the deadline), what should happen?
+### 6. ¿Por qué es importante recolectar feedback humano para mejorar sistemas de agentes?
 
-The action should execute automatically after timeout
+- El feedback solo sirve para métricas de satisfacción del usuario.
+- **El feedback ayuda a identificar errores del agente, corregir falsos positivos/negativos y mejorar la toma de decisiones futura aprendiendo de las correcciones humanas.**
+- El feedback elimina la necesidad de testing automatizado de agentes.
+- El feedback solo se necesita durante desarrollo, no en producción.
 
-The system should escalate to alternative approvers, cancel the action, or apply a default policy based on the action's risk level
+**Explicación:** Sin feedback, un agente está **congelado en su configuración inicial**: comete los mismos errores indefinidamente porque nada cierra el gap entre su comportamiento y la expectativa humana. El feedback alimenta: refinamiento de prompts (añadir guidelines, ejemplos negativos), datasets para fine-tuning (DPO/RLHF), recalibración de confianza (isotonic/Platt), suites de regresión y detección de drift. Es imprescindible **en producción** porque la distribución real de inputs y las expectativas evolucionan con el tiempo.
 
-The agent should retry the approval request indefinitely until someone responds
+---
 
-The approval request should be deleted and the action forgotten
-Correct Answer!
-Timeout handling depends on risk: high-risk actions should escalate or cancel, while low-risk might have safe defaults.
+### 7. ¿Cómo debe un agente usar la estimación de confianza para decidir cuándo escalar a humanos?
 
-Why is collecting human feedback important for improving agent systems?
+- Los agentes deben escalar siempre, sin importar el nivel de confianza.
+- **Los agentes deben escalar cuando la confianza es baja o cuando las acciones son de alto riesgo, permitiendo ejecución autónoma para decisiones de alta confianza y bajo riesgo.**
+- La estimación de confianza no es útil para determinar escalation.
+- Los agentes solo deben escalar basándose en el tipo de acción, no en la confianza.
 
-Feedback is only useful for tracking user satisfaction metrics
-
-Feedback helps identify agent mistakes, correct false positives/negatives, and improve future decision-making through learning from human corrections
-
-Feedback eliminates the need for automated testing of agents
-
-Feedback is only needed during development, not in production
-Correct Answer!
-Human feedback reveals where agents fail, provides corrections, and creates training data to improve future performance.
-
-How should an agent use confidence estimation to determine when to escalate to humans?
-
-Agents should always escalate, regardless of confidence level
-
-Agents should escalate when confidence is low or when actions are high-risk, allowing autonomous execution for high-confidence, low-risk decisions
-
-Confidence estimation is not useful for determining escalation
-
-Agents should only escalate based on action type, not confidence
-Correct Answer!
-Confidence-based escalation enables autonomy for routine decisions while ensuring human oversight for uncertain or risky actions.
+**Explicación:** La escalation basada en confianza habilita **autonomía para lo rutinario** y **supervisión para lo incierto**. La decisión correcta combina confianza con riesgo en una matriz: alto riesgo siempre pide humano aunque la confianza sea alta; bajo riesgo puede ir autónomo si la confianza supera un umbral. Confianza se estima combinando: stated confidence del modelo, consistency entre múltiples muestras, calibración histórica (si decía 0.9 y acertaba 0.7, ajusta) y señales de contexto (tamaño del PR, novedad del área). Escalar siempre satura al humano; no escalar nunca produce daño silencioso.

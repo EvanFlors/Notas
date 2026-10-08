@@ -1,160 +1,364 @@
-## Model Evaluation Basics
-Imagine you have just finished training your first machine learning model to classify customer support tickets as "urgent" or "normal" for your company's help desk system. The training completes successfully, but now comes the critical question: how good is this model really? Will it correctly identify urgent tickets that need immediate attention, or will it miss critical issues and frustrate customers?
+# Fundamentos de Evaluación de Modelos
 
-This is where model evaluation becomes important. Without proper evaluation, you are essentially flying blind; you might deploy a model that performs poorly in production, leading to worse outcomes.
+## ¿Qué es?
 
-In this lesson, you will understand the essential metrics that data scientists and ML engineers use every day for both classification and regression problems. You will learn to read confusion matrices, understand accuracy, precision, recall, and F1-score for classification, plus MSE, RMSE, MAE, and R² for regression.
+La **evaluación de modelos** es el conjunto de métricas, pruebas y procedimientos que **cuantifican qué tan bien un modelo cumple su propósito**. No es un número único: es un *lenguaje* para comunicar desempeño, trade-offs y riesgos a stakeholders técnicos y de negocio.
 
-Understanding True vs Predicted Labels
-Before diving into metrics, let's establish the foundation. Every classification model makes predictions, and we compare these predictions against the actual truth (ground truth labels). This comparison reveals four possible outcomes:
+Un modelo sin evaluación rigurosa es, literalmente, **volar a ciegas**: puedes desplegar algo que degrade la experiencia, pierda revenue o cause daño antes de que alguien lo note.
 
-True Positives (TP): Model correctly predicts positive class
-True Negatives (TN): Model correctly predicts negative class
-False Positives (FP): Model incorrectly predicts positive (Type I error)
-False Negatives (FN): Model incorrectly predicts negative (Type II error)
+> **Definición operativa:** evaluar un modelo es responder, con evidencia reproducible, tres preguntas: ¿acierta?, ¿cuándo falla?, ¿cuánto cuesta cada tipo de error?
 
-![Confusion Matrix](https://hrcdn.net/ai-engineering/module-1/light/foundations-lesson04-confusion-matrix.svg)
+### Dos grandes familias de métricas
 
-Consider our customer support example. If we are predicting "urgent" tickets:
+| Tipo de problema | Salida | Métricas base |
+|---|---|---|
+| **Clasificación** | Categoría discreta | Accuracy, Precision, Recall, F1, AUC-ROC, AUC-PR |
+| **Regresión** | Valor continuo | MAE, MSE, RMSE, R², MAPE |
+| **Ranking** | Orden relativo | NDCG, MAP, MRR, Hit@K |
+| **Generación (NLP)** | Texto libre | BLEU, ROUGE, perplejidad, LLM-as-judge, eval humana |
 
-TP: Model says "urgent" and it actually is urgent
-TN: Model says "normal" and it actually is normal
-FP: Model says "urgent" but it's actually normal (false alarm)
-FN: Model says "normal" but it's actually urgent (missed critical issue)
+Esta lección se enfoca en **clasificación y regresión**, los dos pilares del ML supervisado tradicional.
 
-## The Confusion Matrix
-The confusion matrix is your primary tool for understanding model performance. It is a simple 2x2 table (for binary classification) that shows the relationship between actual and predicted labels:
+## ¿Por qué importa?
 
-Predicted
+Elegir **la métrica correcta** suele ser más importante que elegir el algoritmo. Un modelo optimizado para accuracy en un dataset desbalanceado puede ser peor que una regla trivial. Un modelo con RMSE bajo puede ser inservible si lo que importa es minimizar los errores catastróficos.
 
-| Actual \ Predicted | Normal | Urgent | Total |
-|--------------------|-------:|--------:|------:|
-| Normal             | 950    | 50      | 1000  |
-| Urgent             | 30     | 220     | 250   |
-| **Total**          | **980**| **270** | **1250** |
+Casos reales donde la métrica equivocada causó daño:
 
-This matrix tells us immediately that out of 1,250 total tickets:
+- **Content moderation:** optimizar F1 global dejó pasar demasiado contenido dañino porque el equipo no priorizó recall en la clase crítica.
+- **Fraud detection:** 99.9% accuracy "exitoso" cuando el fraude es 0.1% — el modelo nunca lo detectaba.
+- **Diagnóstico médico:** un modelo con alto precision pero bajo recall diagnostica correctamente lo que marca, pero **omite** la mayoría de los casos reales de la enfermedad.
+- **Recomendadores:** optimizar CTR produce clickbait y erosiona la retención de largo plazo (Goodhart's Law).
 
-950 normal tickets were correctly identified
-220 urgent tickets were correctly identified
-50 normal tickets were incorrectly flagged as urgent
-30 urgent tickets were missed (incorrectly labeled as normal)
+> **Regla de ingeniería:** la mejor métrica es la que **refleja el costo real de equivocarse** en tu dominio. Si cada tipo de error tiene un costo distinto, tu métrica debe reflejar esa asimetría.
 
-Always remember: rows represent actual labels, columns represent predictions.
+## ¿Cómo funciona?
 
-Accuracy
-Accuracy is the most intuitive metric as it simply measures what percentage of predictions were correct:
+### Verdad vs. predicción: los cuatro resultados posibles
 
-Accuracy = (TP + TN) / Total Predictions
+Toda clasificación binaria produce cuatro resultados al comparar la predicción con la verdad:
 
-From our example: (950 + 220) / 1,250 = 0.936 or 93.6%
+| | Predicho: Positivo | Predicho: Negativo |
+|---|---|---|
+| **Real: Positivo** | TP (True Positive) | FN (False Negative) — *Error Tipo II* |
+| **Real: Negativo** | FP (False Positive) — *Error Tipo I* | TN (True Negative) |
 
-But accuracy can be misleading, especially with imbalanced datasets. Imagine if 95% of your support tickets were "normal." A lazy model that always predicts "normal" would achieve 95% accuracy while being completely useless for identifying urgent issues.
+![Matriz de confusión](https://hrcdn.net/ai-engineering/module-1/light/foundations-lesson04-confusion-matrix.svg)
 
-This is why accuracy alone is rarely sufficient for production systems. You need metrics that reveal how well your model handles each class separately.
+En el ejemplo de tickets de soporte, prediciendo "urgente":
 
-Precision
-Precision answers the question: "When my model predicts positive, how often is it actually correct?"
+- **TP:** el modelo dice "urgente" y realmente lo es.
+- **TN:** el modelo dice "normal" y realmente lo es.
+- **FP:** el modelo dice "urgente" pero era normal → **falsa alarma**, desperdicio de atención del equipo.
+- **FN:** el modelo dice "normal" pero era urgente → **asunto crítico omitido**, cliente molesto.
 
-Precision = TP / (TP + FP)
+### La matriz de confusión
 
-In our support ticket example: 220 / (220 + 50) = 0.815 or 81.5%
+Es la herramienta base para clasificación. Para el ejemplo de tickets:
 
-This means that when your model flags a ticket as urgent, it is correct about 81.5% of the time. The remaining 18.5% are false alarms; normal tickets that got escalated unnecessarily.
+| Real \ Predicho | Normal | Urgente | Total |
+|---|---:|---:|---:|
+| **Normal** | 950 (TN) | 50 (FP) | 1000 |
+| **Urgente** | 30 (FN) | 220 (TP) | 250 |
+| **Total** | 980 | 270 | 1250 |
 
-High precision is crucial when false positives are expensive. For instance, if you are building a fraud detection system, false positives mean blocking legitimate transactions, which frustrates customers and loses revenue.
+Las **filas son la realidad**, las **columnas la predicción**. De aquí se derivan todas las métricas de clasificación.
 
-Recall
-Recall (also called sensitivity) answers: "Of all the actual positive cases, how many did my model catch?"
+### Métricas de clasificación
 
-Recall = TP / (TP + FN)
+#### Accuracy
 
-From our example: 220 / (220 + 30) = 0.88 or 88%
+```
+Accuracy = (TP + TN) / Total = (950 + 220) / 1250 = 0.936  → 93.6%
+```
 
-This means your model successfully identifies 88% of actually urgent tickets. However, it misses 12% of urgent issues.
+Intuitiva, pero **engañosa con clases desbalanceadas**. Si 99% de los tickets fueran normales, un modelo que siempre predice "normal" tiene 99% accuracy y es inútil.
 
-High recall is critical when false negatives are costly. In medical diagnosis, missing a positive case (low recall) could be life-threatening. In our support example, missing urgent tickets could lead to angry customers and escalated complaints.
+> **Cuándo usar accuracy:** clases balanceadas y todos los errores cuestan lo mismo. En producción real esto es raro.
 
-F1-Score: Balancing Precision and Recall
-The F1-score provides a single metric that balances precision and recall using their harmonic mean:
+#### Precision
 
-F1 = 2 × (Precision × Recall) / (Precision + Recall)
+Responde: *"Cuando el modelo dice positivo, ¿cuántas veces acierta?"*
 
-From our example: 2 × (0.815 × 0.88) / (0.815 + 0.88) = 0.846 or 84.6%
+```
+Precision = TP / (TP + FP) = 220 / (220 + 50) = 0.815  → 81.5%
+```
 
-The harmonic mean is stricter than arithmetic mean; if either precision or recall is low, F1 will be low. This makes F1 particularly useful when you need both metrics to be reasonably high.
+Alta precision importa cuando **los falsos positivos son caros**:
 
-F1-score is valuable when you have imbalanced classes and care equally about precision and recall. It is widely used in competitions and research papers because it provides a balanced view of model performance.
+- Fraude: bloquear transacciones legítimas pierde revenue y clientes.
+- Email marketing: enviar a quien no quiere → spam complaints, dominio penalizado.
+- Diagnóstico: biopsia innecesaria tiene costo monetario y psicológico.
 
-Edit matrix values or load presets to see how classification metrics respond. Watch accuracy, precision, recall, and F1-score update instantly.
+#### Recall (Sensibilidad)
 
-Experiment: Try "High Precision" preset (low FP, high FN); good when false alarms are costly. Then "High Recall" (high FP, low FN); good when missing positives is dangerous (medical diagnosis, fraud detection). Notice how optimizing one metric often sacrifices another.
+Responde: *"De todos los casos realmente positivos, ¿cuántos capturé?"*
 
-## Measuring Continuous Predictions with Regression Metrics
-Regression models predict continuous values like prices, temperatures, or distances. Unlike classification, there's no "correct" or "incorrect" but only degrees of error between predicted and actual values.
+```
+Recall = TP / (TP + FN) = 220 / (220 + 30) = 0.88  → 88%
+```
 
-Mean Absolute Error (MAE)
-MAE = Average of |Actual - Predicted|
+Alto recall importa cuando **los falsos negativos son catastróficos**:
 
-For house price predictions: if your model predicts $320K for a $300K house and $280K for a $290K house, MAE = (20K + 10K) / 2 = $15K.
+- Diagnóstico de cáncer: omitir un caso cuesta vidas.
+- Seguridad: no detectar una amenaza real.
+- Fraude en préstamos de alto monto.
 
-MAE is intuitive and robust to outliers. It tells you the average prediction error in the same units as your target variable. If your MAE is $15K, you can expect predictions to be off by about $15K on average.
+#### F1-Score: media armónica
 
-Mean Squared Error (MSE)
-MSE = Average of (Actual - Predicted)²
+```
+F1 = 2 · (Precision · Recall) / (Precision + Recall) = 2·(0.815·0.88)/(0.815+0.88) = 0.846
+```
 
-Using the same example: MSE = (20K² + 10K²) / 2 = 250K²
+La **media armónica** es estricta: si cualquiera de precision o recall es baja, F1 cae fuerte. Útil cuando quieres ambas razonablemente altas y las clases están desbalanceadas.
 
-MSE heavily penalizes large errors due to squaring. A prediction that is off by $40K contributes 16 times more to MSE than one that's off by $10K. This makes MSE sensitive to outliers but useful when large errors are particularly costly.
+Variantes: **F0.5** (pondera más precision), **F2** (pondera más recall), **F-beta** general.
 
-Root Mean Squared Error (RMSE)
-RMSE = √MSE
+#### El trade-off precision ↔ recall
 
-From our example: RMSE = √250K² ≈ $22.4K
+Al mover el **umbral de decisión** (threshold), inviertes una por la otra:
 
-RMSE returns to the original units (dollars instead of dollars-squared), making it more interpretable than MSE while maintaining the penalty for large errors.
+| Umbral | Efecto |
+|---|---|
+| Alto (ej. 0.9) | Pocos positivos predichos → Precision ↑, Recall ↓ |
+| Bajo (ej. 0.3) | Muchos positivos predichos → Recall ↑, Precision ↓ |
 
-Choosing Metrics for Your Use Case
-Classification:
+La curva **Precision-Recall** y la curva **ROC** visualizan este trade-off en todos los umbrales.
 
-Precision when false positives are expensive (fraud detection, medical screening)
-Recall when false negatives are costly (security threats, critical disease diagnosis)
-F1-score when you need balance with imbalanced classes
-Regression:
+#### AUC-ROC y AUC-PR
 
-MAE when you want interpretable, outlier-robust error measurement
-RMSE when large errors are disproportionately bad
+| Métrica | Qué mide | Cuándo usar |
+|---|---|---|
+| **AUC-ROC** | Área bajo curva TPR vs FPR | Clases balanceadas; rankeo general |
+| **AUC-PR** | Área bajo curva Precision vs Recall | Clases **muy** desbalanceadas (preferida en fraude, enfermedades raras) |
 
-## Common Pitfalls and Solutions
-Imbalanced Data
-Mistake: Relying solely on accuracy for imbalanced datasets.
+> **Regla práctica:** si la clase positiva es <10% del dataset, **AUC-PR es más honesta que AUC-ROC**. ROC puede verse espectacular aun cuando el modelo es inútil para la clase minoritaria.
 
-Example: In a dataset with 95% negative samples, a model that always predicts negative achieves 95% accuracy but zero recall for the positive class.
+#### Métricas multi-clase
 
-Solution: Always examine precision, recall, and F1-score alongside accuracy. For imbalanced problems, consider using stratified sampling during train/validation splits and techniques like class weighting or resampling.
+| Promedio | Fórmula conceptual | Cuándo usar |
+|---|---|---|
+| **Macro** | Promedio simple por clase | Todas las clases importan igual |
+| **Micro** | Agrega TP/FP/FN globalmente | Clases ponderadas por frecuencia |
+| **Weighted** | Promedio ponderado por soporte | Compromiso entre macro y micro |
 
-Optimizing the Wrong Metric
-Mistake: Optimizing for high F1-score when your business problem specifically requires high precision or high recall.
+### Métricas de regresión
 
-Example: A content moderation system optimizing F1 might miss too much harmful content (low recall) in pursuit of balanced metrics.
+Para predicciones continuas (precio, demanda, temperatura), no hay "correcto/incorrecto": solo **grados de error**.
 
-Solution: Clearly define your business objectives first. If missing positive cases is catastrophic, optimize for recall even if precision suffers. Use confusion matrices to understand the trade-offs you're making.
+#### Mean Absolute Error (MAE)
 
-Ignoring Class Distribution
-Mistake: Evaluating models on test sets with different class distributions than production data.
+```
+MAE = (1/n) · Σ |y_real - y_pred|
+```
 
-Example: Training on historical data where urgent tickets were 20% of volume, but in production, they are only 5% due to improved processes.
+Ejemplo: predices $320K para una casa de $300K, y $280K para una de $290K → MAE = (20K + 10K) / 2 = **$15K**.
 
-Solution: Regularly monitor your production data distribution and retrain models when class distributions shift significantly. Set up alerts for distribution drift.
+- Interpretable: "en promedio me equivoco por $15K".
+- Robusto a outliers: cada error pesa linealmente.
 
-## Summary
-Model evaluation is not just about calculating metrics but about understanding how your model will behave in production and whether that behavior aligns with your business objectives.
+#### Mean Squared Error (MSE)
 
-Key concepts to remember
+```
+MSE = (1/n) · Σ (y_real - y_pred)²
+```
 
-For classification: Start with confusion matrices, then choose between precision, recall, or F1 based on the relative costs of false positives vs false negatives
-For regression: Use MAE for interpretable average error, RMSE when large errors are costly
-Match metrics to business impact: The best metric reflects what actually matters for your use case
-Use multiple metrics: Single metrics can hide important model behaviors
-Monitor metrics over time: Production data distributions change, affecting model performance
+Mismo ejemplo: MSE = (20K² + 10K²) / 2 = **250K²**.
 
+- Penaliza **cuadráticamente** errores grandes: un error de $40K pesa 16× más que uno de $10K.
+- Útil cuando errores grandes son desproporcionadamente malos.
+- Problema: unidades son "dólares²", no interpretables.
+
+#### Root Mean Squared Error (RMSE)
+
+```
+RMSE = √MSE  →  √250K² ≈ $22.4K
+```
+
+Vuelve a las unidades originales manteniendo la penalización cuadrática. Es el default en muchos benchmarks de regresión.
+
+#### R² (coeficiente de determinación)
+
+```
+R² = 1 - (SS_res / SS_tot)
+```
+
+Mide qué fracción de la varianza explica el modelo. `R² = 1` perfecto, `R² = 0` igual a predecir la media, `R² < 0` peor que la media (modelo roto).
+
+#### MAPE (Mean Absolute Percentage Error)
+
+```
+MAPE = (100/n) · Σ |y_real - y_pred| / |y_real|
+```
+
+Error en porcentaje. Útil para reportar a negocio ("el modelo se equivoca en ~8%"), pero **colapsa cuando `y_real` tiene valores cercanos a cero**.
+
+### Tabla comparativa de métricas
+
+| Métrica | Rango | Unidades | Robusta a outliers | Interpretable | Cuándo usar |
+|---|---|---|---|---|---|
+| Accuracy | 0-1 | — | — | Alta | Clases balanceadas |
+| Precision | 0-1 | — | — | Alta | FP caros |
+| Recall | 0-1 | — | — | Alta | FN caros |
+| F1 | 0-1 | — | — | Media | Balance con desbalance |
+| AUC-ROC | 0-1 | — | — | Media | Rankeo, clases balanceadas |
+| AUC-PR | 0-1 | — | — | Media | Clases muy desbalanceadas |
+| MAE | ≥0 | Target | Sí | Alta | Error promedio interpretable |
+| RMSE | ≥0 | Target | No | Alta | Penalizar errores grandes |
+| MSE | ≥0 | Target² | No | Baja | Optimización (gradientes suaves) |
+| R² | ≤1 | — | No | Media | % de varianza explicada |
+| MAPE | ≥0 | % | No (falla con y≈0) | Alta | Reportes a negocio |
+
+## Ejemplo con código
+
+```python
+# ============================================================
+# Evaluación completa: clasificación y regresión
+# ============================================================
+import numpy as np
+from sklearn.datasets import make_classification, make_regression
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import (
+    confusion_matrix, classification_report,
+    precision_score, recall_score, f1_score, accuracy_score,
+    roc_auc_score, average_precision_score,
+    mean_absolute_error, mean_squared_error, r2_score,
+    precision_recall_curve, roc_curve,
+)
+
+# ----------------------------------------------------------------
+# 1) CLASIFICACIÓN con desbalance 95/5 (parecido a fraude)
+# ----------------------------------------------------------------
+X, y = make_classification(
+    n_samples=10000, n_features=20, weights=[0.95, 0.05],
+    random_state=42,
+)
+Xtr, Xte, ytr, yte = train_test_split(X, y, stratify=y, test_size=0.3, random_state=42)
+
+clf = RandomForestClassifier(class_weight="balanced", random_state=42).fit(Xtr, ytr)
+proba = clf.predict_proba(Xte)[:, 1]
+pred  = (proba >= 0.5).astype(int)
+
+print("Matriz de confusión:")
+print(confusion_matrix(yte, pred))
+print(f"Accuracy : {accuracy_score(yte, pred):.3f}")
+print(f"Precision: {precision_score(yte, pred):.3f}")
+print(f"Recall   : {recall_score(yte, pred):.3f}")
+print(f"F1       : {f1_score(yte, pred):.3f}")
+print(f"AUC-ROC  : {roc_auc_score(yte, proba):.3f}")
+print(f"AUC-PR   : {average_precision_score(yte, proba):.3f}  <-- preferida en desbalance")
+print()
+print(classification_report(yte, pred, digits=3))
+
+# ----------------------------------------------------------------
+# 2) Elegir el umbral óptimo según costo del negocio
+#    Supón: FN cuesta $100, FP cuesta $5
+# ----------------------------------------------------------------
+costo_fn, costo_fp = 100, 5
+best_t, best_cost = 0.5, float("inf")
+for t in np.linspace(0.05, 0.95, 19):
+    p = (proba >= t).astype(int)
+    tn, fp, fn, tp = confusion_matrix(yte, p).ravel()
+    cost = fn * costo_fn + fp * costo_fp
+    if cost < best_cost:
+        best_cost, best_t = cost, t
+print(f"\nUmbral óptimo por costo: {best_t:.2f}  (costo total: ${best_cost})")
+
+# ----------------------------------------------------------------
+# 3) REGRESIÓN
+# ----------------------------------------------------------------
+Xr, yr = make_regression(n_samples=2000, n_features=10, noise=15, random_state=42)
+Xtr, Xte, ytr, yte = train_test_split(Xr, yr, test_size=0.3, random_state=42)
+
+reg = RandomForestRegressor(random_state=42).fit(Xtr, ytr)
+yp  = reg.predict(Xte)
+
+mae  = mean_absolute_error(yte, yp)
+mse  = mean_squared_error(yte, yp)
+rmse = np.sqrt(mse)
+r2   = r2_score(yte, yp)
+print(f"\nMAE : {mae:.2f}")
+print(f"RMSE: {rmse:.2f}  (penaliza errores grandes)")
+print(f"R²  : {r2:.3f}")
+```
+
+### Visualizando curvas y matriz de confusión
+
+```python
+import matplotlib.pyplot as plt
+
+fig, axes = plt.subplots(1, 3, figsize=(16, 4))
+
+# Confusion matrix como heatmap
+from sklearn.metrics import ConfusionMatrixDisplay
+ConfusionMatrixDisplay(confusion_matrix(yte, pred)).plot(ax=axes[0], colorbar=False)
+axes[0].set_title("Confusion Matrix")
+
+# ROC
+fpr, tpr, _ = roc_curve(yte, proba)
+axes[1].plot(fpr, tpr); axes[1].plot([0,1],[0,1],"k--")
+axes[1].set_title(f"ROC (AUC={roc_auc_score(yte, proba):.3f})")
+axes[1].set_xlabel("FPR"); axes[1].set_ylabel("TPR")
+
+# Precision-Recall
+prec, rec, _ = precision_recall_curve(yte, proba)
+axes[2].plot(rec, prec)
+axes[2].set_title(f"PR (AP={average_precision_score(yte, proba):.3f})")
+axes[2].set_xlabel("Recall"); axes[2].set_ylabel("Precision")
+plt.tight_layout()
+```
+
+### Elegir la métrica según el caso
+
+| Dominio | Costo asimétrico | Métrica primaria | Métrica secundaria |
+|---|---|---|---|
+| Fraude en pagos | FP: fricción al cliente; FN: pérdida de dinero | AUC-PR | Recall @ precision fija |
+| Diagnóstico médico | FN: muertes; FP: biopsias | Recall (sensibilidad) | Specificity |
+| Spam filter | FP: email importante perdido; FN: spam en inbox | Precision | Recall |
+| Content moderation | FN: contenido dañino; FP: censura excesiva | Recall en clase crítica | Precision |
+| Precio de casa | — | RMSE | MAE para reportar |
+| Demanda retail | Sobre-stock > sub-stock (o viceversa) | Pérdida asimétrica custom | MAPE |
+| LLMs | Alucinación, utilidad | LLM-as-judge, eval humana | ROUGE / BLEU como proxy |
+
+## Errores comunes
+
+- **Confiar en accuracy con clases desbalanceadas.** 99.9% accuracy en fraude = modelo que nunca detecta fraude. Siempre revisa matriz de confusión por clase.
+- **Reportar una sola métrica.** F1 oculta si el problema es precision o recall. Reporta ambas + matriz de confusión + curva PR.
+- **Optimizar la métrica equivocada por conveniencia estadística.** Elegir F1 porque "balancea", cuando el negocio claramente penaliza más los FN. Define costos reales de FP y FN antes de elegir métrica.
+- **Umbral default 0.5 sin justificación.** El umbral debe elegirse en el **validation set** según costo del negocio, no asumir 0.5. Puede ser 0.3 o 0.8 según el caso.
+- **Evaluar en test set con distribución distinta a producción.** Entrenaste con 20% positivos, pero en producción es 5%. Las métricas no transfieren. Usa test set representativo o calcula métricas "normalizadas" por prevalencia.
+- **Confundir AUC alta con "modelo bueno" en desbalance severo.** AUC-ROC infla con clase mayoritaria. En desbalance usa **AUC-PR**.
+- **Ignorar el intervalo de confianza.** Reportar F1 = 0.84 sin decir "±0.03" oculta que el modelo puede ser peor que el baseline con significancia estadística. Usa bootstrap.
+- **Comparar modelos en splits distintos.** No es válido. Fija semilla + splits + hiperparámetros antes de comparar.
+- **RMSE sin contexto.** RMSE = 15 significa nada sin saber el rango de la variable. ¿Es RMSE/mean = 1%? ¿50%?
+- **MAPE con valores cercanos a cero.** Dividir por `y ≈ 0` explota la métrica. Usa SMAPE o MAE en esos casos.
+- **No monitorear métricas en producción.** Las métricas de offline evaluation no reflejan drift. Monitorea métricas vivas con dashboards (Evidently, Arize).
+- **Ignorar sesgo por subgrupo.** Métrica global = 90% F1, pero para el 15% de usuarios de un grupo demográfico = 50%. Audita por grupos (fairlearn, slicing analysis).
+- **Goodhart's Law:** cuando una métrica se vuelve objetivo, deja de ser buena métrica. CTR → clickbait. Watch time → contenido adictivo. Siempre incluye métricas contra-equilibrantes de calidad.
+- **No validar el baseline simple.** Si tu modelo profundo con 10M parámetros da F1=0.82 y "siempre predecir la mayoría" da 0.80, no estás ganando casi nada. Baseline primero, siempre.
+
+### Herramientas industriales
+
+| Función | Herramientas |
+|---|---|
+| Métricas estándar | scikit-learn, torchmetrics, Keras `metrics` |
+| Visualización de evaluación | Yellowbrick, scikit-plot, matplotlib |
+| Fairness / slicing | Fairlearn, Aequitas, AIF360, SliceLine |
+| Monitoreo en producción | Evidently AI, WhyLabs, Arize, Fiddler |
+| Experiment tracking de métricas | MLflow, Weights & Biases, Neptune, Comet |
+| Eval de LLMs | LangSmith, Promptfoo, OpenAI Evals, DeepEval, Ragas |
+
+## Resumen
+
+- Evaluación no es un número único: es un **lenguaje** para comunicar desempeño y trade-offs. Reporta siempre matriz de confusión + varias métricas.
+- Para **clasificación**: parte de la matriz de confusión. Elige entre precision, recall, F1 según el **costo real de cada tipo de error**.
+- **Accuracy miente con clases desbalanceadas.** Usa AUC-PR, precision/recall por clase, o métricas ponderadas.
+- **F1** balancea precision y recall con media armónica; variantes F0.5/F2 ajustan el peso relativo.
+- Para **regresión**: MAE es interpretable y robusto; RMSE penaliza errores grandes; R² mide % de varianza explicada; MAPE funciona para reportes salvo con `y ≈ 0`.
+- El **umbral de decisión** se optimiza en validation según costo del negocio, no se asume 0.5.
+- La métrica correcta refleja **qué duele realmente** cuando fallas: FP vs FN, errores grandes vs chicos, grupos sensibles.
+- **Audita por subgrupo**: una métrica global que luce bien puede esconder discriminación sistemática.
+- **Monitorea en producción**: las métricas de offline no reflejan drift. Sin monitoreo, el modelo degrada sin aviso.
+- Cuidado con **Goodhart's Law**: cuando una métrica se vuelve objetivo, deja de ser una buena métrica. Siempre incluye métricas contra-equilibrantes.
+- **Baseline simple siempre**: compara contra "predecir la mayoría", regla trivial, o un modelo mínimo. Si no ganas con claridad, no vale la complejidad.

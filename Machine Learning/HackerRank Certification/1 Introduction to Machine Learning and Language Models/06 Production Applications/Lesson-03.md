@@ -1,219 +1,429 @@
-## Production Monitoring & Reliability
-AI applications break differently than normal web apps. Instead of simple server crashes, you get model overloads, token limits, quality drops, and cost explosions. This lesson covers how to build AI systems that stay reliable when things go wrong.
+# Monitoreo en Producción y Confiabilidad
 
-Why AI Systems Fail Differently
-New Types of Failures
-Model overload: Too many users cause the AI provider to reject requests
-Token limits: Conversations get too long and hit context windows
-Quality drops: API works but responses become nonsensical
-Cost limits: You hit spending caps and service stops
-Streaming breaks: Network issues corrupt responses mid-generation
+## ¿Qué es?
 
-The Challenge
-Traditional monitoring misses these problems because they're not typical "server down" failures. You need AI-specific approaches.
+**Monitoreo y confiabilidad** en sistemas con LLMs es el conjunto de prácticas, métricas y mecanismos defensivos que mantienen tu aplicación funcionando, barata y predecible frente a fallas únicas de este tipo de componente: proveedores que se saturan, respuestas que degradan en calidad, context windows que explotan, costos que se disparan y streams que se cortan a la mitad.
 
-Smart Retry Strategies
-Do not Retry Everything
+A diferencia de un backend tradicional (CPU-bound, estado conocido, errores binarios), un LLM es:
+
+- **Dependencia externa cara** (centavos por llamada en vez de microsegundos).
+- **No determinista** (misma entrada, salidas distintas).
+- **Degrada en calidad** sin "caerse" (devuelve 200 OK con basura).
+- **Rate-limitado por tokens**, no solo por requests.
+- **Variable en latencia** (10x diferencia entre prompts cortos y largos).
+
+### Las métricas clave
+
+| Métrica | Qué mide | Objetivo típico |
+|---|---|---|
+| **TTFT** (time to first token) | UX de streaming | p95 < 1 s |
+| **TPS** (tokens per second) | Throughput de generación | >30 tok/s |
+| **E2E latency** | Tiempo total | p95 < 5 s |
+| **Error rate por tipo** | Diagnóstico | <0.5% 5xx, <2% 429 |
+| **Cost per request** | FinOps | depende; alerta >50% WoW |
+| **Cache hit rate** | Eficiencia | >30% en workloads repetitivos |
+| **Quality score** | Drift de modelo | ±5% de baseline |
+| **Context length p95** | Riesgo de overflow | <80% de la ventana |
+
+## ¿Por qué importa?
+
+Los fallos de LLMs son **silenciosos y caros**. Casos reales que han llegado a postmortems públicos:
+
+- Un asistente de código produjo respuestas correctas durante 3 meses; un cambio en el modelo (`gpt-4` → `gpt-4-turbo` como alias) bajó la aceptación de sugerencias un 18% sin que nadie se enterara durante 2 semanas.
+- Una app de análisis de PDFs recibió un documento de 400 páginas: el prompt stuffing generó una factura de $12,000 en una noche.
+- Un chatbot pasó de responder en 2s a 25s cuando el proveedor hizo rolling update; sin TTFT instrumentado, el equipo se enteró por el CEO.
+- Un endpoint sin circuit breaker reintentó agresivamente durante una caída de OpenAI y disparó rate limits en toda la cuenta de la empresa, matando otros servicios.
+
+Un sistema sin esta disciplina **sobrevive al día 1 pero se cae en el día 100** cuando el tráfico escala, aparecen edge cases o cambia el modelo.
+
+### SLOs recomendados
+
+| Nivel | Latencia p95 | Error budget | Reemplazo |
+|---|---|---|---|
+| Interactivo (chatbot) | 3 s | 1% / mes | Fallback a modelo pequeño |
+| Streaming | TTFT 1 s | 1% / mes | Model fallback por TTFT |
+| Batch (análisis) | 60 s | 5% / mes | Retry con backoff |
+| Background | 10 min | 10% / mes | DLQ + reproceso diario |
+
+## ¿Cómo funciona?
+
+### Taxonomía de errores en LLMs
+
+| Tipo | Código HTTP | Causa | Acción correcta |
+|---|---|---|---|
+| `RateLimitError` | 429 | Excediste RPM o TPM | Esperar `retry-after`, backoff si no viene |
+| `ContextLengthError` | 400 | Prompt + max_tokens > ventana | Truncar/summarizar; NO reintentar |
+| `OverloadedError` | 529 (Anthropic) / 503 | Proveedor saturado | Fallback a otro modelo/proveedor |
+| `InvalidRequestError` | 400 | JSON malformado, params inválidos | Fix; NO reintentar |
+| `AuthError` | 401/403 | Key inválida/revocada | Alertar on-call; NO reintentar |
+| `TimeoutError` | - | Modelo tarda demasiado | Reintentar con `max_tokens` menor |
+| `ContentFilterError` | 400 | Prompt o salida violó policy | Loggear + mostrar mensaje al usuario |
+| `JSONParseError` | 200 | Modelo rompió el schema pedido | Reintentar con prompt más estricto |
+| `QualityDrop` | 200 | Respuesta válida pero mala | Eval en producción + alertar |
+| `StreamInterrupted` | - | Red cortó mid-stream | Reanudar o mostrar lo que llegó |
+
+### Patrón retry: exponential backoff + jitter
 
 ```python
-# Bad: Blind retries make problems worse
-def bad_retry(request):
-    for i in range(5):
-        try:
-            return api_call(request)
-        except:
-            time.sleep(2 ** i)  # Makes overload worse
+import random, time, logging
+from typing import Callable, TypeVar
 
-# Good: Check error type first
-def smart_retry(request):
-    try:
-        return api_call(request)
-    except RateLimitError as e:
-        # Wait the exact time the API tells you
-        time.sleep(e.retry_after)
-        return api_call(request)
-    except ContextLengthError:
-        # Don't retry - fix the request instead
-        shorter_request = truncate_context(request)
-        return api_call(shorter_request)
-    except ModelOverloadError:
-        # Stop hitting the overloaded model
-        return try_fallback_model(request)
+T = TypeVar("T")
+log = logging.getLogger(__name__)
+
+def retry_with_backoff(
+    fn: Callable[[], T],
+    *,
+    max_attempts: int = 4,
+    base: float = 0.5,
+    cap: float = 30.0,
+    retriable: tuple = (ConnectionError, TimeoutError),
+) -> T:
+    """Reintenta con backoff exponencial + jitter completo (AWS style).
+
+    Delay = random(0, min(cap, base * 2**attempt))
+    """
+    for attempt in range(max_attempts):
+        try:
+            return fn()
+        except retriable as e:
+            if attempt == max_attempts - 1:
+                raise
+            sleep = random.uniform(0, min(cap, base * (2 ** attempt)))
+            log.warning("retry attempt=%d sleep=%.2fs err=%s", attempt, sleep, e)
+            time.sleep(sleep)
 ```
 
-Key Retry Rules
-Rate limits: Wait the exact time the API specifies
-Context errors: Shorten the request, don't retry
-Model overload: Try a different model or wait longer
-Invalid requests: Don't retry at all
-
-Essential Metrics to Track
-
-Time to First Token (TTFT)
-How long before users see the response start. This matters more than total time for streaming.
+**No reintentes a ciegas.** La lógica correcta discrimina por tipo:
 
 ```python
-import time
+from openai import RateLimitError, APIError, APITimeoutError, BadRequestError
 
-start_time = time.time()
-response = openai.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "Hello"}],
-    stream=True
+def smart_call(request):
+    try:
+        return client.chat.completions.create(**request)
+
+    except RateLimitError as e:
+        # Respeta el header del proveedor (no inventes delay)
+        wait = float(e.response.headers.get("retry-after", 1))
+        time.sleep(wait)
+        return client.chat.completions.create(**request)
+
+    except BadRequestError as e:
+        if "context_length" in str(e).lower():
+            request["messages"] = truncate_messages(request["messages"], max_tokens=4000)
+            return client.chat.completions.create(**request)
+        raise  # otros 400 no se reintentan
+
+    except (APITimeoutError, APIError) as e:
+        # 5xx: usa fallback de modelo
+        return fallback_provider.chat.completions.create(**request)
+```
+
+### Circuit breaker
+
+Evita el *retry storm* contra un proveedor caído: si la tasa de error sube de un umbral, abre el circuito y falla rápido (sin pegarle al upstream) durante un periodo.
+
+```python
+import time, threading
+from enum import Enum
+
+class State(Enum):
+    CLOSED = "closed"       # todo bien, requests pasan
+    OPEN = "open"           # falla rápido, no toca upstream
+    HALF_OPEN = "half_open" # prueba un request de muestra
+
+class CircuitBreaker:
+    def __init__(self, failure_threshold=5, reset_timeout=30, window=60):
+        self.failure_threshold = failure_threshold
+        self.reset_timeout = reset_timeout
+        self.window = window
+        self.failures: list[float] = []
+        self.state = State.CLOSED
+        self.opened_at: float | None = None
+        self.lock = threading.Lock()
+
+    def call(self, fn, *a, **kw):
+        with self.lock:
+            now = time.time()
+            self.failures = [t for t in self.failures if now - t < self.window]
+            if self.state == State.OPEN:
+                if now - self.opened_at > self.reset_timeout:
+                    self.state = State.HALF_OPEN
+                else:
+                    raise RuntimeError("circuit_open")
+        try:
+            r = fn(*a, **kw)
+        except Exception:
+            with self.lock:
+                self.failures.append(time.time())
+                if len(self.failures) >= self.failure_threshold:
+                    self.state = State.OPEN
+                    self.opened_at = time.time()
+            raise
+        else:
+            with self.lock:
+                if self.state == State.HALF_OPEN:
+                    self.state = State.CLOSED
+                    self.failures.clear()
+            return r
+```
+
+### Model fallback cascade
+
+```
+Opus (calidad máxima) ──falla──▶ Sonnet ──falla──▶ Haiku ──falla──▶ Mensaje al usuario
+```
+
+```python
+MODEL_CASCADE = ["claude-opus-4", "claude-sonnet-4", "claude-haiku-4"]
+
+def call_with_cascade(messages, max_tokens=500):
+    last_err = None
+    for model in MODEL_CASCADE:
+        try:
+            return breaker[model].call(
+                anthropic.messages.create,
+                model=model, messages=messages, max_tokens=max_tokens
+            )
+        except Exception as e:
+            log.warning("model_failed", extra={"model": model, "err": str(e)})
+            last_err = e
+    raise RuntimeError(f"all models failed; last={last_err}")
+```
+
+### Observabilidad: qué, cómo y con qué
+
+| Capa | Herramienta | Qué ves |
+|---|---|---|
+| Métricas | Prometheus + Grafana, Datadog | latencia, QPS, errores por tipo |
+| Logs estructurados | Loki, CloudWatch, Datadog Logs | request_id, modelo, tokens |
+| Tracing distribuido | OpenTelemetry → Tempo/Jaeger | spans de app → LLM → DB |
+| LLM-específica | Langfuse, LangSmith, Helicone, Arize Phoenix | prompts, outputs, evals, cost |
+| Alertas | PagerDuty, Opsgenie | basadas en SLO/SLI |
+| Error tracking | Sentry | stack traces, grouping |
+
+**Logging estructurado seguro**:
+
+```python
+import json, hashlib, logging
+from datetime import datetime, UTC
+
+log = logging.getLogger("llm")
+
+def log_call(req, resp, error=None, latency_ms=None):
+    log.info(json.dumps({
+        "ts": datetime.now(UTC).isoformat(),
+        "request_id": req.id,
+        "user_hash": hashlib.sha256(req.user_id.encode()).hexdigest()[:16],
+        "model": req.model,
+        "prompt_tokens": resp.usage.input_tokens if resp else None,
+        "completion_tokens": resp.usage.output_tokens if resp else None,
+        "cost_usd": round(cost(req.model, resp), 6) if resp else None,
+        "latency_ms": latency_ms,
+        "ttft_ms": resp.ttft_ms if resp else None,
+        "error_type": type(error).__name__ if error else None,
+        "error_code": getattr(error, "code", None),
+        "finish_reason": resp.finish_reason if resp else None,
+        # NO loggees content; si es imprescindible, hashea o trunca a <50 chars
+        "prompt_preview": req.messages[-1].content[:40] + "..." if req else None,
+    }))
+```
+
+**Reglas de privacidad en logs:**
+
+- Nunca loguees el contenido completo del prompt/respuesta en producción.
+- Hashea user IDs (SHA-256 trunca a 16 chars).
+- Loguea tokens y costos, no texto.
+- Retención ≤ 30-90 días (GDPR Art. 5(1)(e)).
+- En Europa, considera `pseudonymization` + consent explícito.
+
+### Health checks sintéticos
+
+```python
+HEALTH_PROMPT = "Responde SOLO con 'OK'."
+
+def check_model(model: str) -> dict:
+    t0 = time.perf_counter()
+    try:
+        r = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": HEALTH_PROMPT}],
+            max_tokens=5, temperature=0, timeout=5,
+        )
+        txt = r.choices[0].message.content.strip().upper()
+        ok = txt.startswith("OK")
+        return {"model": model, "healthy": ok, "latency_ms": int((time.perf_counter()-t0)*1000)}
+    except Exception as e:
+        return {"model": model, "healthy": False, "error": str(e)}
+```
+
+Córrelo cada 60 s desde una cronjob y expone `/health/llm` a tu sistema de alertas.
+
+### Rate limit tracking proactivo
+
+```python
+def inspect_headers(resp_headers):
+    remaining_tokens = int(resp_headers.get("x-ratelimit-remaining-tokens", 1_000_000))
+    remaining_reqs   = int(resp_headers.get("x-ratelimit-remaining-requests", 10_000))
+    reset = resp_headers.get("x-ratelimit-reset-tokens", "unknown")
+    if remaining_tokens < 10_000:
+        alert(f"token budget low: {remaining_tokens} (reset {reset})")
+    return remaining_tokens, remaining_reqs
+```
+
+### FinOps: alertas de costo
+
+- Alertas por **budget**: 50%, 80%, 95% del presupuesto mensual.
+- Alertas por **spike**: costo horario > 3× media móvil 7d.
+- **Cost attribution** por `user_id`, `endpoint`, `feature flag`.
+- **Daily cost report** por modelo a Slack.
+
+```python
+if daily_cost > budget * 0.95:
+    disable_feature_flag("llm_summarize_long_pdfs")
+    page_oncall("llm cost 95% of monthly budget")
+```
+
+## Ejemplo con código
+
+### Stack completo: FastAPI + retry + circuit breaker + Langfuse + fallback
+
+```python
+# resilient_llm.py
+import os, time, asyncio, logging
+from typing import Literal
+from openai import AsyncOpenAI, RateLimitError, APIError, BadRequestError
+from anthropic import AsyncAnthropic
+from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from langfuse.decorators import observe, langfuse_context
+import tenacity
+
+log = logging.getLogger("llm")
+openai = AsyncOpenAI(timeout=30, max_retries=0)
+anthropic = AsyncAnthropic(timeout=30, max_retries=0)
+
+class Query(BaseModel):
+    text: str
+    user_id: str
+
+# ---------- Retry policy ----------
+retry_policy = tenacity.AsyncRetrying(
+    stop=tenacity.stop_after_attempt(3),
+    wait=tenacity.wait_exponential_jitter(initial=1, max=10),
+    retry=tenacity.retry_if_exception_type((APIError, TimeoutError)),
+    before_sleep=tenacity.before_sleep_log(log, logging.WARNING),
 )
 
-first_token_time = None
-for chunk in response:
-    if first_token_time is None:
-        first_token_time = time.time() - start_time
-        log_metric("ttft", first_token_time)
-```
+# ---------- Fallback cascade ----------
+async def try_openai(prompt: str) -> tuple[str, dict]:
+    async for attempt in retry_policy:
+        with attempt:
+            r = await openai.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+            )
+            return r.choices[0].message.content, {
+                "model": "gpt-4o",
+                "prompt_tokens": r.usage.prompt_tokens,
+                "completion_tokens": r.usage.completion_tokens,
+            }
 
-Tokens Per Second
-How fast the AI generates text during streaming.
-
-Error Rates by Type
-Track different error types separately:
-
-Rate limits
-Context overflows
-Model failures
-Quality issues
-
-Simple Logging Approach
-What to Log
-
-```python
-def log_ai_request(request, response, error=None):
-    log_data = {
-        "timestamp": datetime.now(),
-        "model": request.model,
-        "prompt_tokens": request.token_count,
-        "response_tokens": response.token_count if response else 0,
-        "cost": calculate_cost(request, response),
-        "ttft": response.time_to_first_token if response else None,
-        "error_type": type(error).__name__ if error else None,
-        "user_id": request.user_id  # Hash or anonymize for privacy
+async def try_anthropic(prompt: str) -> tuple[str, dict]:
+    r = await anthropic.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return r.content[0].text, {
+        "model": "claude-sonnet-4",
+        "prompt_tokens": r.usage.input_tokens,
+        "completion_tokens": r.usage.output_tokens,
     }
-    logger.info(json.dumps(log_data))
-```
 
-Privacy Rules
-Never log full conversation content in production
-Hash user IDs
-Log token counts and costs, not actual text
-Set automatic deletion after 30-90 days
-
-Rate Limit Management
-Read the Headers
-
-```python
-def check_rate_limits(response):
-    remaining = response.headers.get('x-ratelimit-remaining-tokens')
-    reset_time = response.headers.get('x-ratelimit-reset-tokens')
-
-    if int(remaining) < 1000:  # Low on tokens
-        log_warning(f"Rate limit low: {remaining} tokens left")
-
-    return int(remaining), reset_time
-```
-
-Graceful Degradation
-When you hit limits:
-
-Queue non-urgent requests for later
-Switch to faster, cheaper models temporarily
-Show users estimated wait times
-Use cached responses when possible
-
-Health Checks for AI
-Test with Known Prompts
-
-```python
-def ai_health_check():
-    test_prompt = "What is 2+2?"
-    expected_keywords = ["4", "four"]
-
+@observe()
+async def answer(prompt: str) -> dict:
+    """Pide a OpenAI; si falla cae a Anthropic; si falla, respuesta estática."""
+    langfuse_context.update_current_trace(user_id="hashed_user")
+    t0 = time.perf_counter()
     try:
-        response = call_ai_api(test_prompt)
-        if any(keyword in response.lower() for keyword in expected_keywords):
-            return "healthy"
-        else:
-            return "degraded_quality"
+        txt, meta = await try_openai(prompt)
+    except RateLimitError:
+        log.warning("openai_rate_limited; falling back to anthropic")
+        txt, meta = await try_anthropic(prompt)
     except Exception as e:
-        return f"failed: {e}"
+        log.exception("openai_hard_failure")
+        try:
+            txt, meta = await try_anthropic(prompt)
+        except Exception:
+            return {"text": "Estamos experimentando problemas. Intenta en unos minutos.",
+                    "degraded": True}
+    meta["latency_ms"] = int((time.perf_counter() - t0) * 1000)
+    return {"text": txt, **meta}
+
+# ---------- Endpoint ----------
+app = FastAPI()
+
+@app.post("/ask")
+async def ask(q: Query):
+    try:
+        return await answer(q.text)
+    except BadRequestError as e:
+        raise HTTPException(400, str(e))
 ```
 
-Monitor Multiple Models
-Test your fallback models regularly so they work when you need them.
+### Dashboard mínimo (Grafana queries)
 
-Common Pitfalls and Solutions
-Retry Storms
-Problem: Your retry logic makes overloaded systems worse
+```promql
+# Latencia p95 por modelo
+histogram_quantile(0.95, sum(rate(llm_request_duration_bucket[5m])) by (model, le))
 
-Fix: Use circuit breakers that stop retries when error rates are high
+# Costo acumulado del día
+sum(increase(llm_cost_usd_total[1d])) by (model)
 
-Alert Fatigue
-Problem: Too many false alarms when AI metrics naturally vary
+# Tasa de rate limits
+sum(rate(llm_errors_total{type="RateLimitError"}[5m])) / sum(rate(llm_requests_total[5m]))
 
-Fix: Use percentile-based alerts (95th percentile response time) instead of absolute thresholds
-
-Context Explosions
-Problem: Conversations grow until they suddenly hit token limits
-
-Fix: Track context length and trim conversations before they break
-
-Cost Surprises
-Problem: Unexpected bills from AI usage spikes
-
-Fix: Set spending alerts at 50%, 80%, and 95% of your budget
-
-Quick Implementation Guide
-Step 1: Basic Monitoring
-
-```python
-# Track these metrics immediately
-metrics = {
-    "requests_per_minute": counter,
-    "error_rate_by_type": counter_by_type,
-    "average_ttft": histogram,
-    "tokens_per_second": histogram,
-    "cost_per_request": histogram
-}
+# TTFT p95
+histogram_quantile(0.95, sum(rate(llm_ttft_seconds_bucket[5m])) by (model, le))
 ```
 
-Step 2: Smart Retries
+## Errores comunes
 
-```python
-def handle_ai_error(error, request):
-    if isinstance(error, RateLimitError):
-        return wait_and_retry(error.retry_after, request)
-    elif isinstance(error, ContextLengthError):
-        return retry_with_shorter_context(request)
-    elif isinstance(error, ModelOverloadError):
-        return try_fallback_model(request)
-    else:
-        raise error  # Don't retry unknown errors
-```
+- **Reintentos ciegos en loop infinito** → amplifican la caída del proveedor y queman tu cuota de tokens. Usa `max_attempts` + backoff exponencial + jitter.
+- **Ignorar el header `retry-after`** en 429. Inventas tu propio delay y lo haces mucho más corto; el proveedor te bloquea más duro.
+- **No distinguir tipo de error.** Reintentar un 400 (contexto demasiado largo) no mejora nunca; solo gasta llamadas.
+- **No tener circuit breaker.** Un modelo caído tumba toda tu app porque cada worker se queda bloqueado esperando timeout.
+- **Logs con PII**. Nombres, emails, DNIs, direcciones en los logs es violación de GDPR. Hashea user IDs y nunca persistas el content crudo.
+- **Alertas por valores absolutos** ("latencia > 2s") en vez de **percentiles o budgets** → fatiga de alertas, el equipo las silencia y pierdes señales reales.
+- **No instrumentar TTFT**. Mides `response_time` total y el UX se degrada sin que te enteres (el p95 baja porque las respuestas son más cortas, pero el usuario sigue esperando).
+- **Context explosion**. No monitorear la longitud del contexto y de pronto todos los chats largos empiezan a fallar con 400. Añade métrica `context_length` y trim cuando excedas 70% de la ventana.
+- **Health checks que no usan el modelo real**. Pings al endpoint `/health` del proveedor no detectan degradación de calidad. Usa prompts canary con output esperado.
+- **Fallbacks que no se prueban**. El fallback a Anthropic lleva 3 meses sin ejecutarse; el día que lo necesitas, la API key está vencida. Córrelo en producción con sombra (1% del tráfico) regularmente.
+- **No versionar prompts**. Un cambio en un f-string "pequeño" baja la calidad un 20% y no sabes qué commit lo introdujo. Guarda prompts en archivos versionados y correlaciona con métricas de calidad.
+- **Cost surprises** por no monitorear en tiempo real. Un bug de infinite loop puede quemar $10k en una noche. Alertas de budget al 50/80/95%.
+- **No simular caídas**. Chaos engineering con `toxiproxy` o `litmus`: tira el proveedor y verifica que tu fallback funcione.
+- **Guardar tokens de contexto crudos** en Redis/DB sin TTL ni encriptación → compliance + bloat.
 
-Step 3: Health Monitoring
+## Resiliencia avanzada: shadow traffic y canary
 
-```python
-# Run every 5 minutes
-def monitor_ai_health():
-    for model in ["gpt-4", "gpt-3.5-turbo"]:
-        health = test_model_health(model)
-        if health != "healthy":
-            alert(f"{model} health: {health}")
-```
+- **Shadow deployment**: envía el request también al modelo nuevo pero descarta la respuesta; compara calidad y latencia offline. Cero riesgo.
+- **Canary**: enruta el 1% del tráfico al nuevo modelo, mide SLIs, incrementa gradualmente (1% → 5% → 25% → 50% → 100%).
+- **Feature flags** (LaunchDarkly, Flagsmith, Unleash) para activar/desactivar cambios en segundos sin deploy.
+- **Game days**: ejercicios programados donde el equipo simula caídas y practica la respuesta.
 
-Summary
-The goal is building systems that gracefully handle AI provider issues while keeping users happy and costs under control.
+## Resumen
 
-Key concepts to remember
-AI systems fail differently you need AI-specific monitoring.
-Smart retries beat aggressive retries; understand the error before retrying.
-Track AI metrics like TTFT and tokens/second, not just HTTP response codes.
-Monitor costs in real-time to avoid budget surprises.
-Test fallback models regularly so they work when needed.
-Log strategically capture metrics without storing sensitive content.
+- Los sistemas con LLM fallan de maneras **nuevas y silenciosas**: overload, degradación de calidad, context overflow, cost spikes, streams cortados. No bastan monitores de "server down".
+- **Métricas que importan**: TTFT, tokens/sec, latencia p95/p99, error rate por tipo, cost per request, cache hit rate, quality score, context length.
+- **Retry inteligente**: respeta `retry-after`, backoff exponencial con jitter, max_attempts, discrimina por tipo de error. Nunca reintentes 4xx (excepto 429).
+- **Circuit breaker** evita retry storms y protege proveedores saturados.
+- **Model fallback cascade** (Opus → Sonnet → Haiku, o OpenAI → Anthropic) convierte caídas de proveedor en degradación amable.
+- **Observabilidad en 4 capas**: métricas (Prometheus), logs estructurados (sin PII), tracing (OpenTelemetry), LLM-específica (Langfuse/Helicone/LangSmith).
+- **FinOps**: alertas por budget 50/80/95%, cost attribution por feature, kill switches por feature flag ante spikes.
+- **Health checks sintéticos** con prompts canary cada 60 s; prueban calidad, no solo disponibilidad.
+- **Privacidad**: hashea user IDs, nunca persistas content crudo, retención ≤ 90 días.
+- **Resiliencia avanzada**: shadow traffic, canary deploys, feature flags, chaos engineering, game days.
+- Lo que no se mide no se mejora; lo que no se prueba no funciona el día que lo necesitas.

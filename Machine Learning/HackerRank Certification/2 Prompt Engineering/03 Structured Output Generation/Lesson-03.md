@@ -1,104 +1,333 @@
-## Output Validation and Error Handling
+# Validación de Salidas y Manejo de Errores
 
-Imagine deploying an AI-powered customer service chatbot that suddenly starts returning incomplete JSON responses during peak traffic, crashing your entire order processing system. Or picture a content generation pipeline that occasionally outputs sensitive information it should never reveal. These scenarios highlight why output validation is not just a nice-to-have feature—it is the critical bridge between experimental AI and production-ready systems.
+## ¿Qué es?
 
-Output validation acts as your first line of defense against the unpredictable nature of large language models. While these models are incredibly powerful, they can produce malformed data, miss required fields, or generate content that violates business rules. In this lesson, you will learn to build robust validation systems that catch errors before they impact users, implement multi-layer validation strategies, and design error recovery mechanisms that keep your applications running smoothly even when AI outputs go wrong.
+**Validar la salida** de un LLM es verificar — antes de confiar en ella — que cumple: (1) un **contrato sintáctico** (JSON parseable, XML bien formado), (2) un **contrato tipado** (campos del tipo correcto, enums válidos, rangos aceptables), (3) un **contrato de seguridad** (sin PII, sin contenido tóxico, sin inyección de prompts), y (4) un **contrato semántico/negocio** (los números cuadran, la respuesta responde a la pregunta, el tono es apropiado).
 
-By the end of this lesson, you will understand how to architect validation pipelines that provide comprehensive coverage from basic syntax checking to complex business logic validation, and you will be able to implement error handling strategies that gracefully recover from common AI output failures.
+**Manejar errores** es decidir qué hacer cuando alguno de esos contratos se rompe: reintentar, reparar, aceptar parcial, o fallar explícitamente.
 
-Building Multi-Layer Validation Pipelines
-Production validation systems work best when organized into distinct layers, each optimized for different types of errors and performance requirements. This layered approach allows you to catch simple errors quickly while reserving expensive validation for complex cases.
+Esta es la diferencia entre un prototipo de notebook y un sistema de producción. Un LLM es un **componente estadístico**: fallará. La pregunta no es *si*, sino *cómo lo detectas y qué haces al respecto*.
 
-The first layer focuses on syntax validation to catch immediate format issues. This includes checking JSON structure, XML well-formedness, and basic schema compliance. Think of this as your spell-checker—fast, simple, and catching obvious mistakes before they propagate downstream.
+## ¿Por qué importa?
+
+Imagina un bot de soporte que, en hora pico, empieza a devolver JSON truncado por `max_tokens`. Si tu validación lo **rechaza todo**, los tickets se encolan y el soporte colapsa. Si tu validación **ingiere basura**, la base de datos termina con `null` donde debería haber prioridades, y los dashboards mienten durante semanas. En ambos extremos el negocio pierde.
+
+Validación bien diseñada aporta:
+
+- **Confianza para automatizar**: puedes ejecutar la salida sin revisión humana porque el contrato es verificable.
+- **Degradación controlada**: fallos predecibles, no caídas sorpresivas.
+- **Observabilidad**: cada capa deja métricas (`syntax_fail_rate`, `semantic_fail_rate`) que guían la mejora de prompts.
+- **Cumplimiento**: GDPR, HIPAA y PCI exigen validar contenido sensible **antes** de persistirlo.
+- **Ahorro**: fallar temprano con una regex es 10 000× más barato que fallar tarde con un juez LLM.
+
+### Cuándo NO sobrecargar la validación
+
+- **Chat casual** con humano final: ya hay un humano revisando.
+- **Prototipos**: añade validación cuando mides el *failure rate*, no antes.
+- **Costos prohibitivos**: validar cada token con un juez LLM dobla la factura; aplícalo solo a output *de alto riesgo*.
+
+## ¿Cómo funciona?
+
+Una pipeline de validación en producción se organiza en **capas** ordenadas por costo creciente y especificidad creciente. Cada capa decide: *aceptar*, *rechazar*, *reparar* o *escalar*.
+
+### Las 4 capas
+
+| Capa | Qué comprueba | Latencia típica | Herramientas |
+|---|---|---|---|
+| 1. Sintáctica | JSON parseable, XML bien formado, CSV con N columnas | <50 ms | `json`, `lxml`, `csv`, Pydantic |
+| 2. Esquema/tipos | Campos presentes, tipos, enums, rangos | <100 ms | Pydantic, `jsonschema` |
+| 3. Seguridad | PII, toxicidad, prompt injection, secretos | 50-500 ms | Regex, Presidio, detoxify, Llama Guard |
+| 4. Semántica / negocio | Coherencia lógica, reglas de dominio, calidad | 500-3000 ms | Reglas Python, **AI judges** |
+
+### Patrones de recuperación
+
+- **Immediate recovery**: parsing tolerante, extracción con regex del primer `{...}` balanceado si el modelo añadió prosa, cierre de llaves faltantes por `max_tokens`.
+- **Progressive retry**: reintentar con **backoff exponencial** y, crucialmente, **inyectar el error como feedback** en el siguiente turno.
+- **Graceful degradation**: aceptar la parte válida de un JSON parcial, rellenar faltantes con defaults, bajar la confianza reportada.
+- **Fallback a modelo distinto**: si GPT-4o-mini falla 3 veces, escala a GPT-4o. Más caro, más fiable.
+- **Human-in-the-loop**: outputs marcados como `low_confidence` o que fallan la capa 4 van a una cola de revisión.
+
+### Patrones de fallo comunes del LLM
+
+| Patrón | Síntoma | Capa que lo detecta |
+|---|---|---|
+| Truncamiento | JSON a medias, `finish_reason="length"` | 1 |
+| Comillas sin escapar | `"description": "él dijo "hola""` | 1 |
+| Campo renombrado | `customer_name` en vez de `name` | 2 |
+| Tipo incorrecto | `"rating": "5"` en vez de `5` | 2 |
+| Formato de fecha libre | `"next Tuesday"` en vez de ISO | 2 o 4 |
+| PII filtrada | Correo real en campo público | 3 |
+| Prompt injection reflejada | El modelo repite "ignore previous instructions..." | 3 |
+| Mentira plausible | Datos correctamente tipados pero inventados | 4 (juez / RAG check) |
+| Sentimiento inconsistente | `rating=5` y `sentiment="negative"` | 4 |
+
+### AI judges (validación con LLM)
+
+Cuando la validez depende de **juicio** (¿este resumen es fiel al original? ¿la respuesta es cortés?), nada de regex alcanza. La solución: una **segunda llamada** a un LLM con rúbrica explícita.
+
+Buenas prácticas:
+- **Rúbrica concreta**: criterios discretos (`relevance: 1-5`, `tone: {professional|casual|rude}`), no "¿es bueno?".
+- **Few-shot con ejemplos de cada clase**.
+- **Modelo distinto o más grande** que el que generó: GPT-4o juzgando a GPT-4o-mini.
+- **Jurado**: 3 jueces + voto mayoritario para decisiones críticas; desacuerdo → humano.
+- **Aplicar selectivamente**: solo al 5-10 % de outputs que capas previas marcaron de riesgo.
+
+## Ejemplo con código
+
+### 1. Pipeline multi-capa
 
 ```python
-import json
-import time
-from typing import Dict, Any, Tuple
+import json, re, time
+from typing import Any
+from pydantic import BaseModel, ValidationError, Field
+from typing import Literal, Optional
 
-class ValidationLayer:
-  def __init__(self, name: str, timeout_ms: int):
-      self.name = name
-      self.timeout_ms = timeout_ms
+class Ticket(BaseModel):
+    name: str
+    priority: Literal["low", "medium", "high"]
+    sentiment: float = Field(ge=-1, le=1)
+    email: Optional[str] = None
 
-  def validate(self, output: str) -> Tuple[bool, str]:
-      raise NotImplementedError
+class ValidationResult(BaseModel):
+    ok: bool
+    stage: str
+    data: Optional[Ticket] = None
+    error: Optional[str] = None
+    confidence: float = 1.0
 
-class SyntaxValidator(ValidationLayer):
-  def __init__(self):
-      super().__init__("syntax", 50)
+# --- Capa 1: sintaxis ---
+def validate_syntax(raw: str) -> tuple[bool, Any]:
+    try:
+        return True, json.loads(raw)
+    except json.JSONDecodeError as e:
+        # Intento de reparación: extraer el primer objeto balanceado
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        if m:
+            try:
+                return True, json.loads(m.group(0))
+            except json.JSONDecodeError:
+                pass
+        return False, str(e)
 
-  def validate(self, output: str) -> Tuple[bool, str]:
-      try:
-          # Quick JSON structure check
-          parsed = json.loads(output)
+# --- Capa 2: schema ---
+def validate_schema(obj: Any) -> tuple[bool, Any]:
+    try:
+        return True, Ticket.model_validate(obj)
+    except ValidationError as e:
+        return False, e.errors()
 
-          # Verify required structure exists
-          if not isinstance(parsed, dict):
-              return False, "Output must be a JSON object"
+# --- Capa 3: seguridad (PII) ---
+PII_PATTERNS = {
+    "ssn":   re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    "card":  re.compile(r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b"),
+    "email": re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b"),
+}
 
-          return True, "Valid syntax"
-      except json.JSONDecodeError as e:
-          return False, f"Invalid JSON: {str(e)}"
+def validate_safety(ticket: Ticket) -> tuple[bool, str]:
+    blob = ticket.model_dump_json()
+    for name, pat in PII_PATTERNS.items():
+        if name == "email":   # el email del cliente SÍ puede ir en su campo
+            continue
+        if pat.search(blob):
+            return False, f"PII detectada: {name}"
+    return True, "ok"
 
-class SafetyValidator(ValidationLayer):
-  def __init__(self):
-      super().__init__("safety", 200)
-      self.pii_patterns = [
-          r'\b\d{3}-\d{2}-\d{4}\b',  # SSN pattern
-          r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'  # Email pattern
-      ]
+# --- Capa 4: semántica (reglas de negocio) ---
+def validate_semantics(ticket: Ticket) -> tuple[bool, str]:
+    # Coherencia prioridad ↔ sentimiento
+    if ticket.priority == "high" and ticket.sentiment > 0.5:
+        return False, "high priority con sentimiento positivo es sospechoso"
+    return True, "ok"
 
-  def validate(self, output: str) -> Tuple[bool, str]:
-      import re
+def run_pipeline(raw: str) -> ValidationResult:
+    ok, out = validate_syntax(raw)
+    if not ok: return ValidationResult(ok=False, stage="syntax", error=out)
 
-      for pattern in self.pii_patterns:
-          if re.search(pattern, output):
-              return False, f"PII detected matching pattern: {pattern}"
+    ok, ticket = validate_schema(out)
+    if not ok: return ValidationResult(ok=False, stage="schema", error=str(ticket))
 
-      return True, "Safety check passed"
+    ok, msg = validate_safety(ticket)
+    if not ok: return ValidationResult(ok=False, stage="safety", error=msg)
+
+    ok, msg = validate_semantics(ticket)
+    if not ok:
+        return ValidationResult(ok=False, stage="semantic", error=msg,
+                                data=ticket, confidence=0.4)
+
+    return ValidationResult(ok=True, stage="passed", data=ticket)
 ```
 
-![Validation Pipeline](https://hrcdn.net/ai-engineering/module-2/light/007-validation_layers_illustration.svg)
+### 2. Retry progresivo con feedback
 
-The second layer implements safety validation, screening for personally identifiable information, inappropriate content, and security risks. This layer acts like a content moderator, ensuring outputs meet your organization's safety standards.
+```python
+from openai import OpenAI
 
-The third layer performs semantic validation, checking logical consistency and contextual appropriateness. This is where you verify that generated product descriptions match actual product features, or that recommended actions align with user permissions.
+client = OpenAI()
 
-Finally, business validation applies domain-specific rules and constraints. This layer ensures outputs comply with industry regulations, company policies, and specific business logic requirements.
+def extract_with_retry(prompt: str, max_attempts: int = 3) -> Ticket:
+    messages = [{"role": "user", "content": prompt}]
+    for attempt in range(max_attempts):
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content
+        result = run_pipeline(raw)
 
-Recognizing and Handling Common Output Failures
-AI models fail in predictable patterns that require targeted recovery strategies.
+        if result.ok:
+            return result.data
 
-Structural issues include missing brackets, unescaped quotes, or incomplete JSON objects that break parsing.
-Content issues involve missing fields, incorrect data types, or out-of-range values.
-Format confusion occurs when AI provides correct information in unexpected formats (receiving "next Tuesday" instead of ISO dates).
-Partial responses happen when token limits truncate output, often containing salvageable partial data.
+        # Alimenta al modelo con su propio error
+        messages.append({"role": "assistant", "content": raw})
+        messages.append({
+            "role": "user",
+            "content": (f"Error en la etapa `{result.stage}`: {result.error}. "
+                        f"Corrige y responde SOLO JSON válido.")
+        })
+        time.sleep(2 ** attempt)  # backoff exponencial
 
-Implementing Progressive Retry Strategies
-Immediate recovery uses intelligent parsing and template-based correction for common error patterns.
-Progressive retry applies exponential backoff and adaptive prompt modification based on failure types—adding formatting instructions for repeated JSON failures.
-Graceful degradation accepts partial data, injects default values for missing fields, and provides confidence scoring for downstream reliability assessment.
+    raise RuntimeError(f"Falló tras {max_attempts} intentos: {result.error}")
+```
 
-Validation with AI Judges
-Sometimes rule-based validation isn't enough. When you need to check whether content makes logical sense, matches the right tone, or meets complex business requirements, AI judges become invaluable. Think of them as having another AI review the first AI's work.
+### 3. Manejo de truncamiento
 
-For critical decisions, you can use multiple AI judges and compare their assessments—when they disagree, that's your signal to flag the output for human review. Since AI validation is expensive, apply it strategically to high-risk outputs while keeping basic safety checks for everything else. The key is giving your AI judges clear criteria and consistent guidelines, just like training human reviewers.
+```python
+def call_with_truncation_check(prompt: str, max_tokens: int = 2048):
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        response_format={"type": "json_object"},
+    )
+    choice = resp.choices[0]
 
-Common Pitfalls and Solutions
-The most common mistake involves treating validation as an afterthought rather than an architectural requirement. Design validation into your system from the beginning to avoid costly retrofitting when production issues emerge. Focus validation rules on critical business requirements rather than attempting to control every stylistic variation that does not impact functionality.
+    if choice.finish_reason == "length":
+        # El JSON probablemente está truncado; intenta cerrar llaves
+        raw = choice.message.content
+        open_braces = raw.count("{") - raw.count("}")
+        open_brackets = raw.count("[") - raw.count("]")
+        repaired = raw + ("]" * open_brackets) + ("}" * open_braces)
+        try:
+            return json.loads(repaired), {"truncated": True, "repaired": True}
+        except json.JSONDecodeError:
+            return None, {"truncated": True, "repaired": False}
 
-Comprehensive logging proves essential for production debugging and system improvement. Log validation failures, recovery attempts, and performance metrics to enable data-driven optimization of both prompts and validation logic. Monitor validation performance carefully—validation latency that exceeds AI call latency defeats the purpose of optimization. Profile your validation pipeline regularly and address bottlenecks before they impact user experience in high-throughput applications.
+    return json.loads(choice.message.content), {"truncated": False}
+```
 
-Summary
-Building reliable AI systems comes down to one key principle: validate everything, but do it smart. Multi-layer validation gives you the best of both worlds—catch simple errors fast with basic checks, then apply more sophisticated validation only when you need it.
+### 4. AI judge con rúbrica
 
-AI models fail in predictable ways: broken JSON structure, missing fields, weird formatting, or incomplete responses. Once you understand these patterns, you can build recovery strategies that actually work. For complex validation needs, AI judges can evaluate things that rules can't handle, but use them strategically since they're expensive.
+```python
+JUDGE_PROMPT = """Eres un evaluador. Da un veredicto en JSON.
 
-Key concepts to remember
-Layered Validation - Implement validation in layers, optimizing each for specific error types and performance requirements
-Recovery Strategies - Design recovery strategies for common failure patterns including structural, content, format, and partial response errors
-Progressive Retry - Use progressive retry with exponential backoff and adaptive prompting to handle transient failures
-AI Judges for Complex Cases - Apply AI judges selectively for complex validation requirements that exceed rule-based capabilities
-Build Validation Early - Build validation into your architecture from the beginning rather than adding it as an afterthought
-Comprehensive Metrics - Log comprehensive validation metrics to enable continuous improvement of both prompts and validation logic
+RÚBRICA:
+- relevance: 1 (irrelevante) a 5 (totalmente relevante al ticket)
+- tone: "professional" | "casual" | "rude"
+- hallucination: true si inventa datos que no están en el ticket
+
+Ticket original:
+{ticket}
+
+Respuesta del agente:
+{answer}
+
+Devuelve: {{"relevance": int, "tone": str, "hallucination": bool, "reason": str}}
+"""
+
+class Verdict(BaseModel):
+    relevance: int = Field(ge=1, le=5)
+    tone: Literal["professional", "casual", "rude"]
+    hallucination: bool
+    reason: str
+
+def ai_judge(ticket: str, answer: str) -> Verdict:
+    resp = client.chat.completions.create(
+        model="gpt-4o",   # juez más fuerte que el generador
+        messages=[{"role": "user", "content": JUDGE_PROMPT.format(
+            ticket=ticket, answer=answer)}],
+        response_format={"type": "json_object"},
+    )
+    return Verdict.model_validate_json(resp.choices[0].message.content)
+
+def should_escalate(verdict: Verdict) -> bool:
+    return verdict.hallucination or verdict.relevance < 3 or verdict.tone == "rude"
+```
+
+### 5. Métricas y logging
+
+```python
+from dataclasses import dataclass, field
+from collections import Counter
+
+@dataclass
+class ValidationMetrics:
+    total: int = 0
+    by_stage: Counter = field(default_factory=Counter)
+    latencies_ms: list = field(default_factory=list)
+
+    def record(self, result: ValidationResult, latency_ms: float):
+        self.total += 1
+        self.by_stage[result.stage] += 1
+        self.latencies_ms.append(latency_ms)
+
+    def report(self):
+        fails = sum(v for k, v in self.by_stage.items() if k != "passed")
+        return {
+            "pass_rate": self.by_stage["passed"] / max(self.total, 1),
+            "fail_rate": fails / max(self.total, 1),
+            "fail_by_stage": dict(self.by_stage),
+            "p95_latency_ms": sorted(self.latencies_ms)[int(len(self.latencies_ms)*0.95)-1],
+        }
+```
+
+### 6. Degradación elegante
+
+```python
+def extract_or_default(raw: str) -> dict:
+    """Devuelve siempre un dict usable, con confidence reflejando el estado."""
+    ok, out = validate_syntax(raw)
+    if not ok:
+        return {"name": None, "priority": "medium", "sentiment": 0.0,
+                "_meta": {"confidence": 0.0, "error": "unparseable"}}
+
+    try:
+        ticket = Ticket.model_validate(out)
+        return {**ticket.model_dump(), "_meta": {"confidence": 1.0}}
+    except ValidationError as e:
+        # Rellena campos válidos, defaults para faltantes
+        safe = {"name": out.get("name"),
+                "priority": out.get("priority") if out.get("priority") in ("low","medium","high") else "medium",
+                "sentiment": float(out.get("sentiment", 0.0)) if isinstance(out.get("sentiment"), (int,float)) else 0.0}
+        return {**safe, "_meta": {"confidence": 0.5, "error": str(e)}}
+```
+
+## Errores comunes
+
+- **Validación como afterthought**. Diseñarla al final te obliga a reescribir prompts, schemas y consumidores. Métela desde el día 1.
+- **Un `try/except` monstruo**. Mezcla sintaxis, tipos, PII y lógica. Imposible medir qué capa falla ni mejorar prompts.
+- **Validar todo con un juez LLM**. Caro y lento. Reserva al 5-10 % de outputs de alto riesgo.
+- **Latencia de validación > latencia del modelo**. Si validar tarda más que generar, perdiste el beneficio. Perfila y optimiza.
+- **Reintentos sin feedback**. Reintentar con exactamente el mismo prompt rara vez funciona; inyecta el error como mensaje nuevo.
+- **Reintentos infinitos**. Define `max_attempts` y una política de escalamiento (modelo mayor, humano, default).
+- **No distinguir `finish_reason="length"` de otros fallos**. Un JSON truncado se repara; uno malformado por confusión del modelo no.
+- **Rechazar PII en campos donde SÍ es necesaria**. El correo del cliente es PII pero es el dato que buscas. Haz la lista de PII permitida por campo.
+- **Jueces LLM con rúbrica vaga**. "¿Es buena esta respuesta?" produce ruido. Usa dimensiones discretas con escala.
+- **No loggear fallos**. Sin métricas de `fail_rate_by_stage`, no sabes dónde invertir. Logea el raw, el stage, el error y el prompt usado.
+- **Olvidar prompt injection**. Si el input viene de un usuario, puede intentar reprogramar al modelo. Detecta patrones (`ignore previous instructions`, `system:`) y escanea el output por filtraciones del system prompt.
+- **Confiar en defaults silenciosos**. Rellenar con `priority="medium"` y no reportarlo oculta un fallo real que crece. Siempre marca `confidence < 1.0` cuando degradas.
+- **Validar en el servidor del consumidor**. Para cuando el error llega allí, está lejos del origen. Valida en el borde, inmediatamente después de la llamada al modelo.
+
+## Resumen
+
+- La validación es la **puerta entre el prototipo y la producción**: convierte un componente estadístico en uno confiable.
+- Organízala en **4 capas**: sintaxis → schema → seguridad → semántica/negocio, de barata a cara.
+- **Pydantic** cubre las capas 1 y 2 con un solo `model_validate_json`.
+- Para capa 3 usa **regex + librerías de PII** (Presidio) y filtros de prompt injection.
+- Para capa 4, **AI judges** con rúbrica concreta y modelo más fuerte que el generador; aplícalos **selectivamente**.
+- **Retry progresivo** con backoff y, sobre todo, **inyectando el error como feedback** al modelo.
+- **Degradación elegante** con `confidence` explícita; nunca rellenes defaults en silencio.
+- Detecta y maneja **truncamiento** (`finish_reason="length"`) con reparación de llaves y, si no, nuevo intento con `max_tokens` mayor.
+- **Mide todo**: `pass_rate`, `fail_by_stage`, `p95_latency`. Sin métricas no hay mejora.
+- Diseña la validación **al principio del proyecto**, no al final; cada semana que esperas, el refactor cuesta el doble.
+- Un sistema de validación bien hecho **no evita todos los errores**: los hace **predecibles, observables y recuperables**.
