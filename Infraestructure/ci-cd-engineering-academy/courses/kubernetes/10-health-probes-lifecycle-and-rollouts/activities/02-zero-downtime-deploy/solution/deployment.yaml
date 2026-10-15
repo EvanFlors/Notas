@@ -1,0 +1,63 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-zdd
+  labels: { app: web-zdd }
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels: { app: web-zdd }
+  template:
+    metadata:
+      labels: { app: web-zdd }
+    spec:
+      terminationGracePeriodSeconds: 40
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: VERSION
+              value: "v1"
+          resources:
+            requests: { cpu: "20m",  memory: "32Mi" }
+            limits:   { cpu: "200m", memory: "64Mi" }
+          startupProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 2
+            failureThreshold: 20     # 40 s de ventana de arranque
+            timeoutSeconds: 1
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 2
+            timeoutSeconds: 1
+            failureThreshold: 2
+            successThreshold: 1
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 4
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 10"]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-zdd
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels: { app: web-zdd }

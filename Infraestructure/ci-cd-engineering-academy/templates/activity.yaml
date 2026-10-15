@@ -1,0 +1,28 @@
+id: tech-NN-slug
+title: Activity Title
+technology: tech-name
+module: NN-module-name
+level: beginner           # beginner | intermediate | advanced
+type: guided-lab          # demo | guided-lab | independent | debug | challenge | mini-project | scenario | architecture
+
+estimated_minutes: 45
+
+prerequisites:
+  - prereq-id-1
+  - prereq-id-2
+
+objectives:
+  - Verb + observable outcome 1
+  - Verb + observable outcome 2
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated         # automated | manual | mixed
+  command: ""             # e.g. "pytest" or "bash tests/run.sh"
+
+status: not-started       # not-started | in-progress | completed

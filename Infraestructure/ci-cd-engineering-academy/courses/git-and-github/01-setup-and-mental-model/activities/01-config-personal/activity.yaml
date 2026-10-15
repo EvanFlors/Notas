@@ -1,0 +1,30 @@
+id: gh-01-01-config-personal
+title: Configuración global sana de Git
+technology: git-and-github
+module: 01-setup-and-mental-model
+level: beginner
+type: guided-lab
+
+estimated_minutes: 25
+
+prerequisites:
+  - command-line-basics
+
+objectives:
+  - Configurar identidad global y verificarla
+  - Explicar por qué cada opción recomendada se recomienda
+  - Elegir core.autocrlf correctamente para tu SO
+  - Configurar un credential helper apropiado
+  - Validar la configuración con el test incluido
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

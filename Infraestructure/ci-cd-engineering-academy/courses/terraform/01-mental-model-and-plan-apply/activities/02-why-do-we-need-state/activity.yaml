@@ -1,0 +1,28 @@
+id: tf-01-02-why-do-we-need-state
+title: Por que una herramienta declarativa necesita state
+technology: terraform
+module: 01-mental-model-and-plan-apply
+level: beginner
+type: independent
+
+estimated_minutes: 50
+
+prerequisites: []
+
+objectives:
+  - Argumentar tres razones distintas por las que IaC declarativa necesita state
+  - Explicar el experimento mental "Terraform stateless" y por que falla
+  - Explicar drift y por que apply por si solo no lo detecta todo
+  - Enumerar consecuencias operativas del state (no a Git, remoto, locking, encripcion)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/tf-01-state"
+
+status: not-started

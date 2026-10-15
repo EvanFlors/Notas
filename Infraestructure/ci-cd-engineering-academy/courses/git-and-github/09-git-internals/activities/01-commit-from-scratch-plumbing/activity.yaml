@@ -1,0 +1,30 @@
+id: gh-09-01-commit-from-scratch-plumbing
+title: Construir dos commits encadenados usando solo plumbing
+technology: git-and-github
+module: 09-git-internals
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - gh-02-01-atomic-commits
+
+objectives:
+  - Crear blobs con git hash-object -w
+  - Construir trees con git mktree
+  - Construir commits con git commit-tree (sin padre y con padre)
+  - Mover refs con git update-ref
+  - Verificar la cadena con cat-file -p y rev-parse
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/plumbing-lab"
+
+status: not-started

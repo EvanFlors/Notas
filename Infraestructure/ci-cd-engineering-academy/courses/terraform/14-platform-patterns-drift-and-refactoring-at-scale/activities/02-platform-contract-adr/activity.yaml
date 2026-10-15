@@ -1,0 +1,29 @@
+id: tf-14-02-platform-contract-adr
+title: ADR del contrato de plataforma IaC
+technology: terraform
+module: 14-platform-patterns-drift-and-refactoring-at-scale
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - tf-14-01-adopt-legacy-infra-via-import
+
+objectives:
+  - Redactar un ADR estructurado del contrato de plataforma IaC
+  - Fijar al menos 5 decisiones de plataforma con trade-offs explícitos
+  - Definir SLOs/metricas medibles de exito de la plataforma
+  - Anticipar y responder preguntas adversariales de defensa
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

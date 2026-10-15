@@ -1,0 +1,17 @@
+# STARTER (buggy) — este stack arranca de forma intermitente. Diagnostica y arregla.
+services:
+  api:
+    build: ./app
+    ports:
+      - "8010:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:dev@db:5432/postgres
+      # NOTA: la app NO reintenta; si no puede conectar al arranque, responde 503.
+      RETRY_ON_STARTUP: "0"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: dev

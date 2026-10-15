@@ -1,0 +1,6 @@
+# Reemplaza <acme> y <region> por valores propios antes de usar.
+bucket         = "acme-tf-state-demo-live"
+key            = "demo/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "acme-tf-lock-demo-live"
+encrypt        = true

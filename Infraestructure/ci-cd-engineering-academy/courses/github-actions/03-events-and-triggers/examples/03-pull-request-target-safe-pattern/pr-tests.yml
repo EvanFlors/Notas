@@ -1,0 +1,24 @@
+name: PR tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: |
+          echo "running tests"
+          mkdir -p out
+          echo "all green" > out/report.txt
+          echo "${{ github.event.pull_request.number }}" > out/pr_number.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-report
+          path: out/

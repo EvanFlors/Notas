@@ -1,0 +1,23 @@
+{
+  "buildDefinition": {
+    "buildType": "https://example.com/dkr-14/local-demo/v1",
+    "externalParameters": {
+      "source": "git+file:///tmp/dkr-14-ex04",
+      "entryPoint": "run.sh"
+    },
+    "internalParameters": {
+      "runner": "local-dev"
+    },
+    "resolvedDependencies": []
+  },
+  "runDetails": {
+    "builder": {
+      "id": "https://example.com/dkr-14/local-demo"
+    },
+    "metadata": {
+      "invocationID": "REPLACE_WITH_UUID",
+      "startedOn":    "REPLACE_WITH_TIMESTAMP",
+      "finishedOn":   "REPLACE_WITH_TIMESTAMP"
+    }
+  }
+}

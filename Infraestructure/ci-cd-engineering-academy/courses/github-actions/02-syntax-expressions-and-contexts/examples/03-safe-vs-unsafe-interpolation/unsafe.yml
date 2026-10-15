@@ -1,0 +1,17 @@
+# VULNERABLE — illustrative only. Do NOT deploy to a public repo.
+# Interpolates attacker-controlled github.event.pull_request.title directly
+# into a `run:` block. A crafted title with shell metacharacters executes
+# arbitrary commands on the runner.
+name: unsafe-interpolation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Greet contributor (VULNERABLE)
+        run: |
+          echo "Thanks for the PR titled: ${{ github.event.pull_request.title }}"

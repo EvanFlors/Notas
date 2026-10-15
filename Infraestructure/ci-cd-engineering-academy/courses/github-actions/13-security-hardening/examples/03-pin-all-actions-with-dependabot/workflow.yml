@@ -1,0 +1,37 @@
+# .github/workflows/build.yml
+# Every `uses:` is pinned to a 40-char SHA with a comment indicating the
+# human-readable version. Dependabot (see dependabot.yml) keeps both in sync.
+
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Official GitHub action (actions/*)
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      # Trusted vendor action (official from a cloud provider / known org)
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      # Third-party action (defense-in-depth egress audit)
+      - uses: step-security/harden-runner@0d381219ddf674d61a7572ddd19d7941e271515c  # v2.9.0
+        with:
+          egress-policy: audit
+
+      # Hypothetical in-house action from another repo in the same org:
+      # still pinned to SHA — your own org can also be compromised.
+      # - uses: myorg/common-ci-steps@3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a  # v1.3.0
+
+      - run: pip install -e .[test] && pytest -q

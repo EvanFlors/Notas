@@ -1,0 +1,29 @@
+id: gh-12-02-codeowners-plus-required-reviewers
+title: CODEOWNERS y required reviewers
+technology: git-and-github
+module: 12-github-governance-and-automation
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gh-12-01-apply-rulesets
+
+objectives:
+  - Escribir un CODEOWNERS no trivial con reglas por path
+  - Crear un PR template con las secciones mínimas
+  - Preparar un ruleset JSON que exija require_code_owner_review
+  - Validar offline y, opcionalmente, contra la API de GitHub
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/codeowners-lab"
+
+status: not-started

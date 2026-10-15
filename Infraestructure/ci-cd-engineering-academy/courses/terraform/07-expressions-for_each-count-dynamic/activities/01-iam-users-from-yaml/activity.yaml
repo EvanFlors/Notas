@@ -1,0 +1,30 @@
+id: tf-07-01-iam-users-from-yaml
+title: Usuarios desde YAML con for_each
+technology: terraform
+module: 07-expressions-for_each-count-dynamic
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - tf-04-variables-outputs-locals
+  - tf-06-modules
+
+objectives:
+  - Cargar datos externos con yamldecode(file())
+  - Transformar lista de objetos a map con una for expression
+  - Alimentar for_each con claves estables derivadas del dominio
+  - Verificar idempotencia del stack con un segundo apply
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/tf-07-01"
+
+status: not-started

@@ -1,0 +1,36 @@
+# .github/workflows/deploy.yml
+# OIDC AssumeRole con pin por environment:production.
+# Doble barrera: GitHub exige approval (environment); AWS exige sub exacto.
+name: deploy-prod
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  deploy:
+    name: Deploy to prod (OIDC + environment gate)
+    runs-on: ubuntu-latest
+    environment: production          # dispara required reviewers / branch rules
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502  # v4.0.2
+        with:
+          role-to-assume: arn:aws:iam::AWS-ACCOUNT-ID:role/github-deploy-prod
+          role-session-name: GitHubActionsProd-${{ github.run_id }}
+          aws-region: eu-west-1
+
+      - name: Who am I?
+        run: aws sts get-caller-identity
+
+      # - name: Deploy
+      #   run: aws s3 sync ./dist s3://my-prod-bucket --delete

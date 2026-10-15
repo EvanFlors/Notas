@@ -1,0 +1,30 @@
+id: gh-01-03-explore-dot-git
+title: Mapear .git/ y explicar cada entrada
+technology: git-and-github
+module: 01-setup-and-mental-model
+level: intermediate
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - gh-01-02-first-commits
+
+objectives:
+  - Describir propósito y contenido de cada entrada relevante de .git/
+  - Identificar los objetos nuevos creados por un commit dado, y su tipo
+  - Correlacionar refs/heads/<branch> con el commit al que apunta
+  - Explicar la relación HEAD → ref → commit → tree → blob/tree
+  - Diferenciar objetos sueltos de empaquetados (packfile)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/explore-dot-git"
+
+status: not-started

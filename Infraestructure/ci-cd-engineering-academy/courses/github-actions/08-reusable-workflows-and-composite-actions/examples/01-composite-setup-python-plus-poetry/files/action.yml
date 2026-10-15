@@ -1,0 +1,51 @@
+name: 'Setup Python + Poetry'
+description: 'Set up a Python version, install Poetry pinned, run poetry install with cache'
+author: 'ci-cd-engineering-academy'
+
+inputs:
+  python-version:
+    description: 'Python version (e.g. 3.11, 3.12)'
+    required: false
+    default: '3.12'
+  poetry-version:
+    description: 'Poetry version pinned'
+    required: false
+    default: '1.8.3'
+  install-args:
+    description: 'Extra args forwarded to poetry install'
+    required: false
+    default: '--no-interaction --no-root'
+
+outputs:
+  python-path:
+    description: 'Absolute path to the python binary used'
+    value: ${{ steps.detect.outputs.python }}
+  poetry-version:
+    description: 'Resolved Poetry version string'
+    value: ${{ steps.detect.outputs.poetry }}
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'pip'
+
+    - name: Install Poetry (pinned)
+      shell: bash
+      run: |
+        pip install "poetry==${{ inputs.poetry-version }}"
+        poetry --version
+
+    - name: Install project dependencies
+      shell: bash
+      run: poetry install ${{ inputs.install-args }}
+
+    - id: detect
+      shell: bash
+      run: |
+        python_bin="$(command -v python)"
+        poetry_v="$(poetry --version | awk '{print $NF}' | tr -d ')')"
+        echo "python=$python_bin"   >> "$GITHUB_OUTPUT"
+        echo "poetry=$poetry_v"     >> "$GITHUB_OUTPUT"

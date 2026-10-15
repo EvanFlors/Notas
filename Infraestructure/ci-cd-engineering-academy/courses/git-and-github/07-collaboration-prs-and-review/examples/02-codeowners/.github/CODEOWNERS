@@ -1,0 +1,34 @@
+# CODEOWNERS — ejemplo con 3 niveles de granularidad
+# Reglas:
+#   - una regla por línea: <pattern> <owner1> [owner2]...
+#   - @user o @org/team (siempre con @)
+#   - la ÚLTIMA regla que matchea gana
+#   - comentarios con #, líneas vacías permitidas
+#
+# Orden recomendado: default → globs por tipo → paths específicos.
+
+# ─────────────────────────────────────────────
+# Nivel 1: default (fallback para todo lo demás)
+# ─────────────────────────────────────────────
+*                               @acme/maintainers
+
+# ─────────────────────────────────────────────
+# Nivel 2: globs por tipo (expertos transversales)
+# ─────────────────────────────────────────────
+*.py                            @acme/python-maintainers
+*.ts                            @acme/typescript-maintainers
+*.tf                            @acme/platform-team
+*.md                            @acme/docs-team
+
+# ─────────────────────────────────────────────
+# Nivel 3: paths específicos (dueños de subsistema)
+# ─────────────────────────────────────────────
+/docs/                          @acme/docs-team
+/src/api/                       @acme/api-team
+/src/web/                       @acme/frontend-team
+/infra/                         @acme/platform-team @alice
+
+# Archivos de alto riesgo — doble owner obligatorio
+/.github/workflows/             @acme/devops @alice
+/.github/CODEOWNERS             @acme/maintainers @alice
+/SECURITY.md                    @acme/security

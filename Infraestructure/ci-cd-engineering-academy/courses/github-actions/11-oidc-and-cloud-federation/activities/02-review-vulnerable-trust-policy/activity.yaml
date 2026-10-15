@@ -1,0 +1,29 @@
+id: gha-11-02-review-vulnerable-trust-policy
+title: Audit and fix vulnerable OIDC trust policies
+technology: github-actions
+module: 11-oidc-and-cloud-federation
+level: advanced
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - gha-11-01-federate-with-aws
+
+objectives:
+  - Reconocer antipatrones comunes en trust policies OIDC AWS
+  - Clasificar un trust policy como vulnerable o safe-but-weak con justificación
+  - Escribir el pin del sub correcto para cada escenario (main, tag, CI, environment)
+  - Comunicar hallazgos en un informe audit.md apto para code review
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/gha-oidc-audit"
+
+status: not-started

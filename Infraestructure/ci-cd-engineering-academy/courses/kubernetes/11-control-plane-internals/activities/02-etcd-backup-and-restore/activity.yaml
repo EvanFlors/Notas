@@ -1,0 +1,30 @@
+id: k8s-11-02-etcd-backup-and-restore
+title: Take an etcd snapshot via kubectl exec on the static Pod
+technology: kubernetes
+module: 11-control-plane-internals
+level: advanced
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - k8s-11-01-why-is-pod-pending
+
+objectives:
+  - Locate the static etcd Pod in kube-system and inspect its TLS material
+  - Take a consistent snapshot via etcdctl snapshot save executed inside the Pod
+  - Copy the snapshot out of the Pod with kubectl cp and verify its size
+  - Inspect the snapshot with etcdctl snapshot status and list /registry/ keys
+  - Document why a full restore in kind is non-trivial and defer production backups to Velero
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

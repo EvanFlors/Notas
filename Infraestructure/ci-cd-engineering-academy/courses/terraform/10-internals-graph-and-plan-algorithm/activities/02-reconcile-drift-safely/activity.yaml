@@ -1,0 +1,30 @@
+id: tf-10-02-reconcile-drift-safely
+title: Reconciliar drift con -refresh-only (independiente)
+technology: terraform
+module: 10-internals-graph-and-plan-algorithm
+level: advanced
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - tf-05-state-basics
+  - tf-09-providers-deep-and-lifecycle
+
+objectives:
+  - Provocar drift externo sobre un recurso gestionado por Terraform
+  - Observar drift con terraform plan -refresh-only sin aplicar cambios
+  - Decidir y justificar por escrito si aceptar o revertir el drift
+  - Ejecutar el camino elegido y verificar la consistencia final
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

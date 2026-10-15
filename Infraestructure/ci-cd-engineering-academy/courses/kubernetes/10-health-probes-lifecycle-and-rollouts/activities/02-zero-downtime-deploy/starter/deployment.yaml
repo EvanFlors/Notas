@@ -1,0 +1,31 @@
+---
+# Punto de partida: Deployment basico, SIN probes, SIN preStop, SIN strategy
+# tuneada, SIN PDB. Esta configuracion pierde requests durante cualquier rollout.
+# Tu tarea: anadir los cuatro componentes (ver README, pasos 1-4).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-zdd
+  labels: { app: web-zdd }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: web-zdd }
+  template:
+    metadata:
+      labels: { app: web-zdd }
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: VERSION
+              value: "v1"
+          resources:
+            requests: { cpu: "20m",  memory: "32Mi" }
+            limits:   { cpu: "200m", memory: "64Mi" }
+# TODO (paso 3): anadir spec.strategy aqui.
+# TODO (paso 4): anadir PodDisruptionBudget en un segundo documento '---'.

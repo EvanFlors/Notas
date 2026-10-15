@@ -1,0 +1,32 @@
+id: k8s-18-01-platform-contract-adr
+title: ADR — Contrato de arquitectura de plataforma mínima viable
+technology: kubernetes
+module: 18-platform-patterns-bridges-helm-gitops-mesh
+level: advanced
+type: architecture
+
+estimated_minutes: 75
+
+prerequisites:
+  - k8s-14-operators-and-crds
+  - k8s-16-security-hardening-and-supply-chain
+  - k8s-17-cluster-lifecycle-upgrades-backup-multi-cluster
+
+objectives:
+  - Traducir un escenario organizacional a restricciones de plataforma Kubernetes
+  - Decidir explicitamente packaging (Helm/Kustomize), GitOps (Argo CD/Flux), service mesh si/no y cost management
+  - Documentar el contrato plataforma a producto (ofrece y espera) en formato ADR
+  - Identificar alternativas descartadas, consecuencias, riesgos y triggers de revision
+  - Defender la decision de NO introducir service mesh por defecto
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh starter/ADR-001-platform-contract.md"
+
+status: not-started

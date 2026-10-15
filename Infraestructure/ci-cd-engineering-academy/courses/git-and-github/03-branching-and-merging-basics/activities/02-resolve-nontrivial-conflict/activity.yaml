@@ -1,0 +1,30 @@
+id: gh-03-02-resolve-nontrivial-conflict
+title: Resolver un conflicto no trivial con 3 ramas
+technology: git-and-github
+module: 03-branching-and-merging-basics
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 70
+
+prerequisites:
+  - gh-03-01-branch-and-merge
+
+objectives:
+  - Mergear secuencialmente dos ramas de feature a main
+  - Resolver conflictos en multiples archivos de un mismo merge
+  - Usar diff3 para razonar sobre base/ours/theirs al resolver
+  - Producir un DAG final con 3 ramas visibles
+  - Validar automáticamente la coherencia de la resolución
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/nontrivial"
+
+status: not-started

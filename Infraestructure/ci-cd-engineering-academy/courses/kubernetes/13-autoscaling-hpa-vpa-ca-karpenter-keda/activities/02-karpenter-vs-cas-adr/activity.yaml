@@ -1,0 +1,30 @@
+id: k8s-13-02-karpenter-vs-cas-adr
+title: ADR — Karpenter vs Cluster Autoscaler for a hypothetical EKS cluster
+technology: kubernetes
+module: 13-autoscaling-hpa-vpa-ca-karpenter-keda
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - k8s-13-01-hpa-with-prometheus-adapter
+
+objectives:
+  - Compare Karpenter v1 and Cluster Autoscaler across at least 6 dimensions
+  - Write an ADR in Nygard format with a defended decision
+  - Document rollback plan explicitly
+  - Cite at least 3 external references with dates
+  - Reason about multi-AZ, spot, GPU and consolidation trade-offs
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

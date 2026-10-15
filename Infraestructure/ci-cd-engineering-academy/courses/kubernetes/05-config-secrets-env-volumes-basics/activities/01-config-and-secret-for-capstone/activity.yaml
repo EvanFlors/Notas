@@ -1,0 +1,29 @@
+id: k8s-05-01-config-and-secret-for-capstone
+title: Config y Secret para la app del capstone
+technology: kubernetes
+module: 05-config-secrets-env-volumes-basics
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - k8s-03-pods-deployments-replicasets
+
+objectives:
+  - Crear un ConfigMap con --from-literal y consumirlo con envFrom
+  - Crear un Secret Opaque y montarlo como archivo con defaultMode 0400
+  - Verificar que la DB password no aparece en env ni en describe pod
+  - Dejar la app del capstone leyendo config y secreto correctamente
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

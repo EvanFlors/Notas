@@ -1,0 +1,30 @@
+id: gh-08-01-simulate-trunk-based
+title: Simular trunk-based development con feature flags
+technology: git-and-github
+module: 08-workflows-trunk-vs-gitflow
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - gh-07-01-open-review-merge-pr
+
+objectives:
+  - Reproducir trunk-based development en un repo Git local
+  - Mantener main siempre deployable con dos features cortas detrás de flags
+  - Mergear ramas efímeras el mismo día y eliminarlas
+  - Diferenciar deploy de release mediante flags apagados en main
+  - Validar la topología resultante con un script automatizado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/tbd-sim"
+
+status: not-started

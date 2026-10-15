@@ -1,0 +1,13 @@
+name: hello-self-hosted
+on:
+  workflow_dispatch:
+jobs:
+  hello:
+    runs-on: [self-hosted, demo, linux-local]
+    steps:
+      - name: Who am I
+        run: |
+          echo "runner_name=$RUNNER_NAME"
+          echo "hostname=$(hostname)"
+      - name: Checkout
+        uses: actions/checkout@v4

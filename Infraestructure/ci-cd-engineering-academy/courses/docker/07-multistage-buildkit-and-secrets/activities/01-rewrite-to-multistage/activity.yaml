@@ -1,0 +1,30 @@
+id: dkr-07-01-rewrite-to-multistage
+title: Reescribir un Dockerfile monolitico a multi-stage
+technology: docker
+module: 07-multistage-buildkit-and-secrets
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 70
+
+prerequisites:
+  - dkr-06-01-measure-and-optimize-cache
+
+objectives:
+  - Diagnosticar que un Dockerfile monolitico incluye toolchain innecesario en la imagen final
+  - Reescribir el Dockerfile a dos stages (builder + runtime) usando `# syntax=docker/dockerfile:1`
+  - Trasladar wheels con `COPY --from=builder /wheels /wheels`
+  - Lograr que la imagen final pese menos de 150 MB
+  - Demostrar que la imagen final no contiene gcc ni headers de dev
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

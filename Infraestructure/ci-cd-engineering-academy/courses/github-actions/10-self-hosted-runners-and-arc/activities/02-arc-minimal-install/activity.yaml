@@ -1,0 +1,30 @@
+id: gha-10-02-arc-minimal-install
+title: ARC mínimo en kind + ADR hosted vs ARC
+technology: github-actions
+module: 10-self-hosted-runners-and-arc
+level: advanced
+type: mini-project
+
+estimated_minutes: 120
+
+prerequisites:
+  - gha-10-01-run-job-on-self-hosted
+
+objectives:
+  - Levantar un cluster kind local
+  - Instalar el operator de ARC vía Helm (chart oficial de actions/actions-runner-controller)
+  - Verificar que las CRDs actions.github.com están instaladas
+  - Instalar un scale set con credenciales dummy que produzca un CR válido
+  - Entregar un ADR comparando hosted / larger / self-hosted / ARC con criterios claros
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/arc-mini"
+
+status: not-started

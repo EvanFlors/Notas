@@ -1,0 +1,28 @@
+id: k8s-08-01-persist-postgres-with-snapshot
+title: Persistir Postgres con PVC y VolumeSnapshot
+technology: kubernetes
+module: 08-storage-pv-pvc-storageclass-csi
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - k8s-06-workloads-deep-statefulset-daemonset-jobs
+
+objectives:
+  - Levantar Postgres en kind con un PVC dinámico y verificar persistencia
+  - Escribir manifests correctos de VolumeSnapshotClass y VolumeSnapshot
+  - Escribir el PVC de restore con dataSource apuntando al snapshot
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

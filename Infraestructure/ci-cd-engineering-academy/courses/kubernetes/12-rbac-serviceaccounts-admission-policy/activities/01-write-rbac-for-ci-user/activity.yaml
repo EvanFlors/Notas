@@ -1,0 +1,31 @@
+id: k8s-12-01-write-rbac-for-ci-user
+title: Diseñar RBAC mínimo para un usuario de CI que despliega una app
+technology: kubernetes
+module: 12-rbac-serviceaccounts-admission-policy
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - k8s-02-setup-local-and-kubectl
+  - k8s-03-pods-deployments-replicasets
+  - k8s-11-control-plane-internals
+
+objectives:
+  - Crear un ServiceAccount dedicado por workload sin usar `default`
+  - Escribir Role + RoleBinding con verbos y resources mínimos
+  - Verificar permisos (positivos y negativos) con `kubectl auth can-i`
+  - Explicar por qué `cluster-admin` para un SA de aplicación es un antipatrón
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/k8s-12-01"
+
+status: not-started

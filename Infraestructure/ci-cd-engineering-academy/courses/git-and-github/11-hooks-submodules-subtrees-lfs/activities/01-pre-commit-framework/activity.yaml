@@ -1,0 +1,30 @@
+id: gh-11-01-pre-commit-framework
+title: Configurar el framework pre-commit con 3 hooks
+technology: git-and-github
+module: 11-hooks-submodules-subtrees-lfs
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gh-09-01-commit-from-scratch-plumbing
+
+objectives:
+  - Instalar el framework pre-commit y correr pre-commit install sobre un repo
+  - Configurar al menos 3 hooks declarativos en .pre-commit-config.yaml
+  - Pinnear versiones (rev) correctamente (no HEAD, no rama)
+  - Lograr que pre-commit run --all-files salga 0
+  - Entender el rol del shim en .git/hooks/pre-commit
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/pre-commit-lab"
+
+status: not-started

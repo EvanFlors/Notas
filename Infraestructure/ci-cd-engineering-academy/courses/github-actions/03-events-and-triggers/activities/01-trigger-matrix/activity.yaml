@@ -1,0 +1,28 @@
+id: gha-03-01-trigger-matrix
+title: Mini-catálogo propio de triggers
+technology: github-actions
+module: 03-events-and-triggers
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - gha-02-01-conditional-jobs
+
+objectives:
+  - Diseñar workflows que usen al menos 5 triggers distintos con filtros adecuados
+  - Justificar por escrito la elección de trigger para cada escenario
+  - Verificar estructuralmente los YAMLs con un validador local
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

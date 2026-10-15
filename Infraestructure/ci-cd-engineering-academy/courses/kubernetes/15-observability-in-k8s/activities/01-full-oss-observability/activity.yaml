@@ -1,0 +1,31 @@
+id: k8s-15-01-full-oss-observability
+title: Stack OSS completo de observabilidad sobre kind
+technology: kubernetes
+module: 15-observability-in-k8s
+level: advanced
+type: guided-lab
+
+estimated_minutes: 150
+
+prerequisites:
+  - k8s-14-operators-and-crds
+
+objectives:
+  - Levantar un cluster kind con 1 control-plane y 2 workers
+  - Instalar kube-prometheus-stack via Helm sobre ese cluster
+  - Añadir Loki + Promtail como stack de logs
+  - Añadir Tempo + OpenTelemetry Operator como stack de traces
+  - Verificar via kubectl que todos los componentes quedan Running y los CRs clave existen
+  - Degradar con SKIP controlado si faltan docker/helm o si hay poca RAM
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

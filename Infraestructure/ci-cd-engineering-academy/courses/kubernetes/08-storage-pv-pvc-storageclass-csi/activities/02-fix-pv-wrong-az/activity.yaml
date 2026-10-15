@@ -1,0 +1,28 @@
+id: k8s-08-02-fix-pv-wrong-az
+title: Arreglar un PVC que termina en la AZ equivocada
+technology: kubernetes
+module: 08-storage-pv-pvc-storageclass-csi
+level: intermediate
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - k8s-08-01-persist-postgres-with-snapshot
+
+objectives:
+  - Diagnosticar por qué un Pod queda Pending con volume node affinity conflict
+  - Explicar la diferencia entre volumeBindingMode Immediate y WaitForFirstConsumer
+  - Corregir la StorageClass para que el binding ocurra tras el scheduling del Pod
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

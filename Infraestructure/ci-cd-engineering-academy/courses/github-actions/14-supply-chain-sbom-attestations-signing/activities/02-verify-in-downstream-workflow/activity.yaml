@@ -1,0 +1,30 @@
+id: gha-14-02-verify-in-downstream-workflow
+title: Verificar firma y attestation en un workflow consumidor (downstream)
+technology: github-actions
+module: 14-supply-chain-sbom-attestations-signing
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - gha-14-01-publish-signed-image-to-ghcr
+
+objectives:
+  - Escribir un workflow consumidor que verifica firma Sigstore con identity regex preciso
+  - Escribir un workflow consumidor que verifica attestation de build provenance con gh attestation
+  - Elegir correctamente issuer OIDC esperado y repo esperado
+  - Diseñar fallo cerrado (verificación falla → deploy abortado)
+  - Diferenciar un falso positivo (laxo) de un verdadero OK
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/gha-14-02"
+
+status: not-started

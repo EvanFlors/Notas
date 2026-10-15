@@ -1,0 +1,40 @@
+services:
+  api:
+    build: ./app
+    ports:
+      - "8003:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:dev@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  seeder:
+    build: ./app
+    command: ["python", "seed.py"]
+    environment:
+      DATABASE_URL: postgresql://postgres:dev@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["dev"]
+
+  tests:
+    build: ./app
+    command: ["pytest", "-q", "test_app.py"]
+    environment:
+      DATABASE_URL: postgresql://postgres:dev@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["test"]

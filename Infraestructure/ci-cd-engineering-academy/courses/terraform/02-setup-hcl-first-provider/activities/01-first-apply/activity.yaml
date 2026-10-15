@@ -1,0 +1,29 @@
+id: tf-02-01-first-apply
+title: Primer apply con null + random + local
+technology: terraform
+module: 02-setup-hcl-first-provider
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - tf-01-mental-model-and-plan-apply
+
+objectives:
+  - Instalar Terraform y verificar version >= 1.5
+  - Escribir versions.tf y main.tf desde cero con tres providers didacticos
+  - Correr el ciclo init / fmt / validate / plan / apply / destroy sin cloud
+  - Leer el lockfile resultante y explicar que fija
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,35 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup
+  namespace: default
+spec:
+  # Every minute (educational — in real life a cleanup usually runs hourly/daily).
+  # CronJob schedules are evaluated in UTC by default. Set spec.timeZone explicitly
+  # if your team reasons in local time (field is GA since k8s 1.27).
+  schedule: "*/1 * * * *"
+  # timeZone: "Europe/Madrid"
+  concurrencyPolicy: Forbid           # skip a run if the previous one is still active
+  startingDeadlineSeconds: 30         # if we can't start within 30s of our slot, mark as missed
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  suspend: false
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 120
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: cleanup
+              image: busybox:1.36
+              command:
+                - sh
+                - -c
+                - |
+                  echo "[cleanup] running at $(date -u) UTC"
+                  # Pretend to clean something.
+                  echo "[cleanup] removed 0 stale items (demo)"
+                  echo "[cleanup] done"

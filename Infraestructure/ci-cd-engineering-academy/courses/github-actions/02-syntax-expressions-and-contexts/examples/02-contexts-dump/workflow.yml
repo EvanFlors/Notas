@@ -1,0 +1,82 @@
+name: example-02-contexts-dump
+
+on:
+  workflow_dispatch:
+    inputs:
+      sample:
+        description: 'Any string, to show up in inputs context'
+        required: false
+        default: 'hello'
+  push:
+    branches: ['**']
+
+env:
+  WORKFLOW_LEVEL_VAR: workflow-value
+
+jobs:
+  dump:
+    name: Dump all contexts
+    runs-on: ubuntu-latest
+    env:
+      JOB_LEVEL_VAR: job-value
+    steps:
+      - name: Dump github context
+        env:
+          CONTEXT_JSON: ${{ toJSON(github) }}
+        run: |
+          echo "=== github ==="
+          echo "$CONTEXT_JSON"
+
+      - name: Dump env context
+        env:
+          CONTEXT_JSON: ${{ toJSON(env) }}
+        run: |
+          echo "=== env ==="
+          echo "$CONTEXT_JSON"
+
+      - name: Dump vars context
+        env:
+          CONTEXT_JSON: ${{ toJSON(vars) }}
+        run: |
+          echo "=== vars ==="
+          echo "$CONTEXT_JSON"
+
+      - name: Dump secrets context (redacted)
+        env:
+          CONTEXT_JSON: ${{ toJSON(secrets) }}
+        run: |
+          echo "=== secrets (will be redacted as ***) ==="
+          echo "$CONTEXT_JSON"
+
+      - name: Dump inputs context
+        env:
+          CONTEXT_JSON: ${{ toJSON(inputs) }}
+        run: |
+          echo "=== inputs ==="
+          echo "$CONTEXT_JSON"
+
+      - name: Dump runner context
+        env:
+          CONTEXT_JSON: ${{ toJSON(runner) }}
+        run: |
+          echo "=== runner ==="
+          echo "$CONTEXT_JSON"
+
+      - name: Dump job context
+        env:
+          CONTEXT_JSON: ${{ toJSON(job) }}
+        run: |
+          echo "=== job ==="
+          echo "$CONTEXT_JSON"
+
+      - name: Create a dummy step output to populate steps context
+        id: producer
+        run: |
+          echo "greeting=hello" >> "$GITHUB_OUTPUT"
+
+      - name: Dump steps context
+        env:
+          CONTEXT_JSON: ${{ toJSON(steps) }}
+        run: |
+          echo "=== steps ==="
+          echo "$CONTEXT_JSON"

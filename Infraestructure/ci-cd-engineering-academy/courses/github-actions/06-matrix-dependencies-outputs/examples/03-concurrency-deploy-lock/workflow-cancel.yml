@@ -1,0 +1,23 @@
+name: ex-03b-deploy-cancel
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Simulate deploy
+        run: |
+          echo "[$(date -u +%H:%M:%S)] starting deploy for ${{ github.sha }}"
+          sleep 60
+          echo "[$(date -u +%H:%M:%S)] deploy done"

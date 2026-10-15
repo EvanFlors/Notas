@@ -1,0 +1,31 @@
+name: deploy-with-oidc
+on:
+  push:
+    branches: [main]
+
+# Required: id-token write permission is NOT granted by default.
+permissions:
+  id-token: write        # emit OIDC JWT
+  contents: read         # minimal checkout
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production    # claim will be: ...:environment:production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # PLACEHOLDER — replace with your real role ARN
+          role-to-assume: arn:aws:iam::123456789012:role/github-actions-payments-api-prod
+          aws-region: us-east-1
+          # Session name shows up in CloudTrail — be specific
+          role-session-name: gha-${{ github.run_id }}-${{ github.job }}
+
+      - name: Verify identity
+        run: aws sts get-caller-identity
+
+      - name: Deploy
+        run: ./deploy.sh

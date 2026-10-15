@@ -1,0 +1,30 @@
+id: gh-01-02-first-commits
+title: Primeros commits observando objetos
+technology: git-and-github
+module: 01-setup-and-mental-model
+level: beginner
+type: guided-lab
+
+estimated_minutes: 35
+
+prerequisites:
+  - gh-01-01-config-personal
+
+objectives:
+  - Crear un repo y hacer 5+ commits atómicos
+  - Interpretar la salida de git status en cada estado
+  - Leer .git/refs/heads/main y entender a qué apunta
+  - Usar git cat-file para inspeccionar blob, tree y commit
+  - Usar git log con filtros útiles
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

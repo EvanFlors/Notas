@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: fastapi-app
+  namespace: apps
+  labels:
+    # Required: the Prometheus CR installed by kube-prometheus-stack has
+    # serviceMonitorSelector.matchLabels.release=<release-name>. Default here is 'kps'.
+    release: kps
+spec:
+  selector:
+    matchLabels:
+      app: fastapi
+  namespaceSelector:
+    matchNames: [apps]
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

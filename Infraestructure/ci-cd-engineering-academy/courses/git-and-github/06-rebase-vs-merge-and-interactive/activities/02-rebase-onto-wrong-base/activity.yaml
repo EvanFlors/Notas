@@ -1,0 +1,29 @@
+id: gh-06-02-rebase-onto-wrong-base
+title: Rebase --onto para mover una rama a la base correcta
+technology: git-and-github
+module: 06-rebase-vs-merge-and-interactive
+level: intermediate
+type: independent
+
+estimated_minutes: 30
+
+prerequisites:
+  - gh-06-01-squash-and-reorder
+
+objectives:
+  - Diagnosticar que una rama fue creada desde la base equivocada
+  - Mover la rama con git rebase --onto sin perder commits ni duplicarlos
+  - Verificar la nueva topologia con git log --graph
+  - Validar con el test automatizado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/rebase-onto-wrong-base"
+
+status: not-started

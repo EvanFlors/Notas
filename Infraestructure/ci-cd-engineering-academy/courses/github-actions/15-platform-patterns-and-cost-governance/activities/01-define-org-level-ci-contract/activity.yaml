@@ -1,0 +1,32 @@
+id: gha-15-01-define-org-level-ci-contract
+title: Define el platform contract de CI/CD de una org (ADR + reusable + ruleset)
+technology: github-actions
+module: 15-platform-patterns-and-cost-governance
+level: advanced
+type: architecture
+
+estimated_minutes: 120
+
+prerequisites:
+  - gha-08-02-publish-reusable-workflow
+  - gha-09-01-three-env-pipeline
+  - gha-13-01-harden-an-existing-workflow
+
+objectives:
+  - Analizar un escenario de org y traducirlo a un platform contract explícito
+  - Redactar un ADR que decida qué checks son obligatorios, qué reusables son golden path y qué SLOs los gobiernan
+  - Entregar un reusable workflow versionado como golden path
+  - Entregar un ruleset JSON que exige el workflow en PRs a main
+  - Defender el contrato ante preguntas de developer experience vs seguridad vs costo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,4 @@
+FROM alpine:3.19
+RUN apk add --no-cache ca-certificates
+RUN echo "cosign demo image" > /hello.txt
+CMD ["cat", "/hello.txt"]

@@ -1,0 +1,30 @@
+id: gha-02-01-conditional-jobs
+title: Workflow con jobs condicionados por evento, rama y resultado
+technology: github-actions
+module: 02-syntax-expressions-and-contexts
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - gha-01-01-first-workflow
+
+objectives:
+  - Escribir un workflow con tres jobs, cada uno con un if diferente (evento, rama, needs.result)
+  - Usar env a tres niveles con precedencia correcta
+  - Añadir un step always() para cleanup y un step continue-on-error
+  - Validar con actionlint (si disponible) y checks estructurales en MODE=local
+  - Opcionalmente verificar en MODE=live con gh run list que el workflow pasó en GitHub
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/gha-02-01"
+
+status: not-started

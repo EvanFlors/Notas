@@ -1,0 +1,30 @@
+id: gh-02-01-atomic-commits
+title: Atomic commits a partir de un diff sucio
+technology: git-and-github
+module: 02-recording-changes
+level: beginner
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - gh-01-02-first-commits
+
+objectives:
+  - Dividir un diff con cambios no relacionados en commits atómicos
+  - Usar git add -p (y/n/s/e) con criterio
+  - Verificar con git diff --staged antes de cada commit
+  - Escribir mensajes siguiendo Conventional Commits
+  - Validar con el test automatizado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/atomic-commits"
+
+status: not-started

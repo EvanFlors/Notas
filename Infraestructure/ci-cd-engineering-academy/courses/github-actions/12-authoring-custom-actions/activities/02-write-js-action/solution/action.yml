@@ -1,0 +1,31 @@
+name: "Line counter"
+description: "Counts lines across files matching a glob pattern"
+author: "demo"
+branding:
+  icon: "bar-chart-2"
+  color: "purple"
+
+inputs:
+  path:
+    description: "File or directory to scan"
+    required: true
+  pattern:
+    description: "Glob pattern (simple: '**/*' or '**/*.ext')"
+    required: false
+    default: "**/*"
+  fail-threshold:
+    description: "If > 0 and total lines exceed this, fail the step"
+    required: false
+    default: "0"
+
+outputs:
+  total-lines:
+    description: "Total lines across matched files"
+  file-count:
+    description: "Number of matched files"
+  top-file:
+    description: "Path of the file with most lines (empty if none)"
+
+runs:
+  using: node20
+  main: dist/index.js

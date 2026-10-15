@@ -1,0 +1,29 @@
+id: tf-09-01-rename-resource-with-moved
+title: Renombrar un recurso con moved sin recrear
+technology: terraform
+module: 09-providers-deep-and-lifecycle
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - tf-03-resources-data-sources-and-references
+  - tf-05-state-basics
+
+objectives:
+  - Reproducir un rename naive que produce destroy+create
+  - Escribir un bloque moved {} que lleva el plan a No changes
+  - Verificar que el ID y el filesystem del recurso no cambiaron
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

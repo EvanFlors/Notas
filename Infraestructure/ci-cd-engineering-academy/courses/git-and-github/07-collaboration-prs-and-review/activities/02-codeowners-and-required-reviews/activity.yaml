@@ -1,0 +1,29 @@
+id: gh-07-02-codeowners-and-required-reviews
+title: CODEOWNERS y required reviewers para un repo multi-equipo
+technology: git-and-github
+module: 07-collaboration-prs-and-review
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - gh-07-01-open-review-merge-pr
+
+objectives:
+  - Diseñar un CODEOWNERS con default, globs y paths específicos
+  - Validar sintaxis (patrón + owner con @) y simular asignación de reviewers por archivo tocado
+  - Redactar un PULL_REQUEST_TEMPLATE.md con las secciones obligatorias
+  - Documentar la política de required reviewers en una review-policy versionada
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/codeowners-lab"
+
+status: not-started

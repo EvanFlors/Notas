@@ -1,0 +1,14 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: zonal-ssd
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+reclaimPolicy: Delete
+# fix: WaitForFirstConsumer makes the EBS volume be created only after the
+# scheduler has placed the Pod on a node, so the disk is provisioned in the
+# AZ of that node. With Immediate, the provisioner picked an AZ before the
+# scheduler saw the Pod's nodeSelector, causing "volume node affinity conflict".
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true

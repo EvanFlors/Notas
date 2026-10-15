@@ -1,0 +1,55 @@
+# ACME-mini monthly cost estimate (30 days).
+# Fill in each `TODO` with your computed value. Do NOT rename keys.
+#
+# Formula per SKU of minutes:
+#   minutes_month = runs_per_day * avg_duration_min * 30
+#   cost_usd      = minutes_month * price_per_min
+#
+# Formula per storage bucket:
+#   cost_usd      = gb_month * 0.25
+
+org: ACME-mini
+window_days: 30
+
+minutes:
+  ubuntu-latest:
+    runs_per_day: 400
+    avg_duration_min: 4
+    price_per_min: 0.008
+    minutes_month: TODO   # 400 * 4 * 30
+    cost_usd: TODO        # minutes_month * price_per_min
+
+  windows-latest:
+    runs_per_day: 50
+    avg_duration_min: 6
+    price_per_min: 0.016
+    minutes_month: TODO
+    cost_usd: TODO
+
+  macos-latest:
+    runs_per_day: 10
+    avg_duration_min: 8
+    price_per_min: 0.080
+    minutes_month: TODO
+    cost_usd: TODO
+
+  ubuntu-latest-16-core:
+    runs_per_day: 20
+    avg_duration_min: 5
+    price_per_min: 0.064
+    minutes_month: TODO
+    cost_usd: TODO
+
+storage:
+  artifacts:
+    gb_month: 50
+    price_per_gb: 0.25
+    cost_usd: TODO
+
+  ghcr:
+    gb_month: 200
+    price_per_gb: 0.25
+    cost_usd: TODO
+
+# Final total: sum of all cost_usd above.
+total_usd: TODO

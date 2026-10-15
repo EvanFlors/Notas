@@ -1,0 +1,11 @@
+framework:
+  - terraform
+compact: true
+quiet: true
+# Severidad mínima para reportar en CI.
+check:
+  - CKV_AWS_18
+  - CKV_AWS_19
+  - CKV_AWS_21
+  - CKV2_AWS_6
+# Skips justificados en comentarios in-line (ver README).

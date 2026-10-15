@@ -1,0 +1,32 @@
+id: dkr-13-01-harden-fastapi-container
+title: Endurecer un contenedor FastAPI (6 controles)
+technology: docker
+module: 13-runtime-security-and-hardening
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - dkr-10-01-build-container-with-unshare
+  - dkr-11-01-shrink-the-image
+
+objectives:
+  - Declarar USER no-root numerico en el Dockerfile
+  - Ejecutar el contenedor con --read-only + --tmpfs
+  - Dropear ALL capabilities y declarar solo las minimas necesarias
+  - Habilitar --security-opt no-new-privileges:true
+  - Fijar limites --memory y --pids-limit
+  - Validar los seis controles via docker inspect
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

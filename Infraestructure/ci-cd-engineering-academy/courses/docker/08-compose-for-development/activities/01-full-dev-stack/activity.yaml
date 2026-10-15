@@ -1,0 +1,31 @@
+id: dkr-08-01-full-dev-stack
+title: Full dev stack (app + Postgres + reverse proxy)
+technology: docker
+module: 08-compose-for-development
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - dkr-04-01-persist-postgres-data
+  - dkr-05-01-two-containers-talking-by-name
+
+objectives:
+  - Modelar tres servicios en un unico compose.yaml (app + db + reverse proxy)
+  - Declarar healthchecks reales para Postgres (pg_isready) y para la app (/health)
+  - Encadenar arranques con depends_on condition service_healthy
+  - Levantar con docker compose up -d --wait y limpiar con down -v
+  - Verificar end-to-end que el reverse proxy responde 200 vilaje app via el DNS del proyecto
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: tf-14-01-adopt-legacy-infra-via-import
+title: Adoptar infra legada vía import blocks
+technology: terraform
+module: 14-platform-patterns-drift-and-refactoring-at-scale
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - tf-09-providers-deep-and-lifecycle
+  - tf-11-remote-backends-and-locking
+  - tf-13-cicd-and-opentofu
+
+objectives:
+  - Declarar bloques import {} para tres recursos pre-existentes
+  - Generar HCL inicial con terraform plan -generate-config-out
+  - Limpiar el HCL generado hasta obtener un plan sin cambios
+  - Verificar la adopción con terraform state list sin modificar los archivos reales
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

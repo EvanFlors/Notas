@@ -1,0 +1,31 @@
+id: gha-12-01-write-composite-action
+title: Escribir una composite action que valida semver
+technology: github-actions
+module: 12-authoring-custom-actions
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - gha-08-01-extract-composite-action
+  - gha-08-02-publish-reusable-workflow
+
+objectives:
+  - Escribir un action.yml con runs.using composite desde cero
+  - Declarar inputs con required y default
+  - Exponer outputs propagando steps.check.outputs
+  - Pasar inputs al shell vía env (anti script injection)
+  - Validar la action simulando al runner localmente
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/composite-action-lab"
+
+status: not-started

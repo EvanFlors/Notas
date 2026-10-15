@@ -1,0 +1,30 @@
+id: gha-15-02-cost-exercise
+title: Estimar la factura mensual de GHA de una org a partir de su perfil de uso
+technology: github-actions
+module: 15-platform-patterns-and-cost-governance
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gha-01-model-and-first-workflow
+  - gha-07-caching-and-artifacts
+
+objectives:
+  - Interpretar un perfil de uso de org (repos, runs/día, duración media, SKU mix)
+  - Aplicar los multiplicadores oficiales por SO para calcular runner-minutes cobrables
+  - Modelar el costo de storage adicional (artifacts, GHCR) a tarifa dada
+  - Producir un cost-estimate.yaml válido que un script reproduce dentro de ±5%
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "python3 tests/validate_cost.py starter/cost-estimate.yaml"
+
+status: not-started

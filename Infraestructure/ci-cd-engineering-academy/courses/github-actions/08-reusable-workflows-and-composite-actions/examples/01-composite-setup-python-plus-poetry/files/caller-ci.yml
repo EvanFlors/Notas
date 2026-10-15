@@ -1,0 +1,31 @@
+name: CI
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  test-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: env
+        uses: ./.github/actions/setup-python-plus-poetry
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Show captured outputs
+        run: |
+          echo "python=${{ steps.env.outputs.python-path }}"
+          echo "poetry=${{ steps.env.outputs.poetry-version }}"
+
+      - name: Lint
+        run: poetry run ruff check .
+
+      - name: Test
+        run: poetry run pytest -q

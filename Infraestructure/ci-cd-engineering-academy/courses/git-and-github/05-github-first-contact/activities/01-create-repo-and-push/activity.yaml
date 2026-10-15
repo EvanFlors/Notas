@@ -1,0 +1,30 @@
+id: gh-05-01-create-repo-and-push
+title: Crear repo en GitHub y publicar README + LICENSE
+technology: git-and-github
+module: 05-github-first-contact
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gh-04-01-local-bare-remote
+
+objectives:
+  - Autenticarse en GitHub (SSH key, PAT fine-grained o gh auth) o simular con bare remote
+  - Crear un repo nuevo con gh repo create (o manual) con visibilidad explícita
+  - Añadir README decente, LICENSE reconocible y .gitignore
+  - Hacer push -u origin main sobre el remote
+  - Validar con el test automatizado tanto en MODE=live como en MODE=local
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/create-repo-and-push"
+
+status: not-started

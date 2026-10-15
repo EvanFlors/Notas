@@ -1,0 +1,74 @@
+# dkr-14-01 — reference release.yml (MODE=live).
+# Publishes image to GHCR, signs keyless, attests SLSA Provenance + SBOM.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}  # default-deny
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772  # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: push
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4  # v6.15.0
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}/app:${{ github.ref_name }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a  # v3.8.1
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0  # v0.18.0
+
+      - name: Install trivy
+        uses: aquasecurity/setup-trivy@2b19d19ea2e4a2f78e7e8629a06b45c0d9d6b1f6  # v0.2.3
+
+      - name: Generate SBOM
+        env:
+          IMG: ghcr.io/${{ github.repository }}/app@${{ steps.push.outputs.digest }}
+        run: syft -o cyclonedx-json=sbom.cdx.json "$IMG"
+
+      - name: Trivy gate (CRITICAL)
+        env:
+          IMG: ghcr.io/${{ github.repository }}/app@${{ steps.push.outputs.digest }}
+        run: trivy image --severity CRITICAL --exit-code 1 --ignore-unfixed "$IMG"
+
+      - name: Sign keyless
+        env:
+          IMG: ghcr.io/${{ github.repository }}/app@${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "$IMG"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2  # v2.2.3
+        with:
+          subject-name: ghcr.io/${{ github.repository }}/app
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b  # v2.4.0
+        with:
+          subject-name: ghcr.io/${{ github.repository }}/app
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: sbom.cdx.json
+          push-to-registry: true

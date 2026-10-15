@@ -1,0 +1,29 @@
+id: tf-11-02-recover-stuck-lock
+title: Recuperar un lock colgado en DynamoDB
+technology: terraform
+module: 11-remote-backends-and-locking
+level: advanced
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - tf-11-01-bootstrap-remote-backend
+
+objectives:
+  - Diagnosticar un lock colgado leyendo la fila de DynamoDB y el mensaje de error de Terraform
+  - Decidir con criterio cuándo usar terraform force-unlock vs esperar
+  - Recuperar el lock sin corromper el state ni interrumpir un apply vivo
+  - Documentar el incidente (quién, cuándo, por qué, qué se hizo)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

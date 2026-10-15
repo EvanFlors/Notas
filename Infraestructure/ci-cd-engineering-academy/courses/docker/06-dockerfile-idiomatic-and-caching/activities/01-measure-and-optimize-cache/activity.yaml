@@ -1,0 +1,30 @@
+id: dkr-06-01-measure-and-optimize-cache
+title: Medir y optimizar la cache de un Dockerfile
+technology: docker
+module: 06-dockerfile-idiomatic-and-caching
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - dkr-03-images-dockerfile-basics
+
+objectives:
+  - Medir el tiempo de un build frio y uno caliente del mismo Dockerfile
+  - Diagnosticar que instruccion invalida la cache de pip install
+  - Reescribir el Dockerfile aplicando el orden canonico (lockfile antes del codigo)
+  - Lograr rebuild caliente en menos de 5 segundos
+  - Verificar con docker history que pip install queda cacheado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

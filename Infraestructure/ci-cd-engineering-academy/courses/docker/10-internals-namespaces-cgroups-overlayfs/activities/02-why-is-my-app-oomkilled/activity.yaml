@@ -1,0 +1,30 @@
+id: dkr-10-02-why-is-my-app-oomkilled
+title: Debug why my app is OOMKilled
+technology: docker
+module: 10-internals-namespaces-cgroups-overlayfs
+level: advanced
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - dkr-10-01-build-container-with-unshare
+
+objectives:
+  - Reproduce an OOMKilled container with --memory=64m and a memory-eating process
+  - Identify OOMKilled via docker inspect (State.OOMKilled, State.ExitCode=137)
+  - Correlate the exit code 137 to SIGKILL from the cgroup OOM-killer
+  - Read memory.events in /sys/fs/cgroup to confirm the oom_kill counter
+  - Write a short root-cause note (3-5 bullets)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

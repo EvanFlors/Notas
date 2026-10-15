@@ -1,0 +1,80 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: capstone
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: capstone
+data:
+  LOG_LEVEL: "info"
+  APP_PORT: "8080"
+  GREETING: "hola capstone"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db
+  namespace: capstone
+type: Opaque
+stringData:
+  username: "app"
+  password: "dummy-not-real-ABC123"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: capstone
+  labels:
+    app: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+        - name: app
+          image: python:3.12-alpine
+          command: ["python", "-c"]
+          args:
+            - |
+              import json, os, sys, time
+              SECRET_PATH = "/etc/app/secret/db-password"
+              cfg = {
+                  "log_level": os.environ.get("LOG_LEVEL", "<missing>"),
+                  "app_port":  os.environ.get("APP_PORT",  "<missing>"),
+                  "greeting":  os.environ.get("GREETING",  "<missing>"),
+              }
+              try:
+                  with open(SECRET_PATH, "r", encoding="utf-8") as f:
+                      password = f.read().rstrip("\n")
+              except FileNotFoundError:
+                  print(json.dumps({"error": f"secret file missing: {SECRET_PATH}"}), flush=True)
+                  sys.exit(2)
+              print(json.dumps({**cfg, "password_len": len(password)}), flush=True)
+              while True:
+                  time.sleep(3600)
+          envFrom:
+            - configMapRef:
+                name: app-config
+          volumeMounts:
+            - name: db-cred
+              mountPath: /etc/app/secret
+              readOnly: true
+      volumes:
+        - name: db-cred
+          secret:
+            secretName: db
+            defaultMode: 0400
+            items:
+              - key: password
+                path: db-password

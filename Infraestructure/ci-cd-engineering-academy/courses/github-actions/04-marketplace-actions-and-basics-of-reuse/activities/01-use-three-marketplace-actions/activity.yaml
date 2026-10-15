@@ -1,0 +1,29 @@
+id: gha-04-01-use-three-marketplace-actions
+title: Usar 3 actions del Marketplace, todas pinneadas a SHA
+technology: github-actions
+module: 04-marketplace-actions-and-basics-of-reuse
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gha-01-01-first-workflow
+
+objectives:
+  - Elegir 3 actions del Marketplace y escribir un workflow que las use
+  - Pinnear cada uses a un SHA de 40 chars con comentario `# v<SEMVER>` al lado
+  - Validar la forma del pin con el test automatizado (regex + YAML load)
+  - Explicar por que un pin a tag mayor no sustituye al pin a SHA
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/gha-04-01-use-three-marketplace-actions"
+
+status: not-started

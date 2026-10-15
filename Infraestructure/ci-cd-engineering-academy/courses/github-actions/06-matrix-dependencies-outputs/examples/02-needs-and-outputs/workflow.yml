@@ -1,0 +1,58 @@
+name: ex-02-needs-and-outputs
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compute:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      notes: ${{ steps.meta.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: meta
+        name: Compute tag and notes
+        run: |
+          TAG="v$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA:0:7}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          {
+            echo 'notes<<EOF'
+            git log --oneline -n 5
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+      - name: Debug (same-job access)
+        run: |
+          echo "In-job steps.meta.outputs.tag = ${{ steps.meta.outputs.tag }}"
+
+  publish:
+    needs: compute
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consume outputs from compute
+        env:
+          TAG:   ${{ needs.compute.outputs.tag }}
+          NOTES: ${{ needs.compute.outputs.notes }}
+        run: |
+          echo "Publishing tag: $TAG"
+          echo "---- notes ----"
+          echo "$NOTES"
+      - name: Write job summary
+        env:
+          TAG:   ${{ needs.compute.outputs.tag }}
+          NOTES: ${{ needs.compute.outputs.notes }}
+        run: |
+          {
+            echo "## Release $TAG"
+            echo ""
+            echo "### Changes"
+            echo '```'
+            echo "$NOTES"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

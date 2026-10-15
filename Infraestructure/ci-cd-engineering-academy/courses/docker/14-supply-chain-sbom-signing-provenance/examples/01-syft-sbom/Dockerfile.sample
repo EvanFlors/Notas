@@ -1,0 +1,12 @@
+# Imagen demo pequeña para que el SBOM sea legible.
+# Alpine 3.19 + ca-certs + jq, suficientes paquetes para ver catalogadores.
+FROM alpine:3.19
+
+RUN apk add --no-cache \
+      ca-certificates \
+      jq \
+      curl
+
+RUN echo "sbom demo" > /hello.txt
+
+CMD ["cat", "/hello.txt"]

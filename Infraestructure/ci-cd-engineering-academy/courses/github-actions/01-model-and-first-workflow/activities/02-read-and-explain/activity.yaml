@@ -1,0 +1,29 @@
+id: gha-01-02-read-and-explain
+title: Leer un workflow ajeno y predecir qué ocurre
+technology: github-actions
+module: 01-model-and-first-workflow
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - gha-01-01-first-workflow
+
+objectives:
+  - Leer un workflow desconocido y mapear mentalmente cada token
+  - Predecir el orden de ejecución y qué imprime cada step
+  - Identificar antipatterns (p. ej. ausencia de checkout o de triggers)
+  - Explicar por escrito las respuestas a 6 preguntas específicas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

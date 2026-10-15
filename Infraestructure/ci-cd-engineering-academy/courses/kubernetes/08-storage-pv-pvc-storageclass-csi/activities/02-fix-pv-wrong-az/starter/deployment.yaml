@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: k8s08-az
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: app }
+  template:
+    metadata:
+      labels: { app: app }
+    spec:
+      # Pod must run in us-east-1c. In a multi-AZ cluster this is the trap:
+      # with the StorageClass in Immediate binding mode the PV might end up
+      # in us-east-1a and the Pod will never schedule.
+      nodeSelector:
+        topology.kubernetes.io/zone: us-east-1c
+      containers:
+        - name: app
+          image: busybox:1.36
+          command: ["sh", "-c", "sleep 3600"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: app-data

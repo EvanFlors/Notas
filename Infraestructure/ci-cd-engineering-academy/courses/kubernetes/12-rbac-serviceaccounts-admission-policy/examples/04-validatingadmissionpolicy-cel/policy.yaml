@@ -1,0 +1,24 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: require-runasnonroot
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validations:
+    - expression: >
+        (has(object.spec.securityContext) &&
+         has(object.spec.securityContext.runAsNonRoot) &&
+         object.spec.securityContext.runAsNonRoot == true) ||
+        object.spec.containers.all(c,
+          has(c.securityContext) &&
+          has(c.securityContext.runAsNonRoot) &&
+          c.securityContext.runAsNonRoot == true)
+      message: "all containers must declare runAsNonRoot=true (Pod or container level)"
+      reason: Invalid

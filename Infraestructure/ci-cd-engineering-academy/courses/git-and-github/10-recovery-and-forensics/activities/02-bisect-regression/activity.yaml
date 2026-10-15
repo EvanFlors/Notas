@@ -1,0 +1,29 @@
+id: gh-10-02-bisect-regression
+title: Bisect a regression (automated)
+technology: git-and-github
+module: 10-recovery-and-forensics
+level: advanced
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - gh-10-01-rescue-after-reset-hard
+
+objectives:
+  - Iniciar un bisect con los extremos good/bad correctos
+  - Escribir un script-probe con códigos de salida 0/1/125
+  - Automatizar la búsqueda con git bisect run
+  - Identificar el commit culpable e interpretar su diff
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/bisect-lab"
+
+status: not-started

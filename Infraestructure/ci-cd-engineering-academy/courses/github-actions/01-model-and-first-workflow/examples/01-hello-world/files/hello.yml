@@ -1,0 +1,20 @@
+# .github/workflows/hello.yml
+name: hello
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Imprimir info del evento
+        run: |
+          echo "Hola desde $GITHUB_REPOSITORY"
+          echo "Commit: $GITHUB_SHA"
+          echo "Evento: $GITHUB_EVENT_NAME"
+          echo "Actor: $GITHUB_ACTOR"
+          echo "--- Contenido del workspace ---"
+          ls -la

@@ -1,0 +1,20 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: python-auto
+  namespace: apps
+spec:
+  exporter:
+    endpoint: http://gw-collector.apps.svc.cluster.local:4318
+  propagators: [tracecontext, baggage, b3]
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1.0"
+  python:
+    env:
+      - name: OTEL_LOGS_EXPORTER
+        value: otlp_proto_http
+      - name: OTEL_METRICS_EXPORTER
+        value: otlp_proto_http
+      - name: OTEL_TRACES_EXPORTER
+        value: otlp_proto_http

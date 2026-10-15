@@ -1,0 +1,32 @@
+id: gha-14-01-publish-signed-image-to-ghcr
+title: Publicar imagen firmada con SBOM y provenance (dual-mode local/live)
+technology: github-actions
+module: 14-supply-chain-sbom-attestations-signing
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - gha-13-01-harden-an-existing-workflow
+  - gh-13-02-sign-and-verify-commits
+
+objectives:
+  - Construir una imagen OCI y pushearla a un registry (local o GHCR)
+  - Generar un SBOM en formato CycloneDX con syft
+  - Firmar la imagen con cosign (keyless o key pair local)
+  - Emitir attestation de build provenance con actions/attest-build-provenance (modo live)
+  - Verificar firma y attestation desde la misma sesión
+  - Diseñar permissions del workflow con principio de mínimo privilegio
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/gha-14-01"
+
+status: not-started

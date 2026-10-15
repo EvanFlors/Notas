@@ -1,0 +1,48 @@
+---
+# ANTI-PATRON: livenessProbe apunta a '/', que ejecuta una query a Postgres.
+# Bajo latencia de DB, el kubelet matara el Pod -> amplificacion de incidente.
+# Tu tarea: separar liveness (barata, local) y readiness (verifica dependencias),
+# y anadir un startupProbe para no ensuciar liveness con el tiempo de arranque.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-api
+  labels: { app: orders-api }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: orders-api }
+  template:
+    metadata:
+      labels: { app: orders-api }
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          image: internal.example.com/orders-api:1.4.2
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: DB_URL
+              value: "postgres://orders:xxx@orders-db:5432/orders?sslmode=disable"
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "256Mi" }
+          # BUG: '/' hace SELECT a Postgres. Latencia de DB -> probe falla -> restart.
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 3
+          # readinessProbe comparte el mismo problema: usa '/' en vez del endpoint
+          # correcto, por lo que la 'reactividad' que ganamos es ilusoria.
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 3

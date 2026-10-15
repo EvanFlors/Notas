@@ -1,0 +1,30 @@
+id: tf-10-01-why-is-this-being-replaced
+title: ¿Por qué se está reemplazando esto? (debug independiente)
+technology: terraform
+module: 10-internals-graph-and-plan-algorithm
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - tf-05-state-basics
+  - tf-09-providers-deep-and-lifecycle
+
+objectives:
+  - Reproducir un plan que propone replace en cada corrida
+  - Diagnosticar la causa raíz con terraform show -json + jq
+  - Aplicar el fix mínimo sin usar ignore_changes
+  - Documentar el diagnóstico con evidencia extraída de plan.json
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

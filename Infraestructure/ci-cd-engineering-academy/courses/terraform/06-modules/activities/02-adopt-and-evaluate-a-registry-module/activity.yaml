@@ -1,0 +1,29 @@
+id: tf-06-02-adopt-and-evaluate-a-registry-module
+title: Adoptar (o no) un módulo del Registry — evaluación crítica
+technology: terraform
+module: 06-modules
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - tf-06-01-write-your-first-module
+
+objectives:
+  - Clonar y leer la fuente de un módulo público del Registry
+  - Aplicar criterios objetivos de evaluación (mantenimiento, pin, safe defaults, tests, docs, semver)
+  - Escribir una recomendación con evidencia y veredicto defendible
+  - Decidir adopt / adopt-con-cambios / reject
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,5 @@
+FROM python:3.12-slim
+ENV PYTHONUNBUFFERED=1
+COPY signal-aware.py /app.py
+# Shell form: /bin/sh -c "python /app.py" -> sh es PID 1, no reenvia SIGTERM
+CMD python /app.py

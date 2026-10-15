@@ -1,0 +1,32 @@
+id: k8s-17-01-backup-and-restore-cluster
+title: Backup y restore de un namespace con Velero + MinIO en kind
+technology: kubernetes
+module: 17-cluster-lifecycle-upgrades-backup-multi-cluster
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - k8s-11-02-etcd-backup-and-restore
+  - k8s-16-01-harden-the-capstone
+
+objectives:
+  - Instalar MinIO en el cluster como backend S3-compatible de Velero
+  - Instalar Velero con node-agent (file-system backup, sin dependencia de CSI snapshotter)
+  - Crear un namespace con un workload que escribe datos a un PVC
+  - Hacer un backup del namespace y verificar que Completed
+  - Simular un desastre borrando el namespace completo
+  - Restaurar desde el backup y verificar que recursos y datos del PVC vuelven
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

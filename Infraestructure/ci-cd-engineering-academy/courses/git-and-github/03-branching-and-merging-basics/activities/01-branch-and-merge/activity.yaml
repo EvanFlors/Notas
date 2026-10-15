@@ -1,0 +1,30 @@
+id: gh-03-01-branch-and-merge
+title: Branch, merge, resuelve un conflicto simple
+technology: git-and-github
+module: 03-branching-and-merging-basics
+level: beginner
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - gh-02-02-recover-from-mistakes
+
+objectives:
+  - Crear ramas con git switch -c y entender qué pasa con HEAD
+  - Ejecutar un fast-forward merge y reconocerlo en git log
+  - Ejecutar un 3-way merge sin conflicto forzando --no-ff
+  - Resolver un conflicto simple de una línea editando los marcadores
+  - Validar el DAG final con git log --graph
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/branch-merge"
+
+status: not-started

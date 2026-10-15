@@ -1,0 +1,30 @@
+id: gha-08-02-publish-reusable-workflow
+title: Publicar un reusable workflow y consumirlo desde otro repo
+technology: github-actions
+module: 08-reusable-workflows-and-composite-actions
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - gha-08-01-extract-composite-action
+
+objectives:
+  - Escribir un reusable workflow con on workflow_call e inputs tipados y secrets
+  - Exponer un output que propague desde un step a traves del job
+  - Versionar el shared repo con un tag v1 inmutable y simulado localmente
+  - Consumir el reusable desde un repo cliente con la sintaxis uses owner repo path yml ref
+  - Validar estructuralmente con bash tests/validate.sh
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/publish-reusable"
+
+status: not-started

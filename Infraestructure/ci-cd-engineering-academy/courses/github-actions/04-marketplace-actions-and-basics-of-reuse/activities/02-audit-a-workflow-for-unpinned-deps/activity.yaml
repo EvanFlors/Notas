@@ -1,0 +1,29 @@
+id: gha-04-02-audit-a-workflow-for-unpinned-deps
+title: Auditar y corregir un workflow con dependencias sin pin
+technology: github-actions
+module: 04-marketplace-actions-and-basics-of-reuse
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - gha-04-01-use-three-marketplace-actions
+
+objectives:
+  - Identificar en un workflow dado todas las uses sin pin a SHA
+  - Clasificar cada hallazgo (branch pin, major tag, exact tag, SHA sin comentario)
+  - Reescribir el workflow para que todas las uses queden en formato owner/repo@SHA40 con comentario # vSEMVER
+  - Explicar el riesgo concreto del tag mutable con un ejemplo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/gha-04-02-audit-a-workflow-for-unpinned-deps"
+
+status: not-started

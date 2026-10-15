@@ -1,0 +1,29 @@
+id: gha-05-02-restrict-github-token
+title: Auditar y restringir el GITHUB_TOKEN
+technology: github-actions
+module: 05-secrets-variables-and-environments-basics
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gha-05-01-env-vs-repo-secret
+
+objectives:
+  - Identificar cada operacion de un workflow que requiere escribir en GitHub y mapearla a la key minima de permissions
+  - Reescribir un workflow con permissions write-all al modelo contents read por default + escalada por job
+  - Documentar cada escalada con un comentario de justificacion inline
+  - Validar la aplicacion correcta del modelo con tests/validate.sh
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/gha-05-restrict-github-token"
+
+status: not-started

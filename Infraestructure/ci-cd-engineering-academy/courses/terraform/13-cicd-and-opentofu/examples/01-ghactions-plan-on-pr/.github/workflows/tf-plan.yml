@@ -1,0 +1,90 @@
+name: terraform-plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/tf-plan.yml"
+
+permissions: {}
+
+concurrency:
+  group: tf-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: fmt + validate + plan (read-only)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd  # v3.1.2
+        with:
+          terraform_version: 1.9.5
+          terraform_wrapper: false
+
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive
+
+      - name: Configure AWS credentials via OIDC (read-only)
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502  # v4.0.2
+        with:
+          role-to-assume: arn:aws:iam::000000000000:role/terraform-plan-ro
+          role-session-name: tf-plan-${{ github.run_id }}
+          aws-region: eu-west-1
+
+      - name: terraform init
+        run: terraform init -input=false -lockfile=readonly
+
+      - name: terraform validate
+        run: terraform validate -no-color
+
+      - name: terraform plan
+        id: plan
+        run: |
+          set -e
+          terraform plan -input=false -no-color -out=plan.tfplan
+          terraform show -no-color plan.tfplan > plan.txt
+          # trim to ~60KB to fit a single PR comment
+          head -c 60000 plan.txt > plan.trimmed.txt
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874  # v4.4.0
+        with:
+          name: tfplan-${{ github.event.pull_request.number }}
+          path: |
+            terraform/plan.tfplan
+            terraform/plan.txt
+          retention-days: 5
+          if-no-files-found: error
+
+      - name: Comment plan on PR (sticky)
+        uses: marocchino/sticky-pull-request-comment@331f8f5b4215f0445d3c07b4967662a32a2d3e31  # v2.9.0
+        with:
+          header: terraform-plan
+          message: |
+            ### terraform plan (read-only, from CI)
+
+            Working directory: `terraform/`
+            Terraform: 1.9.5
+
+            <details><summary>Plan output (truncated to ~60KB)</summary>
+
+            ```terraform
+            $(cat terraform/plan.trimmed.txt)
+            ```
+
+            </details>
+
+            Artefacto: `tfplan-${{ github.event.pull_request.number }}` (retención 5 días).

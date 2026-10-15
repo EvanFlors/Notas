@@ -1,0 +1,14 @@
+name: demo-sha-pin
+
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  show:
+    runs-on: ubuntu-latest
+    steps:
+      # SAFE: SHA de 40 chars (inmutable) + comentario `# v<SEMVER>` para Dependabot y humanos.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - run: echo "hello from SHA pin"

@@ -1,0 +1,49 @@
+name: Reusable deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target env (staging | prod)'
+        required: true
+        type: string
+      image-tag:
+        description: 'Image tag to deploy'
+        required: true
+        type: string
+      dry-run:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      DEPLOY_TOKEN:
+        description: 'Deploy API token (never printed, redacted in logs)'
+        required: true
+    outputs:
+      deployment-url:
+        description: 'URL of the resulting deployment'
+        value: ${{ jobs.deploy.outputs.url }}
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.push.outputs.url }}
+    steps:
+      - id: push
+        env:
+          TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          IMAGE: ${{ inputs.image-tag }}
+          ENV:   ${{ inputs.environment }}
+          DRY:   ${{ inputs.dry-run }}
+        run: |
+          if [ "$DRY" = "true" ]; then
+            echo "[dry-run] would deploy $IMAGE to $ENV"
+          else
+            echo "Deploying $IMAGE to $ENV using token ***"
+          fi
+          url="https://${ENV}.example.com/releases/${IMAGE}"
+          echo "url=$url" >> "$GITHUB_OUTPUT"

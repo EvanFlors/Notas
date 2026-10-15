@@ -1,0 +1,30 @@
+id: gh-07-01-open-review-merge-pr
+title: Abrir, revisar y mergear un Pull Request
+technology: git-and-github
+module: 07-collaboration-prs-and-review
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - gh-05-01-create-repo-and-push
+  - gh-06-01-squash-and-reorder
+
+objectives:
+  - Simular (o abrir en GitHub real) un Pull Request con rama feature y descripción conforme al template
+  - Realizar una revisión (comment, suggestion, approve/request changes) y aplicar los cambios
+  - Elegir y aplicar una estrategia de merge (merge commit / squash / rebase) justificada
+  - Verificar el resultado con el validador en MODE=local (sin GitHub) o MODE=live (con gh CLI)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/pr-review"
+
+status: not-started

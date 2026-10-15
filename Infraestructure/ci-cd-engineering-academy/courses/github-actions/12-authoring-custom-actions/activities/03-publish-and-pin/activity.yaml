@@ -1,0 +1,31 @@
+id: gha-12-03-publish-and-pin
+title: Publicar una action y pinnearla a SHA desde otro repo
+technology: github-actions
+module: 12-authoring-custom-actions
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - gha-12-01-write-composite-action
+  - gha-12-02-write-js-action
+
+objectives:
+  - Taggear una action con v1.0.0 y mover el tag v1 móvil
+  - Pushear tags al remoto (bare o GitHub)
+  - Pinnear la action desde otro repo a SHA de 40 caracteres
+  - Añadir comentario de versión equivalente para Dependabot
+  - Justificar por qué @v1 es inseguro en producción
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/publish-and-pin"
+
+status: not-started

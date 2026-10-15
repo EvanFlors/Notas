@@ -1,0 +1,24 @@
+name: PR labeler
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add 'from-fork' label if applicable
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$IS_FORK" = "true" ]; then
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "from-fork"
+          fi

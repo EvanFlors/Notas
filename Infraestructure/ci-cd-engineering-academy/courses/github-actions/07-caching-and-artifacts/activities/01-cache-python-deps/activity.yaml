@@ -1,0 +1,29 @@
+id: gha-07-01-cache-python-deps
+title: Añadir caché de dependencias Python a un workflow sin caché
+technology: github-actions
+module: 07-caching-and-artifacts
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gha-06-01-matrix-with-include-exclude
+
+objectives:
+  - Diseñar una clave de caché determinista basada en hashFiles del lockfile
+  - Añadir restore-keys como fallback por prefijo
+  - Elegir entre setup-python cache integrada y actions/cache@v4 manual
+  - Validar la estructura del workflow con un script local
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/cache-python-deps"
+
+status: not-started

@@ -1,0 +1,28 @@
+id: tf-03-02-force-depends-on-and-explain
+title: Cuándo depends_on es imprescindible y cuándo sobra
+technology: terraform
+module: 03-resources-data-sources-and-references
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - tf-03-01-dependency-graph-exercise
+
+objectives:
+  - Diferenciar una dependencia expresable por referencia de una lateral no expresable
+  - Decidir cuándo depends_on es redundante y cuándo es necesario
+  - Documentar la decisión con un comentario y una explicación escrita
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

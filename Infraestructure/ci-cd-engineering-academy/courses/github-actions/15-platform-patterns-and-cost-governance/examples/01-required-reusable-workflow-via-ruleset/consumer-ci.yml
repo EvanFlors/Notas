@@ -1,0 +1,27 @@
+# Lives at: ACME/<any-repo>/.github/workflows/ci.yml
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # Called workflow: provides the required check named "security-scan / scan"
+  # that the org ruleset enforces.
+  security:
+    uses: ACME/.github/.github/workflows/security-scan.yml@v1
+    with:
+      python-version: "3.12"
+      fail-on-severity: "medium"
+
+  # Any repo-specific CI goes here, in parallel.
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - run: echo "run your tests here"

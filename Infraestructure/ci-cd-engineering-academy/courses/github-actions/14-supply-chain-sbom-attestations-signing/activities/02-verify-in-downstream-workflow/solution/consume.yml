@@ -1,0 +1,35 @@
+# .github/workflows/consume.yml — workflow consumidor que verifica antes de deploy.
+name: consume
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: sigstore/cosign-installer@d7d6e113b16d7d6f54e9c0ff52a95f31f3cce3b7  # v3.9.1
+
+      - name: Run verification (fail closed)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x ./verify.sh
+          ./verify.sh ./image-info.env
+
+  deploy:
+    needs: verify
+    if: ${{ success() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - run: echo "deploy would run — verification passed"

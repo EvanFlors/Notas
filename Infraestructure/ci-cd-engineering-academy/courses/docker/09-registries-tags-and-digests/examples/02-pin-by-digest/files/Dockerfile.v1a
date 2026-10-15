@@ -1,0 +1,4 @@
+FROM alpine:3.20
+LABEL org.opencontainers.image.title="base"
+LABEL dkr09.variant="A"
+RUN echo "build-A" > /which-build

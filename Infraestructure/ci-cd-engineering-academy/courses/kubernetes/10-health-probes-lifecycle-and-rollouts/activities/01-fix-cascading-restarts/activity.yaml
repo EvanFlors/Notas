@@ -1,0 +1,29 @@
+id: k8s-10-01-fix-cascading-restarts
+title: Arreglar restarts en cascada por livenessProbe mal diseñada
+technology: kubernetes
+module: 10-health-probes-lifecycle-and-rollouts
+level: intermediate
+type: debug
+
+estimated_minutes: 60
+
+prerequisites:
+  - k8s-03-pods-deployments-replicasets
+
+objectives:
+  - Diagnosticar un restart loop causado por una livenessProbe que depende de una base de datos
+  - Separar correctamente livenessProbe (barata, local) y readinessProbe (verifica dependencias)
+  - Justificar por qué liveness que hace roundtrip a DB es un anti-patron de amplificacion de incidentes
+  - Dejar un manifest reparado que pase el validador automatizado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

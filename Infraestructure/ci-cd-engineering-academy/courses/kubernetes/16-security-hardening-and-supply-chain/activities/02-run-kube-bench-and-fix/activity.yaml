@@ -1,0 +1,29 @@
+id: k8s-16-02-run-kube-bench-and-fix
+title: Correr kube-bench y documentar top-3 remediaciones
+technology: kubernetes
+module: 16-security-hardening-and-supply-chain
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - k8s-16-01-harden-the-capstone
+
+objectives:
+  - Lanzar kube-bench como Job dentro del cluster y recoger el reporte
+  - Clasificar los hallazgos FAIL por severidad y area del CIS Benchmark
+  - Elegir los 3 hallazgos con mayor retorno de hardening
+  - Producir REMEDIATIONS.md con mecanismo, impacto y plan de remediacion por hallazgo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

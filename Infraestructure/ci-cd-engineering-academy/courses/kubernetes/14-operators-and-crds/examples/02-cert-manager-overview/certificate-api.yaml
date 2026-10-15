@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: api-tls
+  namespace: default
+spec:
+  secretName: api-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  commonName: api.example.com
+  dnsNames:
+    - api.example.com
+  duration: 2160h       # 90 days
+  renewBefore: 360h     # renew 15 days before expiry

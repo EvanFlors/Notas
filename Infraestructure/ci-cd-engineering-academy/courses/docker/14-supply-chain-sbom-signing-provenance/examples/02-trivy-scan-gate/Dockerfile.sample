@@ -1,0 +1,9 @@
+# Imagen deliberadamente vieja para asegurar hallazgos de trivy sin red adicional.
+# NO USAR EN PRODUCCION — es un target de scan.
+FROM alpine:3.14
+
+RUN apk add --no-cache \
+      curl \
+      openssl
+
+CMD ["sh", "-c", "echo 'vulnerable demo image'"]

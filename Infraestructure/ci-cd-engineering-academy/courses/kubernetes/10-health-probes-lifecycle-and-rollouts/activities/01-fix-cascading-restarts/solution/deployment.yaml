@@ -1,0 +1,56 @@
+---
+# SOLUCION:
+#   - livenessProbe -> /healthz (barata, no toca DB). Toleranre (periodSeconds=15,
+#     failureThreshold=4). Solo mata al proceso si realmente esta colgado.
+#   - readinessProbe -> /readyz (verifica DB). Si la DB se degrada, el Pod sale
+#     de Endpoints pero sigue vivo. No se amplifica el incidente.
+#   - startupProbe -> /healthz con ventana de hasta 120s. Mientras no pase,
+#     liveness y readiness quedan suspendidas.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-api
+  labels: { app: orders-api }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: orders-api }
+  template:
+    metadata:
+      labels: { app: orders-api }
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          image: internal.example.com/orders-api:1.4.2
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: DB_URL
+              value: "postgres://orders:xxx@orders-db:5432/orders?sslmode=disable"
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "256Mi" }
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24   # 120 s de ventana de arranque total
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 4

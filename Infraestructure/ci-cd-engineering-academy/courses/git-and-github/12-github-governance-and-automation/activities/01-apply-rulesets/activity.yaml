@@ -1,0 +1,31 @@
+id: gh-12-01-apply-rulesets
+title: Aplicar un Ruleset sobre main
+technology: git-and-github
+module: 12-github-governance-and-automation
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - gh-07-02-codeowners-and-required-reviews
+  - gh-08-03-architecture-decision
+
+objectives:
+  - Escribir un ruleset JSON válido para la API de GitHub
+  - Diferenciar enforcement active vs evaluate
+  - Documentar las decisiones (bypass, status checks, approvals)
+  - Validar sintaxis offline (modo local)
+  - Opcionalmente, aplicar y re-leer vía gh api (modo live)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/apply-rulesets"
+
+status: not-started

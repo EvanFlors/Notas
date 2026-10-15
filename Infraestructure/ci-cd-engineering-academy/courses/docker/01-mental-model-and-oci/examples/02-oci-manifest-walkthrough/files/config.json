@@ -1,0 +1,49 @@
+{
+  "created": "2026-01-15T10:12:34Z",
+  "architecture": "amd64",
+  "os": "linux",
+  "config": {
+    "User": "10001:10001",
+    "Env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "PYTHONUNBUFFERED=1",
+      "APP_PORT=8080"
+    ],
+    "Entrypoint": ["/usr/local/bin/python", "-m", "uvicorn"],
+    "Cmd": ["app.main:app", "--host", "0.0.0.0", "--port", "8080"],
+    "WorkingDir": "/app",
+    "ExposedPorts": {
+      "8080/tcp": {}
+    },
+    "Labels": {
+      "org.opencontainers.image.source": "https://github.com/example-org/example-app",
+      "org.opencontainers.image.version": "0.3.1"
+    },
+    "StopSignal": "SIGTERM"
+  },
+  "rootfs": {
+    "type": "layers",
+    "diff_ids": [
+      "sha256:1d6a1d5f9a3c3b9c3d4a2e5f6b7a8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b",
+      "sha256:2e7b2e6a0b4d4c0d4e5b3f6a7c8b9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c",
+      "sha256:3f8c3f7b1c5e5d1e5f6c4a7b8d9c0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d"
+    ]
+  },
+  "history": [
+    {
+      "created": "2026-01-10T00:00:00Z",
+      "created_by": "FROM python:3.12-slim",
+      "comment": "base image"
+    },
+    {
+      "created": "2026-01-15T10:12:12Z",
+      "created_by": "RUN pip install --no-cache-dir fastapi uvicorn[standard]",
+      "comment": "runtime deps"
+    },
+    {
+      "created": "2026-01-15T10:12:34Z",
+      "created_by": "COPY . /app",
+      "comment": "application source"
+    }
+  ]
+}

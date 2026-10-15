@@ -1,0 +1,30 @@
+id: gh-02-02-recover-from-mistakes
+title: Recover from four broken Git states
+technology: git-and-github
+module: 02-recording-changes
+level: intermediate
+type: independent
+
+estimated_minutes: 55
+
+prerequisites:
+  - gh-02-01-atomic-commits
+
+objectives:
+  - Elegir entre restore / reset / revert / reflog según situación
+  - Rescatar trabajo "perdido" tras reset --hard usando reflog
+  - Mover un commit a la rama correcta sin perder archivos
+  - Eliminar un secreto del último commit (no pusheado)
+  - Separar un commit que mezcla dos intenciones usando reset --mixed
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/recover"
+
+status: not-started

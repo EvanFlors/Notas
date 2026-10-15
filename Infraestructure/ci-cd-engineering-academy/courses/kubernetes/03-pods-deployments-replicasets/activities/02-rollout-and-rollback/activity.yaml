@@ -1,0 +1,29 @@
+id: k8s-03-02-rollout-and-rollback
+title: Rollouts encadenados y rollback a revisión intermedia
+technology: kubernetes
+module: 03-pods-deployments-replicasets
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - k8s-03-01-deploy-fastapi
+
+objectives:
+  - Encadenar varios rollouts con kubectl set image
+  - Leer kubectl rollout history y mapear revisiones a imágenes
+  - Revertir a una revisión concreta con kubectl rollout undo --to-revision=N
+  - Verificar que el estado final refleja la revisión destino
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,28 @@
+id: dkr-12-02-make-build-reproducible
+title: Hacer que dos builds consecutivos produzcan el mismo digest
+technology: docker
+module: 12-multiarch-and-reproducibility
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - dkr-12-01-publish-amd64-arm64
+
+objectives:
+  - Identificar fuentes de no-reproducibilidad en un Dockerfile dado
+  - Reescribir el Dockerfile para eliminarlas (pin por digest, timestamps deterministas, sin pasos no deterministas)
+  - Construir dos veces y producir el mismo sha256sum del tar OCI
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

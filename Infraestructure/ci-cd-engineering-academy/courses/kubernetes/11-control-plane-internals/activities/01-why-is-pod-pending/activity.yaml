@@ -1,0 +1,31 @@
+id: k8s-11-01-why-is-pod-pending
+title: Debug why my Pod is stuck Pending
+technology: kubernetes
+module: 11-control-plane-internals
+level: advanced
+type: independent
+
+estimated_minutes: 40
+
+prerequisites:
+  - k8s-01-mental-model-and-architecture
+  - k8s-02-setup-local-and-kubectl
+
+objectives:
+  - Reproduce a Pod stuck in Pending due to an impossible nodeSelector
+  - Use kubectl describe and kubectl events to find the FailedScheduling reason
+  - Map the scheduler message to the NodeAffinity filter plugin
+  - Write an ANALYSIS.md describing the root cause chain from apiserver to scheduler
+  - Propose at least one minimal fix (label the node or change the workload)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

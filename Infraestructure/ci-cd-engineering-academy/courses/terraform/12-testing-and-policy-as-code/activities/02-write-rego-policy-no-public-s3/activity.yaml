@@ -1,0 +1,29 @@
+id: tf-12-02-write-rego-policy-no-public-s3
+title: Policy OPA/Rego — prohibir S3 publico
+technology: terraform
+module: 12-testing-and-policy-as-code
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - tf-12-01-add-validation-pipeline-locally
+
+objectives:
+  - Escribir una policy Rego que deniegue aws_s3_bucket con acl public-read
+  - Extender la policy para exigir block public access settings (BPA)
+  - Verificar la policy contra dos fixtures (uno PASS, uno FAIL) de plan JSON
+  - Explicar por que esta logica es mas robusta sobre plan.json que sobre HCL
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

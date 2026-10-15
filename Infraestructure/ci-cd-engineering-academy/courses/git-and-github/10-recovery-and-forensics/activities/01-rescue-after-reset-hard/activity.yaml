@@ -1,0 +1,29 @@
+id: gh-10-01-rescue-after-reset-hard
+title: Rescue after reset --hard (and worse)
+technology: git-and-github
+module: 10-recovery-and-forensics
+level: advanced
+type: independent
+
+estimated_minutes: 70
+
+prerequisites:
+  - gh-09-02-fsck-a-broken-repo
+
+objectives:
+  - Recuperar un commit tras reset --hard usando el reflog
+  - Reconstruir una rama borrada a partir del reflog de HEAD
+  - Rescatar un stash dangling con git fsck --lost-found tras purgar reflogs
+  - Distinguir qué queda recuperable y qué no según el estado de .git/
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/recover-adv"
+
+status: not-started

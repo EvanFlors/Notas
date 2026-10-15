@@ -1,0 +1,17 @@
+# SAFE — pattern #1: pass untrusted value through an env var and
+# consume it as "$VAR" in the shell. The expansion never enters the script.
+name: safe-interpolation-envvar
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Greet contributor (safe via env)
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "Thanks for the PR titled: $PR_TITLE"

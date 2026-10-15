@@ -1,0 +1,29 @@
+id: k8s-04-02-debug-no-endpoints
+title: Depurar un Service sin endpoints (label selector mismatch)
+technology: kubernetes
+module: 04-services-and-dns
+level: beginner
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - k8s-04-01-expose-api-via-clusterip
+
+objectives:
+  - Diagnosticar un Service cuyo endpoints está vacío
+  - Identificar el mismatch entre selector del Service y labels de los Pods
+  - Aplicar el arreglo mínimo (cambiar el selector del Service, NO las labels del Deployment)
+  - Verificar que endpoints se puebla y curl responde HTTP 200
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

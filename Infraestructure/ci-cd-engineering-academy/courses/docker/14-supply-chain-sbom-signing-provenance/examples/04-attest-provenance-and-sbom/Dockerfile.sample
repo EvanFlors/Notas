@@ -1,0 +1,4 @@
+FROM alpine:3.19
+RUN apk add --no-cache ca-certificates jq
+RUN echo "attest demo" > /hello.txt
+CMD ["cat", "/hello.txt"]

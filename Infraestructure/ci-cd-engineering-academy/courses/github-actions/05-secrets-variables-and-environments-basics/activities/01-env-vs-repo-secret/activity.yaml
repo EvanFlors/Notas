@@ -1,0 +1,29 @@
+id: gha-05-01-env-vs-repo-secret
+title: Jerarquía - environment secret vs repo secret
+technology: github-actions
+module: 05-secrets-variables-and-environments-basics
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gha-02-syntax-expressions-and-contexts
+
+objectives:
+  - Clasificar un conjunto de datos entre secrets y vars y asignar el scope correcto (repo, environment, org)
+  - Escribir dos workflows que consumen esa jerarquia usando ${{ secrets.X }} y ${{ vars.Y }}
+  - Mantener la variacion por entorno en GitHub (environments) y no en el YAML
+  - Validar la estructura del YAML localmente con tests/validate.sh en MODE=local
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/gha-05-env-vs-repo-secret"
+
+status: not-started

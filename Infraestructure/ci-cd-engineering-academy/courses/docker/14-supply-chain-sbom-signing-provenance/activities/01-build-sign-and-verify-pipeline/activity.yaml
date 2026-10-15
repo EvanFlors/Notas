@@ -1,0 +1,32 @@
+id: dkr-14-01-build-sign-and-verify-pipeline
+title: Pipeline completo build → SBOM → scan → sign → attest → verify (dual-mode)
+technology: docker
+module: 14-supply-chain-sbom-signing-provenance
+level: advanced
+type: mini-project
+
+estimated_minutes: 120
+
+prerequisites:
+  - dkr-09-01-publish-and-consume-your-image
+  - dkr-13-01-harden-fastapi-container
+
+objectives:
+  - Construir una imagen OCI y publicarla a un registry (local o GHCR)
+  - Generar un SBOM CycloneDX con syft anclado al digest publicado
+  - Correr trivy como gate (exit-code 1 en CRITICAL) y cortar el pipeline si corresponde
+  - Firmar la imagen con cosign (key pair local en MODE=local, keyless OIDC en MODE=live)
+  - Emitir attestations para SLSA Provenance y SBOM, adjuntas al mismo digest
+  - Escribir un verify.sh que un consumidor pueda correr desde /tmp sin acceso al pipeline
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/dkr-14-01"
+
+status: not-started

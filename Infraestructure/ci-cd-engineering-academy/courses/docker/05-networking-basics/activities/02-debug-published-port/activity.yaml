@@ -1,0 +1,28 @@
+id: dkr-05-02-debug-published-port
+title: Debug - puerto publicado que no responde
+technology: docker
+module: 05-networking-basics
+level: beginner
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - dkr-05-01-two-containers-talking-by-name
+
+objectives:
+  - Diagnosticar por qué un contenedor publicado no responde desde el host
+  - Reconocer el bind a 127.0.0.1 dentro del contenedor como causa raíz
+  - Aplicar la corrección mínima (bind a 0.0.0.0) manteniendo el mismo puerto publicado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

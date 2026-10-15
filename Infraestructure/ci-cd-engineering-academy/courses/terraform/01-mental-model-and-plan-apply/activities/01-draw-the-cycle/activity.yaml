@@ -1,0 +1,29 @@
+id: tf-01-01-draw-the-cycle
+title: Dibujar el ciclo init-plan-apply-destroy
+technology: terraform
+module: 01-mental-model-and-plan-apply
+level: beginner
+type: independent
+
+estimated_minutes: 50
+
+prerequisites: []
+
+objectives:
+  - Dibujar el ciclo init-plan-apply-destroy en ASCII
+  - Identificar qué toca y qué no toca cada fase (deseado/state/infra real)
+  - Nombrar los simbolos +, -, ~, -/+ y de donde salen
+  - Explicar refresh como sub-fase del plan
+  - Definir idempotencia y drift con ejemplos propios
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/tf-01-cycle"
+
+status: not-started

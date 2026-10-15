@@ -1,0 +1,33 @@
+# STARTER — intencionalmente incompleto. Lee README.md secciones 5.2 y 5.3.
+#
+# Problemas conocidos (TODO del alumno):
+#   1) `db` NO tiene healthcheck.
+#   2) `api` usa depends_on en forma corta: no espera a que `db` este listo.
+#   3) `api` no tiene su propio healthcheck.
+#   4) `proxy` depende de `api` solo "start", no de que este sano.
+services:
+  api:
+    build: ./app
+    environment:
+      DATABASE_URL: postgresql://postgres:dev@db:5432/postgres
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  proxy:
+    image: caddy:2-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

@@ -1,0 +1,14 @@
+name: prod
+# Modo B: patrones custom. Más expresivo (soporta glob) pero hay que mantenerlo.
+# Pueden desplegar: main y cualquier release/*.
+wait_timer: 5
+prevent_self_review: true
+reviewers:
+  - type: Team
+    slug: platform-sre
+deployment_branch_policy:
+  protected_branches: false
+  custom_branch_policies: true
+  patterns:
+    - refs/heads/main
+    - refs/heads/release/*

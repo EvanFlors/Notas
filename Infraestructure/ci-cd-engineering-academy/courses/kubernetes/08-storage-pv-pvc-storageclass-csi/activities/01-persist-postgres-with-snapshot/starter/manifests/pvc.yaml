@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pg-data
+  namespace: k8s08-pg
+spec:
+  # No storageClassName: use the cluster's default StorageClass.
+  # On kind that is 'standard' (local-path); on Docker Desktop 'hostpath';
+  # on EKS whatever the admin set as default.
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

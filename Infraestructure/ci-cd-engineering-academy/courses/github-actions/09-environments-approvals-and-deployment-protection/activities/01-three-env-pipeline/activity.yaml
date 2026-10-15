@@ -1,0 +1,30 @@
+id: gha-09-01-three-env-pipeline
+title: Pipeline con tres environments (dev -> staging -> prod)
+technology: github-actions
+module: 09-environments-approvals-and-deployment-protection
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - gha-05-01-env-vs-repo-secret
+  - gha-06-01-matrix-with-include-exclude
+
+objectives:
+  - Escribir un workflow con tres jobs encadenados (dev, staging, prod) usando environment y needs
+  - Describir cada environment como codigo en un sidecar YAML (reviewers, wait_timer, branch policy)
+  - Validar que prod tiene reviewers, wait_timer y branch policy restringida a main
+  - Validar en MODE=local sin GitHub y opcionalmente en MODE=live creando los environments reales
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/gha09-three-env"
+
+status: not-started

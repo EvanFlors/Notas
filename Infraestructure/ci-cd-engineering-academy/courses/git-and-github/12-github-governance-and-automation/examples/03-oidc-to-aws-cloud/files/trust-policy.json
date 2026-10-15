@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "GitHubActionsOIDC",
+      "Effect": "Allow",
+      "Principal": {
+        "__COMMENT__": "DUMMY AWS ACCOUNT ID 123456789012 — REPLACE WITH YOUR OWN BEFORE USE",
+        "Federated": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "__COMMENT__": "PLACEHOLDER org/repo — REPLACE with your real GitHub owner/repo",
+          "token.actions.githubusercontent.com:sub": "repo:example-org/payments-api:environment:production"
+        }
+      }
+    }
+  ]
+}

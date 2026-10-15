@@ -1,0 +1,29 @@
+id: k8s-09-02-protect-rollout-with-pdb
+title: Proteger un rollout crítico con PDB y anti-afinidad
+technology: kubernetes
+module: 09-scheduling-resources-affinity-taints-pdb
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - k8s-09-01-tune-resources-and-measure
+
+objectives:
+  - Diseñar un PodDisruptionBudget para una app de 3 réplicas
+  - Añadir anti-afinidad por hostname para repartir Pods entre nodos
+  - Demostrar que kubectl drain respeta el PDB (bloquea cuando corresponde)
+  - Justificar las decisiones en NOTES.md
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

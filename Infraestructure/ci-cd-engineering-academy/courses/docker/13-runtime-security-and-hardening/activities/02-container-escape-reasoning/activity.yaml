@@ -1,0 +1,29 @@
+id: dkr-13-02-container-escape-reasoning
+title: Analisis escrito de vectores de escape de contenedor
+technology: docker
+module: 13-runtime-security-and-hardening
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - dkr-13-01-harden-fastapi-container
+
+objectives:
+  - Explicar al menos cuatro vectores comunes de escape de contenedor
+  - Describir mecanismo, deteccion, impacto y mitigacion de cada uno
+  - Producir ANALYSIS.md con estructura verificable automaticamente
+  - Proponer alternativas concretas para casos de uso legitimos
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

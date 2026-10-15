@@ -1,0 +1,29 @@
+id: k8s-16-01-harden-the-capstone
+title: Endurecer el capstone (PSA restricted + securityContext productivo)
+technology: kubernetes
+module: 16-security-hardening-and-supply-chain
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - dkr-13-01-harden-fastapi-container
+
+objectives:
+  - Aplicar label pod-security.kubernetes.io/enforce=restricted al namespace de app
+  - Reescribir el Deployment capstone con el securityContext productivo completo
+  - Verificar que un Pod intencionalmente laxo es rechazado por PSA
+  - Validar automaticamente que los 7 controles exigidos se cumplen
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

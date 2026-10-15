@@ -1,0 +1,29 @@
+id: gh-13-03-oidc-federation-to-cloud
+title: OIDC federation GitHub Actions to AWS (dual-mode)
+technology: git-and-github
+module: 13-github-security-and-supply-chain
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - gh-13-theory
+
+objectives:
+  - Escribir un workflow de GitHub Actions que asume un rol en AWS vía OIDC sin usar secretos
+  - Diseñar un trust policy JSON correcto con pin del sub al repo y environment
+  - Verificar que el workflow pide id-token y usa la acción oficial de AWS
+  - Entender el flujo STS AssumeRoleWithWebIdentity y por qué elimina las credenciales de larga vida
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/oidc-fed"
+
+status: not-started

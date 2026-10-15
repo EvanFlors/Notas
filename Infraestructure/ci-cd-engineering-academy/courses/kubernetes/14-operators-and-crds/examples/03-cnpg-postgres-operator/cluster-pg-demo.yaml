@@ -1,0 +1,18 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg-demo
+  namespace: default
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.4
+  primaryUpdateStrategy: unsupervised
+  storage:
+    size: 10Gi
+    storageClass: standard
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+  monitoring:
+    enablePodMonitor: true

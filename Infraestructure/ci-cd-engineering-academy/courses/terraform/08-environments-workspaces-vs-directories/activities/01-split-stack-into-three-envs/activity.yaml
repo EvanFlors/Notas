@@ -1,0 +1,32 @@
+id: tf-08-01-split-stack-into-three-envs
+title: Partir un stack monolítico en tres ambientes con módulo compartido
+technology: terraform
+module: 08-environments-workspaces-vs-directories
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - tf-04-variables-outputs-locals
+  - tf-05-state-basics
+  - tf-06-modules
+
+objectives:
+  - Identificar los acoplamientos "código vs datos" en un stack monolítico
+  - Extraer la lógica reutilizable a un módulo en `modules/app/`
+  - Crear `envs/{dev,stg,prod}/` cada uno como root module independiente
+  - Verificar que cada ambiente mantiene su propio state local
+  - Comprobar que `plan` es limpio tras `apply` y que cambiar un ambiente no afecta a los otros
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,29 @@
+id: gh-13-01-enable-secret-scanning-and-push-protection
+title: Enable secret scanning + push protection (dual-mode)
+technology: git-and-github
+module: 13-github-security-and-supply-chain
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - gh-13-theory
+
+objectives:
+  - Habilitar secret scanning y push protection en un repo GitHub (MODE=live) o configurar defensa en profundidad local con un hook pre-commit (MODE=local)
+  - Documentar los controles del lado GitHub en un SECURITY.md
+  - Verificar que el hook local bloquea un commit que contiene un secreto de prueba
+  - Entender el trade-off entre control central del servidor y hooks locales
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/sec-scanning"
+
+status: not-started

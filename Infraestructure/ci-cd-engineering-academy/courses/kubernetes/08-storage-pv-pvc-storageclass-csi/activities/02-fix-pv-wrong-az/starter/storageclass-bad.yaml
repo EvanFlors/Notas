@@ -1,0 +1,19 @@
+# BUGGY: multi-AZ cluster + nodeSelector-pinned Pod + Immediate binding.
+# The provisioner will pick an AZ at random the moment the PVC is created,
+# before the scheduler ever looks at the Pod's nodeSelector. If the Pod is
+# pinned to a different AZ via nodeSelector (see deployment.yaml), it will
+# never schedule.
+#
+# TODO (student): fix the volumeBindingMode so the scheduler decides the node
+# first and then the volume is provisioned in the correct AZ. Add a short
+# comment starting with "# fix:" explaining why.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: zonal-ssd
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true

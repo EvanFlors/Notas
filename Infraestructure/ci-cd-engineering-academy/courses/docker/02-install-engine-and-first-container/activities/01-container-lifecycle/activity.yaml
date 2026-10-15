@@ -1,0 +1,29 @@
+id: dkr-02-01-container-lifecycle
+title: Ciclo de vida de un contenedor Redis
+technology: docker
+module: 02-install-engine-and-first-container
+level: beginner
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - dkr-01-mental-model-and-oci
+
+objectives:
+  - Arrancar un contenedor con los flags clave de run (-d, --name, -p, -e, --restart)
+  - Diferenciar docker exec de ssh conceptualmente
+  - Extraer campos específicos con docker inspect --format
+  - Parar y eliminar un contenedor sin recurrir a rm -f
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

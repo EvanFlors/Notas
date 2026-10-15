@@ -1,0 +1,30 @@
+id: dkr-09-01-publish-and-consume-your-image
+title: Publicar y consumir tu imagen (dual-mode local|live)
+technology: docker
+module: 09-registries-tags-and-digests
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 70
+
+prerequisites:
+  - dkr-03-images-dockerfile-basics
+
+objectives:
+  - Construir una imagen y taggearla con 4 tags (v1.0.0, v1.0, v1, sha-<7>)
+  - Publicar los 4 tags a un registry (localhost:5000 en MODE=local, GHCR en MODE=live)
+  - Resolver el digest canonico con docker inspect y persistirlo en publish/DIGEST
+  - Consumir la imagen pulleando por name@sha256:... y corriendola
+  - Documentar la politica de tags en publish/tag-policy.md (tags publicados, pin de prod, uso humano)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

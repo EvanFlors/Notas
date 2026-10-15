@@ -1,0 +1,10 @@
+# Reference solution for gh-11-01-pre-commit-framework.
+# 3 hooks from pre-commit/pre-commit-hooks, pinned to a tag.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+        args: ['--maxkb=500']

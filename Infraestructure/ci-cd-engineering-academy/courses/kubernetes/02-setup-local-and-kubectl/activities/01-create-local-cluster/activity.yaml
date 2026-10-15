@@ -1,0 +1,29 @@
+id: k8s-02-01-create-local-cluster
+title: Crear un cluster local kind
+technology: kubernetes
+module: 02-setup-local-and-kubectl
+level: beginner
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - k8s-01-mental-model-and-architecture
+
+objectives:
+  - Crear un cluster kind con nombre explícito y verlo como current-context
+  - Cambiar el namespace por default del contexto con kubectl config set-context
+  - Aplicar un ConfigMap con kubectl apply y verificarlo
+  - Extraer campos con jsonpath y custom-columns
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

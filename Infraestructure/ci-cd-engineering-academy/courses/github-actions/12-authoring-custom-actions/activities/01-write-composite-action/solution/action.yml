@@ -1,0 +1,61 @@
+name: "Semver check"
+description: "Validates a semantic version string (MAJOR.MINOR.PATCH)"
+author: "demo"
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  version:
+    description: "String to validate as semver (MAJOR.MINOR.PATCH)"
+    required: true
+  fail-on-invalid:
+    description: "If 'true', fail the step when the version is invalid"
+    required: false
+    default: "false"
+
+outputs:
+  is-valid:
+    description: "'true' or 'false'"
+    value: ${{ steps.check.outputs.is-valid }}
+  major:
+    description: "MAJOR component (empty if invalid)"
+    value: ${{ steps.check.outputs.major }}
+  minor:
+    description: "MINOR component (empty if invalid)"
+    value: ${{ steps.check.outputs.minor }}
+  patch:
+    description: "PATCH component (empty if invalid)"
+    value: ${{ steps.check.outputs.patch }}
+  normalized:
+    description: "'vMAJOR.MINOR.PATCH' if valid, empty if invalid"
+    value: ${{ steps.check.outputs.normalized }}
+
+runs:
+  using: composite
+  steps:
+    - id: check
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        FAIL: ${{ inputs.fail-on-invalid }}
+      run: |
+        set -eu
+        VALID="false"
+        MA=""; MI=""; PA=""; NORM=""
+        if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          VALID="true"
+          IFS='.' read -r MA MI PA <<< "$VERSION"
+          NORM="v${MA}.${MI}.${PA}"
+        fi
+        {
+          echo "is-valid=${VALID}"
+          echo "major=${MA}"
+          echo "minor=${MI}"
+          echo "patch=${PA}"
+          echo "normalized=${NORM}"
+        } >> "$GITHUB_OUTPUT"
+        if [ "$VALID" = "false" ] && [ "$FAIL" = "true" ]; then
+          echo "::error::Invalid semver: '${VERSION}'"
+          exit 1
+        fi

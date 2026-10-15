@@ -1,0 +1,10 @@
+---
+# Starter: crea el PodDisruptionBudget aquí.
+# Requisitos del validador:
+#   - apiVersion: policy/v1
+#   - kind: PodDisruptionBudget
+#   - metadata.name: critical-pdb
+#   - spec.minAvailable: 2
+#   - spec.selector.matchLabels.app: critical
+#
+# Reemplaza este comentario con el manifest completo.

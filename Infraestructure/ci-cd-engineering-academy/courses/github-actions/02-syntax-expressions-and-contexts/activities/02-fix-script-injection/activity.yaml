@@ -1,0 +1,29 @@
+id: gha-02-02-fix-script-injection
+title: Detectar y arreglar un workflow vulnerable a script injection
+technology: github-actions
+module: 02-syntax-expressions-and-contexts
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - gha-02-01-conditional-jobs
+
+objectives:
+  - Identificar interpolaciones inseguras de contexto github.event.* dentro de run
+  - Aplicar el patrón env var + "$VAR" para neutralizar la vulnerabilidad
+  - Verificar con el detector que no quedan interpolaciones peligrosas
+  - Explicar por escrito por qué la expansión textual previa al shell es la raíz del problema
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/gha-02-02"
+
+status: not-started

@@ -1,0 +1,30 @@
+id: gh-04-02-collab-simulation-two-clones
+title: Simulate Alice + Bob collaborating against one bare remote
+technology: git-and-github
+module: 04-remotes-and-collaboration-basics
+level: intermediate
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - gh-04-01-local-bare-remote
+
+objectives:
+  - Operar dos clones contra un mismo bare remote
+  - Reproducir un push non-fast-forward real
+  - Resolver el rechazo con fetch + rebase sin force
+  - Mantener historia lineal en main (sin merge commits)
+  - Dejar los dos clones sincronizados con el server
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/gh-04-collab"
+
+status: not-started

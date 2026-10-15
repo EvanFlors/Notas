@@ -1,0 +1,7 @@
+apiVersion: demo.academy.io/v1alpha1
+kind: Echo
+metadata:
+  name: hello
+  namespace: default
+spec:
+  message: "hello from a CR"

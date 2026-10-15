@@ -1,0 +1,25 @@
+# .github/dependabot.yml — copy to repo root.
+# Keeps every `uses:` SHA pin (and its `# vX.Y.Z` comment) up to date.
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Madrid"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      # Group minor and patch updates to reduce PR noise.
+      # Major updates come as separate PRs for explicit review.
+      actions-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"

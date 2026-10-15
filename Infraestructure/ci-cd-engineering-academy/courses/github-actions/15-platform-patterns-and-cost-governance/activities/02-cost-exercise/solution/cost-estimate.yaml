@@ -1,0 +1,45 @@
+org: ACME-mini
+window_days: 30
+
+minutes:
+  ubuntu-latest:
+    runs_per_day: 400
+    avg_duration_min: 4
+    price_per_min: 0.008
+    minutes_month: 48000     # 400 * 4 * 30
+    cost_usd: 384.00         # 48000 * 0.008
+
+  windows-latest:
+    runs_per_day: 50
+    avg_duration_min: 6
+    price_per_min: 0.016
+    minutes_month: 9000      # 50 * 6 * 30
+    cost_usd: 144.00         # 9000 * 0.016
+
+  macos-latest:
+    runs_per_day: 10
+    avg_duration_min: 8
+    price_per_min: 0.080
+    minutes_month: 2400      # 10 * 8 * 30
+    cost_usd: 192.00         # 2400 * 0.080
+
+  ubuntu-latest-16-core:
+    runs_per_day: 20
+    avg_duration_min: 5
+    price_per_min: 0.064
+    minutes_month: 3000      # 20 * 5 * 30
+    cost_usd: 192.00         # 3000 * 0.064
+
+storage:
+  artifacts:
+    gb_month: 50
+    price_per_gb: 0.25
+    cost_usd: 12.50          # 50 * 0.25
+
+  ghcr:
+    gb_month: 200
+    price_per_gb: 0.25
+    cost_usd: 50.00          # 200 * 0.25
+
+# 384 + 144 + 192 + 192 + 12.5 + 50 = 974.50
+total_usd: 974.50

@@ -1,0 +1,32 @@
+id: k8s-14-01-write-echo-operator-with-kubebuilder
+title: Escribir un operador Echo con Kubebuilder
+technology: kubernetes
+module: 14-operators-and-crds
+level: advanced
+type: mini-project
+
+estimated_minutes: 180
+
+prerequisites:
+  - k8s-11-control-plane-internals
+  - k8s-12-rbac-serviceaccounts-admission-policy
+
+objectives:
+  - Scaffoldear (o leer un scaffold) de operador con Kubebuilder
+  - Diseñar la CRD Echo (spec.message, status.observedMessage) con subresource status
+  - Implementar un Reconcile idempotente que materializa un ConfigMap
+  - Establecer ownerReferences para que el ConfigMap se borre con el CR
+  - Actualizar status via el subresource /status
+  - Degradar grácilmente a pseudocódigo si no hay toolchain Go
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

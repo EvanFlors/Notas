@@ -1,0 +1,20 @@
+- username: alice
+  name: Alice Rivera
+  email: alice@acme.io
+  role: admin
+  groups: [eng, admins]
+- username: bob
+  name: Bob Chen
+  email: bob@acme.io
+  role: dev
+  groups: [eng]
+- username: carol
+  name: Carol Diaz
+  email: carol@acme.io
+  role: dev
+  groups: [eng, oncall]
+- username: dave
+  name: Dave Patel
+  email: dave@acme.io
+  role: viewer
+  groups: [readonly]

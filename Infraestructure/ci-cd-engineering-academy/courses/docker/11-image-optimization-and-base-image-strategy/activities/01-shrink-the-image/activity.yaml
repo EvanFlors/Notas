@@ -1,0 +1,30 @@
+id: dkr-11-01-shrink-the-image
+title: Shrink the image — bajar una app Python a < 100 MB sobre distroless
+technology: docker
+module: 11-image-optimization-and-base-image-strategy
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - dkr-07-multistage-buildkit-and-secrets
+
+objectives:
+  - Partir de un Dockerfile "ingenuo" (~1 GB) y reducirlo a < 100 MB funcional
+  - Aplicar multi-stage con builder slim y runtime distroless
+  - Instalar deps con --no-cache-dir y en --prefix para copiar al runtime
+  - Validar que la imagen final sigue ejecutando la app (python -c 'print("ok")')
+  - Medir tamaño con docker images y explicar la caída capa por capa
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

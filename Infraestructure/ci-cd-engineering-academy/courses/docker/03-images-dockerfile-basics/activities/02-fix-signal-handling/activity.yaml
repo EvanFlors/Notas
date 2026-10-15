@@ -1,0 +1,29 @@
+id: dkr-03-02-fix-signal-handling
+title: Arregla el manejo de senales (PID 1)
+technology: docker
+module: 03-images-dockerfile-basics
+level: beginner
+type: debug
+
+estimated_minutes: 30
+
+prerequisites:
+  - dkr-03-01-build-your-first-image
+
+objectives:
+  - Diagnosticar por que un contenedor no responde a docker stop en menos de 10s
+  - Identificar la causa en forma shell de CMD/ENTRYPOINT (PID 1 = /bin/sh)
+  - Aplicar el fix minimo (exec form, exec dentro de script, o STOPSIGNAL + handler)
+  - Demostrar con logs y timing que el proceso recibe SIGTERM
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

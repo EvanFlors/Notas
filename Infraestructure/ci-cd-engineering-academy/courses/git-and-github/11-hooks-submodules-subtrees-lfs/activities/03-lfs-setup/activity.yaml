@@ -1,0 +1,30 @@
+id: gh-11-03-lfs-setup
+title: Configurar Git LFS para un archivo binario
+technology: git-and-github
+module: 11-hooks-submodules-subtrees-lfs
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 30
+
+prerequisites:
+  - gh-11-01-pre-commit-framework
+
+objectives:
+  - Instalar y activar Git LFS en un repo
+  - Trackear un patrón de archivo binario con git lfs track
+  - Verificar que .gitattributes contiene filter=lfs diff=lfs merge=lfs -text
+  - Confirmar que el blob committed es un puntero LFS, no los bytes del binario
+  - Entender el flujo smudge/clean de los filtros LFS
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/lfs-lab"
+
+status: not-started

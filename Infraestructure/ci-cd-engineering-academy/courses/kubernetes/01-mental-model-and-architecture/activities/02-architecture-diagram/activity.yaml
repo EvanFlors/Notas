@@ -1,0 +1,29 @@
+id: k8s-01-02-architecture-diagram
+title: Mapa anotado — control plane, data plane y reconciliation loop
+technology: kubernetes
+module: 01-mental-model-and-architecture
+level: beginner
+type: independent
+
+estimated_minutes: 50
+
+prerequisites: []
+
+objectives:
+  - Dibujar los 5 componentes del control plane y qué hace cada uno
+  - Dibujar los componentes del nodo (kubelet, kube-proxy, runtime, CNI, CSI)
+  - Explicar por qué el API server es la única puerta a etcd
+  - Dibujar la cadena Deployment → ReplicaSet → Pods como reconciliation loop
+  - Describir qué pasa en un kubectl apply desde el cliente hasta etcd
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/k8s-01-arch"
+
+status: not-started

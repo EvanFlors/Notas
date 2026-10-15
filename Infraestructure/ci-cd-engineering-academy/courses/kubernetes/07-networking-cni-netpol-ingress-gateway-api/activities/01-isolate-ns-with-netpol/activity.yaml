@@ -1,0 +1,31 @@
+id: k8s-07-01-isolate-ns-with-netpol
+title: Aislar un namespace con NetworkPolicy default-deny y allows explicitos
+technology: kubernetes
+module: 07-networking-cni-netpol-ingress-gateway-api
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - k8s-04-01-expose-api-via-clusterip
+
+objectives:
+  - Levantar un cluster kind con Calico que si enforce NetworkPolicy
+  - Desplegar tres Pods (client, api, postgres) en un namespace shop
+  - Aplicar un default-deny para ingress y egress en todo el namespace
+  - Habilitar DNS egress a kube-dns con allow-dns
+  - Abrir trafico explicito client->api y api->postgres con allows aditivos
+  - Verificar que trafico no autorizado (client->postgres) queda bloqueado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

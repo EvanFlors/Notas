@@ -1,0 +1,30 @@
+id: tf-03-01-dependency-graph-exercise
+title: Visualiza el DAG implícito con tls + docker
+technology: terraform
+module: 03-resources-data-sources-and-references
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - tf-02-setup-hcl-first-provider
+  - dkr-02-install-engine-and-first-container
+
+objectives:
+  - Declarar un stack de 3 recursos con dependencias expresadas solo por referencia
+  - Correr el ciclo init/plan/apply/destroy contra un stack local sin coste
+  - Visualizar el DAG implícito con terraform graph y mapear los recursos
+  - Leer el state con terraform state list y state show e identificar atributos computados
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,15 @@
+name: demo-unsafe-branch-pin
+
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  show:
+    runs-on: ubuntu-latest
+    steps:
+      # UNSAFE: @main sigue el HEAD de la rama main del repo origen.
+      # Cada run del workflow puede traer un commit distinto sin que tú lo veas.
+      - uses: actions/checkout@main
+      - run: echo "hello from unsafe (branch pin)"

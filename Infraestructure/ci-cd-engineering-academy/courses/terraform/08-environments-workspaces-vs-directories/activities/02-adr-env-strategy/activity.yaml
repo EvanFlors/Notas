@@ -1,0 +1,29 @@
+id: tf-08-02-adr-env-strategy
+title: ADR — estrategia de ambientes para una organización dada
+technology: terraform
+module: 08-environments-workspaces-vs-directories
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - tf-08-01-split-stack-into-three-envs
+
+objectives:
+  - Elegir el patrón de ambientes adecuado para un escenario organizacional concreto
+  - Enumerar riesgos específicos del patrón descartado (en especial, de usar un único workspace para "prod" y "stg")
+  - Redactar un ADR con contexto, decisión, consecuencias y alternativas
+  - Defender la decisión bajo trade-offs explícitos (blast radius, promoción, costo operacional)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

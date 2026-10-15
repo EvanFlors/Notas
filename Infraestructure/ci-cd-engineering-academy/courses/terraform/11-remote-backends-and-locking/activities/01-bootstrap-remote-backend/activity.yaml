@@ -1,0 +1,30 @@
+id: tf-11-01-bootstrap-remote-backend
+title: Bootstrap de backend remoto S3 + DynamoDB (dual-mode)
+technology: terraform
+module: 11-remote-backends-and-locking
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - tf-05-state-basics
+  - tf-08-environments-workspaces-vs-directories
+
+objectives:
+  - Hacer bootstrap de un bucket S3 y una tabla DynamoDB para alojar state remoto con locking
+  - Migrar un stack de backend local a backend remoto con terraform init -migrate-state
+  - Verificar que el state remoto queda en el bucket y que el lock se adquiere en DynamoDB durante apply
+  - Operar la actividad en dual-mode (local con localstack o live contra AWS real)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

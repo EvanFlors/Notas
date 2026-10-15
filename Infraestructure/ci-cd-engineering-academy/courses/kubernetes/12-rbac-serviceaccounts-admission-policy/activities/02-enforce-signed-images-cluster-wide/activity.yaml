@@ -1,0 +1,30 @@
+id: k8s-12-02-enforce-signed-images-cluster-wide
+title: Instalar Kyverno y escribir una ClusterPolicy que rechace imágenes sin firma
+technology: kubernetes
+module: 12-rbac-serviceaccounts-admission-policy
+level: advanced
+type: independent
+
+estimated_minutes: 120
+
+prerequisites:
+  - k8s-11-control-plane-internals
+  - k8s-12-01-write-rbac-for-ci-user
+
+objectives:
+  - Instalar Kyverno en un cluster kind
+  - Escribir una ClusterPolicy que exija firma (verifyImages) para un conjunto de imágenes
+  - Demostrar que un Pod con imagen no firmada es rechazado por admission
+  - Explicar la diferencia entre Enforce y Audit en policies de Kyverno
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/k8s-12-02"
+
+status: not-started

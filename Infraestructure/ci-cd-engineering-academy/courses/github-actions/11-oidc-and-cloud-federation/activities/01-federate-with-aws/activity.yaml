@@ -1,0 +1,30 @@
+id: gha-11-01-federate-with-aws
+title: Federate GitHub Actions with AWS via OIDC (dual-mode)
+technology: github-actions
+module: 11-oidc-and-cloud-federation
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - gha-05-secrets-variables-and-environments-basics
+  - gha-09-environments-approvals-and-deployment-protection
+
+objectives:
+  - Escribir un workflow de GitHub Actions que asume un rol en AWS vía OIDC con cero secretos de larga vida
+  - Diseñar un trust policy JSON correcto con pin del sub por environment:production
+  - Garantizar permissions id-token write solo en el job y top-level restrictivo
+  - Documentar el flujo AssumeRoleWithWebIdentity y la relación con el environment claim
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/gha-oidc"
+
+status: not-started

@@ -1,0 +1,30 @@
+id: gh-11-02-submodule-vs-subtree-tradeoffs
+title: Submodule vs Subtree — construir ambos y escribir un ADR
+technology: git-and-github
+module: 11-hooks-submodules-subtrees-lfs
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - gh-11-01-pre-commit-framework
+
+objectives:
+  - Construir un super-repo con un submódulo apuntando a un upstream local
+  - Construir un super-repo con un subtree del mismo upstream
+  - Observar diferencias en git ls-tree, .gitmodules, git log y en el reclone
+  - Escribir un ADR comparando submodule, subtree y monorepo con decisión justificada
+  - Defender la decisión en 2 minutos
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/adr-sub-vs-tree"
+
+status: not-started

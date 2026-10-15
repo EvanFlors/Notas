@@ -1,0 +1,29 @@
+id: tf-04-02-why-sensitive-is-not-secret-management
+title: Por qué sensitive=true no es gestión de secretos
+technology: terraform
+module: 04-variables-outputs-locals
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - tf-02-setup-hcl-first-provider
+
+objectives:
+  - Demostrar empíricamente que un output marcado sensitive queda en claro en el state
+  - Enumerar los lugares donde el valor sigue siendo recuperable
+  - Explicar el patrón correcto (secret manager + data source) para secretos reales
+  - Diferenciar el propósito de sensitive (ocultar en CLI) de cifrado (que no hace)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,40 @@
+# workflow-under-review.yml
+# NO EDITAR. Objeto del ejercicio gha-01-02-read-and-explain.
+name: review-me
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build "artifact"
+        run: |
+          mkdir -p dist
+          echo "pretend-this-is-a-wheel" > dist/app.whl
+          ls -la dist
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report
+        run: |
+          echo "repo:   $GITHUB_REPOSITORY"
+          echo "sha:    $GITHUB_SHA"
+          echo "event:  $GITHUB_EVENT_NAME"
+          echo "actor:  $GITHUB_ACTOR"
+          echo "run_id: $GITHUB_RUN_ID"
+      - name: Attempt to publish
+        run: |
+          ls -la dist || echo "no dist/ here!"
+          echo "would upload dist/app.whl now..."

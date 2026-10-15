@@ -1,0 +1,28 @@
+id: dkr-09-02-tag-strategy-design
+title: Diseno de estrategia de tagging (ADR)
+technology: docker
+module: 09-registries-tags-and-digests
+level: intermediate
+type: independent
+
+estimated_minutes: 55
+
+prerequisites:
+  - dkr-09-01-publish-and-consume-your-image
+
+objectives:
+  - Producir un ADR tag-strategy.md con las 9 secciones del esqueleto
+  - Decidir explicitamente tags inmutables, mutables, pin de prod, pin de staging/dev, rotacion de base, rol de latest
+  - Justificar el conjunto en Rationale cubriendo >=3 conceptos clave (reproducibilidad, trazabilidad, digest, rate-limits, preview, rollback, SOC)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

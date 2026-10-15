@@ -1,0 +1,54 @@
+# Example: secret vs var + how masking actually works.
+#
+# Prereq in your repo (not here):
+#   - Secret   EXAMPLE_SECRET = any string (e.g. "hunter2")
+#   - Variable EXAMPLE_VAR    = any plain config (e.g. "https://api.example.com")
+#
+# Expected log behaviour:
+#   - Variable prints literally.
+#   - Secret prints as "***".
+#   - A TRANSFORMED copy of the secret prints in the clear (filter is literal-match).
+#   - Length/metadata of the secret prints in the clear.
+name: demo-secret-usage
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    env:
+      API_URL:   ${{ vars.EXAMPLE_VAR }}
+      API_TOKEN: ${{ secrets.EXAMPLE_SECRET }}
+    steps:
+      - name: show-var
+        run: |
+          echo "API_URL=$API_URL"
+
+      - name: show-secret-naive
+        run: |
+          # Will be masked to "***" by GitHub's log filter.
+          echo "API_TOKEN=$API_TOKEN"
+
+      - name: transform-and-leak
+        run: |
+          # The filter matches the literal secret only.
+          # Uppercasing / base64 / tr all defeat it.
+          echo "upper=${API_TOKEN^^}"
+          echo "b64=$(printf '%s' "$API_TOKEN" | base64)"
+
+      - name: check-length-leak
+        run: |
+          # Metadata about the secret is not masked.
+          echo "length=${#API_TOKEN}"
+          echo "starts_with=${API_TOKEN:0:1}"
+
+      - name: use-correctly
+        run: |
+          # The right way: pass it as an auth header; never echo it.
+          curl -fsS -o /dev/null -w "status=%{http_code}\n" \
+               -H "Authorization: Bearer $API_TOKEN" \
+               "$API_URL/health" || true

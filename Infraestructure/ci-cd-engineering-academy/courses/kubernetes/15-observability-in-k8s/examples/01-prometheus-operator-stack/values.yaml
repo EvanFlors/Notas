@@ -1,0 +1,59 @@
+# values.yaml — valores mínimos para kube-prometheus-stack sobre kind.
+# No apto para producción; recursos recortados a propósito.
+
+fullnameOverride: kps
+
+# Hacer accesibles en kind los targets del control plane. kind corre
+# controller-manager y scheduler en 127.0.0.1 dentro del Pod; sobrescribimos.
+kubeControllerManager:
+  service:
+    enabled: true
+    port: 10257
+    targetPort: 10257
+  serviceMonitor:
+    https: true
+    insecureSkipVerify: true
+
+kubeScheduler:
+  service:
+    enabled: true
+    port: 10259
+    targetPort: 10259
+  serviceMonitor:
+    https: true
+    insecureSkipVerify: true
+
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    resources:
+      requests: { cpu: 100m, memory: 400Mi }
+      limits:   { cpu: 500m, memory: 1Gi }
+    # En kind no hay default StorageClass con reclaim rápido; usamos emptyDir.
+    storageSpec: {}
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+      limits:   { cpu: 100m, memory: 128Mi }
+
+grafana:
+  adminPassword: "admin"
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+  defaultDashboardsEnabled: true
+  service:
+    type: ClusterIP
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+prometheusOperator:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m, memory: 256Mi }

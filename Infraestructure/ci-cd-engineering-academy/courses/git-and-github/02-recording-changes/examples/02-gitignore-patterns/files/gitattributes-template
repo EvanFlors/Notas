@@ -1,0 +1,53 @@
+# ============================================================
+# .gitattributes canónico — equipo multi-OS, multi-lenguaje
+# Copia a tu repo como .gitattributes
+# ============================================================
+
+# Normalizar line endings (auto detecta texto vs binario)
+* text=auto
+
+# Forzar LF en archivos *nix-only
+*.sh      text eol=lf
+*.bash    text eol=lf
+*.py      text eol=lf
+*.rb      text eol=lf
+*.js      text eol=lf
+*.ts      text eol=lf
+*.yaml    text eol=lf
+*.yml     text eol=lf
+*.toml    text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+Makefile  text eol=lf
+Dockerfile text eol=lf
+
+# Forzar CRLF en Windows-only
+*.ps1     text eol=crlf
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+
+# Binarios: no normalizar ni intentar diff textual
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.pdf     binary
+*.zip     binary
+*.tar.gz  binary
+*.gz      binary
+*.woff    binary
+*.woff2   binary
+*.ttf     binary
+*.otf     binary
+
+# Jupyter: driver custom (si tienes nbdime o similar instalado)
+*.ipynb   diff=jupyternotebook
+
+# Exportar sin ciertos archivos cuando se use `git archive`
+.github/              export-ignore
+.gitignore            export-ignore
+.gitattributes        export-ignore
+tests/                export-ignore
+docs/                 export-ignore
+*.md                  export-ignore

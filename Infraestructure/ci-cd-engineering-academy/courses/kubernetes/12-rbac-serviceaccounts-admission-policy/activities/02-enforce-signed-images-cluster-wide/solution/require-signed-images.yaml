@@ -1,0 +1,42 @@
+---
+# Solution ClusterPolicy for k8s-12-02.
+#
+# Design choice: imageReferences matches docker.io/library/*, so any attempt
+# to create a Pod with a public upstream image (nginx, busybox, alpine)
+# triggers verifyImages. The keyless attestor describes a subject that will
+# NOT match any public image, so verification fails and admission denies —
+# which is exactly the behavior we want to demonstrate.
+#
+# In a real deployment, you'd replace the keyless block with the actual
+# subject/issuer of your organization's signing workflow.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-signed-images
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: verify-public-images
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces:
+                - "signed-images-test"
+                - "default"
+                - "apps"
+      verifyImages:
+        - imageReferences:
+            - "docker.io/library/*"
+            - "nginx*"
+            - "busybox*"
+            - "alpine*"
+          attestors:
+            - entries:
+                - keyless:
+                    subject: "https://github.com/example-org-does-not-exist/*/.github/workflows/release.yml@refs/heads/main"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev

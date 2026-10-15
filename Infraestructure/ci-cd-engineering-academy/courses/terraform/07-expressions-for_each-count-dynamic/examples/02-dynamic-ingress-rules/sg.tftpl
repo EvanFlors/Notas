@@ -1,0 +1,12 @@
+resource "aws_security_group" "${name}" {
+  name = "${name}"
+%{ for r in rules ~}
+  ingress {
+    from_port   = ${r.from}
+    to_port     = ${r.to}
+    protocol    = "${r.proto}"
+    cidr_blocks = ${jsonencode(r.cidrs)}
+    description = "${r.desc}"
+  }
+%{ endfor ~}
+}

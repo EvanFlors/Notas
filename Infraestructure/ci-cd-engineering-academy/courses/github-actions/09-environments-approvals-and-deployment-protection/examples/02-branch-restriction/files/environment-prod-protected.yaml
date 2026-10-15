@@ -1,0 +1,12 @@
+name: prod
+# Modo A: alinearse con branch protection del repositorio.
+# Si "main" está protegido, main puede desplegar; cualquier otra rama protegida
+# también. Si cambia la protection del repo, el env lo "siente" sin cambios.
+wait_timer: 0
+prevent_self_review: true
+reviewers:
+  - type: Team
+    slug: platform-sre
+deployment_branch_policy:
+  protected_branches: true
+  custom_branch_policies: false

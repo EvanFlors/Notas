@@ -1,0 +1,31 @@
+id: gha-06-02-fan-out-fan-in
+title: Fan-out fan-in con aggregator y summary
+technology: github-actions
+module: 06-matrix-dependencies-outputs
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - gha-06-01-matrix-with-include-exclude
+
+objectives:
+  - Disenar un job build matricial con N combinaciones paralelas
+  - Declarar outputs del job build vinculados a steps con $GITHUB_OUTPUT
+  - Agregar un job aggregate que depende de build (fan-in)
+  - Emitir un resumen Markdown en $GITHUB_STEP_SUMMARY con una tabla
+  - Aplicar concurrency a nivel workflow con cancel-in-progress true (patron CI)
+  - Validar en MODE local parseando el YAML y en MODE live ejecutando en GitHub
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/gha-06-02"
+
+status: not-started

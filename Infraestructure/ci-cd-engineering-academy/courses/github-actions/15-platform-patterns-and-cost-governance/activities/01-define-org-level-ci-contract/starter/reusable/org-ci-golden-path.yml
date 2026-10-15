@@ -1,0 +1,35 @@
+# TODO: completa este reusable workflow golden path.
+# Debe cumplir el checklist de §5.4 del README:
+#   - on.workflow_call presente
+#   - permissions explícito
+#   - concurrency con group
+#   - al menos un job con timeout-minutes
+#   - al menos una action pinneada a SHA de 40 chars (uses: owner/action@<sha40>)
+name: org-ci-golden-path
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        type: string
+        default: "python"
+      # TODO: añade otros inputs que necesites (python-version, node-version, ...).
+
+# TODO: permissions explícito a nivel workflow o por job.
+# permissions:
+#   contents: read
+
+# TODO: concurrency.
+# concurrency:
+#   group: ...
+#   cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    # TODO: timeout-minutes
+    steps:
+      # TODO: al menos una action pinneada a SHA de 40 caracteres, p. ej.
+      # - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - name: TODO
+        run: echo "replace with real steps"

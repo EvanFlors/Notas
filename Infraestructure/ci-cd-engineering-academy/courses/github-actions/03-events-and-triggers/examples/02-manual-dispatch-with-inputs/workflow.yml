@@ -1,0 +1,42 @@
+name: Manual deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        type: choice
+        required: true
+        default: 'dev'
+        options: [dev, staging, prod]
+      tag:
+        description: 'Image tag to deploy (e.g., v1.2.3)'
+        type: string
+        required: true
+      dry_run:
+        description: 'If true, only prints the plan'
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Show plan
+        run: |
+          echo "env     = ${{ inputs.environment }}"
+          echo "tag     = ${{ inputs.tag }}"
+          echo "dry_run = ${{ inputs.dry_run }}"
+      - name: Apply
+        if: inputs.dry_run == false
+        run: |
+          echo "Deploying ${{ inputs.tag }} to ${{ inputs.environment }}..."
+      - name: Dry-run notice
+        if: inputs.dry_run == true
+        run: |
+          echo "DRY-RUN - no changes made."

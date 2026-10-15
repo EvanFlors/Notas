@@ -1,0 +1,29 @@
+id: k8s-04-01-expose-api-via-clusterip
+title: Exponer una API vía ClusterIP y consumirla por DNS
+technology: kubernetes
+module: 04-services-and-dns
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - k8s-03-pods-deployments-replicasets
+
+objectives:
+  - Crear un ClusterIP Service que seleccione correctamente los Pods de un Deployment
+  - Resolver el Service por nombre corto y por FQDN desde un Pod cliente
+  - Verificar que endpoints no esté vacío y mapea los 3 Pods del backend
+  - Observar balanceo entre Pods desde un Pod cliente
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

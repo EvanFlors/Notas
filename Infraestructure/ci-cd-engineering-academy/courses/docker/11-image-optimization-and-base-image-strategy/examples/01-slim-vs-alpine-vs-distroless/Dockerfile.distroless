@@ -1,0 +1,18 @@
+# syntax=docker/dockerfile:1
+
+# ---- builder stage: has pip, has toolchain ----
+FROM python:3.12-slim AS builder
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --prefix=/install -r requirements.txt
+
+# ---- runtime: distroless, no shell, no pip ----
+FROM gcr.io/distroless/python3-debian12:nonroot
+WORKDIR /app
+# Copy the installed site-packages into the runtime's python path.
+COPY --from=builder /install /usr/local
+COPY app.py /app/app.py
+USER nonroot
+# Distroless python's ENTRYPOINT is python3; CMD passes the script.
+CMD ["/app/app.py"]

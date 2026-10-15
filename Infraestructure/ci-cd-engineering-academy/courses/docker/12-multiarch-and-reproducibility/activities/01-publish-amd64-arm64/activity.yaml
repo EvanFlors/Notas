@@ -1,0 +1,30 @@
+id: dkr-12-01-publish-amd64-arm64
+title: Publicar imagen app:v1 para linux/amd64 y linux/arm64
+technology: docker
+module: 12-multiarch-and-reproducibility
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - dkr-07-01-rewrite-to-multistage
+  - dkr-09-01-publish-and-consume-your-image
+
+objectives:
+  - Crear un builder docker-container y preparar QEMU en el host
+  - Construir una imagen app:v1 para linux/amd64 y linux/arm64 en una sola invocacion de buildx
+  - Publicar la imagen como manifest index (modo local a registry:2, o modo live a GHCR)
+  - Verificar con docker buildx imagetools inspect que ambas plataformas estan presentes
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

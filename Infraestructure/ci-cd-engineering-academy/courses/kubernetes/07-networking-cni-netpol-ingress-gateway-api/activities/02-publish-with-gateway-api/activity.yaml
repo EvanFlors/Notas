@@ -1,0 +1,30 @@
+id: k8s-07-02-publish-with-gateway-api
+title: Publicar una app con Gateway API (GatewayClass, Gateway, HTTPRoute)
+technology: kubernetes
+module: 07-networking-cni-netpol-ingress-gateway-api
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - k8s-07-01-isolate-ns-with-netpol
+
+objectives:
+  - Instalar los CRDs de Gateway API en un cluster kind
+  - Escribir un GatewayClass, un Gateway en namespace de plataforma y un HTTPRoute en namespace de app
+  - Configurar allowedRoutes.namespaces con selector y etiquetar el namespace de la app
+  - Definir dos reglas con path matching y un filtro RequestHeaderModifier
+  - Comprender la separacion de roles plataforma vs equipo de app
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,47 @@
+---
+# Guaranteed: requests == limits (CPU + memory) en TODOS los contenedores.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qos-guaranteed
+  labels: { demo: qos }
+spec:
+  containers:
+  - name: app
+    image: registry.k8s.io/pause:3.9
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "64Mi"
+      limits:
+        cpu: "100m"
+        memory: "64Mi"
+---
+# Burstable: hay requests, pero limits != requests (o faltan en algún recurso).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qos-burstable
+  labels: { demo: qos }
+spec:
+  containers:
+  - name: app
+    image: registry.k8s.io/pause:3.9
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "32Mi"
+      limits:
+        cpu: "200m"
+        memory: "128Mi"
+---
+# BestEffort: ningún contenedor declara requests ni limits.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qos-besteffort
+  labels: { demo: qos }
+spec:
+  containers:
+  - name: app
+    image: registry.k8s.io/pause:3.9

@@ -1,0 +1,29 @@
+id: dkr-11-02-base-image-adr
+title: Base image ADR — comparar y defender la elección
+technology: docker
+module: 11-image-optimization-and-base-image-strategy
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - dkr-11-01-shrink-the-image
+
+objectives:
+  - Construir la misma app sobre al menos 3 bases (slim, alpine, distroless)
+  - Medir tamaño, cold-start y CVEs (si trivy está disponible)
+  - Escribir una ADR (Architecture Decision Record) con la elección y sus consecuencias
+  - Defender la elección por escrito; no basta "la más pequeña"
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

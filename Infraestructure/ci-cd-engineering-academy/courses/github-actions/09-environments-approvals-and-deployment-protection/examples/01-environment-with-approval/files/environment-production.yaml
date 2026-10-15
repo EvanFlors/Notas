@@ -1,0 +1,25 @@
+# Declarative description of GitHub environment "production".
+# Not a native GitHub format — we use it to version-control the env config
+# and translate to `gh api` calls via apply.sh.
+name: production
+wait_timer: 10               # minutes between approval and job start (0..43200)
+prevent_self_review: true    # the actor who triggered the run cannot approve it
+reviewers:
+  - type: Team
+    slug: release-managers
+    # id resolved at apply time via `gh api orgs/<org>/teams/release-managers`
+  - type: User
+    login: on-call-lead
+deployment_branch_policy:
+  protected_branches: false
+  custom_branch_policies: true
+  patterns:
+    - refs/heads/main
+    - refs/heads/release/*
+secrets:
+  # Names only — values are set out-of-band with `gh secret set --env production`.
+  - PROD_DB_URL
+  - PROD_API_KEY
+variables:
+  LOG_LEVEL: info
+  REGION: us-east-1

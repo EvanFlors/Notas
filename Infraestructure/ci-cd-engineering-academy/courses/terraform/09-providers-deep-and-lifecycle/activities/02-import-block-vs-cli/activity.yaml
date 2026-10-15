@@ -1,0 +1,29 @@
+id: tf-09-02-import-block-vs-cli
+title: Adoptar un recurso existente con import blocks
+technology: terraform
+module: 09-providers-deep-and-lifecycle
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - tf-03-resources-data-sources-and-references
+  - tf-05-state-basics
+
+objectives:
+  - Adoptar un recurso creado fuera de Terraform usando un bloque import
+  - Verificar que el recurso aparece en el state sin ser recreado
+  - Justificar por qué el bloque import vence al comando terraform import
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

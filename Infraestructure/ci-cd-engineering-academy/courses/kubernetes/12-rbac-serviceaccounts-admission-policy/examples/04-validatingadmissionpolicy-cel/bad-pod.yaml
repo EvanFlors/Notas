@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vap-prod
+  labels:
+    environment: prod
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod
+  namespace: vap-prod
+spec:
+  containers:
+    - name: app
+      image: nginx:1.27-alpine

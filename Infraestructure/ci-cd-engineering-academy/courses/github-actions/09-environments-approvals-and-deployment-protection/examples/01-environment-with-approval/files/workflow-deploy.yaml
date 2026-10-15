@@ -1,0 +1,32 @@
+name: deploy
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./build.sh
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production         # triggers reviewers + wait_timer + branch policy
+      url: https://example.com # becomes clickable in the deployment record
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        env:
+          DB_URL:    ${{ secrets.PROD_DB_URL }}
+          API_KEY:   ${{ secrets.PROD_API_KEY }}
+          LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+          REGION:    ${{ vars.REGION }}
+        run: ./deploy.sh

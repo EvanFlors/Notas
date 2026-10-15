@@ -1,0 +1,37 @@
+# .github/workflows/release.yml
+# Build + SLSA build provenance attestation + GitHub release.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  build-and-attest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # para crear el release
+      id-token: write        # para firma Sigstore (OIDC token)
+      attestations: write    # para subir attestation al repo
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Build artifact
+        run: |
+          mkdir -p dist
+          # placeholder: en un repo real, aquí hace `go build`, `cargo build`, etc.
+          echo "fake-binary built from ${GITHUB_SHA}" > "dist/myapp-${GITHUB_REF_NAME}"
+
+      - name: Generate SLSA build provenance attestation
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2  # v2.2.3
+        with:
+          subject-path: dist/myapp-${{ github.ref_name }}
+
+      - name: Create GitHub release with artifact
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda  # v2.2.1
+        with:
+          files: dist/myapp-${{ github.ref_name }}
+          generate_release_notes: true

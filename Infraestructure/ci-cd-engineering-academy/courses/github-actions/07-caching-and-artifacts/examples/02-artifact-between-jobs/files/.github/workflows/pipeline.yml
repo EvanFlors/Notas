@@ -1,0 +1,55 @@
+name: Build / Test / Deploy with artifact
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build dist/
+        run: |
+          mkdir -p dist
+          echo "version=$(git rev-parse --short HEAD)" > dist/VERSION
+          echo "built at $(date -u +%FT%TZ)" > dist/app.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-dist
+          path: dist/
+          retention-days: 7
+          if-no-files-found: error
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-dist
+          path: dist/
+
+      - name: Verify bundle
+        run: |
+          test -s dist/app.txt
+          test -s dist/VERSION
+          echo "Testing version: $(cat dist/VERSION)"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-dist
+          path: dist/
+
+      - name: Simulate deploy
+        run: echo "Deploying $(cat dist/VERSION) — contents: $(cat dist/app.txt)"

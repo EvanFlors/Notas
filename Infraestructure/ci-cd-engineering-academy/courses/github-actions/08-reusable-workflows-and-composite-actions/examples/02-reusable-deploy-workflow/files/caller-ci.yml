@@ -1,0 +1,32 @@
+name: CI
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.t.outputs.tag }}
+    steps:
+      - id: t
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+  call-deploy-staging:
+    needs: build
+    # In production this would be:
+    #   uses: my-org/shared-workflows/.github/workflows/deploy.yml@v1
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+      image-tag:   ${{ needs.build.outputs.tag }}
+      dry-run:     false
+    secrets:
+      DEPLOY_TOKEN: ${{ secrets.STAGING_DEPLOY_TOKEN }}
+
+  announce:
+    needs: call-deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Deployed to ${{ needs.call-deploy-staging.outputs.deployment-url }}"

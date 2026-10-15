@@ -1,0 +1,29 @@
+id: dkr-08-02-flaky-startup-fix-with-healthcheck
+title: Flaky startup — arreglar con healthcheck y depends_on condition
+technology: docker
+module: 08-compose-for-development
+level: intermediate
+type: debug
+
+estimated_minutes: 40
+
+prerequisites:
+  - dkr-08-01-full-dev-stack
+
+objectives:
+  - Reproducir un bug intermitente de arranque multi-servicio
+  - Identificar la ventana de carrera entre api y db
+  - Aplicar la correccion minima (healthcheck en db + depends_on condition)
+  - Validar determinismo con dos corridas consecutivas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

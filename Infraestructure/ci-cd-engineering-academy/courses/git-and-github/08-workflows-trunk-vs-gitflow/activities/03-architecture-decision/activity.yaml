@@ -1,0 +1,31 @@
+id: gh-08-03-architecture-decision
+title: ADR — elegir workflow para un escenario dado
+technology: git-and-github
+module: 08-workflows-trunk-vs-gitflow
+level: intermediate
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - gh-08-01-simulate-trunk-based
+  - gh-08-02-simulate-gitflow
+
+objectives:
+  - Analizar un escenario de equipo real y traducirlo a restricciones de workflow
+  - Elegir y defender un workflow fundamentado (trunk-based, GitHub Flow, GitLab Flow, GitFlow, u otro)
+  - Documentar la decision en formato ADR (Michael Nygard)
+  - Identificar alternativas descartadas, consecuencias y riesgos
+  - Nombrar los escenarios en los que la elección fallaría y bajo qué condiciones se revisaría
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh starter/ADR-001-branching-strategy.md"
+
+status: not-started

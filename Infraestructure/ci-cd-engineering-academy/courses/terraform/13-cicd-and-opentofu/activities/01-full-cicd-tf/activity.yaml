@@ -1,0 +1,32 @@
+id: tf-13-01-full-cicd-tf
+title: Full Terraform CI/CD pipeline PR plan + merge apply + drift (dual-mode)
+technology: terraform
+module: 13-cicd-and-opentofu
+level: advanced
+type: guided-lab
+
+estimated_minutes: 150
+
+prerequisites:
+  - tf-11-remote-backends-and-locking
+  - tf-12-testing-and-policy-as-code
+  - gha-11-oidc-and-cloud-federation
+
+objectives:
+  - Diseñar un workflow de PR que corre fmt validate plan y publica el plan como comentario sticky
+  - Diseñar un workflow de apply gated por environment production que consume el artefacto plan.tfplan
+  - Diseñar un job programado de drift detection con plan refresh-only detailed-exitcode
+  - Configurar OIDC a AWS con dos roles distintos para plan read-only y apply mutante sin credenciales de larga vida
+  - Fijar la versión de Terraform via required_version lockfile y setup-action
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/tf-cicd"
+
+status: not-started

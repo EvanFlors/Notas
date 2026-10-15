@@ -1,0 +1,20 @@
+# REFERENCE ONLY. Not applied (file is .example, not .tf).
+# This is the production pattern that `dynamic` enables.
+
+resource "aws_security_group" "web" {
+  name = "web"
+
+  dynamic "ingress" {
+    for_each = var.rules
+    content {
+      from_port   = ingress.value.from
+      to_port     = ingress.value.to
+      protocol    = try(ingress.value.proto, "tcp")
+      cidr_blocks = try(ingress.value.cidrs, ["0.0.0.0/0"])
+      description = try(ingress.value.desc, "")
+    }
+  }
+
+  # Observa: UN solo security group con N ingress adentro.
+  # Si quisieras N security groups, usarías for_each sobre el recurso.
+}

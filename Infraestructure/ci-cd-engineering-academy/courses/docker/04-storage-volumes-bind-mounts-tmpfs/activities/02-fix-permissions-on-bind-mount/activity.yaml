@@ -1,0 +1,28 @@
+id: dkr-04-02-fix-permissions-on-bind-mount
+title: Diagnosticar y arreglar un bind mount con UID desalineado
+technology: docker
+module: 04-storage-volumes-bind-mounts-tmpfs
+level: intermediate
+type: independent
+
+estimated_minutes: 25
+
+prerequisites:
+  - dkr-04-01-persist-postgres-data
+
+objectives:
+  - Diagnosticar un Permission denied como mismatch de UID host vs contenedor
+  - Aplicar un fix razonado sin modificar la imagen ni usar chmod 777
+  - Verbalizar al menos dos alternativas de fix y su trade-off
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

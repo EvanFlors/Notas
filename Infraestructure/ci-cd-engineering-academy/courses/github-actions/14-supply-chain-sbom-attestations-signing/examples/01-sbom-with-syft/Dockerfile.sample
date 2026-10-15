@@ -1,0 +1,12 @@
+# Imagen mínima para que el SBOM sea legible (pocos componentes).
+FROM alpine:3.19
+
+RUN apk add --no-cache python3 py3-pip ca-certificates
+
+COPY <<'EOF' /app/hello.py
+#!/usr/bin/env python3
+print("hello from signed app")
+EOF
+
+RUN chmod +x /app/hello.py
+ENTRYPOINT ["/app/hello.py"]

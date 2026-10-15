@@ -1,0 +1,30 @@
+id: gha-13-02-detect-script-injection
+title: Detect and fix script injection in a GitHub Actions workflow
+technology: github-actions
+module: 13-security-hardening
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - gha-02-syntax-expressions-and-contexts
+  - gha-13-theory
+
+objectives:
+  - Identificar interpolaciones ${{ github.event.* }} inseguras dentro de bloques run:
+  - Reescribir el workflow usando env: + "$VAR" con comillas dobles
+  - Explicar por qué la variable de entorno rompe la cadena de inyección
+  - Validar con un scanner regex que la vulnerabilidad desapareció
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/sec-scanning"
+
+status: not-started

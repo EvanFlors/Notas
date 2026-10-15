@@ -1,0 +1,30 @@
+id: dkr-07-02-remove-leaked-secret-from-image
+title: Quitar un secreto filtrado en docker history (forense)
+technology: docker
+module: 07-multistage-buildkit-and-secrets
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - dkr-07-01-rewrite-to-multistage
+
+objectives:
+  - Reproducir el leak de un token pasado via ARG o ENV y verlo en docker history
+  - Explicar por que un rm en una capa posterior no borra el valor filtrado
+  - Migrar la receta a --mount=type=secret,id=... con DOCKER_BUILDKIT=1
+  - Demostrar con docker history --no-trunc que el token ya no aparece
+  - Documentar el procedimiento forense en una nota breve
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

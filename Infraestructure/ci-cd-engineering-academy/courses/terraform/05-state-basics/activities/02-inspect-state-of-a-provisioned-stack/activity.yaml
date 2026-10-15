@@ -1,0 +1,30 @@
+id: tf-05-02-inspect-state-of-a-provisioned-stack
+title: Inspeccionar el state de un stack aprovisionado
+technology: terraform
+module: 05-state-basics
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - tf-05-01-rename-resource-with-state-mv
+
+objectives:
+  - Aprovisionar un stack local con varios tipos de recursos y leer su state entero
+  - Extraer atributos especificos (incluyendo computados por el provider) con terraform state show
+  - Diferenciar atributos declarados en HCL de atributos calculados post-apply
+  - Documentar los hallazgos en un NOTES.md reproducible con analisis
+  - Argumentar por que un valor marcado sensitive sigue siendo visible en el state
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/tf-05-02-inspect"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: tf-06-01-write-your-first-module
+title: Escribir tu primer módulo (greeting-site)
+technology: terraform
+module: 06-modules
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - tf-03-resources-data-sources-and-references
+  - tf-04-variables-outputs-locals
+
+objectives:
+  - Estructurar un módulo con README, versions, variables, main, outputs y examples
+  - Declarar required_providers en el módulo sin configurar provider dentro
+  - Escribir variables tipadas con description y al menos una validation
+  - Escribir outputs con description que formen un contrato estable
+  - Consumir el módulo desde un ejemplo ejecutable con source relativo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

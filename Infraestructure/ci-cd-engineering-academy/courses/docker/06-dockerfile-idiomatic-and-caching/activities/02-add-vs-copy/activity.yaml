@@ -1,0 +1,30 @@
+id: dkr-06-02-add-vs-copy
+title: Cuando usar ADD y cuando usar COPY
+technology: docker
+module: 06-dockerfile-idiomatic-and-caching
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - dkr-03-images-dockerfile-basics
+
+objectives:
+  - Diferenciar los tres comportamientos de ADD (copia, tar extract, URL fetch)
+  - Elegir COPY para copias simples y justificarlo
+  - Elegir ADD solo cuando aporta un feature necesario (auto-extract de tar local)
+  - Reemplazar ADD url por RUN curl con verificacion de checksum para artefactos remotos
+  - Escribir un Dockerfile con las tres decisiones comentadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

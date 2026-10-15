@@ -1,0 +1,31 @@
+id: gh-13-02-sign-and-verify-commits
+title: Sign and verify Git commits with SSH
+technology: git-and-github
+module: 13-github-security-and-supply-chain
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - gh-01-config-personal
+  - gh-13-theory
+
+objectives:
+  - Generar una clave SSH exclusiva para firmar commits
+  - Configurar git para firmar automáticamente con esa clave
+  - Preparar un archivo allowed_signers y configurarlo en git
+  - Producir commits firmados verificables con git log --show-signature
+  - Verificar la firma por una vía independiente con ssh-keygen -Y verify
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/sign-and-verify"
+
+status: not-started

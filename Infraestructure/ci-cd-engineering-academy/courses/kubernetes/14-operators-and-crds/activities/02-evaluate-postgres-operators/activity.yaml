@@ -1,0 +1,29 @@
+id: k8s-14-02-evaluate-postgres-operators
+title: Evaluación comparada de operadores de Postgres
+technology: kubernetes
+module: 14-operators-and-crds
+level: advanced
+type: independent
+
+estimated_minutes: 120
+
+prerequisites:
+  - k8s-14-01-write-echo-operator-with-kubebuilder
+
+objectives:
+  - Comparar CloudNativePG y Zalando postgres-operator con criterios explícitos
+  - Evaluar madurez, blast radius, backup/restore, upgrade story, licencia y comunidad
+  - Emitir una recomendación justificada contexto-dependiente
+  - Documentar los red flags que harían rechazar un operador
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: manual
+  command: "bash tests/validate.sh"
+
+status: not-started

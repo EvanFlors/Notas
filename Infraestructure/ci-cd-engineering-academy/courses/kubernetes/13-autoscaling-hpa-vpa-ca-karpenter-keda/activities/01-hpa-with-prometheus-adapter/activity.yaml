@@ -1,0 +1,31 @@
+id: k8s-13-01-hpa-with-prometheus-adapter
+title: HPA on CPU with metrics-server (and Prometheus Adapter reference)
+technology: kubernetes
+module: 13-autoscaling-hpa-vpa-ca-karpenter-keda
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - k8s-09-scheduling-resources-affinity-taints-pdb
+
+objectives:
+  - Install metrics-server in a kind cluster and verify kubectl top
+  - Deploy a workload with sane cpu requests
+  - Create an HPA v2 with behavior tuned to avoid oscillation
+  - Generate synthetic load with busybox and observe scaling
+  - Read a Prometheus Adapter rule and explain its three parts
+  - Validate automatically that HPA scaled above 1 replica
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

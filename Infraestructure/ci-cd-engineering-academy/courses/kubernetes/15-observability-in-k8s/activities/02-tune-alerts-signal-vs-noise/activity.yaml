@@ -1,0 +1,30 @@
+id: k8s-15-02-tune-alerts-signal-vs-noise
+title: Reescribir alertas ruidosas a SLO + multi-window burn-rate
+technology: kubernetes
+module: 15-observability-in-k8s
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - k8s-15-01-full-oss-observability
+
+objectives:
+  - Identificar las 3 alertas ruidosas en un PrometheusRule con 10 alertas
+  - Eliminar o reescribir cada alerta ruidosa con criterio SLO y burn-rate multi-ventana
+  - Añadir runbook_url, summary y description a cada alerta
+  - Mantener alertas sanas sin modificar su semántica
+  - Pasar un validador estructural sobre el YAML resultante
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

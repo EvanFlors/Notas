@@ -1,0 +1,29 @@
+id: tf-07-02-fix-count-reindex-drift
+title: Arreglar cascade de reindex de count
+technology: terraform
+module: 07-expressions-for_each-count-dynamic
+level: intermediate
+type: independent
+
+estimated_minutes: 55
+
+prerequisites:
+  - tf-04-variables-outputs-locals
+  - tf-06-modules
+
+objectives:
+  - Reproducir el síntoma de reindex de count sobre colecciones con identidad
+  - Refactorizar un stack de count a for_each con toset() o map keyed por nombre
+  - Demostrar con evidencia de terraform plan que el refactor elimina la cascada
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/tf-07-02"
+
+status: not-started

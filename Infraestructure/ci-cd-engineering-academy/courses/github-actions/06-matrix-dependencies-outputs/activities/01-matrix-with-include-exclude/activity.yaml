@@ -1,0 +1,32 @@
+id: gha-06-01-matrix-with-include-exclude
+title: Matriz con include y exclude
+technology: github-actions
+module: 06-matrix-dependencies-outputs
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gha-02-01-conditional-jobs
+  - gha-05-01-env-vs-repo-secret
+
+objectives:
+  - Escribir una strategy.matrix 2D (os x python) correcta
+  - Usar exclude para quitar una combinacion no soportada
+  - Usar include para anadir una combinacion experimental con atributo propio
+  - Aplicar fail-fast false y continue-on-error dinamico por combinacion
+  - Declarar permissions contents read a nivel workflow
+  - Validar en MODE local parseando el YAML y en MODE live ejecutando en GitHub
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/gha-06-01"
+
+status: not-started

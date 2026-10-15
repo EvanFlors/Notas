@@ -1,0 +1,29 @@
+id: k8s-05-02-why-base64-is-not-encryption
+title: Por qué base64 no es cifrado (análisis)
+technology: kubernetes
+module: 05-config-secrets-env-volumes-basics
+level: beginner
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - k8s-03-pods-deployments-replicasets
+
+objectives:
+  - Demostrar en vivo que un Secret está en cleartext base64, no cifrado
+  - Decodificar un Secret con kubectl + base64 -d en un solo comando
+  - Grep el valor cleartext tal como está almacenado y documentar la prueba
+  - Redactar ANALYSIS.md con la demostración y una recomendación de ESO
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

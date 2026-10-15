@@ -1,0 +1,31 @@
+id: dkr-03-01-build-your-first-image
+title: Construye tu primera imagen (FastAPI minima)
+technology: docker
+module: 03-images-dockerfile-basics
+level: beginner
+type: guided-lab
+
+estimated_minutes: 55
+
+prerequisites:
+  - dkr-02-02-why-is-my-container-exiting
+
+objectives:
+  - Escribir un Dockerfile correcto para una app Python/FastAPI
+  - Usar USER no-root (UID >= 1000)
+  - Usar CMD/ENTRYPOINT en exec form
+  - Escribir un .dockerignore minimo (git, pycache, venv, env)
+  - Validar que la imagen construye, corre y responde HTTP 200 en /healthz
+  - Interpretar docker image inspect y docker history
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

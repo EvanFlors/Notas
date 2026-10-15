@@ -1,0 +1,31 @@
+id: tf-04-01-parameterize-the-stack
+title: Parametriza el stack por ambiente (dev / prod)
+technology: terraform
+module: 04-variables-outputs-locals
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - tf-02-setup-hcl-first-provider
+  - tf-03-resources-data-sources-and-references
+
+objectives:
+  - Declarar variables tipadas (string, number, bool, object) con description y validation
+  - Separar valores por ambiente en envs/dev.tfvars y envs/prod.tfvars
+  - Demostrar la precedence de valores con -var, -var-file y TF_VAR_*
+  - Derivar nombres y tags con locals para evitar repetición
+  - Exponer outputs documentados consumibles por otros procesos
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

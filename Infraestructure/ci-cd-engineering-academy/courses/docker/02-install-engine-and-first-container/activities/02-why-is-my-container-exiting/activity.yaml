@@ -1,0 +1,29 @@
+id: dkr-02-02-why-is-my-container-exiting
+title: ¿Por qué sale mi contenedor? (debug guiado)
+technology: docker
+module: 02-install-engine-and-first-container
+level: beginner
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - dkr-02-01-container-lifecycle
+
+objectives:
+  - Clasificar causas típicas de un contenedor que sale inmediatamente
+  - Interpretar ExitCode (0, 1, 127, 137, 143) y State.Status
+  - Aplicar el arreglo mínimo en el comando docker run
+  - Documentar diagnóstico y evidencia
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

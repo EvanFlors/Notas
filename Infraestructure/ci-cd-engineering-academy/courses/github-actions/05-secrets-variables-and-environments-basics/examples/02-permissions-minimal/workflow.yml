@@ -1,0 +1,58 @@
+# Example: least-privilege GITHUB_TOKEN.
+#
+# Rule of thumb:
+#   - Top-level: contents: read.
+#   - Per-job:   escalate explicitly, justify in a comment.
+#   - Per-job permissions REPLACE the top-level block (not merged);
+#     so re-declare contents: read if you also need it.
+name: demo-permissions-minimal
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# DEFAULT for every job unless overridden: read-only to repo contents.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # No permissions block => inherits top-level: contents: read.
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "run unit tests here"
+
+  comment-pr:
+    if: github.event_name == 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read         # still needs to read repo
+      pull-requests: write   # JUSTIFICATION: post a coverage summary comment on the PR
+    steps:
+      - uses: actions/checkout@v4
+      - name: post-coverage-comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment "$PR_NUMBER" --body "Coverage: 87% (demo)"
+        shell: bash
+        # PR_NUMBER would be derived from the event payload in a real workflow.
+
+  publish-release-notes:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # JUSTIFICATION: create a draft release on main pushes
+    steps:
+      - uses: actions/checkout@v4
+      - name: create-draft-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "draft-$(date -u +%Y%m%d%H%M%S)" \
+            --draft \
+            --notes "Auto-generated draft notes (demo)"

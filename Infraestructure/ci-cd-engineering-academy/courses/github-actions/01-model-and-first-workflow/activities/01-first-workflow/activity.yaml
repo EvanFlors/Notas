@@ -1,0 +1,30 @@
+id: gha-01-01-first-workflow
+title: Primer workflow — ci.yml que corre en push y PR
+technology: github-actions
+module: 01-model-and-first-workflow
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gh-05-01-create-repo-and-push
+
+objectives:
+  - Crear un repo con .github/workflows/ci.yml válido
+  - Declarar triggers on push y pull_request
+  - Usar actions/checkout@v4 como primer step
+  - Ejecutar al menos un run que imprima info del contexto github
+  - Validar el workflow en modo local (parsing/estructura) o live (gh workflow run + watch)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

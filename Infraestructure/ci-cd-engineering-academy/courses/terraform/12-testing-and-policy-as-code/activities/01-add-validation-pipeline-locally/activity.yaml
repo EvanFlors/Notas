@@ -1,0 +1,30 @@
+id: tf-12-01-add-validation-pipeline-locally
+title: Pipeline de validación local pre-apply
+technology: terraform
+module: 12-testing-and-policy-as-code
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - tf-06-modules
+  - tf-10-provider-advanced-and-lifecycle
+
+objectives:
+  - Escribir un script pre-apply.sh que encadene fmt, validate, tflint, checkov y conftest
+  - Hacer que cada paso degrade con SKIP si el binario no está instalado
+  - Devolver exit != 0 si cualquiera de las validaciones duras falla
+  - Correr el script sobre un módulo de ejemplo y entender la salida
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

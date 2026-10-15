@@ -1,0 +1,30 @@
+id: gha-12-02-write-js-action
+title: Mini-proyecto - JavaScript action line-counter
+technology: github-actions
+module: 12-authoring-custom-actions
+level: advanced
+type: mini-project
+
+estimated_minutes: 100
+
+prerequisites:
+  - gha-12-01-write-composite-action
+
+objectives:
+  - Escribir action.yml tipo node20 con inputs y outputs
+  - Implementar src/index.js usando @actions/core
+  - Producir dist/index.js ejecutable por el runner
+  - Testear localmente con INPUT_* env vars (sin pushear a GitHub)
+  - Argumentar por qué dist/ va commiteado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/js-action-lab"
+
+status: not-started

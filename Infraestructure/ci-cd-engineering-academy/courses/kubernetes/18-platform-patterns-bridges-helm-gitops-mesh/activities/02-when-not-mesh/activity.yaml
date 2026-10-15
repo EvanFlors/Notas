@@ -1,0 +1,31 @@
+id: k8s-18-02-when-not-mesh
+title: Analisis — Cuando NO introducir un service mesh
+technology: kubernetes
+module: 18-platform-patterns-bridges-helm-gitops-mesh
+level: advanced
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - k8s-07-networking-cni-netpol-ingress-gateway-api
+  - k8s-15-observability-in-k8s
+
+objectives:
+  - Enumerar los sintomas que justificarian evaluar la introduccion de un service mesh
+  - Enumerar precondiciones operacionales con evidencia concreta antes de adoptar un mesh
+  - Identificar red flags que indican que un mesh dolera sin aportar
+  - Proponer alternativas sin mesh para cada sintoma
+  - Emitir y defender una decision explicita (adoptar o no adoptar) y las condiciones de revision
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh starter/MESH-DECISION.md"
+
+status: not-started

@@ -1,0 +1,54 @@
+name: example-01-conditionals
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+env:
+  LOG_LEVEL: info
+
+jobs:
+  on-main-push:
+    name: Run only on push to main
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Announce
+        run: echo "This job runs because event=${{ github.event_name }} ref=${{ github.ref }}"
+
+  on-pr:
+    name: Run only on pull_request
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    env:
+      LOG_LEVEL: debug  # job-level override
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show env precedence
+        env:
+          LOG_LEVEL: trace  # step-level override (wins)
+        run: |
+          echo "LOG_LEVEL in this step = $LOG_LEVEL"
+
+      - name: Try a thing (may fail)
+        id: try
+        continue-on-error: true
+        run: |
+          # Fails intentionally to show that continue-on-error does not break the job.
+          exit 1
+
+      - name: Advisory lint (advisory only)
+        if: ${{ steps.try.outcome == 'failure' }}
+        run: |
+          echo "Previous step failed with outcome=${{ steps.try.outcome }}, but job keeps going."
+
+      - name: Report only on failure
+        if: ${{ failure() }}
+        run: echo "At least one earlier step failed."
+
+      - name: Cleanup (always)
+        if: ${{ always() }}
+        run: echo "Cleanup runs even if the run was cancelled or earlier steps failed."

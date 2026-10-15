@@ -1,0 +1,29 @@
+id: k8s-06-02-cronjob-flaky-fix
+title: CronJob con overlaps — diagnosticar y arreglar
+technology: kubernetes
+module: 06-workloads-deep-statefulset-daemonset-jobs
+level: intermediate
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - k8s-03-pods-deployments-replicasets
+
+objectives:
+  - Reproducir un CronJob con concurrencyPolicy Allow y comando lento (overlap)
+  - Diagnosticar el overlap con kubectl get jobs y kubectl describe cronjob
+  - Elegir y aplicar un fix (Forbid o Replace) con startingDeadlineSeconds razonable
+  - Justificar por que Forbid vs Replace para distintos tipos de job
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,30 @@
+id: dkr-14-02-fail-build-on-critical-cve
+title: Gate de CI con trivy — cortar el build en CVE CRITICAL
+technology: docker
+module: 14-supply-chain-sbom-signing-provenance
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - dkr-13-01-harden-fastapi-container
+
+objectives:
+  - Construir una imagen deliberadamente vulnerable y confirmar hallazgos de trivy
+  - Escribir un script scan.sh que use `trivy image --severity CRITICAL --exit-code 1`
+  - Demostrar que el script sale con exit code != 0 cuando hay CRITICAL
+  - Añadir `--ignore-unfixed` y justificar cuándo es correcto usarlo
+  - Discutir el trade-off entre bloquear por CVE sin parche vs mantener velocidad de release
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/dkr-14-02"
+
+status: not-started

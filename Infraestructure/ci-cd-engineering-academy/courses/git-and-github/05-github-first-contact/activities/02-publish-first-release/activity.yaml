@@ -1,0 +1,30 @@
+id: gh-05-02-publish-first-release
+title: Publicar primer release (v0.1.0) con tag anotado y asset
+technology: git-and-github
+module: 05-github-first-contact
+level: beginner
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - gh-05-01-create-repo-and-push
+
+objectives:
+  - Crear un tag anotado v0.1.0 siguiendo SemVer
+  - Generar un artefacto tar.gz reproducible fuera del repo
+  - Publicar un GitHub Release (MODE=live) o simularlo con notas+asset locales (MODE=local)
+  - Diferenciar operativamente tag Git vs Release de GitHub
+  - Validar con el test automatizado en ambos modos
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/publish-first-release"
+
+status: not-started

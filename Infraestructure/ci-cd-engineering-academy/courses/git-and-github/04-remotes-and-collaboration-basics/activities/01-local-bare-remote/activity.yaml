@@ -1,0 +1,30 @@
+id: gh-04-01-local-bare-remote
+title: Set up a local bare remote end-to-end
+technology: git-and-github
+module: 04-remotes-and-collaboration-basics
+level: beginner
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - gh-03-02-resolve-nontrivial-conflict
+
+objectives:
+  - Crear un bare repo con git init --bare
+  - Configurar origin y pushear con git push -u para setear upstream
+  - Interpretar refs/remotes/origin/ como caché local del server
+  - Fetchear sin pullear y leer ahead/behind
+  - Fast-forward intencional sin merge commit
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/gh-04-bare"
+
+status: not-started

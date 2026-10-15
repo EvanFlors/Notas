@@ -1,0 +1,28 @@
+id: gha-03-02-safe-fork-pr-workflow
+title: Procesar PRs de forks sin exponer secretos
+technology: github-actions
+module: 03-events-and-triggers
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - gha-03-01-trigger-matrix
+
+objectives:
+  - Diseñar el patrón de dos workflows para PRs de forks sin exponer secretos
+  - Evitar el anti-patrón pull_request_target + checkout del head del PR
+  - Verificar estructuralmente los YAMLs con un validador local
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

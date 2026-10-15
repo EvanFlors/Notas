@@ -1,0 +1,70 @@
+---
+# TODO (1): make this Service HEADLESS by adding `clusterIP: None`.
+# Without it there is no per-Pod DNS and the StatefulSet will not get
+# records like `pg-0.pg.default.svc.cluster.local`.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pg
+  labels:
+    app: pg
+spec:
+  # clusterIP: None   # <-- uncomment / add
+  selector:
+    app: pg
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pg
+spec:
+  # TODO (2): add `serviceName: pg` so this StatefulSet is anchored to the
+  # headless Service above. The name MUST match.
+  # serviceName: pg
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pg
+  template:
+    metadata:
+      labels:
+        app: pg
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_PASSWORD
+              value: "devpass"    # dummy, lab only
+            - name: POSTGRES_DB
+              value: "demo"
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            # TCP probe = robust on constrained envs (exec probes may time out).
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  # TODO (3) — verify this block is intact
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

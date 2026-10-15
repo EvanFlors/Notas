@@ -1,0 +1,29 @@
+id: gh-12-03-github-app-vs-pat
+title: ADR — identidad para una automatización productiva
+technology: git-and-github
+module: 12-github-governance-and-automation
+level: advanced
+type: architecture
+
+estimated_minutes: 60
+
+prerequisites:
+  - gh-12-02-codeowners-plus-required-reviewers
+
+objectives:
+  - Producir un ADR en formato estándar
+  - Elegir entre GitHub App, PAT fine-grained, PAT classic y OIDC
+  - Mapear cada requisito de compliance a un control concreto
+  - Argumentar trade-offs de TTL, blast radius y auditabilidad
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/adr-identity"
+
+status: not-started

@@ -1,0 +1,16 @@
+{
+  "agentId": 42,
+  "agentName": "demo-runner",
+  "poolId": 1,
+  "serverUrl": "https://pipelines.actions.githubusercontent.com/example",
+  "gitHubUrl": "https://github.com/example-user/example-repo",
+  "workFolder": "_work",
+  "labels": [
+    {"name": "self-hosted", "type": "system"},
+    {"name": "linux",       "type": "system"},
+    {"name": "x64",         "type": "system"},
+    {"name": "demo",        "type": "user"},
+    {"name": "linux-local", "type": "user"}
+  ],
+  "ephemeral": true
+}

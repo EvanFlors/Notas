@@ -1,0 +1,32 @@
+name: PR test report
+
+on:
+  workflow_run:
+    workflows: ['PR tests']
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact from the source run
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-report
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Post comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          PR_NUMBER="$(cat pr_number.txt)"
+          REPORT="$(cat report.txt)"
+          BODY=$(printf 'CI finished with conclusion: **%s**\n\n```\n%s\n```\n' "$CONCLUSION" "$REPORT")
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$BODY"

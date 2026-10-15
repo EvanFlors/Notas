@@ -1,0 +1,25 @@
+# === DO NOT USE ===
+# This file is intentionally named *.yml.txt so GitHub never activates it
+# if the examples directory is accidentally placed under .github/workflows/.
+# It exists only to teach the anti-pattern. The validator refuses any
+# real .yml with this shape.
+
+name: Unsafe PR test (ANTI-PATTERN, NEVER USE)
+
+on: pull_request_target
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # ANTI-PATTERN: checking out code the attacker controls, with secrets
+      # exposed because pull_request_target runs in the base context.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      # ANTI-PATTERN: executing arbitrary attacker code (postinstall hooks,
+      # Makefile targets, Gradle tasks, etc.) with secrets available.
+      - run: npm install && npm test

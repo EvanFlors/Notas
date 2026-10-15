@@ -1,0 +1,77 @@
+{
+  "total_count": 8,
+  "workflow_runs": [
+    {
+      "id": 1,
+      "name": "ci",
+      "path": ".github/workflows/ci.yml",
+      "run_started_at": "2026-10-01T10:00:00Z",
+      "updated_at": "2026-10-01T10:03:00Z",
+      "conclusion": "success",
+      "runner_os": "ubuntu"
+    },
+    {
+      "id": 2,
+      "name": "ci",
+      "path": ".github/workflows/ci.yml",
+      "run_started_at": "2026-10-02T10:00:00Z",
+      "updated_at": "2026-10-02T10:02:30Z",
+      "conclusion": "success",
+      "runner_os": "ubuntu"
+    },
+    {
+      "id": 3,
+      "name": "ci",
+      "path": ".github/workflows/ci.yml",
+      "run_started_at": "2026-10-03T10:00:00Z",
+      "updated_at": "2026-10-03T10:08:00Z",
+      "conclusion": "success",
+      "runner_os": "ubuntu"
+    },
+    {
+      "id": 4,
+      "name": "ci",
+      "path": ".github/workflows/ci.yml",
+      "run_started_at": "2026-10-04T10:00:00Z",
+      "updated_at": "2026-10-04T10:03:45Z",
+      "conclusion": "failure",
+      "runner_os": "ubuntu"
+    },
+    {
+      "id": 5,
+      "name": "ci",
+      "path": ".github/workflows/ci.yml",
+      "run_started_at": "2026-10-05T10:00:00Z",
+      "updated_at": "2026-10-05T10:03:30Z",
+      "conclusion": "success",
+      "runner_os": "ubuntu"
+    },
+    {
+      "id": 6,
+      "name": "release",
+      "path": ".github/workflows/release.yml",
+      "run_started_at": "2026-10-06T10:00:00Z",
+      "updated_at": "2026-10-06T10:05:00Z",
+      "conclusion": "success",
+      "runner_os": "ubuntu"
+    },
+    {
+      "id": 7,
+      "name": "release",
+      "path": ".github/workflows/release.yml",
+      "run_started_at": "2026-10-07T10:00:00Z",
+      "updated_at": "2026-10-07T10:10:00Z",
+      "conclusion": "failure",
+      "runner_os": "ubuntu"
+    },
+    {
+      "id": 8,
+      "name": "release",
+      "path": ".github/workflows/release.yml",
+      "run_started_at": "2026-10-08T10:00:00Z",
+      "updated_at": "2026-10-08T10:04:00Z",
+      "conclusion": "success",
+      "runner_os": "ubuntu"
+    }
+  ]
+}

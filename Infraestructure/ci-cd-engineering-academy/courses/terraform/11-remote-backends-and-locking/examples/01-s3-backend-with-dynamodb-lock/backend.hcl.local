@@ -1,0 +1,14 @@
+bucket         = "tf-state-demo"
+key            = "demo/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "tf-lock-demo"
+encrypt        = true
+use_lockfile   = false
+
+# localstack endpoints — these flags vary across TF versions. On >= 1.6 use
+# the per-service endpoints map. We rely on AWS_ENDPOINT_URL_S3 and
+# AWS_ENDPOINT_URL_DYNAMODB env vars set by bootstrap.sh.
+skip_credentials_validation = true
+skip_metadata_api_check     = true
+skip_requesting_account_id  = true
+force_path_style            = true

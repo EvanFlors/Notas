@@ -1,0 +1,84 @@
+# deployment-status.yaml — el mismo objeto, tras ser creado y reconciliado.
+# Compara con deployment-spec.yaml: metadata está más completo, y aparece el
+# bloque status entero. Nadie escribió status a mano — lo escribió el
+# Deployment controller observando el ReplicaSet y los Pods.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: default
+  uid: 7f3c8a2e-1a2b-4c3d-9e5f-abcdef012345     # asignado por el API server al crear
+  creationTimestamp: "2026-10-15T09:12:34Z"      # cuándo se creó
+  generation: 1                                   # se incrementa al cambiar spec
+  resourceVersion: "184726"                       # monotónico del API server
+  labels:
+    app: web
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+  # managedFields (omitido por brevedad) — tracking server-side-apply
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: IfNotPresent
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      schedulerName: default-scheduler
+status:
+  observedGeneration: 1          # el Deployment controller ya procesó generation=1
+  replicas: 3                    # Pods matching el selector
+  updatedReplicas: 3             # Pods con el pod-template actual
+  readyReplicas: 3               # Pods en condición Ready (del kubelet)
+  availableReplicas: 3           # Ready AND pasaron minReadySeconds
+  conditions:
+    - type: Available
+      status: "True"
+      lastUpdateTime: "2026-10-15T09:12:48Z"
+      lastTransitionTime: "2026-10-15T09:12:48Z"
+      reason: MinimumReplicasAvailable
+      message: Deployment has minimum availability.
+    - type: Progressing
+      status: "True"
+      lastUpdateTime: "2026-10-15T09:12:49Z"
+      lastTransitionTime: "2026-10-15T09:12:35Z"
+      reason: NewReplicaSetAvailable
+      message: ReplicaSet "web-6c7f98b45d" has successfully progressed.

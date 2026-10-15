@@ -1,0 +1,28 @@
+id: tf-02-02-break-and-fix-hcl-syntax
+title: Debuggear 4 errores de HCL (sintaxis, schema, referencia, formato)
+technology: terraform
+module: 02-setup-hcl-first-provider
+level: beginner
+type: debug
+
+estimated_minutes: 40
+
+prerequisites:
+  - tf-02-01-first-apply
+
+objectives:
+  - Diferenciar errores de sintaxis, schema, referencia y formato en HCL
+  - Dejar terraform fmt -check y terraform validate en verde
+  - Hacer un fix minimo sin cambiar la intencion del codigo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi
+  labels: { app: fastapi }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: fastapi }
+  template:
+    metadata:
+      labels: { app: fastapi }
+    spec:
+      containers:
+        - name: app
+          image: fastapi-metrics:0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8000 }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits:   { cpu: 200m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fastapi
+  labels: { app: fastapi }
+spec:
+  selector: { app: fastapi }
+  ports:
+    - name: http            # REQUIRED: ServiceMonitor matches endpoints by port NAME
+      port: 8000
+      targetPort: http

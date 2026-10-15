@@ -1,0 +1,31 @@
+# .github/workflows/run-vs-uses.yml
+name: run-vs-uses
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  # Opción A: todo a mano con `run:`
+  manual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Python 3.12 "a mano"
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3.12
+          python3.12 --version
+
+  # Opción B: delegar en una action oficial
+  via_action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verificar
+        run: |
+          python --version

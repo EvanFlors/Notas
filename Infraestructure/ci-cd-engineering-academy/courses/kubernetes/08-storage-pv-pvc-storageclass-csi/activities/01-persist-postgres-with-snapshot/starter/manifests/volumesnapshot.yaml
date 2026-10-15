@@ -1,0 +1,9 @@
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: pg-snap
+  namespace: k8s08-pg
+spec:
+  volumeSnapshotClassName: pg-snap-class
+  source:
+    persistentVolumeClaimName: pg-data

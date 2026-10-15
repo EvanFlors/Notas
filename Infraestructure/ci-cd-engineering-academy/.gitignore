@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node (si aplica en algún curso)
+node_modules/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!example.tfvars
+
+# Docker
+*.pid
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Secrets (defensa en profundidad)
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+*.log

@@ -1,0 +1,35 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.6.0",
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.public",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "bucket": "my-public-bucket-bad"
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket_acl.public",
+      "mode": "managed",
+      "type": "aws_s3_bucket_acl",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "bucket": "my-public-bucket-bad",
+          "acl": "public-read"
+        }
+      }
+    }
+  ]
+}

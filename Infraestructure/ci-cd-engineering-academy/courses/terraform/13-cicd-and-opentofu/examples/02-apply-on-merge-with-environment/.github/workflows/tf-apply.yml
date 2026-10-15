@@ -1,0 +1,124 @@
+name: terraform-apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/tf-apply.yml"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number whose plan artifact to apply"
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: tf-apply-main
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Apply saved plan to prod
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    environment:
+      name: production
+      url: https://console.aws.amazon.com/
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd  # v3.1.2
+        with:
+          terraform_version: 1.9.5
+          terraform_wrapper: false
+
+      - name: Resolve PR number from merged commit
+        id: pr
+        if: github.event_name == 'push'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        with:
+          script: |
+            const sha = context.sha;
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner, repo: context.repo.repo, commit_sha: sha,
+            });
+            const merged = prs.data.find(p => p.merged_at);
+            if (!merged) { core.setFailed("No merged PR found for commit " + sha); return; }
+            core.setOutput("number", String(merged.number));
+            core.info("Resolved PR #" + merged.number);
+
+      - name: Download plan artifact
+        uses: dawidd6/action-download-artifact@bf251b5aa9c2f7eeb574a96ee720e24f801b7c11  # v6
+        with:
+          workflow: tf-plan.yml
+          name: tfplan-${{ steps.pr.outputs.number || inputs.pr_number }}
+          path: terraform/
+          if_no_artifact_found: fail
+
+      - name: Configure AWS credentials via OIDC (apply role)
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502  # v4.0.2
+        with:
+          role-to-assume: arn:aws:iam::000000000000:role/terraform-apply-prod
+          role-session-name: tf-apply-${{ github.run_id }}
+          aws-region: eu-west-1
+
+      - name: terraform init
+        run: terraform init -input=false -lockfile=readonly
+
+      - name: terraform apply saved plan
+        # NOTE: no -auto-approve; the saved plan already encodes the approved
+        # change. If the real state diverged since plan, apply fails loudly.
+        run: terraform apply -input=false plan.tfplan
+
+      - name: terraform output (post-apply)
+        run: terraform output -no-color || true
+
+  drift:
+    name: Scheduled drift detection (refresh-only)
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    permissions:
+      id-token: write
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd  # v3.1.2
+        with:
+          terraform_version: 1.9.5
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502  # v4.0.2
+        with:
+          role-to-assume: arn:aws:iam::000000000000:role/terraform-plan-ro
+          role-session-name: tf-drift-${{ github.run_id }}
+          aws-region: eu-west-1
+      - run: terraform init -input=false -lockfile=readonly
+      - id: drift
+        run: |
+          set +e
+          terraform plan -refresh-only -detailed-exitcode -no-color -out=drift.tfplan
+          echo "exitcode=$?" >> "$GITHUB_OUTPUT"
+      - if: steps.drift.outputs.exitcode == '2'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: "Drift detected on prod (" + new Date().toISOString().slice(0,10) + ")",
+              body: "Scheduled `terraform plan -refresh-only` returned exit code 2. Investigate run: " + context.serverUrl + "/" + context.repo.owner + "/" + context.repo.repo + "/actions/runs/" + context.runId,
+              labels: ["drift", "infra"],
+            });

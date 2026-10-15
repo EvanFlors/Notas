@@ -1,0 +1,84 @@
+# ANÁLISIS — `sensitive = true` no es gestión de secretos
+
+> Guarda este archivo como `ANALYSIS.md` (sin el `.template`) en el mismo
+> directorio del stack. El validador lo busca ahí.
+
+## 1. Hipótesis
+
+`sensitive = true` en un `output` [RELLENAR: qué crees que hace y qué no, en 2-3 líneas].
+
+## 2. Demostración
+
+### 2.1 La CLI oculta el valor
+
+Pega aquí la salida de `terraform output`:
+
+```
+[RELLENAR con la salida real]
+```
+
+Y la salida de `terraform output -raw dummy_token`:
+
+```
+[RELLENAR]
+```
+
+### 2.2 El state tiene el valor en claro
+
+Comando:
+
+```bash
+grep -o 'DUMMY-SECRET-DO-NOT-USE-[a-z_-]*' terraform.tfstate | sort -u
+```
+
+Salida:
+
+```
+[RELLENAR con la salida real, debe tener al menos 1 línea]
+```
+
+Conteo de llave privada PEM en el state:
+
+```bash
+grep -c 'BEGIN RSA PRIVATE KEY\|BEGIN PRIVATE KEY' terraform.tfstate
+```
+
+Salida: `[RELLENAR: debería ser >= 1]`
+
+### 2.3 El state marca cuáles son sensitive pero no cifra `value`
+
+Observación de `sensitive_values` vs `outputs[*].value` en el JSON del state:
+
+```
+[RELLENAR con tu observación]
+```
+
+## 3. Lugares donde el valor sigue siendo recuperable
+
+Enumera al menos 3:
+
+1. [RELLENAR]
+2. [RELLENAR]
+3. [RELLENAR]
+
+## 4. Conclusión
+
+`sensitive = true` **no cifra** [desarrolla, 3-5 líneas: qué sí hace, qué no, por qué igual sirve].
+
+## 5. Mitigación correcta — patrón recomendado
+
+Para secretos reales:
+
+- No viven como [RELLENAR: ¿variable? ¿output? ¿tfvars? etc.].
+- Se guardan en un **secret manager** (ej. [RELLENAR: AWS Secrets Manager / Vault / GCP Secret Manager / SOPS / ...]).
+- Se leen desde Terraform con un **`data` source** (ejemplo mínimo):
+
+```hcl
+[RELLENAR con un bloque HCL de ejemplo real, 5-8 líneas]
+```
+
+- La protección del state se hace al nivel del **backend**: [RELLENAR: cita al menos 3 controles — encriptación at-rest, IAM mínimo, versionado del bucket, etc.].
+
+## 6. Qué outputs SÍ marcarías `sensitive` en producción, y por qué
+
+[RELLENAR 2-3 líneas]

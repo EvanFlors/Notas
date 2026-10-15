@@ -1,0 +1,30 @@
+id: tf-13-02-opentofu-eval
+title: Evaluate OpenTofu as a Terraform replacement and write an ADR
+technology: terraform
+module: 13-cicd-and-opentofu
+level: advanced
+type: independent
+
+estimated_minutes: 120
+
+prerequisites:
+  - tf-11-remote-backends-and-locking
+  - tf-13-01-full-cicd-tf
+
+objectives:
+  - Instalar OpenTofu localmente y verificar su versión
+  - Correr un mismo stack HCL con terraform y con tofu validando state y lockfile compatibles
+  - Documentar divergencias observadas y features propias de OpenTofu relevantes
+  - Escribir un ADR Terraform vs OpenTofu con decision context y plan de migración
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/tf-tofu-eval"
+
+status: not-started

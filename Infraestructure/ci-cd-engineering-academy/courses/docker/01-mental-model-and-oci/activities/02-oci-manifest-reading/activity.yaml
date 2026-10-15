@@ -1,0 +1,30 @@
+id: dkr-01-02-oci-manifest-reading
+title: Leer un manifest OCI real y producir un writeup
+technology: docker
+module: 01-mental-model-and-oci
+level: beginner
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - dkr-01-01-draw-namespaces-and-cgroups
+
+objectives:
+  - Identificar schemaVersion y mediaType en un manifest OCI
+  - Localizar config.digest y layers[].digest y explicar qué significan
+  - Diferenciar un manifest de un manifest index (multi-arch)
+  - Explicar la relación layers[].digest vs rootfs.diff_ids
+  - Producir un WRITEUP.md con los hallazgos y hashes
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/dkr-01-manifest"
+
+status: not-started

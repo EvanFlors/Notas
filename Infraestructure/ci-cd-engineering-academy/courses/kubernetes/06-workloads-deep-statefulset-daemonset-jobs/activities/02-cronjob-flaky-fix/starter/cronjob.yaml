@@ -1,0 +1,37 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cronjob-lab
+---
+# BUGGY CronJob: Allow + slow command => overlaps.
+# Your job is to FIX this: change concurrencyPolicy to Forbid or Replace,
+# and set startingDeadlineSeconds. Do NOT change the schedule or the command.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: slow-cleanup
+  namespace: cronjob-lab
+spec:
+  schedule: "*/1 * * * *"
+  concurrencyPolicy: Allow        # <-- bug: allows overlapping executions
+  # startingDeadlineSeconds: ...  # <-- missing: no bound on missed starts
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 300
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: cleanup
+              image: busybox:1.36
+              command:
+                - sh
+                - -c
+                - |
+                  echo "[slow-cleanup] start $(date -u) UTC"
+                  sleep 90
+                  echo "[slow-cleanup] end   $(date -u) UTC"

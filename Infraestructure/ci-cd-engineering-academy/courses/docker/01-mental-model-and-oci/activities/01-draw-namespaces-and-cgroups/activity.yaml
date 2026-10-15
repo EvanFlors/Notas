@@ -1,0 +1,29 @@
+id: dkr-01-01-draw-namespaces-and-cgroups
+title: Mapa anotado — namespaces, cgroups y pila Docker→runc
+technology: docker
+module: 01-mental-model-and-oci
+level: beginner
+type: independent
+
+estimated_minutes: 50
+
+prerequisites: []
+
+objectives:
+  - Describir los 7 namespaces de Linux y qué aisla cada uno
+  - Describir al menos 4 controladores de cgroups v2 y qué limita cada uno
+  - Dibujar la pila Docker CLI → dockerd → containerd → runc → kernel
+  - Explicar en qué nivel ocurren las syscalls clone/unshare/setns
+  - Justificar por qué OCI permite intercambiar runtimes sin reconstruir imágenes
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/dkr-01-mental-model"
+
+status: not-started

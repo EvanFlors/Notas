@@ -1,0 +1,30 @@
+id: gha-08-01-extract-composite-action
+title: Extraer una composite action de un workflow con duplicación
+technology: github-actions
+module: 08-reusable-workflows-and-composite-actions
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - gha-06-01-matrix-with-include-exclude
+
+objectives:
+  - Identificar steps duplicados en los jobs de un workflow
+  - Escribir un action.yml con runs.using composite válido y shell declarado
+  - Declarar inputs con defaults y un output propagado desde un step
+  - Refactorizar el workflow para que los 3 jobs invoquen la composite local
+  - Validar estructuralmente con bash tests/validate.sh
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/extract-composite"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: gha-10-01-run-job-on-self-hosted
+title: Ejecutar un job en un runner self-hosted
+technology: github-actions
+module: 10-self-hosted-runners-and-arc
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - gha-01-01-first-workflow
+  - gha-05-01-env-vs-repo-secret
+
+objectives:
+  - Entender qué hace config.sh y qué archivos deja en disco
+  - Diferenciar runner persistente vs runner --ephemeral
+  - Escribir un workflow que seleccione un runner por labels custom
+  - Explicar por qué el runner solo hace conexiones salientes (long-polling)
+  - Validar la configuración simulada con el test automatizado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/sh-runner"
+
+status: not-started

@@ -1,0 +1,30 @@
+id: k8s-10-02-zero-downtime-deploy
+title: Rollout de dos versiones sin un solo 5xx observado
+technology: kubernetes
+module: 10-health-probes-lifecycle-and-rollouts
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - k8s-02-setup-local-and-kubectl
+  - k8s-03-pods-deployments-replicasets
+
+objectives:
+  - Instrumentar probes + preStop + terminationGracePeriodSeconds en un Deployment real
+  - Tunear maxSurge y maxUnavailable para rollout sin perdida de capacidad
+  - Medir downtime real con un cliente externo durante el rollout
+  - Explicar cada campo del manifest final
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

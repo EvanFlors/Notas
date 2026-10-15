@@ -1,0 +1,29 @@
+id: gha-09-02-add-manual-gate-to-prod
+title: Anadir gate manual al deploy a prod
+technology: github-actions
+module: 09-environments-approvals-and-deployment-protection
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gha-09-01-three-env-pipeline
+
+objectives:
+  - Entender que el gate vive en el recurso environment, no en el YAML del workflow
+  - Describir environment-prod.yaml con wait_timer, reviewers de tipo Team, prevent_self_review y branch policy
+  - Escribir una DECISION.md justificando la politica de approvals para un equipo con on-call
+  - Validar sin modificar el workflow original (hash preservado)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "MODE=local bash tests/validate.sh /tmp/gha09-manual-gate"
+
+status: not-started

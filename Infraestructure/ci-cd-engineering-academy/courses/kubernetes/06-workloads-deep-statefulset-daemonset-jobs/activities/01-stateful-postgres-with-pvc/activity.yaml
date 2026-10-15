@@ -1,0 +1,30 @@
+id: k8s-06-01-stateful-postgres-with-pvc
+title: Postgres via StatefulSet con PVC persistente
+technology: kubernetes
+module: 06-workloads-deep-statefulset-daemonset-jobs
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - k8s-03-pods-deployments-replicasets
+  - k8s-04-services-and-dns
+
+objectives:
+  - Levantar un StatefulSet de Postgres con headless Service y PVC templates
+  - Verificar DNS por Pod (pg-0.pg.default.svc.cluster.local)
+  - Demostrar que el dato sobrevive al borrar el Pod
+  - Reconocer que eliminar el StatefulSet NO borra los PVC (y por que es seguro)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

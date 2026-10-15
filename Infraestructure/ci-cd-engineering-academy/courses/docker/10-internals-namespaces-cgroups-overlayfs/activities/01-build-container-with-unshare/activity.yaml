@@ -1,0 +1,30 @@
+id: dkr-10-01-build-container-with-unshare
+title: Build a mini-container with unshare + chroot + cgroups
+technology: docker
+module: 10-internals-namespaces-cgroups-overlayfs
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - dkr-01-mental-model-and-oci
+  - dkr-02-install-engine-and-first-container
+
+objectives:
+  - Build a working mini-container by hand using unshare, chroot and a cgroup v2 slice
+  - Inspect and compare namespace inodes between host and the mini-container
+  - Apply a memory.max limit via cgroup v2 and trigger an OOM-kill on purpose
+  - Explain which pieces are still missing versus a real Docker container
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

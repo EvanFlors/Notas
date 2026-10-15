@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-wait
+spec:
+  storageClassName: sc-wait
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Mi

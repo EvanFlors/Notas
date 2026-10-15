@@ -1,0 +1,29 @@
+id: k8s-03-01-deploy-fastapi
+title: Primer Deployment (stand-in de FastAPI)
+technology: kubernetes
+module: 03-pods-deployments-replicasets
+level: beginner
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - k8s-02-setup-local-and-kubectl
+
+objectives:
+  - Escribir un Deployment desde cero con selector, template y strategy explícitos
+  - Aplicar y observar el rollout con kubectl rollout status
+  - Inspeccionar la cadena Deployment -> ReplicaSet -> Pod con labels y selectors
+  - Justificar maxUnavailable 0 como baseline seguro
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

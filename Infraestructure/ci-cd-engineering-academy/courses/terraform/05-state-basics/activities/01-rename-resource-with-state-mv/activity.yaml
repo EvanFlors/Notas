@@ -1,0 +1,29 @@
+id: tf-05-01-rename-resource-with-state-mv
+title: Renombrar un recurso con terraform state mv
+technology: terraform
+module: 05-state-basics
+level: beginner
+type: guided-lab
+
+estimated_minutes: 35
+
+prerequisites:
+  - tf-02-setup-hcl-first-provider
+
+objectives:
+  - Reproducir el plan destructivo que resulta de renombrar un recurso sin tocar el state
+  - Ejecutar terraform state mv correctamente para preservar el recurso
+  - Verificar con terraform plan que el stack queda en no-op tras el renombre
+  - Explicar por qué state mv es necesario y qué pasaría sin él en un recurso de produccion
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/tf-05-01-rename"
+
+status: not-started

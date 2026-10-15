@@ -1,0 +1,30 @@
+id: gha-07-02-share-build-output-via-artifact
+title: Compartir el output de build entre jobs vía artifact v4
+technology: github-actions
+module: 07-caching-and-artifacts
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - gha-07-01-cache-python-deps
+
+objectives:
+  - Dividir un workflow monolítico en build, test y deploy encadenados por needs
+  - Subir el output de build con actions/upload-artifact@v4
+  - Descargar el mismo artifact en test y deploy con actions/download-artifact@v4
+  - Configurar retention-days e if-no-files-found conscientemente
+  - Reconocer el breakage v3 → v4 y por qué mezclar versiones falla
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/share-build-artifact"
+
+status: not-started

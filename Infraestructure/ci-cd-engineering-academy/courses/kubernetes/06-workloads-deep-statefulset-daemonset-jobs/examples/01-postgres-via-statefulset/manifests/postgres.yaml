@@ -1,0 +1,77 @@
+---
+# Headless Service — required by the StatefulSet for stable per-Pod DNS.
+# clusterIP: None  -> no VIP; CoreDNS exposes an A record per Pod:
+#   pg-0.pg.default.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: pg
+  labels:
+    app: pg
+spec:
+  clusterIP: None
+  selector:
+    app: pg
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+# StatefulSet with 1 replica and a PVC template.
+# Note: `serviceName: pg` MUST match the headless Service above.
+# The PVC `data-pg-0` is created automatically and NOT deleted when the STS is removed.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pg
+spec:
+  serviceName: pg
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pg
+  template:
+    metadata:
+      labels:
+        app: pg
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            # DUMMY password — never do this in production. Use a Secret
+            # (see k8s-05) and, better, a secret manager (k8s-12 / k8s-16).
+            - name: POSTGRES_PASSWORD
+              value: "devpass"
+            - name: POSTGRES_DB
+              value: "demo"
+            # PGDATA inside a subdirectory of the mounted PVC: Postgres refuses
+            # to initialise on a non-empty dir, and the mount point itself
+            # usually has a lost+found entry on some filesystems.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            # TCP probe is more robust than exec on resource-constrained envs
+            # (exec probes can time out on docker-desktop / rootless Docker).
+            # pg_isready is nicer for prod — see the activity for the trade-off.
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

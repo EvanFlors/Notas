@@ -1,0 +1,61 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drain-demo
+  labels: { app: drain-demo }
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels: { app: drain-demo }
+  template:
+    metadata:
+      labels: { app: drain-demo }
+    spec:
+      # Clave: suma preStop + tiempo real de cierre + margen.
+      # Aquí: preStop=10s, nginx cierra en <1s → 40s es amplio.
+      terminationGracePeriodSeconds: 40
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: ROLL
+              value: "init"
+          resources:
+            requests: { cpu: "20m",  memory: "32Mi" }
+            limits:   { cpu: "200m", memory: "64Mi" }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 2
+            timeoutSeconds: 1
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 4
+          lifecycle:
+            preStop:
+              exec:
+                # Da ~10s a kube-proxy / LB para dejar de rutear tráfico aquí
+                # ANTES de que el proceso reciba SIGTERM y cierre el listener.
+                command: ["sh", "-c", "sleep 10"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: drain-demo
+spec:
+  selector: { app: drain-demo }
+  ports:
+    - port: 80
+      targetPort: http
+      name: http

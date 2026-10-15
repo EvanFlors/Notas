@@ -1,0 +1,29 @@
+id: k8s-09-01-tune-resources-and-measure
+title: Afinar requests/limits y clasificar la QoS
+technology: kubernetes
+module: 09-scheduling-resources-affinity-taints-pdb
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - k8s-03-pods-deployments-replicasets
+
+objectives:
+  - Declarar requests y limits acordes a la carga observada
+  - Clasificar la QoS resultante (Guaranteed, Burstable, BestEffort)
+  - Interpretar OOMKill vs CPU throttling por síntomas
+  - Dejar un Deployment con Guaranteed QoS y requests razonables
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

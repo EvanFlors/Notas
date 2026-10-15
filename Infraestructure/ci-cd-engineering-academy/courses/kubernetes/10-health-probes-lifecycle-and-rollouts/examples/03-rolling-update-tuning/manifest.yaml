@@ -1,0 +1,66 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rollout-tune
+  labels: { app: rollout-tune }
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 300
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # permite 1 Pod extra (4 Pods en el pico del rollout)
+      maxUnavailable: 0    # NUNCA bajar de 3 ready
+  selector:
+    matchLabels: { app: rollout-tune }
+  template:
+    metadata:
+      labels: { app: rollout-tune }
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: VERSION
+              value: "v1"
+          resources:
+            requests: { cpu: "20m",  memory: "32Mi" }
+            limits:   { cpu: "200m", memory: "64Mi" }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 2
+            timeoutSeconds: 1
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 4
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rollout-tune
+spec:
+  # Con replicas=3, minAvailable=2 permite que como máximo 1 Pod esté
+  # fuera a la vez durante disruption VOLUNTARIA (drain, upgrade, rollout).
+  minAvailable: 2
+  selector:
+    matchLabels: { app: rollout-tune }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rollout-tune
+spec:
+  selector: { app: rollout-tune }
+  ports:
+    - port: 80
+      targetPort: http
+      name: http

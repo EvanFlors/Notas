@@ -1,0 +1,18 @@
+# SAFE — pattern #2: use actions/github-script and read the value from
+# the context.payload object. There is no textual expansion phase.
+name: safe-interpolation-github-script
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Greet contributor (safe via github-script)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            core.info(`Thanks for the PR titled: ${title}`);

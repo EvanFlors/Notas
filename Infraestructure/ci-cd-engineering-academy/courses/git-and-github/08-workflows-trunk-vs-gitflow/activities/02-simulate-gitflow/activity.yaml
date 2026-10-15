@@ -1,0 +1,30 @@
+id: gh-08-02-simulate-gitflow
+title: Simular GitFlow completo (develop + release + hotfix)
+technology: git-and-github
+module: 08-workflows-trunk-vs-gitflow
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - gh-08-01-simulate-trunk-based
+
+objectives:
+  - Reproducir un ciclo completo de GitFlow sobre un repo local
+  - Mantener dos ramas largas (main y develop) correctamente sincronizadas
+  - Cortar una release/X.Y.Z y mergearla a main y develop (doble merge)
+  - Aplicar un hotfix sobre main y propagarlo a develop
+  - Experimentar la fricción operativa frente a trunk-based
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/gitflow-sim"
+
+status: not-started

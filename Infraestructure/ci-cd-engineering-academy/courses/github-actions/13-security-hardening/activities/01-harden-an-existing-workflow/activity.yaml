@@ -1,0 +1,32 @@
+id: gha-13-01-harden-an-existing-workflow
+title: Harden an existing insecure GitHub Actions workflow + write ADR
+technology: github-actions
+module: 13-security-hardening
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - gha-04-marketplace-actions-and-basics-of-reuse
+  - gha-05-secrets-variables-and-environments-basics
+  - gha-11-oidc-and-cloud-federation
+  - gha-13-theory
+
+objectives:
+  - Auditar un workflow realista detectando al menos cinco anti-patrones de seguridad
+  - Reescribir el workflow aplicando permissions mínimos, pin a SHA, env-var hardening y pull_request_target seguro
+  - Documentar las decisiones en un ADR estructurado (Context / Decision / Consequences) por cada cambio
+  - Validar automáticamente que el workflow endurecido cumple el baseline de la lección
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/harden-workflow"
+
+status: not-started

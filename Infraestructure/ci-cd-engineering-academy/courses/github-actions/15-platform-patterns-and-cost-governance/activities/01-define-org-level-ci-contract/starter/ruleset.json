@@ -1,0 +1,25 @@
+{
+  "name": "TODO: nombre del ruleset (p. ej. ci-contract-min)",
+  "target": "branch",
+  "enforcement": "TODO: active | evaluate | disabled",
+  "conditions": {
+    "ref_name": {
+      "include": ["TODO: refs/heads/main"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "workflows",
+      "parameters": {
+        "workflows": [
+          {
+            "repository_id": 0,
+            "path": "TODO: .github/workflows/org-ci-golden-path.yml",
+            "ref": "TODO: refs/heads/main"
+          }
+        ]
+      }
+    }
+  ]
+}

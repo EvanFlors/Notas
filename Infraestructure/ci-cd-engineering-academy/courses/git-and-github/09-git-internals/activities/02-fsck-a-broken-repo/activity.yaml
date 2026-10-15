@@ -1,0 +1,30 @@
+id: gh-09-02-fsck-a-broken-repo
+title: Diagnosticar y recuperar un repo corrupto con fsck y alternates
+technology: git-and-github
+module: 09-git-internals
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - gh-09-01-commit-from-scratch-plumbing
+
+objectives:
+  - Diagnosticar corrupción con git fsck
+  - Interpretar missing/broken-link/dangling
+  - Recuperar objetos faltantes usando un repo de referencia como alternate
+  - Consolidar los objetos con git repack -ad
+  - Dejar el repo con fsck limpio
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/fsck-lab"
+
+status: not-started

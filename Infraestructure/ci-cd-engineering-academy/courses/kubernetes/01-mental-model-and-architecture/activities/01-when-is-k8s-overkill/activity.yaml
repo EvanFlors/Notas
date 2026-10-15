@@ -1,0 +1,29 @@
+id: k8s-01-01-when-is-k8s-overkill
+title: ADR corto — cuándo Kubernetes NO es la respuesta correcta
+technology: kubernetes
+module: 01-mental-model-and-architecture
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites: []
+
+objectives:
+  - Argumentar en formato ADR cuándo Kubernetes es desproporcionado
+  - Enumerar al menos 5 criterios concretos de "necesidad real de K8s"
+  - Comparar coste total de K8s managed con alternativas (compose/VM, Nomad, ECS/Cloud Run, serverless)
+  - Reconocer el antipatrón "adoptar K8s porque la empresa de al lado lo usa"
+  - Producir un documento con secciones Contexto / Decisión / Consecuencias / Alternativas descartadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/k8s-01-overkill"
+
+status: not-started

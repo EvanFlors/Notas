@@ -1,0 +1,28 @@
+id: dkr-04-01-persist-postgres-data
+title: Persistir datos de Postgres con un volumen nombrado
+technology: docker
+module: 04-storage-volumes-bind-mounts-tmpfs
+level: beginner
+type: guided-lab
+
+estimated_minutes: 30
+
+prerequisites:
+  - dkr-02-install-engine-and-first-container
+
+objectives:
+  - Crear un volumen Docker nombrado y montarlo en /var/lib/postgresql/data
+  - Verificar persistencia de datos tras destruir y recrear el contenedor
+  - Hacer backup frío del volumen con tar vía un contenedor efímero
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

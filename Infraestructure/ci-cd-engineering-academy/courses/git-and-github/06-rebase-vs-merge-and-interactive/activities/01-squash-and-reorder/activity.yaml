@@ -1,0 +1,29 @@
+id: gh-06-01-squash-and-reorder
+title: Squash y reorder con rebase interactivo
+technology: git-and-github
+module: 06-rebase-vs-merge-and-interactive
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - gh-03-01-branch-and-merge
+
+objectives:
+  - Reducir una rama de 5 commits WIP a 2 commits limpios con git rebase -i
+  - Usar las acciones pick / fixup / reword con criterio
+  - Automatizar un rebase interactivo con GIT_SEQUENCE_EDITOR
+  - Verificar con el test automatizado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/squash-and-reorder"
+
+status: not-started

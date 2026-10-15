@@ -1,0 +1,30 @@
+id: dkr-05-01-two-containers-talking-by-name
+title: Dos contenedores hablandose por nombre en una user-defined bridge
+technology: docker
+module: 05-networking-basics
+level: beginner
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - dkr-02-02-why-is-my-container-exiting
+
+objectives:
+  - Crear una user-defined bridge con docker network create
+  - Correr dos contenedores en esa red con nombres estables
+  - Verificar DNS por nombre entre contenedores (getent hosts)
+  - Publicar un puerto al host y confirmarlo con curl
+  - Dibujar un diagrama ASCII de la red resultante
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started
