@@ -1,0 +1,30 @@
+id: sec-03-01-pick-tooling-for-capstone
+title: Elegir herramientas de scanning por capa para el capstone
+technology: devsecops
+module: 03-scanning-landscape-sast-dast-sca-iac-container-secret
+level: beginner
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - sec-01-principles-threat-modeling-and-supply-chain-overview
+
+objectives:
+  - Dado un stack (FastAPI + Postgres en EKS, imagen multi-stage, Terraform) elegir una herramienta por cada capa de scanning
+  - Justificar cada eleccion citando categoria, punto de ejecucion y por que descarta alternativas
+  - Nombrar al menos 6 de las 7 categorias canonicas (SAST, DAST, SCA, IaC, container, secret, CSPM)
+  - Dibujar el pipeline con los gates ordenados shift-left-max
+  - Producir un documento TOOLING.md con la matriz capa x herramienta y la justificacion por capa
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-03-tooling"
+
+status: not-started

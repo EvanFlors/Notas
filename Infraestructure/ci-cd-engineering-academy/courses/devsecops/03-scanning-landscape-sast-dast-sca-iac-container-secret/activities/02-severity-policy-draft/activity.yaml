@@ -1,0 +1,30 @@
+id: sec-03-02-severity-policy-draft
+title: Redactar politica de severidad y excepciones
+technology: devsecops
+module: 03-scanning-landscape-sast-dast-sca-iac-container-secret
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - sec-01-principles-threat-modeling-and-supply-chain-overview
+
+objectives:
+  - Redactar una politica de severidad base que combine CVSS, EPSS y KEV
+  - Definir SLA de remediacion por prioridad P0/P1/P2/P3
+  - Diferenciar suppression de exception con campos obligatorios distintos
+  - Especificar el proceso de aprobacion y expiracion de excepciones
+  - Producir un documento SEVERITY_POLICY.md con las 4 secciones requeridas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-03-policy"
+
+status: not-started

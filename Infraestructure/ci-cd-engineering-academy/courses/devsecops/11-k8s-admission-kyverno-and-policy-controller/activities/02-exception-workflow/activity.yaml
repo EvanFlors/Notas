@@ -1,0 +1,29 @@
+id: sec-11-02-exception-workflow
+title: Workflow de excepciones con PolicyException y ADR
+technology: devsecops
+module: 11-k8s-admission-kyverno-and-policy-controller
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sec-10-policy-as-code-opa-rego-conftest
+
+objectives:
+  - Documentar un workflow de excepciones de admision con solicitante, approver, ticket y TTL
+  - Producir una plantilla PolicyException de Kyverno con anotaciones de auditoria
+  - Escribir un ADR corto que explique por que una exception policy formal es mejor que suprimir en el codigo
+  - Detallar el proceso de expiracion (como se detectan las vencidas y como se re-evalua)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-11-exception"
+
+status: not-started

@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-app
+  namespace: payments
+  labels:
+    app: payments-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments-app
+  template:
+    metadata:
+      labels:
+        app: payments-app
+    spec:
+      containers:
+        - name: app
+          image: alpine:3.19
+          command: ["sh", "-c"]
+          args:
+            - 'echo "STRIPE_API_KEY length=${#STRIPE_API_KEY}"; sleep infinity'
+          env:
+            - name: STRIPE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: payments-stripe
+                  key: STRIPE_API_KEY

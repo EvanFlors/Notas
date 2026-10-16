@@ -1,0 +1,42 @@
+# custom-rules.yaml — solution reference for sec-12-02.
+
+- macro: var_log_path
+  condition: evt.arg.filename startswith "/var/log" or fd.name startswith "/var/log"
+
+- macro: world_writable_mode
+  condition: >
+    (evt.arg.mode contains "7" and evt.arg.mode endswith "7")
+    or evt.arg.mode in ("0666", "0777")
+
+- rule: World writable file under var log
+  desc: >
+    Un proceso en un contenedor fijo permisos world-writable (o+w) sobre un
+    fichero bajo /var/log. Patron de tampering de logs o dropper diferido.
+  condition: >
+    evt.type in (chmod, fchmod, fchmodat)
+    and container
+    and var_log_path
+    and world_writable_mode
+    and not proc.name in (fluent-bit, fluentd, vector, logrotate)
+  output: >
+    Permisos world-writable aplicados bajo /var/log
+    (user=%user.name container=%container.name image=%container.image.repository
+     proc=%proc.name cmdline=%proc.cmdline file=%evt.arg.filename mode=%evt.arg.mode)
+  priority: WARNING
+  tags: [container, filesystem, tampering, mitre_defense_evasion, T1222]
+  source: syscall
+
+- rule: Open world writable under var log
+  desc: Variante que captura ficheros nacidos world-writable (sin chmod posterior).
+  condition: >
+    evt.type = open and evt.is_open_write=true and container
+    and fd.directory startswith "/var/log"
+    and evt.arg.mode in ("0666", "0777")
+    and not proc.name in (fluent-bit, fluentd, vector, logrotate)
+  output: >
+    Fichero creado world-writable bajo /var/log
+    (user=%user.name container=%container.name file=%fd.name mode=%evt.arg.mode
+     cmdline=%proc.cmdline)
+  priority: WARNING
+  tags: [container, filesystem, tampering, mitre_defense_evasion, T1222]
+  source: syscall

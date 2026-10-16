@@ -1,0 +1,32 @@
+id: sec-01-02-slsa-gap-analysis
+title: SLSA gap analysis del pipeline del capstone
+technology: devsecops
+module: 01-principles-threat-modeling-and-supply-chain-overview
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - docker
+  - github-actions
+
+objectives:
+  - Clasificar el pipeline actual en un nivel SLSA (L0/L1/L2/L3) con justificacion
+  - Identificar el nivel objetivo razonable para el capstone en un trimestre
+  - Enumerar al menos 3 gaps concretos para cerrar entre nivel actual y objetivo
+  - Diferenciar SBOM de provenance con un ejemplo
+  - Producir un roadmap ordenado (quick wins primero) con esfuerzo estimado H/M/L
+  - Nombrar al menos 2 incidentes de supply chain reales y la leccion de cada uno
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-01-slsa-gap"
+
+status: not-started

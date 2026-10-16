@@ -1,0 +1,29 @@
+id: sec-13-02-rotation-and-break-glass-adr
+title: ADR de rotación de secretos y procedimiento de break-glass
+technology: devsecops
+module: 13-secrets-at-scale-vault-eso-and-workload-identity
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - sec-02-secrets-overview-and-storage-patterns
+
+objectives:
+  - Diseñar la politica de rotacion para 5 tipos distintos de secretos con trigger, TTL, mecanismo, zero-downtime path y blast radius
+  - Redactar un procedimiento de break-glass que cumpla las 5 propiedades (auth fuerte, rastro, scope minimo, TTL, review)
+  - Nombrar un criterio objetivo para distinguir cuando un secreto debe ser dinamico vs estatico-rotado-vs-rotado-por-humano
+  - Producir un documento ADR.md en el formato clasico (Status, Context, Decision, Consequences) con las tablas requeridas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/sec-13-rotation-adr"
+
+status: not-started

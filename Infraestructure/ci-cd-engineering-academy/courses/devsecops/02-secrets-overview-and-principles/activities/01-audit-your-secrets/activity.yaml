@@ -1,0 +1,30 @@
+id: sec-02-01-audit-your-secrets
+title: Inventario de secretos del proyecto (modelo del capstone)
+technology: devsecops
+module: 02-secrets-overview-and-principles
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sec-01-principles-threat-modeling-and-supply-chain-overview
+
+objectives:
+  - Producir un INVENTORY.md del modelo del capstone con al menos 5 secretos reales plausibles
+  - Clasificar cada secreto por familia (API key, DB cred, OAuth, cert, SSH, signing, encryption)
+  - Asignar un hogar (1-7 del ejemplo 01) a cada secreto y justificar el blast radius
+  - Marcar propuesta de migracion a short-lived cuando aplique
+  - Validar que el inventario cumple el esquema estructural minimo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-02-audit"
+
+status: not-started

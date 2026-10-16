@@ -1,0 +1,38 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "sec-08-capstone",
+      "digest": {
+        "sha256": "REPLACE_WITH_IMAGE_DIGEST_OR_LOCAL_BUILD"
+      }
+    }
+  ],
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "https://example.com/manual-build/v1",
+      "externalParameters": {
+        "note": "L1 self-reported — subir a L2 con un hosted builder (GHA)"
+      },
+      "resolvedDependencies": [
+        {
+          "uri": "git+file:///tmp/sec-08-capstone",
+          "digest": {
+            "gitCommit": "N/A"
+          }
+        }
+      ]
+    },
+    "runDetails": {
+      "builder": {
+        "id": "local-workstation"
+      },
+      "metadata": {
+        "invocationId": "manual-run",
+        "startedOn": "REPLACE_WITH_ISO_8601",
+        "finishedOn": "REPLACE_WITH_ISO_8601"
+      }
+    }
+  }
+}

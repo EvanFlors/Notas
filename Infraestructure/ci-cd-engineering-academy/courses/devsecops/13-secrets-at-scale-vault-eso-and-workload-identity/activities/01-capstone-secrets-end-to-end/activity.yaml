@@ -1,0 +1,30 @@
+id: sec-13-01-capstone-secrets-end-to-end
+title: Capstone — Vault + ESO + Pod sin ningún secreto estático en Git
+technology: devsecops
+module: 13-secrets-at-scale-vault-eso-and-workload-identity
+level: advanced
+type: mini-project
+
+estimated_minutes: 180
+
+prerequisites:
+  - sec-02-secrets-overview-and-storage-patterns
+
+objectives:
+  - Levantar Vault dev + kind + ESO + Pod consumidor end-to-end sin ningun valor de secreto en Git
+  - Completar los TODOs en los manifests ClusterSecretStore y ExternalSecret apuntando al Vault local
+  - Verificar que el Secret K8s se materializa con el valor correcto desde kv/payments/stripe
+  - Verificar que el Pod consumidor expone el valor via env var tras rolling restart
+  - Demostrar rotacion: cambiar el valor en Vault y ver reflejarse en el Secret K8s en < refreshInterval
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

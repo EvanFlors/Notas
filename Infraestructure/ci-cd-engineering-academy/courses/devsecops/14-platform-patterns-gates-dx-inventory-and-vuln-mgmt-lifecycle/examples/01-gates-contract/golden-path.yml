@@ -1,0 +1,140 @@
+# Golden-path CI de referencia (sec-14).
+# Agrupa: secret scan + SAST + SCA + IaC + SBOM + sign.
+# Exporta SARIF de cada tool y lo agrega a GitHub Code Scanning
+# usando `category:` distinto por herramienta (único panel, filtrable).
+#
+# NO EJECUTAR tal cual: es una referencia didactica. Adaptar paths,
+# versiones y permisos a la organizacion.
+
+name: golden-path
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write        # cosign keyless OIDC
+  security-events: write # upload-sarif
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: gitleaks (diff only on PR, full on push)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+          GITLEAKS_ENABLE_SUMMARY: "true"
+
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: p/ci
+          generateSarif: "1"
+      - uses: actions/upload-artifact@v4
+        with: { name: sarif-semgrep, path: semgrep.sarif }
+
+  sca-and-container:
+    runs-on: ubuntu-latest
+    needs: [secret-scan]
+    steps:
+      - uses: actions/checkout@v4
+      - name: build image
+        run: docker build -t app:${{ github.sha }} .
+      - name: trivy image (blocking Critical+KEV)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: app:${{ github.sha }}
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+          # Policy file reads exceptions/*.yaml
+          trivyignores: ./exceptions/.trivyignore
+      - uses: actions/upload-artifact@v4
+        with: { name: sarif-trivy, path: trivy-image.sarif }
+
+  iac-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: trivy config
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          format: sarif
+          output: trivy-config.sarif
+          exit-code: "0"   # warn-only
+      - uses: actions/upload-artifact@v4
+        with: { name: sarif-trivy-config, path: trivy-config.sarif }
+
+  sbom:
+    runs-on: ubuntu-latest
+    needs: [sca-and-container]
+    steps:
+      - uses: actions/checkout@v4
+      - name: syft (CycloneDX)
+        uses: anchore/sbom-action@v0
+        with:
+          image: app:${{ github.sha }}
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+      - name: publish SBOM to inventory store
+        run: |
+          # Ejemplo: POST a Dependency-Track o upload a S3 indexado.
+          # Aquí solo guardamos como artifact; en real: API call autenticada.
+          echo "Would publish sbom.cdx.json to inventory store"
+      - uses: actions/upload-artifact@v4
+        with: { name: sbom, path: sbom.cdx.json }
+
+  sign-and-attest:
+    runs-on: ubuntu-latest
+    needs: [sbom]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: sigstore/cosign-installer@v3
+      - name: push + sign + attest
+        run: |
+          IMAGE=ghcr.io/${{ github.repository }}:${{ github.sha }}
+          docker tag app:${{ github.sha }} "$IMAGE"
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker push "$IMAGE"
+          cosign sign --yes "$IMAGE"
+          cosign attest --yes --type cyclonedx --predicate sbom.cdx.json "$IMAGE"
+
+  upload-sarif:
+    runs-on: ubuntu-latest
+    needs: [sast, sca-and-container, iac-scan]
+    if: always()
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { pattern: sarif-* }
+      - name: upload semgrep
+        if: hashFiles('sarif-semgrep/semgrep.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif-semgrep/semgrep.sarif
+          category: semgrep
+      - name: upload trivy image
+        if: hashFiles('sarif-trivy/trivy-image.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif-trivy/trivy-image.sarif
+          category: trivy-image
+      - name: upload trivy config
+        if: hashFiles('sarif-trivy-config/trivy-config.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif-trivy-config/trivy-config.sarif
+          category: trivy-config

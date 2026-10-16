@@ -1,0 +1,30 @@
+id: sec-12-01-trigger-and-detect-shell-in-pod
+title: Provocar y detectar un shell en un Pod con Falco
+technology: devsecops
+module: 12-runtime-security-falco-and-tetragon
+level: intermediate
+type: scenario
+
+estimated_minutes: 90
+
+prerequisites:
+  - sec-11-admission-policies-with-kyverno-and-vap
+
+objectives:
+  - Desplegar Falco en kind (o justificar el modo walkthrough con sample events)
+  - Provocar un evento 'Terminal shell in container' intencionadamente
+  - Parsear el evento JSON y extraer regla, pod, imagen, usuario, cmdline
+  - Redactar DETECTION.md con el analisis del incidente y un runbook de 5 pasos
+  - Decidir si esta alerta deberia promoverse a enforcement con Tetragon y justificar
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-12-detect"
+
+status: not-started

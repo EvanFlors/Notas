@@ -1,0 +1,30 @@
+id: sec-05-01-scan-and-fail-on-critical
+title: Escanear una imagen vulnerable con Trivy y fallar en CRITICAL
+technology: devsecops
+module: 05-sca-container-scanning-with-trivy
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - sec-03-scanning-landscape-sast-dast-sca-iac-container-secret
+
+objectives:
+  - Correr `trivy image` sobre una imagen deliberadamente vieja (`alpine:3.14`) y leer la tabla de hallazgos
+  - Diferenciar vulnerabilidades con fix de las sin fix (`--ignore-unfixed`) y defender su exclusion del gate
+  - Documentar una excepcion en `.trivyignore.yaml` con razon, aprobador y expiracion
+  - Construir un Dockerfile mini con una dependencia Python antigua (`requests==2.19.0`) y verificar que Trivy detecta tambien la vuln de la capa de lenguaje
+  - Producir un POLICY.md justificando la politica "fallar en CRITICAL con fix"
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-05-fail-on-critical"
+
+status: not-started

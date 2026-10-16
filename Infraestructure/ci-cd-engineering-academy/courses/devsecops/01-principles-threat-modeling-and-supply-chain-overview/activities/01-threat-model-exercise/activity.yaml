@@ -1,0 +1,32 @@
+id: sec-01-01-threat-model-exercise
+title: Threat model STRIDE de un servicio URL shortener
+technology: devsecops
+module: 01-principles-threat-modeling-and-supply-chain-overview
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - docker
+  - github-actions
+
+objectives:
+  - Dibujar un DFD minimo de un servicio dado marcando entidades, procesos, almacenes y flujos
+  - Marcar al menos 2 trust boundaries con justificacion
+  - Producir una tabla STRIDE con al menos 1 amenaza por cada una de las 6 letras
+  - Priorizar cada amenaza por likelihood x impact
+  - Proponer mitigacion concreta por amenaza (ticket accionable, no control teorico)
+  - Documentar assumptions explicitas que acotan el scope
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-01-threat-model"
+
+status: not-started

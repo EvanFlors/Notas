@@ -1,0 +1,30 @@
+id: sec-06-01-add-sast-to-capstone
+title: Añadir SAST (Semgrep + Bandit + CodeQL doc) al capstone
+technology: devsecops
+module: 06-sast-with-semgrep-and-codeql
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - sec-03-scanning-landscape-sast-dast-sca-iac-container-secret
+
+objectives:
+  - Preparar un repo Python de ejemplo con 3 vulnerabilidades plantadas intencionalmente
+  - Ejecutar Semgrep (--config auto) y Bandit sobre el repo y recoger findings
+  - Redactar un workflow .github/workflows/codeql.yml listo para publicar (doc-only, no se ejecuta)
+  - Producir TRIAGE.md clasificando al menos 10 findings en fix / suppress-con-razon / falso-positivo
+  - Dejar el workflow semgrep.yml y el codeql.yml dentro del scratch dir
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/sec-06-01-capstone"
+
+status: not-started

@@ -1,0 +1,33 @@
+id: sec-14-01-platform-security-contract-adr
+title: ADR del contrato de seguridad de la plataforma (gates, severidad, exceptions)
+technology: devsecops
+module: 14-platform-patterns-gates-dx-inventory-and-vuln-mgmt-lifecycle
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - sec-05-sca-container-scanning-with-trivy
+  - sec-09-signing-and-attestations-with-cosign-sigstore
+  - sec-11-k8s-admission-kyverno-and-policy-controller
+  - sec-13-secrets-at-scale-vault-eso-and-workload-identity
+
+objectives:
+  - Redactar un ADR que fije el contrato de gates (blocking vs warn vs nightly) con al menos 5 gates nombrados
+  - Definir una politica de severidad que combine CVSS + EPSS + KEV con umbrales explicitos
+  - Formalizar una exception policy con approver, TTL y revisor nominados
+  - Enumerar al menos 3 compromisos de developer experience de la plataforma
+  - Justificar al menos 3 consecuencias (positivas y negativas) de la decision
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/sec-14-contract"
+
+status: not-started

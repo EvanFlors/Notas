@@ -1,0 +1,30 @@
+id: sec-05-02-reduce-cves-by-base-swap
+title: Reducir CVEs cambiando la base image (python -> slim -> distroless/chainguard)
+technology: devsecops
+module: 05-sca-container-scanning-with-trivy
+level: intermediate
+type: independent
+
+estimated_minutes: 55
+
+prerequisites:
+  - sec-03-scanning-landscape-sast-dast-sca-iac-container-secret
+
+objectives:
+  - Construir la misma app con tres bases distintas (`python:3.12`, `python:3.12-slim`, `cgr.dev/chainguard/python:latest`)
+  - Medir con `trivy image --format json` el conteo de CVEs por severidad en cada variante
+  - Calcular la reduccion porcentual de CRITICAL+HIGH al cambiar de base
+  - Escribir un ADR (`ADR.md`) con contexto, decision, consecuencias y numeros reales
+  - Producir una tabla comparativa `COUNTS.md` con la cuenta de CVEs por variante
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-05-base-swap"
+
+status: not-started

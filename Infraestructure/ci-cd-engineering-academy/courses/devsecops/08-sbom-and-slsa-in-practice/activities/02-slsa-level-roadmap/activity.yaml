@@ -1,0 +1,30 @@
+id: sec-08-02-slsa-level-roadmap
+title: SLSA level roadmap — gap analysis L0 a L2 a L3 para pipeline hipotetico
+technology: devsecops
+module: 08-sbom-and-slsa-in-practice
+level: advanced
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - sec-01-01-threat-model-exercise
+
+objectives:
+  - Diagnosticar el nivel SLSA actual de un pipeline dado y justificarlo
+  - Enumerar al menos 4 cambios concretos para subir de L1 a L2 y 3 cambios adicionales para L3
+  - Nombrar al menos 5 metricas medibles que confirman el cumplimiento de L2 y L3
+  - Responder 5 afirmaciones comunes sobre SLSA con de acuerdo / en desacuerdo / depende y justificar
+  - Producir un documento SLSA-ROADMAP.md con cinco secciones (A diagnostico, B camino a L2, C a L3, D metricas, E afirmaciones)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-08-roadmap"
+
+status: not-started

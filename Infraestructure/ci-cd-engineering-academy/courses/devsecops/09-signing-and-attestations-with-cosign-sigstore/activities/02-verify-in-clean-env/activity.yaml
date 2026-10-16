@@ -1,0 +1,30 @@
+id: sec-09-02-verify-in-clean-env
+title: Verificar imagen firmada en entorno limpio (politica keyless)
+technology: devsecops
+module: 09-signing-and-attestations-with-cosign-sigstore
+level: advanced
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - sec-08-sbom-and-slsa-in-practice
+
+objectives:
+  - Enunciar los supuestos minimos de un consumidor que verifica una imagen Sigstore
+  - Escribir el comando cosign verify canonico con los dos pins obligatorios
+  - Escribir el cosign verify-attestation con --type para SLSA provenance
+  - Describir los fallos esperados ante firma ausente, identidad incorrecta o attestation incorrecta
+  - Entregar VERIFY-POLICY.md con las 4 secciones (A/B/C/D) requeridas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-09-02-verify"
+
+status: not-started

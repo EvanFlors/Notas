@@ -1,0 +1,30 @@
+id: sec-12-02-rule-authoring-exercise
+title: Escribir una regla Falco custom para un caso de dominio
+technology: devsecops
+module: 12-runtime-security-falco-and-tetragon
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sec-11-admission-policies-with-kyverno-and-vap
+
+objectives:
+  - Dado un caso de dominio, escribir una regla Falco custom con condition/output/priority/tags
+  - Defender la eleccion de prioridad y tags frente a las reglas canonicas
+  - Enumerar al menos 2 falsos positivos esperados y como suprimirlos (exceptions o not conditions)
+  - Enumerar al menos 2 falsos negativos esperados y como mitigarlos (reglas hermanas)
+  - Decidir si la regla deberia promoverse a enforcement con Tetragon y justificar
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/sec-12-rule"
+
+status: not-started

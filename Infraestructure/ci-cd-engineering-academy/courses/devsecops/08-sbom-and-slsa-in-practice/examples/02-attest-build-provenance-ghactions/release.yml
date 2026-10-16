@@ -1,0 +1,91 @@
+# sec-08 example 02 — walkthrough workflow (NOT executed in this module).
+#
+# Copy to .github/workflows/release.yml of a real repo to actually run it.
+# Here it is read-only: comment-heavy teaching material.
+
+name: release-sbom-and-provenance
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read         # read code
+  packages: write        # push to GHCR
+  id-token: write        # REQUIRED for Sigstore OIDC
+  attestations: write    # REQUIRED to publish attestations
+
+jobs:
+  build-sign-attest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Build + push ---------------------------------------------------
+      # Output: steps.push.outputs.digest — immutable sha256 of the image.
+      # We attest the DIGEST, never the tag (tags are mutable).
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
+          platforms: linux/amd64,linux/arm64
+
+      # --- SBOM generation + attestation ---------------------------------
+      # Syft via anchore/sbom-action produces a CycloneDX JSON.
+      - name: Generate SBOM (CycloneDX)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository }}@${{ steps.push.outputs.digest }}
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+
+      # actions/attest-sbom signs the SBOM with the runner's OIDC token
+      # via Sigstore (Fulcio cert, Rekor log) and attaches it to the image
+      # in the OCI registry.
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: sbom.cdx.json
+          push-to-registry: true
+
+      # --- SLSA v1.0 build provenance attestation ------------------------
+      # actions/attest-build-provenance generates the provenance predicate
+      # from the GitHub Actions runtime context (repo, ref, workflow,
+      # runner, invocationId), signs it with the OIDC token, publishes
+      # the signature in Rekor, and attaches to the image.
+      #
+      # Together with hosted runners this reaches SLSA v1.0 Build L3.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Summary
+        run: |
+          echo "Image:    ghcr.io/${{ github.repository }}@${{ steps.push.outputs.digest }}"
+          echo "Verify:   gh attestation verify oci://ghcr.io/${{ github.repository }}@${{ steps.push.outputs.digest }} --repo ${{ github.repository }}"

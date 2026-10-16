@@ -1,0 +1,33 @@
+id: sec-14-02-vuln-mgmt-process-exercise
+title: Proceso operativo del vuln management lifecycle (SLA tiers, MTTR, dashboard)
+technology: devsecops
+module: 14-platform-patterns-gates-dx-inventory-and-vuln-mgmt-lifecycle
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - sec-05-sca-container-scanning-with-trivy
+  - sec-09-signing-and-attestations-with-cosign-sigstore
+  - sec-11-k8s-admission-kyverno-and-policy-controller
+  - sec-13-secrets-at-scale-vault-eso-and-workload-identity
+
+objectives:
+  - Documentar las 6 etapas del lifecycle (detect, triage, prioritize, remediate, verify, report) con owner nombrado por etapa
+  - Definir SLA por tier (Critical/High/Medium/Low) con numeros concretos
+  - Enumerar al menos 5 metricas DevSecOps con formula y SLO
+  - Describir un escenario realista aplicando el lifecycle a una CVE nueva (ej. openssl 3.0.x)
+  - Nombrar al menos 3 antipatrones y como el proceso los previene
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/sec-14-vulnmgmt"
+
+status: not-started

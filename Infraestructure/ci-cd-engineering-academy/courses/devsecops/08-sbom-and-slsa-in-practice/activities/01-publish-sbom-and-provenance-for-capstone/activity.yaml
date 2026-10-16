@@ -1,0 +1,31 @@
+id: sec-08-01-publish-sbom-and-provenance-for-capstone
+title: Emitir SBOM (CycloneDX + SPDX) + provenance L1 y preparar workflow GHA
+technology: devsecops
+module: 08-sbom-and-slsa-in-practice
+level: advanced
+type: guided-lab
+
+estimated_minutes: 70
+
+prerequisites:
+  - sec-01-01-threat-model-exercise
+  - sec-05-01-scan-and-fail-on-critical
+
+objectives:
+  - Emitir SBOM en formato CycloneDX JSON y SPDX JSON con syft sobre una imagen local o un directorio
+  - Consumir el SBOM con grype para producir un vulnerability report reproducible
+  - Redactar a mano un provenance.json nivel SLSA L1 valido contra in-toto Statement v1 + slsa.dev/provenance/v1
+  - Preparar un workflow release.yml GHA (template, no se ejecuta) con permisos id-token write y attestations write
+  - Diferenciar source SBOM de build SBOM y argumentar cual conviene por caso
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-08-capstone"
+
+status: not-started

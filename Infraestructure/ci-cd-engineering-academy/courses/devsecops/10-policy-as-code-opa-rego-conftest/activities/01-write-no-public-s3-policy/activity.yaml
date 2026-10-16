@@ -1,0 +1,30 @@
+id: sec-10-01-write-no-public-s3-policy
+title: Escribir y testear una policy Rego "no public S3 bucket"
+technology: devsecops
+module: 10-policy-as-code-opa-rego-conftest
+level: intermediate
+type: independent
+
+estimated_minutes: 70
+
+prerequisites:
+  - sec-07-sigstore-cosign-and-slsa-provenance
+
+objectives:
+  - Escribir reglas Rego deny que detecten los tres vectores de bucket S3 publico (ACL publica, public_access_block flojo, bucket policy con Principal "*")
+  - Escribir una suite minima de tests opa test con fixtures positivos y negativos
+  - Diferenciar deny y warn para distintos niveles de severidad
+  - Usar sprintf para producir mensajes de deny legibles que mencionan recurso y motivo
+  - Producir un paquete policy/s3.rego + policy/s3_test.rego valido con opa test
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-10-01-no-public-s3"
+
+status: not-started

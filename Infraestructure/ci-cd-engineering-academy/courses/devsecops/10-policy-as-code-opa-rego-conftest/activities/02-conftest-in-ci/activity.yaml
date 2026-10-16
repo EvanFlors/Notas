@@ -1,0 +1,30 @@
+id: sec-10-02-conftest-in-ci
+title: Conftest "en CI" - wrapper local sobre K8s y Terraform plan JSON
+technology: devsecops
+module: 10-policy-as-code-opa-rego-conftest
+level: intermediate
+type: independent
+
+estimated_minutes: 70
+
+prerequisites:
+  - sec-07-sigstore-cosign-and-slsa-provenance
+
+objectives:
+  - Organizar un paquete de policies Conftest por dominio (k8s/, terraform/)
+  - Escribir un script wrapper tipo CI (set -eu, SKIP gracioso si falta conftest, propaga exit code)
+  - Entender el efecto de --all-namespaces al tener varios packages
+  - Diferenciar warn de deny y su impacto en el exit code del wrapper
+  - Producir entregable reproducible (inputs/, policy/, run-conftest.sh ejecutable)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-10-02-conftest-ci"
+
+status: not-started

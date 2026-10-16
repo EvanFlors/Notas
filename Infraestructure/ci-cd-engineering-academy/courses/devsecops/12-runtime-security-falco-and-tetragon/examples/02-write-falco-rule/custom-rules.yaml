@@ -1,0 +1,32 @@
+# custom-rules.yaml
+# Falco custom rules — "download and execute from /tmp" pattern.
+# See README.md for the rationale and the FP/FN analysis.
+
+- macro: download_tools
+  condition: proc.name in (curl, wget)
+
+- rule: Download and execute from tmp
+  desc: >
+    Un proceso descargo un archivo a /tmp y, en el mismo contenedor,
+    otro proceso ejecuto un binario desde /tmp. Patron comun de dropper.
+  condition: >
+    spawned_process and container
+    and proc.exepath startswith "/tmp/"
+    and proc.aname[2] in (curl, wget, sh, bash)
+  output: >
+    Posible dropper: binario ejecutado desde /tmp tras descarga
+    (user=%user.name container=%container.name image=%container.image.repository
+     exe=%proc.exepath cmdline=%proc.cmdline parent=%proc.pname)
+  priority: WARNING
+  tags: [container, dropper, mitre_execution, T1105]
+  source: syscall
+
+- rule: Download tool used inside container
+  desc: Pre-filter que ayuda a correlacionar con la regla anterior.
+  condition: spawned_process and container and download_tools
+  output: >
+    Descarga iniciada dentro de un contenedor
+    (user=%user.name container=%container.name cmdline=%proc.cmdline)
+  priority: NOTICE
+  tags: [container, download, mitre_command_and_control]
+  source: syscall

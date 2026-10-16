@@ -1,0 +1,30 @@
+id: sec-11-01-admission-policy-set-for-capstone
+title: Set de policies de admision Kyverno para el capstone
+technology: devsecops
+module: 11-k8s-admission-kyverno-and-policy-controller
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - sec-09-signing-and-attestations-with-cosign-sigstore
+  - sec-10-policy-as-code-opa-rego-conftest
+
+objectives:
+  - Escribir tres ClusterPolicies de Kyverno (require-labels, disallow-latest-tag, disallow-privileged) con validationFailureAction Enforce
+  - Producir manifests buenos y malos que cubran cada regla, para que kyverno apply pueda diferenciarlos
+  - Testear las policies offline con kyverno apply (sin cluster) y, si existe kind, en cluster
+  - Documentar el conjunto en POLICIES.md explicando quien aplica, en que namespaces y en que modo (Audit vs Enforce)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-11-admission"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: sec-04-01-full-pipeline-secret-scan
+title: Pipeline completo de secret scanning (pre-commit + CI + runbook)
+technology: devsecops
+module: 04-secret-scanning-gitleaks-trufflehog-github
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 70
+
+prerequisites:
+  - sec-02-secrets-overview-and-principles
+  - sec-03-scanning-landscape-sast-dast-sca-iac-container-secret
+
+objectives:
+  - Instalar y configurar un hook pre-commit con gitleaks que corte el commit ante un secreto evidentemente falso
+  - Escribir un workflow de GitHub Actions con fetch-depth 0 que escanee toda la historia del repo
+  - Redactar un .gitleaks.toml con allowlist por path justificada y stopwords para fakes de tests
+  - Producir un RUNBOOK.md que ordene correctamente la secuencia rotar / notificar / limpiar historia
+  - Demostrar con un fixture de secreto fake que el scanner detecta el patron
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-04-full-pipeline"
+
+status: not-started

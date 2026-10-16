@@ -1,0 +1,31 @@
+id: sec-04-02-incident-response-exercise
+title: Ejercicio de respuesta a incidente - secreto filtrado en main
+technology: devsecops
+module: 04-secret-scanning-gitleaks-trufflehog-github
+level: intermediate
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - sec-02-secrets-overview-and-principles
+  - sec-03-scanning-landscape-sast-dast-sca-iac-container-secret
+
+objectives:
+  - Redactar la respuesta cronologica correcta a un leak dado un escenario concreto
+  - Justificar por que la rotacion precede a la reescritura de historia
+  - Identificar los anti-patrones comunes (git rm + commit, amend, borrar repo) y refutarlos
+  - Diferenciar entre un fix cosmetico (reescribir historia) y una mitigacion real (rotar)
+  - Proponer controles preventivos que habrian evitado el leak
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-04-incident"
+
+status: not-started

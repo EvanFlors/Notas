@@ -1,0 +1,30 @@
+id: sec-07-02-custom-checkov-policy
+title: Policy custom en Checkov (Python) — data_classification en buckets S3
+technology: devsecops
+module: 07-iac-scanning-checkov-trivy-config-tfsec
+level: intermediate
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - sec-03-scanning-landscape-sast-dast-sca-iac-container-secret
+
+objectives:
+  - Escribir una policy Checkov Python que extienda BaseResourceCheck y detecte un patrón organizacional
+  - Usar un ID con prefijo organizacional (CKV_ACME_1) para evitar colisiones con reglas built-in
+  - Montar fixtures good.tf y bad.tf que verifiquen pass y fail de la policy
+  - Correr la policy con checkov --external-checks-dir y obtener los resultados esperados
+  - Degradar graciosamente cuando checkov no está instalado (importar la clase basta)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-07-custom-policy"
+
+status: not-started

@@ -1,0 +1,21 @@
+# custom-rules.yaml — starter
+# Completa la regla para el caso: 'chmod permisivo bajo /var/log'.
+# Requisitos minimos: rule, desc, condition, output, priority.
+# Debe mencionar /var/log y permisos world-writable (777 o S_IWOTH).
+
+- rule: World writable file under var log
+  desc: >
+    TODO: una linea describiendo el patron: chmod permisivo bajo /var/log
+    en un contenedor.
+  condition: >
+    TODO: expresion booleana que combine:
+      - evento de chmod/fchmodat
+      - evt.arg.mode con bit o+w (world-writable, ej. "0777" o contains "7")
+      - fd.name o evt.arg.filename startswith "/var/log"
+      - and container
+  output: >
+    TODO: string con placeholders %user.name %container.name %proc.cmdline
+    %fd.name %evt.arg.mode
+  priority: WARNING
+  tags: [container, filesystem, mitre_persistence]
+  source: syscall

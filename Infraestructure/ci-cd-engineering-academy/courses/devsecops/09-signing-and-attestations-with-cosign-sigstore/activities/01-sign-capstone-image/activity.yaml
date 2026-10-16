@@ -1,0 +1,30 @@
+id: sec-09-01-sign-capstone-image
+title: Firmar imagen del capstone (cosign key-based, registry local)
+technology: devsecops
+module: 09-signing-and-attestations-with-cosign-sigstore
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - sec-08-sbom-and-slsa-in-practice
+
+objectives:
+  - Levantar un registry:2 local y empujar una imagen construida on-the-fly
+  - Generar un par de claves cosign y firmar la imagen por digest
+  - Verificar la firma con la pub key correcta (debe pasar) y con otra distinta (debe fallar)
+  - Dejar artefactos reproducibles (run.sh, claves, IMAGE_DIGEST) en el directorio de trabajo
+  - Escribir SIGN-LOG.md explicando que garantiza y que no la firma key-based
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-09-01-sign"
+
+status: not-started

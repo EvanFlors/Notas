@@ -1,0 +1,29 @@
+id: sec-06-02-write-custom-rule
+title: Escribir una regla Semgrep custom con tests
+technology: devsecops
+module: 06-sast-with-semgrep-and-codeql
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sec-03-scanning-landscape-sast-dast-sca-iac-container-secret
+
+objectives:
+  - Diseñar un patrón Semgrep (metavariables, pattern-either, pattern-not) para 'no-requests-without-timeout'
+  - Escribir un archivo de tests con casos ok y ruleid
+  - Correr `semgrep --test` y lograr que todos los casos pasen (si semgrep disponible)
+  - Documentar la decision en TEMPLATE.md: cuando usar la regla, cuando suprimir, cuando migrar al wrapper interno
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/sec-06-02-custom-rule"
+
+status: not-started

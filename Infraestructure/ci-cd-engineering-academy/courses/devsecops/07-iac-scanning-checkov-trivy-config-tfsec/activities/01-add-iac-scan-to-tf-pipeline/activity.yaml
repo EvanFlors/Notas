@@ -1,0 +1,30 @@
+id: sec-07-01-add-iac-scan-to-tf-pipeline
+title: Añadir IaC scan al pipeline Terraform (Checkov + Trivy config)
+technology: devsecops
+module: 07-iac-scanning-checkov-trivy-config-tfsec
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 70
+
+prerequisites:
+  - sec-03-scanning-landscape-sast-dast-sca-iac-container-secret
+
+objectives:
+  - Combinar Checkov y Trivy config en un único script `scan.sh`
+  - Degradar graciosamente cuando Checkov o Trivy no están instalados
+  - Implementar un allowlist (CSV con rule_id, reason, expires) y aplicarlo al filtrar
+  - Generar un REPORT.md reproducible con secciones Resumen / Checkov / Trivy / Suprimidos
+  - Fallar (exit 1) ante al menos un finding HIGH/CRITICAL no suprimido; exit 0 si todo está suprimido justificadamente
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-07-iac-pipeline"
+
+status: not-started

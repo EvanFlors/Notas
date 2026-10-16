@@ -1,0 +1,30 @@
+id: sec-02-02-rotation-policy-adr
+title: ADR de politica de rotacion de secretos
+technology: devsecops
+module: 02-secrets-overview-and-principles
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sec-01-principles-threat-modeling-and-supply-chain-overview
+
+objectives:
+  - Redactar un ADR con contexto, decision, consecuencias y alternativas consideradas
+  - Definir TTL por familia (api-key, db-cred, oauth, cert, ssh, signing, encryption)
+  - Documentar el proceso de break-glass con separation of duties
+  - Elegir mecanismo de rotacion por familia (TTL expiration, dual-write, blue-green, atomic)
+  - Validar que el ADR cumple el esquema estructural minimo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/sec-02-adr"
+
+status: not-started
