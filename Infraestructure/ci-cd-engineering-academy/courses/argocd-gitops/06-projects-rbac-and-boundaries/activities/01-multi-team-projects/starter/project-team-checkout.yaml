@@ -1,0 +1,27 @@
+# STARTER — fill in the TODOs.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-checkout
+  namespace: argocd
+spec:
+  description: "Checkout team boundary"
+
+  sourceRepos:
+    # TODO: pin to the same example-apps repo.
+    - '*'
+
+  destinations:
+    # TODO: namespace must be 'checkout-*'.
+    - server: https://kubernetes.default.svc
+      namespace: '*'
+
+  # Intentionally EMPTY: this team cannot create cluster-scoped resources.
+  clusterResourceWhitelist: []
+
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  orphanedResources:
+    warn: true

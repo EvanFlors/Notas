@@ -1,0 +1,31 @@
+id: otel-12-01-full-otel-stack-via-operator
+title: Stack OTel completo vía Operator (DaemonSet agent + Deployment gateway + Instrumentation)
+technology: opentelemetry
+module: 12-otel-operator-in-k8s
+level: advanced
+type: guided-lab
+
+estimated_minutes: 120
+
+prerequisites:
+  - otel-09-collector-deployment-patterns
+  - k8s-14-operators-and-crds
+
+objectives:
+  - Instalar cert-manager y OpenTelemetry Operator en un cluster kind
+  - Desplegar un Collector agent (DaemonSet) y un Collector gateway (Deployment) via CRs
+  - Aplicar un Instrumentation CR y auto-inject el SDK Python en un Pod anotado
+  - Verificar que k8sattributes enriquece spans con k8s.pod.name y k8s.namespace.name
+  - Verificar end-to-end el flujo app -> agent -> gateway via logs del exporter debug
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

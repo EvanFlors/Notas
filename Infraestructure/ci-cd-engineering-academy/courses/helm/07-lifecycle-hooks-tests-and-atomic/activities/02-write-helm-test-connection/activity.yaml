@@ -1,0 +1,29 @@
+id: helm-07-02-write-helm-test-connection
+title: Write a helm test Pod that wgets the Service of the release
+technology: helm
+module: 07-lifecycle-hooks-tests-and-atomic
+level: advanced
+type: independent
+
+estimated_minutes: 40
+
+prerequisites:
+  - helm-07-01-add-migration-hook-with-weight
+
+objectives:
+  - Escribir un Pod en templates/tests/ con helm.sh/hook test
+  - Usar wget contra el Service del release para validar conectividad
+  - Aplicar hook-delete-policy before-hook-creation,hook-succeeded
+  - Lograr que helm test pase en un release recién instalado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/helm07-act02"
+
+status: not-started

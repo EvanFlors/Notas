@@ -1,0 +1,28 @@
+# HELP http_requests_total HTTP requests served by the checkout-service.
+# TYPE http_requests_total counter
+http_requests_total{job="checkout-service",method="GET",path="/health",status="200"} 1842
+http_requests_total{job="checkout-service",method="POST",path="/checkout",status="200"} 94012
+http_requests_total{job="checkout-service",method="POST",path="/checkout",status="500"} 142
+
+# HELP http_request_duration_seconds Request latency.
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{job="checkout-service",path="/checkout",le="0.1"} 60400
+http_request_duration_seconds_bucket{job="checkout-service",path="/checkout",le="0.5"} 88120
+http_request_duration_seconds_bucket{job="checkout-service",path="/checkout",le="1.0"} 92840
+http_request_duration_seconds_bucket{job="checkout-service",path="/checkout",le="+Inf"} 94154
+http_request_duration_seconds_count{job="checkout-service",path="/checkout"} 94154
+http_request_duration_seconds_sum{job="checkout-service",path="/checkout"} 23014.42
+
+# HELP checkout_requests_by_user_total Checkout attempts by user. ADDED IN release v2.14.
+# TYPE checkout_requests_by_user_total counter
+checkout_requests_by_user_total{job="checkout-service",user_id="u_00001",status="200"} 3
+checkout_requests_by_user_total{job="checkout-service",user_id="u_00002",status="200"} 1
+checkout_requests_by_user_total{job="checkout-service",user_id="u_00003",status="200"} 7
+checkout_requests_by_user_total{job="checkout-service",user_id="u_00004",status="500"} 1
+checkout_requests_by_user_total{job="checkout-service",user_id="u_00005",status="200"} 2
+checkout_requests_by_user_total{job="checkout-service",user_id="u_00006",status="200"} 4
+checkout_requests_by_user_total{job="checkout-service",user_id="u_00007",status="200"} 1
+checkout_requests_by_user_total{job="checkout-service",user_id="u_00008",status="200"} 2
+checkout_requests_by_user_total{job="checkout-service",user_id="u_00009",status="200"} 5
+checkout_requests_by_user_total{job="checkout-service",user_id="u_00010",status="200"} 1
+# ... (1 988 431 more unique user_id lines) ...

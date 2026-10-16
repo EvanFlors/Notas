@@ -1,0 +1,16 @@
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      derivedFields:
+        - datasourceName: Tempo
+          matcherRegex: "request_id=(\\w+)"
+          name: request_id
+          url: "$${__value.raw}"

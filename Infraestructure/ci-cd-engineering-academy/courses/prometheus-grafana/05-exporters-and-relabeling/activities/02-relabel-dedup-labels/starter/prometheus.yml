@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 10s
+  # TODO: consider adding external_labels if you want env/team globally.
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+    # TODO: add env=lab, team=sre; drop promhttp_metric_handler_requests_* metrics.
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    # TODO: add env=lab, team=sre; set instance=node1.
+
+  - job_name: blackbox
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://example.com
+          - https://prometheus.io
+    # TODO:
+    #  - carry __address__ to __param_target
+    #  - set instance = the probed URL
+    #  - repoint __address__ to blackbox-exporter:9115
+    #  - add env=lab, team=sre

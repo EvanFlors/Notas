@@ -1,0 +1,2 @@
+# Starter — fill in overrides for the podinfo chart. See README section 5.4.
+# TODO: replicaCount, hpa.enabled: false, and resources requests/limits.

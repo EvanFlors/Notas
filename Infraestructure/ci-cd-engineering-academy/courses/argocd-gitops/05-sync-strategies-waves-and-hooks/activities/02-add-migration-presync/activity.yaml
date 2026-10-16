@@ -1,0 +1,29 @@
+id: argo-05-02-add-migration-presync
+title: Add a PreSync Job hook that runs a DB migration before the Deployment rolls
+technology: argocd-gitops
+module: 05-sync-strategies-waves-and-hooks
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - argo-03-application-anatomy-sources-destinations-sync
+
+objectives:
+  - Crear un Job con anotación argocd.argoproj.io/hook=PreSync
+  - Aplicar delete-policy BeforeHookCreation,HookSucceeded para idempotencia
+  - Dejar backoffLimit=0 y restartPolicy=Never para que el retry lo maneje Argo CD
+  - Justificar por qué un hook es correcto donde un initContainer no lo es
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/argo05-act02"
+
+status: not-started

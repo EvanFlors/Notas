@@ -1,0 +1,44 @@
+{
+  "status": "success",
+  "data": {
+    "headStats": {
+      "numSeries": 4218743,
+      "numLabelPairs": 142,
+      "chunkCount": 8441240,
+      "minTime": 1760500000000,
+      "maxTime": 1760501200000
+    },
+    "seriesCountByMetricName": [
+      { "name": "checkout_requests_by_user_total", "value": 3980112 },
+      { "name": "http_request_duration_seconds_bucket", "value": 94820 },
+      { "name": "http_requests_total", "value": 61240 },
+      { "name": "container_cpu_usage_seconds_total", "value": 18402 },
+      { "name": "container_memory_working_set_bytes", "value": 12044 },
+      { "name": "kube_pod_info", "value": 8120 },
+      { "name": "node_cpu_seconds_total", "value": 7044 },
+      { "name": "prometheus_tsdb_head_series_created_total", "value": 1 },
+      { "name": "prometheus_tsdb_head_series", "value": 1 },
+      { "name": "up", "value": 212 }
+    ],
+    "labelValueCountByLabelName": [
+      { "name": "user_id", "value": 1988431 },
+      { "name": "__name__", "value": 1240 },
+      { "name": "pod", "value": 820 },
+      { "name": "instance", "value": 212 },
+      { "name": "path", "value": 148 },
+      { "name": "le", "value": 12 },
+      { "name": "status", "value": 11 },
+      { "name": "method", "value": 7 },
+      { "name": "job", "value": 18 }
+    ],
+    "memoryInBytesByLabelName": [
+      { "name": "user_id", "value": 44210112 },
+      { "name": "__name__", "value": 824112 },
+      { "name": "pod", "value": 94022 }
+    ],
+    "seriesCountByLabelValuePair": [
+      { "name": "__name__=checkout_requests_by_user_total", "value": 3980112 },
+      { "name": "job=checkout-service", "value": 3980400 }
+    ]
+  }
+}

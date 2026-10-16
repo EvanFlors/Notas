@@ -1,0 +1,29 @@
+id: obs-10-01-define-recording-rules-for-capstone
+title: Definir recording rules RED del capstone
+technology: prometheus-grafana
+module: 10-promql-advanced-recording-rules-cardinality
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-04-promql-fundamentals
+  - obs-07-instrumentation-with-python
+
+objectives:
+  - Escribir 3 recording rules RED siguiendo la convención level:metric:operations
+  - Validar la sintaxis y la semántica con promtool check rules y promtool test rules
+  - Explicar por qué cada recording rule reduce costo de evaluación aguas abajo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

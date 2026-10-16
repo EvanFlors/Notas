@@ -1,0 +1,29 @@
+id: otel-04-01-instrument-capstone-traces
+title: Instrument capstone FastAPI with OTel traces (provider + manual spans)
+technology: opentelemetry
+module: 04-instrumenting-python-traces
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - otel-03-api-sdk-and-instrumentation-strategies
+
+objectives:
+  - Configurar TracerProvider + Resource + BatchSpanProcessor + exporter (console/OTLP)
+  - Crear spans manuales con nombres de dominio (checkout.process, inventory.reserve, payment.charge)
+  - Añadir atributos semconv/dominio y marcar status + record_exception en fallos
+  - Garantizar flush del batch con provider.shutdown() en el shutdown de FastAPI
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

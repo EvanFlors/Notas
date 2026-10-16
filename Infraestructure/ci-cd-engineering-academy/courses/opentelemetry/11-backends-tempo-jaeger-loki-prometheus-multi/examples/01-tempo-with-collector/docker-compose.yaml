@@ -1,0 +1,54 @@
+services:
+  tempo:
+    image: grafana/tempo:2.6.0
+    container_name: ex01-tempo
+    command: ["-config.file=/etc/tempo/tempo-config.yaml"]
+    ports:
+      - "3200:3200"   # Tempo HTTP (API)
+      - "4319:4317"   # OTLP gRPC (expuesto por si quieres apuntar algo directo)
+    volumes:
+      - ./tempo-config.yaml:/etc/tempo/tempo-config.yaml:ro
+      - tempo-data:/var/tempo
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: ex01-otelcol
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Collector self-telemetry
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      - tempo
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: ex01-grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+    depends_on:
+      - tempo
+
+  trace-gen:
+    image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.111.0
+    container_name: ex01-trace-gen
+    command:
+      - traces
+      - --otlp-endpoint=otel-collector:4317
+      - --otlp-insecure
+      - --service=trace-gen
+      - --rate=5
+      - --duration=24h
+    depends_on:
+      - otel-collector
+
+volumes:
+  tempo-data:

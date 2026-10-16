@@ -1,0 +1,40 @@
+---
+# promtool test rules fixtures for ingredient recording rules.
+rule_files:
+  - rules.yaml
+
+evaluation_interval: 30s
+
+tests:
+  - interval: 30s
+    input_series:
+      # Steady state: 10 req/s total, 0 server errors.
+      - series: 'http_requests_total{job="payments",code="200"}'
+        values: '0+300x120'   # +300 every 30s => 10 req/s
+      - series: 'http_requests_total{job="payments",code="500"}'
+        values: '0+0x120'
+    promql_expr_test:
+      - expr: sli:payments_requests:ratio_rate5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'sli:payments_requests:ratio_rate5m'
+            value: 1
+      - expr: slo:payments_availability:error_budget
+        eval_time: 10m
+        exp_samples:
+          - labels: 'slo:payments_availability:error_budget'
+            value: 1.0000000000000009E-03
+
+  - interval: 30s
+    input_series:
+      # Burn scenario: 10 req/s total, 2 req/s are 500s => SLI = 0.8.
+      - series: 'http_requests_total{job="payments",code="200"}'
+        values: '0+240x120'
+      - series: 'http_requests_total{job="payments",code="500"}'
+        values: '0+60x120'
+    promql_expr_test:
+      - expr: sli:payments_requests:ratio_rate5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'sli:payments_requests:ratio_rate5m'
+            value: 0.8

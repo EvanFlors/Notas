@@ -1,0 +1,29 @@
+id: argo-01-02-adr-argocd-vs-flux-first-pass
+title: ADR corto — primera eleccion Argo CD vs Flux
+technology: argocd-gitops
+module: 01-gitops-principles-and-argocd-vs-flux
+level: beginner
+type: independent
+
+estimated_minutes: 50
+
+prerequisites: []
+
+objectives:
+  - Argumentar en formato ADR una eleccion entre Argo CD y Flux
+  - Enumerar al menos 5 criterios concretos de la decision (UX, modularidad, multi-cluster, image automation, cultura)
+  - Comparar los dos sistemas en al menos 3 dimensiones organizacionales
+  - Reconocer el antipatron "elegir por feature-table"
+  - Producir un documento con secciones Contexto / Decision / Consecuencias / Alternativas descartadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/argo-01-adr"
+
+status: not-started

@@ -1,0 +1,35 @@
+rule_files:
+  - ../rules/checkout.yaml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="checkout",status="200"}'
+        values: '0+100x30'
+      - series: 'http_requests_total{service="checkout",status="500"}'
+        values: '0+5x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CheckoutErrorBudgetBurningFast
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              team: payments
+              service: checkout
+            exp_annotations:
+              summary: "checkout burns error budget 14.4x faster than sustainable"
+              description: "5m error ratio 4.762% exceeds 14.4x the 99.9% SLO threshold."
+              runbook_url: "https://runbooks.example.com/checkout/slo-burn"
+
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="checkout",status="200"}'
+        values: '0+100x30'
+      - series: 'http_requests_total{service="checkout",status="500"}'
+        values: '0+0x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CheckoutErrorBudgetBurningFast
+        exp_alerts: []

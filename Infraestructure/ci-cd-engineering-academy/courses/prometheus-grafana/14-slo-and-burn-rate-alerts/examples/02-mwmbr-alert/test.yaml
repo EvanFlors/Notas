@@ -1,0 +1,44 @@
+---
+rule_files:
+  - rules.yaml
+
+evaluation_interval: 30s
+
+tests:
+  # ---- Scenario A: calm. 10 req/s success, 0 errors. ----
+  - interval: 30s
+    input_series:
+      - series: 'http_requests_total{job="payments",code="200"}'
+        values: '0+300x200'
+      - series: 'http_requests_total{job="payments",code="500"}'
+        values: '0+0x200'
+    alert_rule_test:
+      - eval_time: 1h5m
+        alertname: PaymentsAvailabilityErrorBudgetBurnFast1h
+        exp_alerts: []
+      - eval_time: 1h5m
+        alertname: PaymentsAvailabilityErrorBudgetBurnFast6h
+        exp_alerts: []
+
+  # ---- Scenario B: fast burn. 8 req/s success + 2 req/s 500s (20% errors). ----
+  # error_rate = 0.2, burn_rate = 200 >> 14.4 => PAGE 1h/5m fires after `for: 2m`.
+  - interval: 30s
+    input_series:
+      - series: 'http_requests_total{job="payments",code="200"}'
+        values: '0+240x200'
+      - series: 'http_requests_total{job="payments",code="500"}'
+        values: '0+60x200'
+    alert_rule_test:
+      - eval_time: 1h5m
+        alertname: PaymentsAvailabilityErrorBudgetBurnFast1h
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              slo: payments-availability
+              burn_rate: "14.4"
+            exp_annotations:
+              summary: "Payments availability burning budget 14.4x (1h/5m)"
+              description: |
+                The error rate over the last 1h and 5m exceeds 14.4x the 99.9% SLO budget.
+                At this rate the 30d budget would be consumed in ~2 days.
+                Runbook: https://runbooks.example.com/payments-availability

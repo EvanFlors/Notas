@@ -1,0 +1,33 @@
+receivers:
+  # Agent generates its own synthetic traces (no SDK needed) so it has data to export.
+  # In real life this would be an OTLP receiver from local SDKs.
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:14317
+      http:
+        endpoint: 0.0.0.0:14318
+
+processors:
+  batch:
+    send_batch_size: 100
+    timeout: 1s
+
+exporters:
+  otlp/gateway:
+    endpoint: gateway:4317
+    tls:
+      insecure: false
+      ca_file: /etc/otel/certs/ca.crt
+      server_name_override: gateway
+
+  # Secondary: synthesize spans on tick for demo purposes.
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/gateway, debug]

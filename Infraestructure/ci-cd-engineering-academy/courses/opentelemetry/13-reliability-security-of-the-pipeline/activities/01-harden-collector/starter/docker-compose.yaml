@@ -1,0 +1,28 @@
+services:
+  gateway:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    container_name: otel13-act01-gateway
+    command: ["--config=/etc/otel/config.yaml"]
+    environment:
+      - AGENT_TOKEN=dev-bearer-token-not-a-secret
+    volumes:
+      - /tmp/otel13-act01/collector.yaml:/etc/otel/config.yaml:ro
+      - /tmp/otel13-act01/certs:/etc/otel/certs:ro
+      - /tmp/otel13-act01/queue:/var/lib/otelcol/queue
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8888:8888"
+    networks: [otel13act01]
+
+  backend:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    container_name: otel13-act01-backend
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./backend.yaml:/etc/otel/config.yaml:ro
+    networks: [otel13act01]
+
+networks:
+  otel13act01:
+    driver: bridge

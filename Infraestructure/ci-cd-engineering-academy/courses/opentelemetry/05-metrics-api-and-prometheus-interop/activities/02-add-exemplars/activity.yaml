@@ -1,0 +1,29 @@
+id: otel-05-02-add-exemplars
+title: Add exemplars linking a histogram to its originating trace
+technology: opentelemetry
+module: 05-metrics-api-and-prometheus-interop
+level: intermediate
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - otel-05-01-migrate-prometheus-client-to-otel
+  - otel-04-instrumenting-python-traces
+
+objectives:
+  - Configurar un TracerProvider y envolver la grabación de un Histogram dentro de un span activo
+  - Verificar que los exemplars generados contienen trace_id y span_id
+  - Reflexionar sobre qué debe configurar Prometheus y Grafana para explotarlos
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,29 @@
+id: obs-01-01-when-not-prometheus
+title: Análisis — cuándo Prometheus NO es la respuesta correcta
+technology: prometheus-grafana
+module: 01-observability-pillars-and-pull-model
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites: []
+
+objectives:
+  - Decidir con criterio técnico si Prometheus encaja para 4 escenarios dados
+  - Justificar cada decisión en términos de pull vs push, cardinalidad, retención y topología de red
+  - Nombrar al menos una alternativa concreta cuando Prometheus no encaje
+  - Explicar el rol del Pushgateway como excepción documentada
+  - Producir un documento ANALYSIS.md con una sección por escenario más una síntesis final
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/obs-01-when-not"
+
+status: not-started

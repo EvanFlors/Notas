@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 10s
+  scrape_timeout: 5s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # TODO (student): add a scrape job named 'postgres' that targets postgres-exporter:9187.
+  # Required relabel_configs:
+  #   - set instance = "pg-main"
+  #   - add label env   = "lab"
+  #   - add label team  = "data"
+  # Required metric_relabel_configs:
+  #   - drop pg_stat_database_* series where datname is template0, template1 or postgres

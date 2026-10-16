@@ -1,0 +1,29 @@
+id: helm-04-01-refactor-template-with-helpers
+title: Refactor de chart a _helpers.tpl canonico
+technology: helm
+module: 04-templating-deep
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - helm-03-chart-anatomy
+
+objectives:
+  - Definir en _helpers.tpl los seis helpers estandar de Helm
+  - Reemplazar duplicacion de labels con include | nindent
+  - Mantener selectorLabels como subset inmutable de labels
+  - Validar que helm template renderiza sin error y con labels completas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/refactor-helpers"
+
+status: not-started

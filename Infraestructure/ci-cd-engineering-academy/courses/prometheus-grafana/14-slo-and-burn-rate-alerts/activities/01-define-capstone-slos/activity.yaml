@@ -1,0 +1,31 @@
+id: obs-14-01-define-capstone-slos
+title: Define los SLOs del capstone (ingredientes + MWMBR a mano)
+technology: prometheus-grafana
+module: 14-slo-and-burn-rate-alerts
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - obs-09-alertmanager-and-alert-design
+  - obs-10-promql-advanced-recording-rules-cardinality
+  - obs-12-prometheus-operator-and-kube-prometheus-stack
+
+objectives:
+  - Enunciar un SLO bien formado (SLI, objetivo, ventana, politica de budget)
+  - Escribir recording rules de ingredientes SLO para 5 ventanas
+  - Escribir alertas MWMBR para severidades page y ticket
+  - Validar las reglas con promtool check rules y promtool test rules
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

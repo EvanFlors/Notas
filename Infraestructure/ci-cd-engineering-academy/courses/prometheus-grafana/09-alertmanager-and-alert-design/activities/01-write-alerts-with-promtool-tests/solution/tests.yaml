@@ -1,0 +1,80 @@
+rule_files:
+  - alerts.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # Caso 1: HighErrorRate dispara con ratio ~16% sostenido.
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="api",status="500"}'
+        values: '0+10x30'
+      - series: 'http_requests_total{job="api",status="200"}'
+        values: '0+50x30'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: HighErrorRate
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: HighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              team: platform
+            exp_annotations:
+              summary: "API 5xx rate >5% (10m)"
+              description: "La tasa de errores 5xx del job api supera 5% durante 10m."
+              runbook_url: "https://runbooks.example.com/api/high-error-rate"
+
+  # Caso 2: trafico sano, no dispara ninguna de las dos.
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="api",status="200"}'
+        values: '0+100x30'
+      - series: 'http_requests_total{job="api",status="500"}'
+        values: '0+1x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: HighErrorRate
+        exp_alerts: []
+
+  # Caso 3: HighLatencyP95 dispara (90% del trafico en bucket le=1).
+  - interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_bucket{job="api",le="0.1"}'
+        values: '0+1x30'
+      - series: 'http_request_duration_seconds_bucket{job="api",le="0.5"}'
+        values: '0+1x30'
+      - series: 'http_request_duration_seconds_bucket{job="api",le="1"}'
+        values: '0+10x30'
+      - series: 'http_request_duration_seconds_bucket{job="api",le="+Inf"}'
+        values: '0+10x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HighLatencyP95
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              team: platform
+            exp_annotations:
+              summary: "API p95 latency >500ms (5m)"
+              description: "p95 de http_request_duration_seconds del job api supera 500ms."
+              runbook_url: "https://runbooks.example.com/api/high-latency"
+
+  # Caso 4: AbsentTarget dispara cuando up{job="api"} nunca aparece.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="other"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: AbsentTarget
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              team: platform
+              job: api
+            exp_annotations:
+              summary: "No hay targets scrapeados para job=api"
+              description: "Prometheus no esta scrapeando ningun target del job api."
+              runbook_url: "https://runbooks.example.com/api/absent-target"

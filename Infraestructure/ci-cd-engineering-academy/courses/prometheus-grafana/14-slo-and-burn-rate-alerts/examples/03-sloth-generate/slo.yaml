@@ -1,0 +1,26 @@
+version: "prometheus/v1"
+service: "payments"
+labels:
+  owner: "payments-team"
+  tier: "1"
+slos:
+  - name: "availability"
+    objective: 99.9
+    description: "99.9% of HTTP requests complete without a 5xx response."
+    sli:
+      events:
+        error_query: sum(rate(http_requests_total{job="payments",code=~"5.."}[{{.window}}]))
+        total_query: sum(rate(http_requests_total{job="payments"}[{{.window}}]))
+    alerting:
+      name: PaymentsAvailabilityErrorBudgetBurn
+      labels:
+        slo: payments-availability
+      annotations:
+        summary: "Payments availability SLO burn-rate"
+        runbook: "https://runbooks.example.com/payments-availability"
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket

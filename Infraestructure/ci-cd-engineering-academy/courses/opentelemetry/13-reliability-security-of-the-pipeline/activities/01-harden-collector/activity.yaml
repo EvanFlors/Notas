@@ -1,0 +1,33 @@
+id: otel-13-01-harden-collector
+title: Endurecer un Collector gateway (siete controles)
+technology: opentelemetry
+module: 13-reliability-security-of-the-pipeline
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - otel-09-01-deploy-agent-gateway-in-kind
+  - otel-10-01-tune-sampling-for-capstone
+
+objectives:
+  - Habilitar TLS server-side en el receptor OTLP del gateway
+  - Exigir autenticacion Bearer en el receptor OTLP
+  - Configurar memory_limiter primero en la pipeline con dimensionado correcto
+  - Configurar batch tras memory_limiter con parametros productivos
+  - Habilitar sending_queue persistente en disco via file_storage extension
+  - Habilitar retry_on_failure con backoff
+  - Aplicar PII scrubbing con attributes processor (hash user.email, delete authorization)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

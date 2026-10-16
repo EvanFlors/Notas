@@ -1,0 +1,29 @@
+id: otel-03-02-ebpf-vs-sdk-tradeoffs
+title: Análisis — eBPF vs SDK, elegir estrategia por servicio
+technology: opentelemetry
+module: 03-api-sdk-and-instrumentation-strategies
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - otel-01-what-and-why-signals-and-maturity
+
+objectives:
+  - Decidir con criterio técnico la estrategia de instrumentación (manual / library / auto / eBPF / ninguna) para 4 servicios dados
+  - Justificar cada decisión en términos de madurez del SDK, acceso al código fuente, requisitos de dominio y permisos del nodo
+  - Producir un documento ANALYSIS.md con una sección por servicio más una síntesis final de 5 criterios
+  - Nombrar al menos una herramienta eBPF concreta (Pixie, Beyla, Hubble)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/otel-03-02"
+
+status: not-started

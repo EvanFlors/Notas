@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: telemetrygen
+  namespace: observability
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: telemetrygen
+          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.109.0
+          args:
+            - traces
+            - --otlp-endpoint=otel-gateway.observability.svc.cluster.local:4317
+            - --otlp-insecure
+            - --traces=100
+            - --service=demo-app

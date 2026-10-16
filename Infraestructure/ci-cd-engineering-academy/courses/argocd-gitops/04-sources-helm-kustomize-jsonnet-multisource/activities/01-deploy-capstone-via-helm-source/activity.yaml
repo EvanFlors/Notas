@@ -1,0 +1,31 @@
+id: argo-04-01-deploy-capstone-via-helm-source
+title: Desplegar un capstone vía Helm source en Argo CD
+technology: argocd-gitops
+module: 04-sources-helm-kustomize-jsonnet-multisource
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - argo-03-application-anatomy-sources-destinations-sync
+  - helm-basics
+
+objectives:
+  - Instalar Argo CD en un cluster kind local
+  - Escribir una Application que use un Helm source con valueFiles y parameters
+  - Verificar que Argo CD renderiza con helm template y aplica (no corre helm install)
+  - Comprobar que helm list no ve el release aplicado por Argo CD
+  - Modificar un valor via parameters y observar la reconciliación
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

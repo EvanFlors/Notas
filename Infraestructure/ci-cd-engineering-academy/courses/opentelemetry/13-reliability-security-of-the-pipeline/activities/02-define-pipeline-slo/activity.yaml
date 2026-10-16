@@ -1,0 +1,30 @@
+id: otel-13-02-define-pipeline-slo
+title: Definir SLOs del pipeline OTel y alertas que los operacionalizan
+technology: opentelemetry
+module: 13-reliability-security-of-the-pipeline
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - otel-13-01-harden-collector
+
+objectives:
+  - Articular SLIs medibles del Collector como sistema
+  - Definir SLOs cuantificados (uptime, latencia, tasa de drop)
+  - Calcular error budget mensual y su interpretacion operativa
+  - Escribir reglas Prometheus que disparan al consumir el budget
+  - Documentar un playbook de respuesta cuando se agota el budget
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

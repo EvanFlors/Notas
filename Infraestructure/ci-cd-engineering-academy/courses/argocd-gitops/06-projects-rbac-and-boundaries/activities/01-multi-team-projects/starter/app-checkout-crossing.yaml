@@ -1,0 +1,16 @@
+# Belongs to project team-checkout but tries to deploy into payments-prod.
+# Argo CD must reject it when projects are correctly scoped.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: checkout-crossing
+  namespace: argocd
+spec:
+  project: team-checkout
+  source:
+    repoURL: https://github.com/argoproj/argocd-example-apps.git
+    path: guestbook
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: payments-prod       # intentional violation

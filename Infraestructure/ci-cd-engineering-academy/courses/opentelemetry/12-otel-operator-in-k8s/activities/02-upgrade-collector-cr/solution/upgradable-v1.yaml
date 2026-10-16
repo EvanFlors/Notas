@@ -1,0 +1,31 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: upgradable
+  namespace: observability
+spec:
+  mode: deployment
+  replicas: 1
+  image: otel/opentelemetry-collector-contrib:0.111.0   # upgraded from 0.110.0
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc: {endpoint: 0.0.0.0:4317}
+          http: {endpoint: 0.0.0.0:4318}
+    processors:
+      batch: {}
+      attributes/env:
+        actions:
+          - key: deployment.environment
+            value: lab
+            action: insert
+    exporters:
+      debug:
+        verbosity: basic
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [attributes/env, batch]
+          exporters: [debug]

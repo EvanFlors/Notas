@@ -1,0 +1,18 @@
+# Reference output from `sloth generate -i slo.yaml` v0.11.0 (abridged head).
+# Full generation produces ~17 rules per SLO (recordings for every window + 2 MWMBR alerts).
+# See ../../examples/03-sloth-generate/expected-rules.yaml for an annotated equivalent.
+#
+# Students should produce their own by running sloth; this file is a reference marker only.
+groups:
+  - name: sloth-slo-sli-recordings-payments-availability
+    rules:
+      - record: slo:sli_error:ratio_rate5m
+        expr: |
+          (sum(rate(http_requests_total{job="payments",code=~"5.."}[5m])))
+          /
+          (sum(rate(http_requests_total{job="payments"}[5m])))
+        labels:
+          sloth_id: payments-availability
+          sloth_service: payments
+          sloth_slo: availability
+          sloth_window: 5m

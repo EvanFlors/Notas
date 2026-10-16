@@ -1,0 +1,27 @@
+services:
+  gateway:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    container_name: otel13-ex01-gateway
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - /tmp/otel13-ex01/gateway.yaml:/etc/otel/config.yaml:ro
+      - /tmp/otel13-ex01/certs:/etc/otel/certs:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8888:8888"
+    networks: [otel13ex01]
+
+  agent:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    container_name: otel13-ex01-agent
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - /tmp/otel13-ex01/agent.yaml:/etc/otel/config.yaml:ro
+      - /tmp/otel13-ex01/certs:/etc/otel/certs:ro
+    depends_on: [gateway]
+    networks: [otel13ex01]
+
+networks:
+  otel13ex01:
+    driver: bridge

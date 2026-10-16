@@ -1,0 +1,30 @@
+id: argo-06-01-multi-team-projects
+title: Multi-team AppProjects with verified boundaries
+technology: argocd-gitops
+module: 06-projects-rbac-and-boundaries
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - argo-03-application-anatomy-sources-destinations-sync
+  - k8s-12-rbac-serviceaccounts-admission-policy
+
+objectives:
+  - Build two AppProjects with scoped sourceRepos, destinations and whitelists
+  - Demonstrate a cross-tenant Application being rejected with 'not permitted in project'
+  - Differentiate an AppProject boundary from a native K8s RoleBinding
+  - Audit a project's permission surface
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

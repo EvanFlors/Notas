@@ -1,0 +1,31 @@
+# TODO (student): AlertmanagerConfig 'payments' en namespace 'payments'.
+# Debe cumplir:
+#   - labels: release=kps
+#   - route.receiver default = payments-slack
+#   - subrutas por 'severity': critical -> payments-pager, warning -> payments-slack
+#   - 2 receivers: payments-pager (pagerdutyConfigs) y payments-slack (slackConfigs)
+#   - secrets referenciados por name+key, NUNCA en claro
+#
+# apiVersion: monitoring.coreos.com/v1alpha1
+# kind: AlertmanagerConfig
+# metadata:
+#   name: payments
+#   namespace: payments
+#   labels: { release: kps }
+# spec:
+#   route:
+#     receiver: payments-slack
+#     groupBy: [alertname, namespace]
+#     routes:
+#       - matchers: [{ name: severity, value: critical }]
+#         receiver: payments-pager
+#       - matchers: [{ name: severity, value: warning }]
+#         receiver: payments-slack
+#   receivers:
+#     - name: payments-pager
+#       pagerdutyConfigs:
+#         - routingKey: { name: pd-integration, key: routingKey }
+#     - name: payments-slack
+#       slackConfigs:
+#         - apiURL: { name: slack-webhook, key: url }
+#           channel: "#payments-warn"

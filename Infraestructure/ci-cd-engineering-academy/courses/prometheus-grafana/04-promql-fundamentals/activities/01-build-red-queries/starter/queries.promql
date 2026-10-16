@@ -1,0 +1,15 @@
+# RED trio para el servicio http (job="api"). Rellena los TODO.
+# Métricas disponibles:
+#   http_requests_total                    (counter) con labels job, method, path, code
+#   http_request_duration_seconds_bucket   (histogram) con labels job, le
+
+# --- RATE: requests por segundo agregado por job ---
+# TODO: sum by (<...>) ( rate(<...>[<...>]) )
+
+# --- ERRORS: ratio de 5xx sobre total, agrupado por job ---
+# TODO: ( sum by (job) ( rate(http_requests_total{code=~"<...>"}[5m]) ) )
+#       /
+#       ( sum by (job) ( rate(http_requests_total[5m]) ) )
+
+# --- DURATION: percentil 95 por job ---
+# TODO: histogram_quantile(0.95, sum by (<...>, <...>) ( rate(http_request_duration_seconds_bucket[5m]) ))

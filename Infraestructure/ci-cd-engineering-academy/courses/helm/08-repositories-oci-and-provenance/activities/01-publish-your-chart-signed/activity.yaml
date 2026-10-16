@@ -1,0 +1,30 @@
+id: helm-08-01-publish-your-chart-signed
+title: Publica tu chart firmado
+technology: helm
+module: 08-repositories-oci-and-provenance
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - helm-03-chart-anatomy
+
+objectives:
+  - Empaquetar un chart propio con version SemVer valida
+  - Publicar el chart a un registry OCI (local o GHCR) con helm push
+  - Firmar el chart por digest con cosign (local keypair o keyless OIDC)
+  - Verificar la firma con la clave correcta y rechazar con una incorrecta
+  - Explicar por que la firma va al digest y no al tag
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

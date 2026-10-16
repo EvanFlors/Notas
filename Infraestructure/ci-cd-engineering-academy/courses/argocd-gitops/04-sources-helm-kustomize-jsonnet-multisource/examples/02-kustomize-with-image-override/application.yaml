@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kustomize-example
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: api-dev
+    server: https://kubernetes.default.svc
+
+  source:
+    repoURL: https://github.com/acme/infra      # TODO: replace with your repo
+    path: courses/argocd-gitops/04-sources-helm-kustomize-jsonnet-multisource/examples/02-kustomize-with-image-override/overlays/dev
+    targetRevision: main
+
+    kustomize:
+      namePrefix: dev-
+      commonLabels:
+        app.kubernetes.io/env: dev
+        # WARNING: adding to commonLabels after the Deployment exists can break
+        # the (immutable) selector. Only safe to set before first apply.
+      commonAnnotations:
+        owner: platform
+      images:
+        - name: ghcr.io/acme/api
+          newName: ghcr.io/acme/api
+          newTag: "1.4.2"
+      replicas:
+        - name: api
+          count: 2
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

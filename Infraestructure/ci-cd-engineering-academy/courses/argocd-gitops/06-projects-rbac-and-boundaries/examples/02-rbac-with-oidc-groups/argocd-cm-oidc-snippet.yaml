@@ -1,0 +1,30 @@
+# ILLUSTRATIVE ONLY. Do NOT apply this file unless you really have a Keycloak
+# realm reachable at the URL below and the client secret stored as a Kubernetes
+# secret. Applying it with a bogus issuer will break the Argo CD UI login flow.
+#
+# This snippet shows HOW an argocd-cm entry looks when wiring OIDC to Argo CD.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  url: https://argocd.acme.example
+
+  # Direct OIDC (no Dex). Alternative: use dex.config to delegate to Dex connectors.
+  oidc.config: |
+    name: Keycloak
+    issuer: https://keycloak.acme.example/realms/acme
+    clientID: argocd
+    clientSecret: $oidc.keycloak.clientSecret   # references secret argocd-secret key
+    requestedScopes:
+      - openid
+      - profile
+      - email
+      - groups
+    requestedIDTokenClaims:
+      groups:
+        essential: true

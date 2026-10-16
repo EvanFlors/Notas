@@ -1,0 +1,28 @@
+id: otel-10-02-cost-estimate-head-vs-tail
+title: Cost estimate — head vs tail sampling
+technology: opentelemetry
+module: 10-sampling-head-tail-probabilistic-parent-based
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - otel-10-01-tune-sampling-for-capstone
+
+objectives:
+  - Compute retained spans/s, GB/day and $/day for three sampling strategies
+  - Size Collector memory for tail-based scenarios
+  - Recommend a strategy justified by cost, observability and operational risk
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: manual
+  command: "bash tests/validate.sh starter/analysis.md"
+
+status: not-started

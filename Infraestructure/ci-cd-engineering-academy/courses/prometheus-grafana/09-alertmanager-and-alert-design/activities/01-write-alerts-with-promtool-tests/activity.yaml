@@ -1,0 +1,28 @@
+id: obs-09-01-write-alerts-with-promtool-tests
+title: Escribir alertas con tests promtool
+technology: prometheus-grafana
+module: 09-alertmanager-and-alert-design
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-04-promql-fundamentals
+
+objectives:
+  - Escribir 3 reglas de alerta Prometheus con for/labels/annotations correctos
+  - Escribir tests promtool que cubran disparo y no-disparo
+  - Validar con promtool check rules y promtool test rules sin errores
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/obs-09-01"
+
+status: not-started

@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: podinfo-multi
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: podinfo
+    server: https://kubernetes.default.svc
+
+  sources:
+    - repoURL: https://stefanprodan.github.io/podinfo
+      chart: podinfo
+      targetRevision: 6.7.1              # pinned SemVer — immutable per release
+      helm:
+        releaseName: podinfo
+        valueFiles:
+          - $values/apps/podinfo/values.yaml
+
+    - repoURL: https://github.com/acme/infra
+      targetRevision: main               # mutable — promotion happens by merging here
+      ref: values
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

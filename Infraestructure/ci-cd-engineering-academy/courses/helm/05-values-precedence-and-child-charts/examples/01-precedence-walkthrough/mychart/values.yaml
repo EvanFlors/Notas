@@ -1,0 +1,3 @@
+replicas: 1
+env: dev
+imageTag: "0.0.0"

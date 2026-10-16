@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bg-demo-active
+spec:
+  type: ClusterIP
+  selector:
+    app: bg-demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bg-demo-preview
+spec:
+  type: ClusterIP
+  selector:
+    app: bg-demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

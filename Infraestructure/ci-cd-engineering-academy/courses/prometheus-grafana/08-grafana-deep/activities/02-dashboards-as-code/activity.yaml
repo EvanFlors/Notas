@@ -1,0 +1,28 @@
+id: obs-08-02-dashboards-as-code
+title: Convertir un dashboard JSON a grafonnet (jsonnet)
+technology: prometheus-grafana
+module: 08-grafana-deep
+level: intermediate
+type: independent
+
+estimated_minutes: 120
+
+prerequisites:
+  - obs-08-01-build-capstone-dashboard
+
+objectives:
+  - Escribir el dashboard RED como código jsonnet (grafonnet-style).
+  - Generar el JSON renderizado con jsonnet y versionarlo junto al código.
+  - Mantener los invariantes (uid, 6 paneles, variables) tras el render.
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

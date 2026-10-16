@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-agent-config
+  namespace: observability
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc: { endpoint: 0.0.0.0:4317 }
+          http: { endpoint: 0.0.0.0:4318 }
+    processors:
+      memory_limiter: { check_interval: 2s, limit_mib: 200, spike_limit_mib: 50 }
+      batch:          { send_batch_size: 512, timeout: 2s }
+    exporters:
+      otlp:
+        endpoint: otel-gateway.observability.svc.cluster.local:4317
+        tls: { insecure: true }
+        sending_queue: { enabled: true, queue_size: 1000 }
+        retry_on_failure: { enabled: true }
+    extensions:
+      health_check: { endpoint: 0.0.0.0:13133 }
+    service:
+      extensions: [health_check]
+      pipelines:
+        traces:   { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlp] }
+        metrics:  { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlp] }
+        logs:     { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlp] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-agent
+  namespace: observability
+spec:
+  selector: { app: otel-agent }
+  ports:
+    - { name: otlp-grpc, port: 4317, targetPort: 4317 }
+    - { name: otlp-http, port: 4318, targetPort: 4318 }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: otel-agent
+  namespace: observability
+spec:
+  selector: { matchLabels: { app: otel-agent } }
+  template:
+    metadata: { labels: { app: otel-agent } }
+    spec:
+      tolerations: [ { operator: Exists } ]
+      containers:
+        - name: otelcol
+          image: otel/opentelemetry-collector-contrib:0.109.0
+          args: ["--config=/etc/otelcol/config.yaml"]
+          ports:
+            - { containerPort: 4317, name: otlp-grpc }
+            - { containerPort: 4318, name: otlp-http }
+            - { containerPort: 13133, name: health }
+          volumeMounts:
+            - { name: config, mountPath: /etc/otelcol }
+          readinessProbe: { httpGet: { path: /, port: 13133 }, periodSeconds: 5 }
+          livenessProbe:  { httpGet: { path: /, port: 13133 }, initialDelaySeconds: 10 }
+          resources:
+            requests: { cpu: 50m,  memory: 128Mi }
+            limits:   { cpu: 500m, memory: 300Mi }
+      volumes:
+        - name: config
+          configMap: { name: otel-agent-config }

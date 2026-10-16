@@ -1,0 +1,4 @@
+# STARTER — faltan los dos Services. Instrucciones en el README (paso 3).
+# Debes producir dos documentos YAML: capstone-stable y capstone-canary.
+# Ambos ClusterIP, selector { app: capstone }, port 80 -> targetPort http.
+---

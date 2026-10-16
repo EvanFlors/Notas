@@ -1,0 +1,14 @@
+# USD. Reference prices; same scale as example 03.
+metrics_price_per_1k_series_month:
+  gold: 0.80
+  silver: 0.50
+  bronze: 0.20
+
+logs_price_per_gb_ingested:
+  gold: 0.80
+  silver: 0.50
+  bronze: 0.20
+
+traces_price_per_1m_spans: 0.50
+
+egress_price_per_gb: 0.02

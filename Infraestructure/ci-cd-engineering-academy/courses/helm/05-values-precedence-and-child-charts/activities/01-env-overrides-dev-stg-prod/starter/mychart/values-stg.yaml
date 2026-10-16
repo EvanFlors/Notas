@@ -1,0 +1,5 @@
+# TODO: staging overrides.
+# Expected:
+#   replicas: 2
+#   logLevel: info
+#   resources.requests.memory: 128Mi

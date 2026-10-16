@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+data:
+  replicas: {{ .Values.replicas | quote }}
+  env: {{ .Values.env | quote }}
+  imageTag: {{ .Values.imageTag | quote }}

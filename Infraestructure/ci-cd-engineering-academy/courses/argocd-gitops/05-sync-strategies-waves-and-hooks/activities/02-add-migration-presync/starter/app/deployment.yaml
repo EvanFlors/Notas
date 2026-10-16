@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: presync-lab
+  labels:
+    app: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          # Nota: en el escenario, este container asume que el schema ya está migrado.
+          # Si no lo está, fallaría en producción (readinessProbe custom, etc.).
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits:   {cpu: 100m, memory: 64Mi}

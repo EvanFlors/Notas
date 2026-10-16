@@ -1,0 +1,18 @@
+# This Application INTENTIONALLY violates the team-payments boundary.
+# It belongs to project 'team-payments' but tries to deploy into 'checkout-prod'.
+# Argo CD must reject it with:
+#   "application destination { ... checkout-prod } is not permitted in project 'team-payments'"
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payments-crossing-boundary
+  namespace: argocd
+spec:
+  project: team-payments
+  source:
+    repoURL: https://github.com/argoproj/argocd-example-apps.git
+    path: guestbook
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: checkout-prod       # <-- NOT in team-payments.destinations

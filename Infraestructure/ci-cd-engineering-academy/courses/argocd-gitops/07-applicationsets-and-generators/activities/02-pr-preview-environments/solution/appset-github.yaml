@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: myapp-pr-previews
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - pullRequest:
+        github:
+          owner: acme
+          repo: myapp
+          tokenRef:
+            secretName: github-token
+            key: token
+          labels: ["preview"]
+        requeueAfterSeconds: 60
+  template:
+    metadata:
+      name: 'myapp-pr-{{.number}}'
+      labels:
+        generated-by: pr-preview
+        pr: '{{.number}}'
+    spec:
+      project: previews
+      source:
+        repoURL: https://github.com/acme/myapp.git
+        targetRevision: '{{.head_sha}}'
+        path: deploy/overlays/preview
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'myapp-pr-{{.number}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

@@ -1,0 +1,6 @@
+image:
+  repository: nginx
+  tag: "1.25-alpine"
+replicaCount: 1
+# Flip this to a non-existent tag to force a failing upgrade.
+broken: false

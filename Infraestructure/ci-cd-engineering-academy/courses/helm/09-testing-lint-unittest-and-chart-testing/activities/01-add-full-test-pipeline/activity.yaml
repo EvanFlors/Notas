@@ -1,0 +1,30 @@
+id: helm-09-01-add-full-test-pipeline
+title: Añade un pipeline completo de testing a un chart
+technology: helm
+module: 09-testing-lint-unittest-and-chart-testing
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - helm-04-templating-deep
+  - helm-06-dependencies-and-umbrella-charts
+
+objectives:
+  - Añadir tests de helm-unittest a un chart existente
+  - Escribir ct.yaml razonable para chart-testing
+  - Construir un workflow GHA con 4 capas (lint, template, unittest, ct install)
+  - Diseñar y justificar una matriz de versiones de Kubernetes
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

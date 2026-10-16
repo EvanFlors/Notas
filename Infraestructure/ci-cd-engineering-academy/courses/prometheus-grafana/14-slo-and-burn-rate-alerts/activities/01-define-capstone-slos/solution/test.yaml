@@ -1,0 +1,36 @@
+---
+rule_files:
+  - rules.yaml
+
+evaluation_interval: 30s
+
+tests:
+  - interval: 30s
+    input_series:
+      - series: 'http_requests_total{job="payments",code="200"}'
+        values: '0+300x200'
+      - series: 'http_requests_total{job="payments",code="500"}'
+        values: '0+0x200'
+    alert_rule_test:
+      - eval_time: 1h5m
+        alertname: PaymentsAvailabilityErrorBudgetBurnFast1h
+        exp_alerts: []
+
+  - interval: 30s
+    input_series:
+      - series: 'http_requests_total{job="payments",code="200"}'
+        values: '0+240x200'
+      - series: 'http_requests_total{job="payments",code="500"}'
+        values: '0+60x200'
+    alert_rule_test:
+      - eval_time: 1h5m
+        alertname: PaymentsAvailabilityErrorBudgetBurnFast1h
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              slo: payments-availability
+              burn_rate: "14.4"
+            exp_annotations:
+              summary: "Payments availability burning budget 14.4x (1h/5m)"
+              description: "At 14.4x burn, 30d budget would be gone in ~2 days."
+              runbook: "https://runbooks.example.com/payments-availability"

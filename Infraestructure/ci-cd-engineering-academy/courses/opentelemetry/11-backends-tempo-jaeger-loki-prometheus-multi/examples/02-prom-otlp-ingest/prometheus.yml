@@ -1,0 +1,6 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# No scrape jobs: we rely entirely on OTLP ingest via /api/v1/otlp.
+scrape_configs: []

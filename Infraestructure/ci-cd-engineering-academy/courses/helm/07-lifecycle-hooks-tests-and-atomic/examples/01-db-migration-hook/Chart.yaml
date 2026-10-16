@@ -1,0 +1,6 @@
+apiVersion: v2
+name: migration-hook-demo
+description: Minimal chart demonstrating a pre-install/pre-upgrade Job hook for schema migrations.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

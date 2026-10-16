@@ -1,0 +1,30 @@
+id: obs-15-01-platform-contract-adr
+title: Platform Observability Contract (ADR)
+technology: prometheus-grafana
+module: 15-platform-dashboards-and-alerts-as-code-governance
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - obs-08-grafana-deep
+  - obs-12-prometheus-operator-and-kube-prometheus-stack
+  - obs-14-slo-and-burn-rate-alerts
+
+objectives:
+  - Redactar un ADR de contrato de observabilidad de plataforma con estructura estándar
+  - Definir labels obligatorios, naming, tiers, retention, routing y presupuesto justificados
+  - Documentar al menos 2 alternativas rechazadas con su razonamiento
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,30 @@
+id: obs-11-01-add-vm-as-long-term-store
+title: Añadir VictoriaMetrics como long-term store
+technology: prometheus-grafana
+module: 11-scale-and-long-term-storage
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-10-01-define-recording-rules-for-capstone
+
+objectives:
+  - Levantar un stack Prometheus + VictoriaMetrics + node_exporter con docker compose
+  - Añadir remote_write a prometheus.yml apuntando a VictoriaMetrics
+  - Filtrar con write_relabel_configs el ruido (go_*, process_*)
+  - Verificar con curl que VictoriaMetrics sirve las series escritas por Prometheus
+  - Argumentar qué pasa si VictoriaMetrics cae y vuelve
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/obs11-vm"
+
+status: not-started

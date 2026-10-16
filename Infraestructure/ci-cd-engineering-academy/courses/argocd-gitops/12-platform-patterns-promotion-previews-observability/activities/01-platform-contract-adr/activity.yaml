@@ -1,0 +1,32 @@
+id: argo-12-01-platform-contract-adr
+title: ADR del contrato GitOps de plataforma
+technology: argocd-gitops
+module: 12-platform-patterns-promotion-previews-observability
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - argo-07-01-env-per-folder-appset
+  - argo-09-02-tradeoffs-adr
+  - argo-11-01-harden-argocd-install
+
+objectives:
+  - Elegir y justificar una estrategia de promoción (branch, folder/overlay, image updater) para un escenario dado
+  - Definir el contrato de PR previews (nombres, TTL, quotas, limpieza)
+  - Fijar la política de drift reconciliation por ambiente
+  - Especificar la observabilidad mínima (métricas, alertas, dashboards)
+  - Documentar la integración con un IDP (Backstage o equivalente)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

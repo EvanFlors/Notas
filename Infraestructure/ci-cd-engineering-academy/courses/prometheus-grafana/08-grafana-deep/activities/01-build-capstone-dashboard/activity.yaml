@@ -1,0 +1,29 @@
+id: obs-08-01-build-capstone-dashboard
+title: Construir y provisionar el dashboard RED del capstone
+technology: prometheus-grafana
+module: 08-grafana-deep
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - obs-04-promql-fundamentals
+  - obs-05-exporters-and-relabeling
+
+objectives:
+  - Construir un dashboard RED con 6 paneles (time series, stat, gauge, heatmap, table, state timeline).
+  - Parametrizarlo con al menos una variable de tipo query y una custom.
+  - Provisionarlo desde YAML y verificar el badge Provisioned.
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

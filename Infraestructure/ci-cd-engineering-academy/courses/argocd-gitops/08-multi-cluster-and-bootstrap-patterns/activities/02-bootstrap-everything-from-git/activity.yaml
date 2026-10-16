@@ -1,0 +1,30 @@
+id: argo-08-02-bootstrap-everything-from-git
+title: "Bootstrap: cluster vacío a estado objetivo con un solo apply"
+technology: argocd-gitops
+module: 08-multi-cluster-and-bootstrap-patterns
+level: advanced
+type: guided-lab
+
+estimated_minutes: 120
+
+prerequisites:
+  - argo-02-install-and-first-application
+  - argo-07-applicationsets-and-generators
+
+objectives:
+  - Materializar un bootstrap repo con layout canónico (bootstrap, projects, addons, apps).
+  - Aplicar un root ApplicationSet y observar la cascada de Applications generadas.
+  - Registrar un segundo cluster declarativamente y desplegar en él desde el hub.
+  - Verificar convergencia con validación automatizada.
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

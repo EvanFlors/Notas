@@ -1,0 +1,12 @@
+rule_files:
+  - alerts.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # TODO: cubrir HighErrorRate (debe disparar en 11m con error ~16%)
+  # TODO: cubrir HighLatencyP95 (debe disparar; usa buckets le="0.1","0.5","1","+Inf")
+  # TODO: cubrir AbsentTarget (series up ausente)
+  - interval: 1m
+    input_series: []
+    alert_rule_test: []

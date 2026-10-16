@@ -1,0 +1,72 @@
+# Starter collector (self-hosted stack).
+# Do NOT modify this file. Create collector-datadog.yaml next to it.
+
+receivers:
+  otlp:
+    protocols:
+      grpc: {endpoint: 0.0.0.0:4317}
+      http: {endpoint: 0.0.0.0:4318}
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 25
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+  k8sattributes:
+    passthrough: false
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: prod
+        action: upsert
+  attributes/drop-high-card:
+    actions:
+      - key: user.id
+        action: delete
+      - key: request.id
+        action: delete
+      - key: order.id
+        action: delete
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    policies:
+      - name: errors-always
+        type: status_code
+        status_code: {status_codes: [ERROR]}
+      - name: default-sample
+        type: probabilistic
+        probabilistic: {sampling_percentage: 5}
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo.observability.svc:4317
+    tls: {ca_file: /etc/otel/tls/ca.crt}
+  prometheusremotewrite:
+    endpoint: https://prometheus.observability.svc/api/v1/write
+    tls: {ca_file: /etc/otel/tls/ca.crt}
+  otlphttp/loki:
+    endpoint: https://loki.observability.svc:3100/otlp
+    tls: {ca_file: /etc/otel/tls/ca.crt}
+
+extensions:
+  health_check: {}
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, resource, attributes/drop-high-card, tail_sampling, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, resource, batch]
+      exporters: [prometheusremotewrite]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, resource, attributes/drop-high-card, batch]
+      exporters: [otlphttp/loki]

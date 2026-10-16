@@ -1,0 +1,31 @@
+id: argo-09-01-capstone-secrets-via-eso
+title: Secretos del capstone vía External Secrets Operator
+technology: argocd-gitops
+module: 09-secrets-with-gitops
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - argo-03-application-anatomy-sources-destinations-sync
+  - k8s-05-config-secrets-env-volumes-basics
+
+objectives:
+  - Instalar External Secrets Operator en un cluster kind
+  - Declarar un ClusterSecretStore con el provider Fake (equivalente conceptual a AWS SM)
+  - Crear un ExternalSecret que materialice un Secret nativo con dos claves
+  - Rotar un valor en el provider y verificar la propagación automática
+  - Verificar que ningún valor en claro ha quedado en los manifiestos commiteables
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

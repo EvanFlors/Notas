@@ -1,0 +1,30 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - node-exporter
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    ports:
+      - "9100:9100"
+    # Nota: en Linux puro puedes aniadir
+    #   command: ["--path.rootfs=/host"]
+    #   volumes: ["/:/host:ro,rslave"]
+    # para medir el host real. En Docker Desktop ese mount falla,
+    # asi que lo dejamos fuera por portabilidad.

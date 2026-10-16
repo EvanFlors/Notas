@@ -1,0 +1,29 @@
+id: otel-10-01-tune-sampling-for-capstone
+title: Tune tail sampling for the capstone pipeline
+technology: opentelemetry
+module: 10-sampling-head-tail-probabilistic-parent-based
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - otel-08
+  - otel-09
+
+objectives:
+  - Configure tail_sampling with status_code, latency and probabilistic policies
+  - Verify output retains 100% errors + 100% slow + ~10% fast ok
+  - Explain why batch runs after tail_sampling in the pipeline
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/otel10-01"
+
+status: not-started

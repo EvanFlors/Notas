@@ -1,0 +1,6 @@
+apiVersion: v2
+name: include-vs-template
+description: Diferencia entre la accion `template` y la funcion `include`.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

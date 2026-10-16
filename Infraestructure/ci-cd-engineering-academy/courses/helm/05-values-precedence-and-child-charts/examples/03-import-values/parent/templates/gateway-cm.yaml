@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-gateway
+data:
+  gatewayName: {{ .Values.gatewayName | quote }}
+  backendPort: {{ .Values.backendService.port | quote }}
+  backendProtocol: {{ .Values.backendService.protocol | quote }}
+  healthPath: {{ .Values.healthPath | quote }}

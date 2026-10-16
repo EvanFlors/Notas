@@ -1,0 +1,28 @@
+id: obs-04-02-fix-empty-query
+title: Diagnose and fix five empty PromQL queries
+technology: prometheus-grafana
+module: 04-promql-fundamentals
+level: beginner
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - obs-04-01-build-red-queries
+
+objectives:
+  - Diagnosticar la causa de una query PromQL vacía
+  - Diferenciar entre nombre de métrica incorrecto, label errado, ventana muy corta y función aplicada al tipo equivocado
+  - Reescribir cada query de modo que devuelva al menos una serie sobre el fixture dado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

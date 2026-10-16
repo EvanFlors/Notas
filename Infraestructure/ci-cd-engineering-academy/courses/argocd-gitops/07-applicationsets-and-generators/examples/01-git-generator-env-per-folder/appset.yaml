@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: envs
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/acme/myapp-config.git
+        revision: HEAD
+        directories:
+          - path: envs/*
+          - path: envs/_shared
+            exclude: true
+  template:
+    metadata:
+      name: 'myapp-{{.path.basename}}'
+      labels:
+        generated-by: git-envs
+        env: '{{.path.basename}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/acme/myapp-config.git
+        targetRevision: HEAD
+        path: '{{.path.path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'myapp-{{.path.basename}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

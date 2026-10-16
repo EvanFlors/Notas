@@ -1,0 +1,9 @@
+image:
+  repository: busybox
+  tag: "1.36"
+replicaCount: 1
+migration:
+  # Simulated migration command. In real life this would be `alembic upgrade head`,
+  # `rails db:migrate`, `flyway migrate`, etc.
+  command: ["/bin/sh", "-c"]
+  args: ["echo 'running migration'; sleep 2; echo 'migration complete'"]

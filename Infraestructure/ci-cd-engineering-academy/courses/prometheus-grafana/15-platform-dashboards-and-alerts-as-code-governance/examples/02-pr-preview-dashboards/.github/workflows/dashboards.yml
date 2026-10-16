@@ -1,0 +1,130 @@
+name: Dashboards & Alerts CI
+
+on:
+  pull_request:
+    paths:
+      - 'dashboards/**'
+      - 'rules/**'
+      - 'tests/**'
+  push:
+    branches: [main]
+    paths:
+      - 'dashboards/**'
+      - 'rules/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  render-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jsonnet
+        run: |
+          curl -sL https://github.com/google/go-jsonnet/releases/download/v0.20.0/go-jsonnet_0.20.0_Linux_x86_64.tar.gz \
+            | tar -xz -C /usr/local/bin jsonnet
+
+      - name: Install promtool
+        run: |
+          curl -sL https://github.com/prometheus/prometheus/releases/download/v2.54.1/prometheus-2.54.1.linux-amd64.tar.gz \
+            | tar -xz --strip-components=1 -C /usr/local/bin prometheus-2.54.1.linux-amd64/promtool
+
+      - name: Install dashboard-linter
+        run: go install github.com/grafana/dashboard-linter@latest
+
+      - name: Render dashboards
+        run: |
+          mkdir -p out
+          for f in dashboards/*.jsonnet; do
+            name=$(basename "${f%.jsonnet}")
+            jsonnet "$f" > "out/${name}.json"
+          done
+          ls -la out/
+
+      - name: Lint dashboards
+        run: |
+          for f in out/*.json; do
+            dashboard-linter lint "$f" || echo "WARN: lint issues in $f"
+          done
+
+      - name: Check rules
+        run: promtool check rules rules/*.yaml
+
+      - name: Test rules
+        run: promtool test rules tests/*.yaml
+
+      - name: Upload rendered dashboards
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboards-rendered
+          path: out/
+
+  preview:
+    if: github.event_name == 'pull_request'
+    needs: render-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dashboards-rendered
+          path: out/
+
+      - name: Install grizzly
+        run: |
+          curl -sL https://github.com/grafana/grizzly/releases/download/v0.5.0/grr-linux-amd64 \
+            -o /usr/local/bin/grr
+          chmod +x /usr/local/bin/grr
+
+      - name: Apply to preview folder
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_PREVIEW_URL }}
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_PREVIEW_TOKEN }}
+        run: |
+          FOLDER="pr-${{ github.event.pull_request.number }}"
+          for f in out/*.json; do
+            grr apply "$f" --folder "$FOLDER"
+          done
+          echo "preview_folder=$FOLDER" >> "$GITHUB_ENV"
+
+      - name: Comment PR with preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const folder = process.env.preview_folder;
+            const url = `${process.env.GRAFANA_URL || 'https://grafana-preview.example.com'}/dashboards/f/${folder}`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Dashboards preview published to folder **${folder}**: ${url}`,
+            });
+
+  deploy-prod:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: render-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dashboards-rendered
+          path: out/
+
+      - name: Install grizzly
+        run: |
+          curl -sL https://github.com/grafana/grizzly/releases/download/v0.5.0/grr-linux-amd64 \
+            -o /usr/local/bin/grr
+          chmod +x /usr/local/bin/grr
+
+      - name: Apply to prod
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_PROD_URL }}
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_PROD_TOKEN }}
+        run: |
+          for f in out/*.json; do
+            grr apply "$f" --folder main
+          done

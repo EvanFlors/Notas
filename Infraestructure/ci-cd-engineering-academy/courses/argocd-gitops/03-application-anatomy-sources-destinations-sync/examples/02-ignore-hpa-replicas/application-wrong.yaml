@@ -1,0 +1,24 @@
+# WRONG: this Application will fight the HPA forever.
+# selfHeal: true + replicas managed by HPA + no ignoreDifferences = pingpong.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: capstone-api-dev-wrong
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/acme/capstone-infra.git
+    path: envs/dev/api
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: capstone-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+  # NO ignoreDifferences block -> drift pingpong with HPA.

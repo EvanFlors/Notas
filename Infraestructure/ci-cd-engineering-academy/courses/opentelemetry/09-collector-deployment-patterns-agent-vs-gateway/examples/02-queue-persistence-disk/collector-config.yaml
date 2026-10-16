@@ -1,0 +1,48 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 200
+    spike_limit_mib: 50
+  batch:
+    send_batch_size: 256
+    timeout: 2s
+
+extensions:
+  file_storage:
+    directory: /var/lib/otelcol/storage
+    timeout: 1s
+    compaction:
+      directory: /var/lib/otelcol/storage
+      on_start: true
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+exporters:
+  otlp:
+    endpoint: backend:4317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 10000
+      storage: file_storage
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 0   # never give up
+
+service:
+  extensions: [file_storage, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp]

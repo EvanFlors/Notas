@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+# TODO: usa los helpers de platform-lib
+# name: {{ `{{ include "platform.fullname" . }}` }}
+# labels: {{ `{{ include "platform.labels" . | nindent 4 }}` }}
+metadata:
+  name: TODO
+  labels:
+    TODO: TODO
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      # TODO: include "platform.selectorLabels" . | nindent 6
+      TODO: TODO
+  template:
+    metadata:
+      labels:
+        # TODO: include "platform.selectorLabels" . | nindent 8
+        TODO: TODO
+    spec:
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 80

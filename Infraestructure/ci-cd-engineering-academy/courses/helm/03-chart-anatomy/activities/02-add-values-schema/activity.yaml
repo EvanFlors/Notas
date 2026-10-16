@@ -1,0 +1,29 @@
+id: helm-03-02-add-values-schema
+title: Añadir values.schema.json al chart FastAPI
+technology: helm
+module: 03-chart-anatomy
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - helm-03-01-chart-for-fastapi
+
+objectives:
+  - Diseñar un values.schema.json draft-07 que valide el contrato del chart
+  - Hacer que inputs inválidos fallen antes del render
+  - Decidir dónde aplicar additionalProperties false y dónde no
+  - Verificar con casos felices y casos negativos
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,41 @@
+# Dual-emit transitional config.
+# Window: 2026-10-16 (start) -> 2026-12-11 (cutover).
+
+receivers:
+  otlp:
+    protocols:
+      grpc: {endpoint: 0.0.0.0:4317}
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 25
+  batch:
+    timeout: 5s
+
+  transform/dual-emit-http-method:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          # If the new attribute arrived, derive the old one for legacy dashboards.
+          - set(attributes["http.method"], attributes["http.request.method"]) where attributes["http.method"] == nil and attributes["http.request.method"] != nil
+          # If the old attribute arrived, derive the new one for new dashboards.
+          - set(attributes["http.request.method"], attributes["http.method"]) where attributes["http.request.method"] == nil and attributes["http.method"] != nil
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo.observability.svc:4317
+    tls: {ca_file: /etc/otel/tls/ca.crt}
+
+extensions:
+  health_check: {}
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/dual-emit-http-method, batch]
+      exporters: [otlp/tempo]

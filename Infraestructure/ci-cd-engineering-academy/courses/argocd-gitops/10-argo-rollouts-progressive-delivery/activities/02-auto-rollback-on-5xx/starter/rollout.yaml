@@ -1,0 +1,41 @@
+# STARTER — parte de tu solución de la actividad 01 (o copia solution/).
+# Añade al menos un step `analysis` que referencie 'error-rate-5xx' con los args
+# que tu AnalysisTemplate requiere.
+
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: capstone
+  labels:
+    app: capstone
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: capstone
+  template:
+    metadata:
+      labels:
+        app: capstone
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 2
+            failureThreshold: 3
+  strategy:
+    canary:
+      canaryService: capstone-canary
+      stableService: capstone-stable
+      steps:
+        - setWeight: 10
+        - pause: { duration: 2m }
+        # TODO: inserta aquí un step `analysis` referenciando templateName: error-rate-5xx
+        - setWeight: 50
+        - pause: {}
+        - setWeight: 100

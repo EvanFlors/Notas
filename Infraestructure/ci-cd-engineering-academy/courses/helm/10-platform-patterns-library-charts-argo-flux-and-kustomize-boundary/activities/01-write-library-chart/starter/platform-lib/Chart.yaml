@@ -1,0 +1,12 @@
+# TODO: completa este Chart.yaml como library chart.
+# Requisitos:
+#   apiVersion: v2
+#   name: platform-lib
+#   description: Shared helpers for internal platform charts.
+#   type: library     <-- clave
+#   version: 0.1.0
+apiVersion: v2
+name: platform-lib
+description: TODO
+type: TODO     # library | application
+version: 0.1.0

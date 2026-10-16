@@ -1,0 +1,64 @@
+{
+  "uid": "variables-demo",
+  "title": "Variables demo",
+  "tags": ["demo", "variables"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-30m", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prom-main"},
+        "query": "label_values(up, job)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".+"
+      },
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prom-main"},
+        "query": "label_values(up{job=~\"$job\"}, instance)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".+"
+      },
+      {
+        "name": "interval",
+        "type": "custom",
+        "query": "1m,5m,15m,1h",
+        "current": {"text": "5m", "value": "5m"},
+        "options": [
+          {"text": "1m", "value": "1m"},
+          {"text": "5m", "value": "5m", "selected": true},
+          {"text": "15m", "value": "15m"},
+          {"text": "1h", "value": "1h"}
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Scrape duration — $instance",
+      "repeat": "instance",
+      "repeatDirection": "v",
+      "datasource": {"type": "prometheus", "uid": "prom-main"},
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(prometheus_http_request_duration_seconds_sum{job=~\"$job\",instance=~\"$instance\"}[$interval]) / clamp_min(rate(prometheus_http_request_duration_seconds_count{job=~\"$job\",instance=~\"$instance\"}[$interval]), 1)",
+          "legendFormat": "{{instance}} {{handler}}"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
+    }
+  ]
+}

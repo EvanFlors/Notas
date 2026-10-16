@@ -1,0 +1,2 @@
+# Parent-only values. Note we do NOT redeclare backend.service.* here.
+gatewayName: edge

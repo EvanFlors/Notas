@@ -1,0 +1,24 @@
+image:
+  repository: nginx
+  tag: "1.27"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Empty list by default — containers should not render env.
+extraEnv: []
+
+ingress:
+  enabled: false
+  className: ""
+  hosts: null
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80

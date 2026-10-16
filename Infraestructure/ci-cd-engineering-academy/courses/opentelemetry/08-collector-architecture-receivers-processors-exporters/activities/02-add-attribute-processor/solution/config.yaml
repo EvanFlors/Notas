@@ -1,0 +1,48 @@
+# Solution — uses the `attributes` processor (simplest, most readable).
+# Alternative valid solutions: `resource` processor, or `transform` with OTTL.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+  attributes/env:
+    actions:
+      - key: deployment.environment
+        value: prod
+        action: upsert
+
+  batch:
+    send_batch_size: 512
+    timeout: 1s
+
+exporters:
+  debug:
+    verbosity: basic
+  file/traces:
+    path: /out/traces.jsonl
+  file/metrics:
+    path: /out/metrics.jsonl
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/env, batch]
+      exporters: [debug, file/traces]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/env, batch]
+      exporters: [debug, file/metrics]
+  telemetry:
+    logs:
+      level: info

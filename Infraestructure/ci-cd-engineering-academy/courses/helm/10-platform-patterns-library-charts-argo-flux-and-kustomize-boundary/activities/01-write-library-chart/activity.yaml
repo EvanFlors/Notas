@@ -1,0 +1,32 @@
+id: helm-10-01-write-library-chart
+title: Escribir un library chart y consumirlo desde una app
+technology: helm
+module: 10-platform-patterns-library-charts-argo-flux-and-kustomize-boundary
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - helm-07-lifecycle-hooks-tests-and-atomic
+  - helm-08-repositories-oci-and-provenance
+  - helm-09-testing-lint-unittest-and-chart-testing
+
+objectives:
+  - Declarar un chart como type library y entender por que no genera manifests
+  - Escribir helpers reusables (labels, fullname, selectorLabels) en _helpers.tpl
+  - Consumir el library chart desde un chart application via dependencies file://
+  - Ejecutar helm dependency build y helm template contra el consumer
+  - Verificar que los helpers compartidos aparecen en los manifests renderizados
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

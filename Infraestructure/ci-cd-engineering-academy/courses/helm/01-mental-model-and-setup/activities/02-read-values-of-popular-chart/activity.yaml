@@ -1,0 +1,29 @@
+id: helm-01-02-read-values-of-popular-chart
+title: Analizar values.yaml de 3 charts populares
+technology: helm
+module: 01-mental-model-and-setup
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - helm-01-01-install-helm-and-explore
+
+objectives:
+  - Localizar y descargar values.yaml de 3 charts populares distintos
+  - Documentar al menos 5 valores por chart con nombre tipo default y proposito
+  - Comparar convenciones de nombres y estilos entre los 3 charts
+  - Justificar por escrito por que values.yaml es la interfaz publica del chart
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/helm-01-values"
+
+status: not-started

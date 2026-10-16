@@ -1,0 +1,33 @@
+# Starter — complete the TODOs. See README.md section 5.3.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: podinfo
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: podinfo
+    server: https://kubernetes.default.svc
+
+  source:
+    repoURL: https://stefanprodan.github.io/podinfo
+    chart: podinfo
+    targetRevision: 6.7.1
+    helm:
+      releaseName: # TODO
+      values: |
+        # TODO: replicaCount: 2 and disable the HorizontalPodAutoscaler (hpa.enabled: false)
+      parameters:
+        - name: # TODO: image.tag
+          value: # TODO: pin to 6.7.1 (as string)
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

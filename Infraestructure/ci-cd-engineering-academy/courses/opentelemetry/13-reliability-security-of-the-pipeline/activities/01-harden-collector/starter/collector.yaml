@@ -1,0 +1,28 @@
+# STARTER: pipeline inseguro. Tu trabajo es endurecerlo (ver README.md).
+# NO edites este archivo en el repo; se copia a /tmp/otel13-act01/collector.yaml.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors: {}
+
+exporters:
+  otlp/backend:
+    endpoint: backend:4317
+    tls:
+      insecure: true
+
+service:
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: []
+      exporters: [otlp/backend]

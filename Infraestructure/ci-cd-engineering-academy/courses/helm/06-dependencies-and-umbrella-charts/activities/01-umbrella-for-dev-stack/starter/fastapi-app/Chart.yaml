@@ -1,0 +1,14 @@
+apiVersion: v2
+name: fastapi-app
+description: Minimal FastAPI chart (starter for helm-06-01)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+# TODO (actividad): declarar aquí la dependencia a bitnami/postgresql
+# dependencies:
+#   - name: postgresql
+#     version: "..."
+#     repository: ...
+#     alias: ...
+#     condition: ...

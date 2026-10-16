@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-checkout
+  namespace: argocd
+spec:
+  description: "Checkout team"
+  sourceRepos:
+    - https://github.com/acme-checkout/checkout-manifests.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: checkout-*
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: '*'
+    - group: apps
+      kind: '*'
+    - group: networking.k8s.io
+      kind: '*'
+  roles:
+    - name: checkout-admin
+      policies:
+        - p, proj:team-checkout:checkout-admin, applications, *, team-checkout/*, allow
+      groups:
+        - acme:checkout-team
+    - name: ci-syncer
+      policies:
+        - p, proj:team-checkout:ci-syncer, applications, get, team-checkout/*, allow
+        - p, proj:team-checkout:ci-syncer, applications, sync, team-checkout/*, allow
+      groups: []
+  orphanedResources:
+    warn: true

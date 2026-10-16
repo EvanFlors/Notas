@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fastapi-app
+description: "Refactor solution: labels y nombres via _helpers.tpl."
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

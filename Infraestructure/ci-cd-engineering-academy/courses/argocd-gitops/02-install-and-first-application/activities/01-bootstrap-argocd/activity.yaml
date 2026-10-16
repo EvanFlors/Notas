@@ -1,0 +1,29 @@
+id: argo-02-01-bootstrap-argocd
+title: Bootstrap de Argo CD en kind
+technology: argocd-gitops
+module: 02-install-and-first-application
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - argo-01-gitops-principles-and-argocd-vs-flux
+
+objectives:
+  - Crear un cluster kind limpio dedicado a Argo CD
+  - Instalar Argo CD con el manifest oficial pinneado
+  - Verificar los 6 Deployments y 1 StatefulSet esperados en el namespace argocd
+  - Extraer la contraseña inicial del admin desde su Secret
+
+paths:
+  instructions: README.md
+  tests: tests/
+  starter: starter/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

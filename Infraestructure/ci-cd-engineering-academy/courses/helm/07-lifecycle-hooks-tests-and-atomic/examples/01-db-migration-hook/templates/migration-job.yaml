@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "migration-hook-demo.fullname" . }}-migrate
+  labels:
+    {{- include "migration-hook-demo.labels" . | nindent 4 }}
+  annotations:
+    # This Job runs on first install AND on every upgrade, before the Deployment
+    # is applied. If it fails, the install/upgrade fails.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "migration-hook-demo.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command: {{ toJson .Values.migration.command }}
+          args: {{ toJson .Values.migration.args }}

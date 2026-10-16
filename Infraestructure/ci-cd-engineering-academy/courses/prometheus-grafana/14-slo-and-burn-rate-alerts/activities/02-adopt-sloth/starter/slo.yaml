@@ -1,0 +1,20 @@
+# TODO(student): fill in the spec. Reference:
+# ../../examples/03-sloth-generate/slo.yaml
+#
+# Minimal shape expected by Sloth v1:
+#   version: "prometheus/v1"
+#   service: <string>
+#   slos:
+#     - name: <string>
+#       objective: <float, 0-100>
+#       sli:
+#         events:
+#           error_query: <PromQL with {{.window}}>
+#           total_query: <PromQL with {{.window}}>
+#       alerting:
+#         name: <string>
+#         page_alert: {labels: {severity: page}}
+#         ticket_alert: {labels: {severity: ticket}}
+version: "prometheus/v1"
+service: "payments"
+slos: []

@@ -1,0 +1,23 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: obs0502-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-lifecycle
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: obs0502-node-exporter
+    ports:
+      - "9100:9100"
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: obs0502-blackbox
+    ports:
+      - "9115:9115"

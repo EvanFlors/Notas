@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: bg-demo
+  labels:
+    app: bg-demo
+spec:
+  replicas: 3
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: bg-demo
+  template:
+    metadata:
+      labels:
+        app: bg-demo
+    spec:
+      terminationGracePeriodSeconds: 20
+      containers:
+        - name: app
+          image: nginx:1.25
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits:   { cpu: 200m, memory: 128Mi }
+  strategy:
+    blueGreen:
+      activeService: bg-demo-active
+      previewService: bg-demo-preview
+      autoPromotionEnabled: false
+      scaleDownDelaySeconds: 60

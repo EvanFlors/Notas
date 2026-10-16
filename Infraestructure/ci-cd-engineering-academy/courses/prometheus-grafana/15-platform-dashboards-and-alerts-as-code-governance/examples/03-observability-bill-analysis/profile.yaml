@@ -1,0 +1,54 @@
+org: acme
+month_days: 30
+
+services:
+  - name: checkout
+    team: payments
+    env: prod
+    tier: gold
+    active_series: 25000
+    log_gb_day: 12.0
+    spans_per_sec: 200
+    sampling: 0.1
+  - name: orders
+    team: commerce
+    env: prod
+    tier: gold
+    active_series: 18000
+    log_gb_day: 8.0
+    spans_per_sec: 150
+    sampling: 0.1
+  - name: catalog
+    team: commerce
+    env: prod
+    tier: silver
+    active_series: 9000
+    log_gb_day: 3.0
+    spans_per_sec: 80
+    sampling: 0.05
+  - name: search
+    team: search
+    env: prod
+    tier: silver
+    active_series: 14000
+    log_gb_day: 5.5
+    spans_per_sec: 120
+    sampling: 0.05
+  - name: notifications
+    team: platform
+    env: prod
+    tier: silver
+    active_series: 6000
+    log_gb_day: 1.2
+    spans_per_sec: 30
+    sampling: 0.05
+  - name: debug-sandbox
+    team: platform
+    env: dev
+    tier: bronze
+    active_series: 4000
+    log_gb_day: 0.5
+    spans_per_sec: 5
+    sampling: 0.01
+
+egress_gb_month: 400

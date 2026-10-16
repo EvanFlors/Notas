@@ -1,0 +1,28 @@
+id: otel-02-02-attribute-review
+title: Attribute review for a service
+technology: opentelemetry
+module: 02-specification-semconv-and-context-propagation
+level: beginner
+type: independent
+
+estimated_minutes: 40
+
+prerequisites:
+  - otel-01-what-and-why-signals-and-maturity
+
+objectives:
+  - Clasificar atributos propuestos en RESOURCE, SEMCONV, CUSTOM_OK o REJECT
+  - Detectar PII y atributos de alta cardinalidad antes de produccion
+  - Producir una lista final auditada para el runbook del servicio
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

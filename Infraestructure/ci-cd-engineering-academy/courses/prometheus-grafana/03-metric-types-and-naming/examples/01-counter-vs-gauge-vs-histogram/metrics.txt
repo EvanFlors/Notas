@@ -1,0 +1,22 @@
+# HELP http_requests_total Total HTTP requests processed.
+# TYPE http_requests_total counter
+http_requests_total{method="GET",status="200"} 1027
+http_requests_total{method="POST",status="200"} 310
+http_requests_total{method="GET",status="500"} 4
+
+# HELP queue_depth Current number of items waiting in the processing queue.
+# TYPE queue_depth gauge
+queue_depth{queue="jobs"} 42
+queue_depth{queue="emails"} 7
+
+# HELP http_request_duration_seconds Request latency distribution in seconds.
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{le="0.05"} 24
+http_request_duration_seconds_bucket{le="0.1"} 120
+http_request_duration_seconds_bucket{le="0.25"} 310
+http_request_duration_seconds_bucket{le="0.5"} 430
+http_request_duration_seconds_bucket{le="1.0"} 980
+http_request_duration_seconds_bucket{le="2.5"} 1000
+http_request_duration_seconds_bucket{le="+Inf"} 1005
+http_request_duration_seconds_count 1005
+http_request_duration_seconds_sum 325.4

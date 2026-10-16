@@ -1,0 +1,44 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: ex01-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom-data:/prometheus
+    depends_on:
+      - node-exporter
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: ex01-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: ex01-node-exporter
+    ports:
+      - "9100:9100"
+    # En Linux puro, para medir el HOST (no el contenedor), usar:
+    #   command: ["--path.rootfs=/host"]
+    #   volumes: ["/:/host:ro,rslave"]
+    # En Docker Desktop (macOS/Windows) ese mount falla con
+    # "path / is not shared or slave" asi que por portabilidad del lab
+    # dejamos node-exporter midiendo el propio contenedor; es suficiente
+    # para que /targets lo vea UP y /metrics devuelva series.
+
+volumes:
+  prom-data:
+  grafana-data:

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels: { app.kubernetes.io/part-of: argocd }
+data:
+  policy.default: ""
+  scopes: '[groups, email]'
+  policy.csv: |
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, projects,     get, *,   allow
+    p, role:platform-admin, *, *, */*, allow
+    p, role:team-a-dev, applications, get,  team-a/*, allow
+    p, role:team-a-dev, applications, sync, team-a/*, allow
+    p, role:team-a-dev, applications, delete, team-a/*, deny
+    g, acme-org:platform, role:platform-admin
+    g, acme-org:team-a,   role:team-a-dev

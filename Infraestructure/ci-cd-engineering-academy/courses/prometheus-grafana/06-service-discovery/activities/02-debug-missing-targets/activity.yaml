@@ -1,0 +1,28 @@
+id: obs-06-02-debug-missing-targets
+title: Debug - mi pod no es scrapeado
+technology: prometheus-grafana
+module: 06-service-discovery
+level: intermediate
+type: debug
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-06-01-scrape-pods-by-annotation
+
+objectives:
+  - Diagnosticar causa raiz en 4 configuraciones K8s SD rotas
+  - Distinguir fallos de SD vs relabel vs scrape vs RBAC
+  - Aplicar fixes minimos y verificables
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

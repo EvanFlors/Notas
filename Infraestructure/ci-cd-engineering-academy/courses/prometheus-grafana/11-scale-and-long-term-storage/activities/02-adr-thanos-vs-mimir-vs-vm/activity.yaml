@@ -1,0 +1,30 @@
+id: obs-11-02-adr-thanos-vs-mimir-vs-vm
+title: ADR — Thanos vs Mimir vs VictoriaMetrics para ACME Fintech
+technology: prometheus-grafana
+module: 11-scale-and-long-term-storage
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - obs-11-01-add-vm-as-long-term-store
+
+objectives:
+  - Articular 5+ criterios ponderados de decisión de long-term store
+  - Comparar Thanos, Mimir y VictoriaMetrics contra esos criterios con evidencia
+  - Decidir una única opción y defenderla con 3+ razones concretas
+  - Diseñar retention policy por resolución (raw / 5m / 1h)
+  - Estimar coste anual aproximado con fórmula visible
+  - Planear rollout con criterios de success y rollback
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/obs11-adr"
+
+status: not-started

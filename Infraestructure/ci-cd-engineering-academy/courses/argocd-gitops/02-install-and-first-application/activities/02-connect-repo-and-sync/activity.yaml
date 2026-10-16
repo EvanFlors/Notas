@@ -1,0 +1,29 @@
+id: argo-02-02-connect-repo-and-sync
+title: Conectar un repo y sincronizar la primera Application
+technology: argocd-gitops
+module: 02-install-and-first-application
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - argo-02-01-bootstrap-argocd
+
+objectives:
+  - Loguearse por CLI contra el argocd-server local
+  - Crear la Application guestbook contra el repo público argocd-example-apps
+  - Sincronizar y alcanzar sync=Synced y health=Healthy
+  - Diferenciar sync status de health status provocando drift controlado
+
+paths:
+  instructions: README.md
+  tests: tests/
+  starter: starter/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

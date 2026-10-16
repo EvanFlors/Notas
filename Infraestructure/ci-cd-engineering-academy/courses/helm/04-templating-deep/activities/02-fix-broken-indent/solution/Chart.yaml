@@ -1,0 +1,6 @@
+apiVersion: v2
+name: broken-indent
+description: "Solution: three bugs fixed."
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

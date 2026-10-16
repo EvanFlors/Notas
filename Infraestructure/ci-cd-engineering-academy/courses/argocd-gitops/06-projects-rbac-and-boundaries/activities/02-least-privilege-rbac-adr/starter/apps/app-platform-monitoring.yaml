@@ -1,0 +1,17 @@
+# Creates: Namespace monitoring, Deployment, Service, ServiceAccount,
+#          ClusterRole, ClusterRoleBinding (for scraping metrics across cluster),
+#          CRDs (ServiceMonitor, PodMonitor from kube-prometheus-stack chart).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-monitoring
+  namespace: argocd
+spec:
+  project: legacy-everything
+  source:
+    repoURL: https://github.com/acme-platform/monitoring-stack.git
+    path: charts/kube-prometheus-stack
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring

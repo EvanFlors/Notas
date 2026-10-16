@@ -1,0 +1,28 @@
+id: argo-11-02-recover-argocd-from-backup
+title: Recuperar Argo CD completo desde backup (disaster recovery)
+technology: argocd-gitops
+module: 11-internals-and-security
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - argo-11-01-harden-argocd-install
+
+objectives:
+  - Elegir y ejecutar una estrategia de backup del estado de Argo CD (Velero o argocd admin export)
+  - Simular un desastre borrando el namespace argocd completo
+  - Restaurar Argo CD en el mismo cluster o en uno limpio
+  - Verificar que todas las Applications pre-desastre vuelven a Synced/Healthy sin intervención
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

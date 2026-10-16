@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-spoke
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+    env: dev
+    role: spoke
+type: Opaque
+stringData:
+  name: spoke
+  server: __SERVER__
+  config: |
+    {
+      "bearerToken": "__TOKEN__",
+      "tlsClientConfig": {
+        "insecure": false,
+        "caData": "__CA_B64__"
+      }
+    }

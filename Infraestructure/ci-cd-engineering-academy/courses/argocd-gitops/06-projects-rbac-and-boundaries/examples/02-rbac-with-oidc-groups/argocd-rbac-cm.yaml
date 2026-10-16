@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Default role for anyone not matched below. Must be as restrictive as possible.
+  policy.default: role:readonly
+
+  # Scopes read from the OIDC id_token. 'groups' is required for the mappings below.
+  scopes: '[groups]'
+
+  policy.csv: |
+    # ------------------------------------------------------------------
+    # Custom roles — defined implicitly by appearing as subject in `p` lines.
+    # ------------------------------------------------------------------
+
+    # Payments team: full control over their own project.
+    p, role:payments-admin, applications, *, team-payments/*, allow
+    p, role:payments-admin, projects, get, team-payments, allow
+    p, role:payments-admin, repositories, get, *, allow
+    p, role:payments-admin, logs, get, team-payments/*, allow
+
+    # Payments viewer (e.g. on-call engineers from another team).
+    p, role:payments-viewer, applications, get, team-payments/*, allow
+    p, role:payments-viewer, logs, get, team-payments/*, allow
+
+    # Checkout team: analogous.
+    p, role:checkout-admin, applications, *, team-checkout/*, allow
+    p, role:checkout-admin, projects, get, team-checkout, allow
+    p, role:checkout-admin, logs, get, team-checkout/*, allow
+
+    # Platform team: can see every project but cannot sync anyone else's apps.
+    p, role:platform-viewer, applications, get, */*, allow
+    p, role:platform-viewer, projects, get, *, allow
+    p, role:platform-viewer, clusters, get, *, allow
+    p, role:platform-viewer, repositories, get, *, allow
+
+    # ------------------------------------------------------------------
+    # Group → role mappings. Groups come from the IdP in the `groups` claim.
+    # ------------------------------------------------------------------
+    g, acme:payments-team, role:payments-admin
+    g, acme:payments-oncall, role:payments-viewer
+    g, acme:checkout-team, role:checkout-admin
+    g, acme:platform-team, role:platform-viewer
+    g, acme:security-readonly, role:readonly

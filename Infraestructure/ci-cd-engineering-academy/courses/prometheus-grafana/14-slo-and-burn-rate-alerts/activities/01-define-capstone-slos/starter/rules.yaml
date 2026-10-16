@@ -1,0 +1,14 @@
+---
+# TODO(student): complete the groups below.
+#
+# Hint: SLI ratio = 1 - (sum(rate(..code=~"5.."[W])) / sum(rate(..[W])))
+# Hint: alert condition = (1 - sli_long) > BR * 0.001 AND (1 - sli_short) > BR * 0.001
+groups:
+  - name: slo-ingredients-payments-availability
+    interval: 30s
+    rules:
+      # Add 5 recording rules: ratio_rate5m, 30m, 1h, 2h, 6h.
+
+  - name: slo-alerts-payments-availability
+    rules:
+      # Add at least one PAGE and one TICKET alert following MWMBR.

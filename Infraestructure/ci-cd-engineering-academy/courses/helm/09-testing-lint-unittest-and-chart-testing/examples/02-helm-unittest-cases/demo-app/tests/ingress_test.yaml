@@ -1,0 +1,36 @@
+suite: ingress
+templates:
+  - ingress.yaml
+tests:
+  - it: with ingress disabled, no Ingress is rendered
+    set:
+      ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: with ingress enabled but hosts nil, no Ingress is rendered
+    set:
+      ingress.enabled: true
+      ingress.hosts: null
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: with ingress enabled and hosts set, an Ingress is rendered
+    set:
+      ingress.enabled: true
+      ingress.className: nginx
+      ingress.hosts:
+        - host: demo.example.com
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Ingress
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+      - equal:
+          path: spec.rules[0].host
+          value: demo.example.com

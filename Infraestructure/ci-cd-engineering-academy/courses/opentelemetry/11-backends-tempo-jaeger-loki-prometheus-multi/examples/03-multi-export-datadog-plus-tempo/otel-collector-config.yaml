@@ -1,0 +1,50 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 512
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 256
+
+exporters:
+  # Self-hosted leg — Tempo via OTLP gRPC.
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Vendor leg — Datadog. API key read from env; NEVER hard-coded.
+  # If DD_API_KEY is unset the exporter will still start but Datadog will
+  # reject the data with 403. That is expected in walkthrough mode.
+  datadog:
+    api:
+      site: ${env:DD_SITE}
+      key: ${env:DD_API_KEY}
+
+  debug:
+    verbosity: basic
+
+service:
+  telemetry:
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      # Fan-out: the SAME traces go to both backends simultaneously.
+      exporters: [otlp/tempo, datadog, debug]

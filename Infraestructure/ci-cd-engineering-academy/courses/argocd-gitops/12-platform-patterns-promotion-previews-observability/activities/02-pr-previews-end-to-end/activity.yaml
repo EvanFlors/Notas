@@ -1,0 +1,31 @@
+id: argo-12-02-pr-previews-end-to-end
+title: PR previews end-to-end con ApplicationSet (simulado)
+technology: argocd-gitops
+module: 12-platform-patterns-promotion-previews-observability
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - argo-07-01-env-per-folder-appset
+  - argo-11-01-harden-argocd-install
+
+objectives:
+  - Montar un ApplicationSet con List generator simulando PRs
+  - Levantar un preview por "PR" con namespace y host determinista
+  - Verificar prune automático al "cerrar" el PR (eliminar el item)
+  - Observar en /metrics el impacto del preview sobre el application-controller
+  - Diseñar la limpieza y ResourceQuota del namespace
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

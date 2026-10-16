@@ -1,0 +1,36 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  tail_sampling:
+    decision_wait: 5s
+    num_traces: 10000
+    expected_new_traces_per_sec: 100
+    policies:
+      # TODO (1): add a policy named "errors-100" that samples 100% of traces with ERROR status.
+      # TODO (2): add a policy named "random-10" that samples 10% probabilistic baseline.
+      - name: slow-100
+        type: latency
+        latency:
+          threshold_ms: 500
+  # TODO (3): keep this batch processor. Make sure it goes AFTER tail_sampling in the pipeline.
+  batch:
+    send_batch_size: 128
+    timeout: 1s
+
+exporters:
+  file:
+    path: /out/out.json
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      # TODO (3 cont.): fix the processors list so batch runs AFTER tail_sampling.
+      processors: [tail_sampling]
+      exporters: [file, debug]

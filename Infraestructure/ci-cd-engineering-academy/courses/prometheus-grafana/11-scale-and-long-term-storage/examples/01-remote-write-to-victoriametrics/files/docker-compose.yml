@@ -1,0 +1,44 @@
+name: obs11-example-vm
+
+services:
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.102.1
+    container_name: obs11-vm
+    ports:
+      - "8428:8428"
+    command:
+      - "--storageDataPath=/storage"
+      - "--retentionPeriod=90d"
+      - "--httpListenAddr=:8428"
+    volumes:
+      - vm-data:/storage
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: obs11-node
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: obs11-prom
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=2h"
+      - "--web.enable-remote-write-receiver"
+    depends_on:
+      - victoriametrics
+      - node-exporter
+    restart: unless-stopped
+
+volumes:
+  vm-data:
+  prom-data:

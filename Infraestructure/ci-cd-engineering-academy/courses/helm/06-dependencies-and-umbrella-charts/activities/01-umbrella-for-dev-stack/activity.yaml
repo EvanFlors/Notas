@@ -1,0 +1,29 @@
+id: helm-06-01-umbrella-for-dev-stack
+title: Umbrella chart para dev local (app + Postgres)
+technology: helm
+module: 06-dependencies-and-umbrella-charts
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - helm-05-02-share-image-registry-via-global
+
+objectives:
+  - Añadir bitnami/postgresql como dependencia condicional de un chart app
+  - Generar y commitear Chart.lock pinneando la versión
+  - Diseñar values-dev.yaml y values-prod.yaml que activen/desactiven el subchart
+  - Verificar que el render con dev levanta el StatefulSet y con prod no
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

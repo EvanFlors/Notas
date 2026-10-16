@@ -1,0 +1,77 @@
+# Collector routing all three signals to Datadog.
+# API key read from env; never committed as literal.
+# All cost-control processors are preserved from the self-hosted version.
+
+receivers:
+  otlp:
+    protocols:
+      grpc: {endpoint: 0.0.0.0:4317}
+      http: {endpoint: 0.0.0.0:4318}
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 25
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+  k8sattributes:
+    passthrough: false
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: prod
+        action: upsert
+  attributes/drop-high-card:
+    actions:
+      - key: user.id
+        action: delete
+      - key: request.id
+        action: delete
+      - key: order.id
+        action: delete
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    policies:
+      - name: errors-always
+        type: status_code
+        status_code: {status_codes: [ERROR]}
+      - name: default-sample
+        type: probabilistic
+        probabilistic: {sampling_percentage: 5}
+
+exporters:
+  datadog:
+    api:
+      key: ${env:DD_API_KEY}
+      site: ${env:DD_SITE}
+    sending_queue:
+      enabled: true
+      num_consumers: 10
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+extensions:
+  health_check: {}
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, resource, attributes/drop-high-card, tail_sampling, batch]
+      exporters: [datadog]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, resource, batch]
+      exporters: [datadog]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, resource, attributes/drop-high-card, batch]
+      exporters: [datadog]

@@ -1,0 +1,30 @@
+id: obs-13-01-add-loki-to-stack
+title: Add Loki + Alloy to the capstone stack
+technology: prometheus-grafana
+module: 13-loki-and-logs-in-the-stack
+level: advanced
+type: guided-lab
+
+estimated_minutes: 70
+
+prerequisites:
+  - obs-08-grafana-deep
+
+objectives:
+  - Añadir Loki y Alloy a un docker-compose existente
+  - Configurar Alloy para descubrir contenedores y promover el label app
+  - Provisionar Loki como data source en Grafana
+  - Verificar que logs del contenedor demo-app llegan a Loki
+  - Ejecutar una log-based metric query no vacía
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/obs13-lab01"
+
+status: not-started

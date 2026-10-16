@@ -1,0 +1,28 @@
+id: obs-03-01-rename-and-retype-exercise
+title: Rename & retype a bad /metrics
+technology: prometheus-grafana
+module: 03-metric-types-and-naming
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - obs-02-install-local-stack-and-first-scrape
+
+objectives:
+  - Reescribir métricas aplicando la convención <namespace>_<subsystem>_<name>_<unit>
+  - Corregir sufijos (_total, _bytes, _seconds, _ratio) y # TYPE acorde
+  - Convertir un summary multi-target a histogram agregable
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

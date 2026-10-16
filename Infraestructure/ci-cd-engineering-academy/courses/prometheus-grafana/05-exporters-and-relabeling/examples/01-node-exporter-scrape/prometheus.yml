@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 10s
+  scrape_timeout: 5s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    relabel_configs:
+      # Add a static env label to every series produced by this job.
+      - target_label: env
+        replacement: demo
+      # Rewrite instance to a friendlier value.
+      - source_labels: [__address__]
+        regex: '([^:]+):\d+'
+        target_label: instance
+        replacement: '$1'

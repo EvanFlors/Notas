@@ -1,0 +1,29 @@
+id: argo-01-01-identify-gitops-washing
+title: Auditar 5 escenarios y detectar GitOps-washing
+technology: argocd-gitops
+module: 01-gitops-principles-and-argocd-vs-flux
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites: []
+
+objectives:
+  - Enunciar los 4 principios de OpenGitOps sin consultar
+  - Auditar un pipeline arbitrario contra los 4 principios
+  - Identificar el principio violado en cada caso de GitOps-washing
+  - Proponer la corrección mínima que haría cumplir el principio sin reescribir todo
+  - Producir un MAP.md estructurado con el veredicto por escenario
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/argo-01-washing"
+
+status: not-started

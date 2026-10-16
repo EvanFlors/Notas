@@ -1,0 +1,12 @@
+# Strategic merge patch: inject a logging sidecar into the Deployment.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-chart
+spec:
+  template:
+    spec:
+      containers:
+        - name: log-shipper
+          image: busybox:1.36
+          command: ["sh", "-c", "tail -f /dev/null"]

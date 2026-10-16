@@ -1,0 +1,90 @@
+# Argo CD Application consuming a Helm chart.
+# Documentary example — do not apply blindly. See README.md for the pitfalls.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-api
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  destination:
+    namespace: my-api
+    server: https://kubernetes.default.svc
+
+  source:
+    # Could also be an OCI chart: repoURL: oci://ghcr.io/acme/charts
+    repoURL: https://charts.example.com
+    chart: my-api
+    targetRevision: 1.4.2       # SemVer of the chart, not the app
+
+    helm:
+      # Explicit release name. If omitted, Argo uses metadata.name of the
+      # Application — which may change the output of your `fullname` helpers.
+      releaseName: my-api
+
+      # Values files resolved RELATIVE TO THE CHART. For external overrides,
+      # use spec.sources (multiple sources) — see README.
+      valueFiles:
+        - values-prod.yaml
+
+      # Inline values. Convenient; harder to review in Git.
+      values: |
+        replicaCount: 3
+        resources:
+          requests: {cpu: 100m, memory: 128Mi}
+          limits:   {cpu: 500m, memory: 256Mi}
+
+      # Equivalent to `helm install --set`. Same reproducibility cost.
+      parameters:
+        - name: image.tag
+          value: "1.4.2"
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m
+---
+# Argo CD ApplicationSet — the pattern for N environments.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: my-api-envs
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - env: dev
+          - env: stg
+          - env: prod
+  template:
+    metadata:
+      name: 'my-api-{{env}}'
+    spec:
+      project: default
+      destination:
+        namespace: 'my-api-{{env}}'
+        server: https://kubernetes.default.svc
+      source:
+        repoURL: https://charts.example.com
+        chart: my-api
+        targetRevision: 1.4.2
+        helm:
+          releaseName: 'my-api'
+          valueFiles:
+            - 'values-{{env}}.yaml'
+      syncPolicy:
+        automated: {prune: true, selfHeal: true}
+        syncOptions: [CreateNamespace=true, ServerSideApply=true]

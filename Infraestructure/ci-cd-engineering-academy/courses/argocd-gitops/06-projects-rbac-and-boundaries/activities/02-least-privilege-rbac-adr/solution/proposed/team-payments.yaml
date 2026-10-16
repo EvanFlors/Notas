@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-payments
+  namespace: argocd
+spec:
+  description: "Payments team"
+  sourceRepos:
+    - https://github.com/acme-payments/payments-manifests.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: payments-*
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: '*'
+    - group: apps
+      kind: '*'
+    - group: networking.k8s.io
+      kind: '*'
+    - group: autoscaling
+      kind: '*'
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota
+    - group: ''
+      kind: LimitRange
+  roles:
+    - name: payments-admin
+      policies:
+        - p, proj:team-payments:payments-admin, applications, *, team-payments/*, allow
+      groups:
+        - acme:payments-team
+    - name: ci-syncer
+      policies:
+        - p, proj:team-payments:ci-syncer, applications, get, team-payments/*, allow
+        - p, proj:team-payments:ci-syncer, applications, sync, team-payments/*, allow
+      groups: []
+  orphanedResources:
+    warn: true

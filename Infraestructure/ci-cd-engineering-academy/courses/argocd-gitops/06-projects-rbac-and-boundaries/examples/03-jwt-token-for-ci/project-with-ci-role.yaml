@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-payments
+  namespace: argocd
+spec:
+  description: "Payments team with a CI sync role"
+  sourceRepos:
+    - https://github.com/argoproj/argocd-example-apps.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: payments-*
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  roles:
+    # Humans: full control over this project.
+    - name: project-admin
+      description: "Full control (humans)"
+      policies:
+        - p, proj:team-payments:project-admin, applications, *, team-payments/*, allow
+        - p, proj:team-payments:project-admin, logs, get, team-payments/*, allow
+      groups:
+        - acme:payments-team
+
+    # CI: only sync + get. No create, no delete, no override.
+    - name: ci-syncer
+      description: "CI pipeline token: get + sync, nothing else"
+      policies:
+        - p, proj:team-payments:ci-syncer, applications, get, team-payments/*, allow
+        - p, proj:team-payments:ci-syncer, applications, sync, team-payments/*, allow
+      groups: []

@@ -1,0 +1,29 @@
+id: otel-09-02-tradeoffs-adr
+title: ADR de trade-offs de topologia del Collector
+technology: opentelemetry
+module: 09-collector-deployment-patterns-agent-vs-gateway
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - otel-09-01-deploy-agent-gateway-in-kind
+
+objectives:
+  - Producir un ADR con las 8 secciones obligatorias
+  - Decidir y justificar topologia por escala (10 / 1000 / 100000 RPS)
+  - Articular trade-offs explicitos con alternativas descartadas
+  - Elegir distro del Collector por entorno con razonamiento
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

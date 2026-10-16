@@ -1,0 +1,14 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/example/fastapi-app
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+
+resources: {}
+
+# TODO (actividad): añadir aquí el bloque `db:` con `enabled: false` por defecto

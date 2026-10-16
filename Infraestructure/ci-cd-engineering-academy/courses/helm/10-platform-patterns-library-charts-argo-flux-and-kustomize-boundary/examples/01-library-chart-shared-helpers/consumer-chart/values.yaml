@@ -1,0 +1,16 @@
+owner: team-platform
+
+image:
+  repository: nginx
+  tag: "1.27-alpine"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+service:
+  type: ClusterIP
+  port: 80
+
+probes:
+  path: /
+  port: http

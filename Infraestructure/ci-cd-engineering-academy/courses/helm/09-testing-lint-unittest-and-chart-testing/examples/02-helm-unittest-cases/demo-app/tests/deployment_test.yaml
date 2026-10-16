@@ -1,0 +1,52 @@
+suite: deployment
+templates:
+  - deployment.yaml
+tests:
+  - it: renders a Deployment with default replica count
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "nginx:1.27"
+
+  - it: fully overrides the image
+    set:
+      image.repository: ghcr.io/acme/demo
+      image.tag: "2.5.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ghcr.io/acme/demo:2.5.0"
+
+  - it: empty extraEnv does NOT render the env field
+    set:
+      extraEnv: []
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].env
+
+  - it: non-empty extraEnv renders env entries
+    set:
+      extraEnv:
+        - name: LOG_LEVEL
+          value: debug
+        - name: FEATURE_X
+          value: "true"
+    asserts:
+      - exists:
+          path: spec.template.spec.containers[0].env
+      - equal:
+          path: spec.template.spec.containers[0].env[0].name
+          value: LOG_LEVEL
+
+  - it: custom replica count is honored
+    set:
+      replicaCount: 3
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3

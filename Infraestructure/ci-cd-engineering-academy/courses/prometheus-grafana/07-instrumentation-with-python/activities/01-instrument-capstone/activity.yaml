@@ -1,0 +1,30 @@
+id: obs-07-01-instrument-capstone
+title: Instrument capstone FastAPI service with RED metrics
+technology: prometheus-grafana
+module: 07-instrumentation-with-python
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-03-metric-types-and-naming
+  - obs-04-promql-fundamentals
+
+objectives:
+  - Exponer /metrics en una app FastAPI mediante make_asgi_app
+  - Añadir un middleware ASGI que emita RED (Counter + Histogram)
+  - Usar path templatizado y status_class para controlar cardinalidad
+  - Verificar métricas con un test automatizado que inspecciona /metrics
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

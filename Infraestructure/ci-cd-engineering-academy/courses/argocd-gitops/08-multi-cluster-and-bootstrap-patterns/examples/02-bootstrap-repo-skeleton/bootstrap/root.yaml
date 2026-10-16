@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: addons-root
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - git:
+        repoURL: https://github.com/acme/bootstrap-repo    # replace with your repo
+        revision: main
+        directories:
+          - path: addons/*
+  template:
+    metadata:
+      name: '{{.path.basename}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "-10"
+    spec:
+      project: platform
+      source:
+        repoURL: https://github.com/acme/bootstrap-repo
+        targetRevision: main
+        path: '{{.path.path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{.path.basename}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

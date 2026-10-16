@@ -1,0 +1,29 @@
+id: obs-15-02-cost-of-observability-exercise
+title: Cost of observability — compute monthly bill and optimize
+technology: prometheus-grafana
+module: 15-platform-dashboards-and-alerts-as-code-governance
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - obs-11-scale-and-long-term-storage
+  - obs-14-slo-and-burn-rate-alerts
+
+objectives:
+  - Computar la factura mensual de observabilidad desde un perfil técnico
+  - Identificar top-3 contribuyentes al costo con breakdown por categoría
+  - Proponer 2 optimizaciones accionables con delta $ cuantificado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,41 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: payments
+  namespace: payments
+  labels:
+    release: kps
+spec:
+  route:
+    receiver: payments-slack
+    groupBy: [alertname, namespace, severity]
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 3h
+    routes:
+      - matchers:
+          - name: severity
+            value: critical
+        receiver: payments-pager
+        continue: false
+      - matchers:
+          - name: severity
+            value: warning
+        receiver: payments-slack
+        continue: false
+  receivers:
+    - name: payments-pager
+      pagerdutyConfigs:
+        - routingKey:
+            name: pd-integration
+            key: routingKey
+          sendResolved: true
+    - name: payments-slack
+      slackConfigs:
+        - apiURL:
+            name: slack-webhook
+            key: url
+          channel: "#payments-warn"
+          sendResolved: true
+          title: '{{ template "slack.default.title" . }}'
+          text:  '{{ template "slack.default.text" . }}'

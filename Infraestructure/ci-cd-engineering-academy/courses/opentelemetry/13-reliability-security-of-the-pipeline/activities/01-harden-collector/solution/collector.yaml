@@ -1,0 +1,75 @@
+# SOLUTION: pipeline endurecido con los 7 controles.
+# Para usarlo: cp solution/collector.yaml /tmp/otel13-act01/collector.yaml
+
+extensions:
+  bearertokenauth:
+    scheme: "Bearer"
+    tokens: ["dev-bearer-token-not-a-secret"]
+  file_storage:
+    directory: /var/lib/otelcol/queue
+    timeout: 1s
+    compaction:
+      directory: /var/lib/otelcol/queue
+      on_start: true
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        tls:
+          cert_file: /etc/otel/certs/server.crt
+          key_file:  /etc/otel/certs/server.key
+        auth:
+          authenticator: bearertokenauth
+      http:
+        endpoint: 0.0.0.0:4318
+        tls:
+          cert_file: /etc/otel/certs/server.crt
+          key_file:  /etc/otel/certs/server.key
+        auth:
+          authenticator: bearertokenauth
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+
+  attributes/pii:
+    actions:
+      - key: user.email
+        action: hash
+      - key: http.request.header.authorization
+        action: delete
+
+  batch:
+    send_batch_size: 1024
+    timeout: 500ms
+
+exporters:
+  otlp/backend:
+    endpoint: backend:4317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 5000
+      storage: file_storage
+    retry_on_failure:
+      enabled: true
+      initial_interval: 2s
+      max_interval: 10s
+      max_elapsed_time: 60s
+
+service:
+  extensions: [bearertokenauth, file_storage]
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/pii, batch]
+      exporters: [otlp/backend]

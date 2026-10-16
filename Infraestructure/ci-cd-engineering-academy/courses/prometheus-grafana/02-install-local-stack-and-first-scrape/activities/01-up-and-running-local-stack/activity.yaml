@@ -1,0 +1,30 @@
+id: obs-02-01-up-and-running-local-stack
+title: Up and running — stack local Prometheus + Grafana + node_exporter
+technology: prometheus-grafana
+module: 02-install-local-stack-and-first-scrape
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-01-observability-pillars-and-pull-model
+  - dkr-08-01-full-dev-stack
+
+objectives:
+  - Levantar el stack con docker compose y verificar health de los tres servicios
+  - Confirmar que los targets prometheus y node estan UP en /targets
+  - Ejecutar al menos una PromQL (up) y leer el resultado
+  - Diagnosticar un target DOWN provocado a proposito
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

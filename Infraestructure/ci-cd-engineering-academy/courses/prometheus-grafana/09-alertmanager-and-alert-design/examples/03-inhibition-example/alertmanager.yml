@@ -1,0 +1,41 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default-slack
+  group_by: ['alertname', 'cluster', 'node']
+  group_wait: 20s
+  group_interval: 5m
+  repeat_interval: 2h
+
+inhibit_rules:
+  # 1) Si un nodo esta caido, no notificar los targets de ese nodo.
+  - source_matchers:
+      - alertname="NodeDown"
+      - severity="page"
+    target_matchers:
+      - alertname="TargetDown"
+    equal: ['cluster', 'node']
+
+  # 2) Una severidad critical del mismo alertname+service suprime la warning.
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal: ['alertname', 'service']
+
+  # 3) Si la DB esta caida, suprimir alertas de error rate de apps dependientes
+  #    (identificadas por label 'depends_on=db').
+  - source_matchers:
+      - alertname="DatabaseDown"
+    target_matchers:
+      - alertname="AppHighErrorRate"
+      - depends_on="db"
+    equal: ['cluster']
+
+receivers:
+  - name: default-slack
+    slack_configs:
+      - api_url: 'https://hooks.slack.example.com/placeholder'
+        channel: '#alerts'
+        send_resolved: true

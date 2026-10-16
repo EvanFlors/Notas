@@ -1,0 +1,29 @@
+id: otel-08-02-add-attribute-processor
+title: Anadir un attributes processor que setea deployment.environment=prod
+technology: opentelemetry
+module: 08-collector-architecture-receivers-processors-exporters
+level: intermediate
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - otel-01-what-and-why-signals-and-maturity
+
+objectives:
+  - Elegir el processor adecuado (attributes, resource o transform/OTTL)
+  - Insertarlo en el orden correcto dentro de las pipelines traces y metrics
+  - Validar la config con otelcol-contrib validate
+  - Verificar via file exporter que el atributo aparece en la salida
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

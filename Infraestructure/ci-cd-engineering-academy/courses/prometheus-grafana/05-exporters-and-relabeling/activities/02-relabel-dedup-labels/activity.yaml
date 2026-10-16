@@ -1,0 +1,29 @@
+id: obs-05-02-relabel-dedup-labels
+title: Normalizar labels y dropear metricas ruidosas con relabel
+technology: prometheus-grafana
+module: 05-exporters-and-relabeling
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - obs-05-01-add-postgres-exporter
+
+objectives:
+  - Diagnosticar labels redundantes y metricas ruidosas en un stack real
+  - Escribir relabel_configs que normalicen instance y agreguen labels de plataforma
+  - Escribir metric_relabel_configs que dropeen al menos 2 metricas por nombre
+  - Verificar la limpieza con el validador sin ver la solucion
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

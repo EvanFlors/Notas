@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-app
+data:
+  replicas: {{ .Values.replicas | quote }}
+  logLevel: {{ .Values.logLevel | quote }}
+  image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag | quote }}
+  memory: {{ .Values.resources.requests.memory | quote }}

@@ -1,0 +1,19 @@
+# Colapsa a 1 serie: tasa global de requests
+sum(rate(http_requests_total[5m]))
+
+# Agrupa por job: 1 serie por job
+sum by (job) (rate(http_requests_total[5m]))
+
+# Agrupa por (job, method): 1 serie por combinación
+sum by (job, method) (rate(http_requests_total[5m]))
+
+# Elimina instance, conserva el resto: útil para dejar de ver la dimensión de pod
+sum without (instance) (rate(http_requests_total[5m]))
+
+# Top-2 series por tasa, agrupando por job y method
+topk(2, sum by (job, method) (rate(http_requests_total[5m])))
+
+# Error rate por job (5xx / total) — operador binario con matching por job
+sum by (job) (rate(http_requests_total{code=~"5.."}[5m]))
+  /
+sum by (job) (rate(http_requests_total[5m]))

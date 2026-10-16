@@ -1,0 +1,58 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Layer 1: known-key scrubbing
+  attributes/pii:
+    actions:
+      - key: user.email
+        action: hash
+      - key: user.password
+        action: delete
+      - key: http.request.header.authorization
+        action: update
+        value: "[REDACTED]"
+      - key: http.request.header.cookie
+        action: update
+        value: "[REDACTED]"
+
+  # Layer 2: value-regex redaction (credit cards)
+  redaction:
+    allow_all_keys: true
+    blocked_values:
+      - "4[0-9]{12}(?:[0-9]{3})?"           # Visa
+      - "(?:5[1-5][0-9]{14})"               # MasterCard
+    summary: debug
+
+  # Layer 3: OTTL for context-aware transforms
+  transform/pii_ottl:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          # Redact email inside url
+          - replace_pattern(attributes["http.url"], "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+", "***@***") where attributes["http.url"] != nil
+          # Redact token/key/password in query strings
+          - replace_pattern(attributes["url.query"], "(token|key|secret|password)=[^&]*", "$$1=[REDACTED]") where attributes["url.query"] != nil
+          # Delete SSN-like attribute entirely
+          - delete_key(attributes, "ssn") where attributes["ssn"] != nil
+
+  batch:
+    send_batch_size: 100
+    timeout: 500ms
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [attributes/pii, redaction, transform/pii_ottl, batch]
+      exporters: [debug]

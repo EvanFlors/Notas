@@ -1,0 +1,29 @@
+id: otel-07-01-two-services-end-to-end-trace
+title: Two services with end-to-end trace via manual inject/extract
+technology: opentelemetry
+module: 07-context-propagation-across-services
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - otel-02-specification-semconv-and-context-propagation
+  - otel-04-instrumenting-python-traces
+
+objectives:
+  - Serializar el context actual en headers HTTP con inject
+  - Reconstruir un context remoto con extract y continuar el trace
+  - Verificar automaticamente que el trace_id sobrevive el hop
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

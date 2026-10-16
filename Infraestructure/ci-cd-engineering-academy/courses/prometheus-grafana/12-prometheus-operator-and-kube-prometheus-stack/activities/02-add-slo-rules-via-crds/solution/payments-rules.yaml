@@ -1,0 +1,67 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: payments-slo
+  namespace: payments
+  labels:
+    release: kps
+    tenant: payments
+spec:
+  groups:
+    - name: payments.slo.rules
+      interval: 30s
+      rules:
+        # ----- recording rules -----
+        - record: job:payments_requests:rate5m
+          expr: sum by (job) (rate(http_requests_total{job="payments"}[5m]))
+        - record: job:payments_errors:ratio5m
+          expr: |
+            sum by (job) (rate(http_requests_total{job="payments",status=~"5.."}[5m]))
+              /
+            sum by (job) (rate(http_requests_total{job="payments"}[5m]))
+        - record: job:payments_errors:ratio1h
+          expr: |
+            sum by (job) (rate(http_requests_total{job="payments",status=~"5.."}[1h]))
+              /
+            sum by (job) (rate(http_requests_total{job="payments"}[1h]))
+
+        # ----- alerting rules (multi-window multi-burn-rate pattern) -----
+        - alert: PaymentsErrorBudgetBurnFast
+          # Fast burn: 14.4x el budget (99.5% SLO -> error_ratio > 0.072)
+          # medido en 5m Y en 1h simultaneamente, para evitar flaps.
+          expr: |
+            (
+              job:payments_errors:ratio5m > (14.4 * (1 - 0.995))
+              and
+              job:payments_errors:ratio1h > (14.4 * (1 - 0.995))
+            )
+          for: 2m
+          labels:
+            severity: critical
+            tenant: payments
+          annotations:
+            summary: "Payments quema budget rapido (>14.4x)"
+            description: >
+              El ratio de errores 5xx en payments supera 14.4x el presupuesto
+              del SLO 99.5% en ventanas de 5m y 1h simultaneas.
+              Esto consumira el budget mensual en menos de 2 dias.
+            runbook_url: "https://runbooks.example.com/payments/slo-burn-fast"
+
+        - alert: PaymentsErrorBudgetBurnSlow
+          # Slow burn: 3x el budget sostenido en 6h + 30m. Severidad warning.
+          expr: |
+            (
+              job:payments_errors:ratio1h > (3 * (1 - 0.995))
+              and
+              job:payments_errors:ratio5m > (3 * (1 - 0.995))
+            )
+          for: 15m
+          labels:
+            severity: warning
+            tenant: payments
+          annotations:
+            summary: "Payments quema budget sostenidamente (>3x)"
+            description: >
+              Error ratio supera 3x el budget en ventanas 1h y 5m durante al
+              menos 15m. Degradacion lenta pero persistente.
+            runbook_url: "https://runbooks.example.com/payments/slo-burn-slow"

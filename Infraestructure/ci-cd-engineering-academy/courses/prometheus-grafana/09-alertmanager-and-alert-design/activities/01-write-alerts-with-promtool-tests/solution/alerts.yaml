@@ -1,0 +1,44 @@
+groups:
+  - name: api.rules
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="api",status=~"5.."}[5m]))
+            /
+          sum(rate(http_requests_total{job="api"}[5m]))
+            > 0.05
+        for: 10m
+        labels:
+          severity: page
+          team: platform
+        annotations:
+          summary: "API 5xx rate >5% (10m)"
+          description: "La tasa de errores 5xx del job api supera 5% durante 10m."
+          runbook_url: "https://runbooks.example.com/api/high-error-rate"
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{job="api"}[5m]))
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: page
+          team: platform
+        annotations:
+          summary: "API p95 latency >500ms (5m)"
+          description: "p95 de http_request_duration_seconds del job api supera 500ms."
+          runbook_url: "https://runbooks.example.com/api/high-latency"
+
+      - alert: AbsentTarget
+        expr: absent(up{job="api"}) == 1
+        for: 2m
+        labels:
+          severity: page
+          team: platform
+        annotations:
+          summary: "No hay targets scrapeados para job=api"
+          description: "Prometheus no esta scrapeando ningun target del job api."
+          runbook_url: "https://runbooks.example.com/api/absent-target"

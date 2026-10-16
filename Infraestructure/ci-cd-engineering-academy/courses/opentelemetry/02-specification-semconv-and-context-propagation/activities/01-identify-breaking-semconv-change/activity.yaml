@@ -1,0 +1,29 @@
+id: otel-02-01-identify-breaking-semconv-change
+title: Identify a breaking semconv change
+technology: opentelemetry
+module: 02-specification-semconv-and-context-propagation
+level: intermediate
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - otel-01-what-and-why-signals-and-maturity
+
+objectives:
+  - Reconocer atributos HTTP semconv deprecados vs vigentes
+  - Clasificar servicios por versión semconv emitida
+  - Diseñar un plan de migracion con dual-emit transitorio
+  - Explicar el impacto en dashboards si no se migra con cuidado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

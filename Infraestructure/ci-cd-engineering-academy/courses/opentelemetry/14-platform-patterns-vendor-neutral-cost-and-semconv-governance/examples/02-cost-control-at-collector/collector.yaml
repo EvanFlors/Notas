@@ -1,0 +1,110 @@
+# Gateway Collector with three cost-control levers applied.
+
+receivers:
+  otlp:
+    protocols:
+      grpc: {endpoint: 0.0.0.0:4317}
+      http: {endpoint: 0.0.0.0:4318}
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  batch:
+    timeout: 10s
+    send_batch_size: 2048
+
+  # --- Lever 1: tail sampling with per-service quotas ---
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 200000
+    expected_new_traces_per_sec: 5000
+    policies:
+      - name: errors-always
+        type: status_code
+        status_code: {status_codes: [ERROR]}
+      - name: slow-always
+        type: latency
+        latency: {threshold_ms: 1000}
+      - name: payments-sample
+        type: and
+        and:
+          and_sub_policy:
+            - name: by-service
+              type: string_attribute
+              string_attribute: {key: service.name, values: [payments-api]}
+            - name: ratio
+              type: probabilistic
+              probabilistic: {sampling_percentage: 20}
+      - name: catalog-sample
+        type: and
+        and:
+          and_sub_policy:
+            - name: by-service
+              type: string_attribute
+              string_attribute: {key: service.name, values: [product-catalog]}
+            - name: ratio
+              type: probabilistic
+              probabilistic: {sampling_percentage: 1}
+      - name: default-sample
+        type: probabilistic
+        probabilistic: {sampling_percentage: 2}
+
+  # --- Lever 2: drop high-cardinality attributes before the backend ---
+  attributes/drop-high-card:
+    actions:
+      - key: user.id
+        action: delete
+      - key: request.id
+        action: delete
+      - key: order.id
+        action: delete
+      - key: http.target
+        action: delete
+  transform/clean-metric-labels:
+    error_mode: ignore
+    metric_statements:
+      - context: datapoint
+        statements:
+          - delete_key(attributes, "k8s.pod.uid")
+          - delete_key(attributes, "k8s.pod.name")
+
+  # --- Lever 3: aggregation to shrink datapoint count ---
+  cumulativetodelta: {}
+  interval:
+    interval: 60s
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo.observability.svc:4317
+    tls: {ca_file: /etc/otel/tls/ca.crt}
+  prometheusremotewrite:
+    endpoint: https://prometheus.observability.svc/api/v1/write
+    tls: {ca_file: /etc/otel/tls/ca.crt}
+  otlphttp/loki:
+    endpoint: https://loki.observability.svc:3100/otlp
+    tls: {ca_file: /etc/otel/tls/ca.crt}
+
+extensions:
+  health_check: {}
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/drop-high-card, tail_sampling, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/clean-metric-labels, cumulativetodelta, interval, batch]
+      exporters: [prometheusremotewrite]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/drop-high-card, batch]
+      exporters: [otlphttp/loki]
+  telemetry:
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888

@@ -1,0 +1,48 @@
+# Transform processor using OTTL (OpenTelemetry Transformation Language).
+# Requires the CONTRIB distro (core does not ship `transform`).
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+
+  transform:
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["deployment.environment"], "prod")
+          - set(attributes["team"], "payments") where resource.attributes["service.name"] == "checkout"
+          - delete_key(attributes, "pii.email")
+    metric_statements:
+      - context: datapoint
+        statements:
+          - set(attributes["deployment.environment"], "prod")
+
+  batch:
+    send_batch_size: 1024
+    timeout: 2s
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, transform, batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, transform, batch]
+      exporters: [debug]
+  telemetry:
+    logs:
+      level: info

@@ -1,0 +1,31 @@
+id: obs-12-02-add-slo-rules-via-crds
+title: SLO rules y routing con PrometheusRule + AlertmanagerConfig
+technology: prometheus-grafana
+module: 12-prometheus-operator-and-kube-prometheus-stack
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - obs-06-recording-and-alerting-rules
+  - obs-12-01-full-stack-in-kind
+
+objectives:
+  - Diseñar un PrometheusRule con una recording rule y dos alerting rules
+  - Rutar alertas critical a un receiver y warning a otro usando AlertmanagerConfig
+  - Asegurar que los CRs llevan los labels/selectors requeridos por el Operator
+  - Validar sintaxis con promtool si está disponible
+  - Mantener seguridad: no commitear tokens, usar Secret refs
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

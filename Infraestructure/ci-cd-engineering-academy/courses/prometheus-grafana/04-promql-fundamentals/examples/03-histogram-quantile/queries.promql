@@ -1,0 +1,20 @@
+# p50 por job
+histogram_quantile(0.50, sum by (le, job) (rate(http_request_duration_seconds_bucket[5m])))
+
+# p95 por job
+histogram_quantile(0.95, sum by (le, job) (rate(http_request_duration_seconds_bucket[5m])))
+
+# p99 por job
+histogram_quantile(0.99, sum by (le, job) (rate(http_request_duration_seconds_bucket[5m])))
+
+# Latencia media (no es cuantil): rate(sum) / rate(count)
+rate(http_request_duration_seconds_sum[5m])
+  /
+rate(http_request_duration_seconds_count[5m])
+
+# p95 preservando path y method
+histogram_quantile(0.95,
+  sum by (le, job, path, method) (rate(http_request_duration_seconds_bucket[5m])))
+
+# MAL: sin `le` en by → cuantil inválido (NaN o 0)
+# histogram_quantile(0.95, sum by (job) (rate(http_request_duration_seconds_bucket[5m])))

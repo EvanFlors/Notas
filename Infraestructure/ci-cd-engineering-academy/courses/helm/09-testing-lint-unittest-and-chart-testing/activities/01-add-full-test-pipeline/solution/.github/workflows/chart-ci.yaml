@@ -1,0 +1,65 @@
+name: chart-ci
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'charts/**'
+      - '.github/workflows/chart-ci.yaml'
+      - 'ct.yaml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with: { version: v3.16.0 }
+      - name: helm lint (strict)
+        run: |
+          set -euo pipefail
+          for d in charts/*/; do helm lint --strict "$d"; done
+      - name: helm template (dry render)
+        run: |
+          set -euo pipefail
+          for d in charts/*/; do helm template rel "$d" > /dev/null; done
+
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with: { version: v3.16.0 }
+      - run: helm plugin install https://github.com/helm-unittest/helm-unittest
+      - name: helm unittest
+        run: |
+          set -euo pipefail
+          for d in charts/*/; do
+            if [ -d "$d/tests" ]; then helm unittest "$d"; fi
+          done
+
+  install:
+    needs: [lint, unittest]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s: [v1.31.0, v1.30.0, v1.29.0]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: azure/setup-helm@v4
+        with: { version: v3.16.0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: helm/chart-testing-action@v2
+        with: { version: v3.11.0 }
+      - name: ct lint
+        run: ct lint --config ct.yaml
+      - uses: helm/kind-action@v1
+        with:
+          node_image: kindest/node:${{ matrix.k8s }}
+          wait: 120s
+      - name: ct install
+        run: ct install --config ct.yaml

@@ -1,0 +1,37 @@
+# HELP httpRequests number of http requests
+# TYPE httpRequests gauge
+httpRequests{method="GET"} 1027
+httpRequests{method="POST"} 310
+
+# HELP request_latency_ms request latency in ms
+# TYPE request_latency_ms gauge
+request_latency_ms{route="/api/v1/users"} 230
+request_latency_ms{route="/api/v1/orders"} 540
+
+# HELP memory_used_mb memory used in megabytes
+# TYPE memory_used_mb gauge
+memory_used_mb 512
+
+# HELP cpu_usage_percent cpu usage from 0 to 100
+# TYPE cpu_usage_percent gauge
+cpu_usage_percent 73.4
+
+# HELP active_connections_total active connections right now
+# TYPE active_connections_total counter
+active_connections_total 42
+
+# HELP queue_size_total current queue size
+# TYPE queue_size_total counter
+queue_size_total{queue="jobs"} 17
+
+# HELP disk_free_gb disk free in GB
+# TYPE disk_free_gb gauge
+disk_free_gb{device="nvme0n1"} 128
+
+# HELP request_duration_summary duration summary
+# TYPE request_duration_summary summary
+request_duration_summary{quantile="0.5"} 0.21
+request_duration_summary{quantile="0.95"} 0.84
+request_duration_summary{quantile="0.99"} 1.42
+request_duration_summary_count 1005
+request_duration_summary_sum 325.4

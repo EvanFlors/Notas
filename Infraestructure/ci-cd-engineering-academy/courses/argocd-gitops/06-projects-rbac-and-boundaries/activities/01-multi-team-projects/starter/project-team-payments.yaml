@@ -1,0 +1,32 @@
+# STARTER — fill in the TODOs so the project matches the acceptance criteria.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-payments
+  namespace: argocd
+spec:
+  description: "Payments team boundary"
+
+  sourceRepos:
+    # TODO: replace '*' with the only repo the team is allowed to use.
+    - '*'
+
+  destinations:
+    # TODO: restrict namespace to 'payments-*' in the in-cluster.
+    - server: https://kubernetes.default.svc
+      namespace: '*'
+
+  clusterResourceWhitelist:
+    # TODO: allow creating Namespace (and nothing else at cluster scope).
+    []
+
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  namespaceResourceBlacklist:
+    # TODO: forbid ResourceQuota and LimitRange.
+    []
+
+  orphanedResources:
+    warn: true

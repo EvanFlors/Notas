@@ -1,0 +1,31 @@
+id: otel-14-01-platform-telemetry-contract-adr
+title: ADR — contrato de telemetría de la plataforma
+technology: opentelemetry
+module: 14-platform-patterns-vendor-neutral-cost-and-semconv-governance
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - otel-11-01-switch-backend-no-code-change
+  - otel-12-01-full-otel-stack-via-operator
+  - otel-13-01-harden-collector
+
+objectives:
+  - Redactar un ADR que fije el contrato de telemetría de una organización ficticia dada
+  - Prohibir explícitamente atributos vendor-prefixed en código, con lista cerrada
+  - Definir SLOs medibles para la propia plataforma de observabilidad
+  - Describir el proceso de deprecación de SemConv con dual-emit y cutover
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

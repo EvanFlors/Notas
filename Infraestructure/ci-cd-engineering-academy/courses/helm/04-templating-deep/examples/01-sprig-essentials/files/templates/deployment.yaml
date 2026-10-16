@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-app
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+spec:
+  replicas: {{ .Values.replicas | default 2 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+      annotations:
+        checksum/config: {{ include "sprig-essentials.configmap" . | sha256sum }}
+    spec:
+      containers:
+        - name: app
+          image: "{{ required ".Values.image.repository es obligatorio" .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

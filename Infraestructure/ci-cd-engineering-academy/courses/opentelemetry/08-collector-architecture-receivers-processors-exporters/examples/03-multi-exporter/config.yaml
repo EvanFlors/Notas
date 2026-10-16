@@ -1,0 +1,47 @@
+# Multi-exporter: each pipeline fans out to debug (stdout) and file (jsonl).
+# Requires the CONTRIB distro (file exporter is contrib).
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+  batch:
+    send_batch_size: 1024
+    timeout: 2s
+
+exporters:
+  debug:
+    verbosity: basic
+  file/traces:
+    path: /tmp/otel-out/traces.jsonl
+  file/metrics:
+    path: /tmp/otel-out/metrics.jsonl
+  file/logs:
+    path: /tmp/otel-out/logs.jsonl
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, file/traces]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, file/metrics]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, file/logs]
+  telemetry:
+    logs:
+      level: info

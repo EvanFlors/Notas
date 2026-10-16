@@ -1,0 +1,6 @@
+# image.repository es intencionadamente omitido: debe venir del usuario (required).
+image:
+  repository: ""
+  tag: ""   # vacio => default "latest"
+
+replicas: null

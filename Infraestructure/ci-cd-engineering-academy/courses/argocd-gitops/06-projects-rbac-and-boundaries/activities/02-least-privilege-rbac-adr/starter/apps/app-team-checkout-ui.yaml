@@ -1,0 +1,15 @@
+# Creates: Deployment, Service, Ingress, ConfigMap. Namespace pre-provisioned.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: checkout-ui
+  namespace: argocd
+spec:
+  project: legacy-everything
+  source:
+    repoURL: https://github.com/acme-checkout/checkout-manifests.git
+    path: envs/prod/ui
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: checkout-prod

@@ -1,0 +1,29 @@
+id: otel-08-01-collector-local-with-three-signals
+title: Collector local recibiendo las 3 signals
+technology: opentelemetry
+module: 08-collector-architecture-receivers-processors-exporters
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - otel-01-what-and-why-signals-and-maturity
+
+objectives:
+  - Levantar otelcol-contrib en Docker con una config de 3 pipelines
+  - Emitir traces, metrics y logs via OTLP gRPC con telemetrygen
+  - Verificar que las 3 pipelines escriben a archivos JSON lines
+  - Interpretar la salida del debug exporter
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

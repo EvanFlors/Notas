@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sprig-essentials
+description: Ejemplo de las 7 funciones Sprig que usarás a diario.
+type: application
+version: 0.1.0
+appVersion: "1.21.0"

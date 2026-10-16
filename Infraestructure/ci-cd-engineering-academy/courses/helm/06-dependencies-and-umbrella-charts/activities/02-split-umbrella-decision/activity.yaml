@@ -1,0 +1,29 @@
+id: helm-06-02-split-umbrella-decision
+title: ADR — umbrella vs charts separados en 3 escenarios
+technology: helm
+module: 06-dependencies-and-umbrella-charts
+level: intermediate
+type: architecture
+
+estimated_minutes: 60
+
+prerequisites:
+  - helm-06-01-umbrella-for-dev-stack
+
+objectives:
+  - Analizar 3 escenarios reales de composición de charts
+  - Decidir umbrella vs charts separados con criterios explícitos
+  - Redactar un ADR por escenario con contexto, decisión, consecuencias
+  - Argumentar en términos de ownership, lifecycle y blast radius
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

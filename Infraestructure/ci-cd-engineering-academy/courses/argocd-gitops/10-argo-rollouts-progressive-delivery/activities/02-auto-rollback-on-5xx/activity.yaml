@@ -1,0 +1,29 @@
+id: argo-10-02-auto-rollback-on-5xx
+title: AnalysisTemplate Prometheus con auto-rollback por 5xx
+technology: argocd-gitops
+module: 10-argo-rollouts-progressive-delivery
+level: advanced
+type: independent
+
+estimated_minutes: 120
+
+prerequisites:
+  - argo-10-01-canary-capstone
+
+objectives:
+  - Escribir un AnalysisTemplate con provider prometheus
+  - Definir successCondition y failureCondition numéricas realistas
+  - Integrarlo como step analysis en un Rollout canary existente
+  - Argumentar la elección de interval, count y failureLimit
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

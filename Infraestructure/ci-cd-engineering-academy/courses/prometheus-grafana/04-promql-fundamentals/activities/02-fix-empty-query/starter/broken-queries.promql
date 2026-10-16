@@ -1,0 +1,29 @@
+# === Query 1 ===
+# Original:
+rate(http_request_total{job="api"}[5m])
+# Hipótesis:
+# Fix:
+
+# === Query 2 ===
+# Original:
+sum by (endpoint) (rate(http_requests_total[5m]))
+# Hipótesis:
+# Fix:
+
+# === Query 3 ===
+# Original (scrape_interval=15s):
+rate(http_requests_total[10s])
+# Hipótesis:
+# Fix:
+
+# === Query 4 ===
+# Original:
+rate(node_memory_MemFree_bytes[5m])
+# Hipótesis:
+# Fix:
+
+# === Query 5 ===
+# Original:
+histogram_quantile(0.95, sum by (job) (rate(http_request_duration_seconds_bucket[5m])))
+# Hipótesis:
+# Fix:

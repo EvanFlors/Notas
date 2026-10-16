@@ -1,0 +1,34 @@
+# HELP http_requests_total Total HTTP requests processed.
+# TYPE http_requests_total counter
+http_requests_total{method="GET"} 1027
+http_requests_total{method="POST"} 310
+
+# HELP http_request_duration_seconds Request latency distribution in seconds.
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{route="/api/v1/users",le="0.1"} 24
+http_request_duration_seconds_bucket{route="/api/v1/users",le="0.25"} 80
+http_request_duration_seconds_bucket{route="/api/v1/users",le="0.5"} 120
+http_request_duration_seconds_bucket{route="/api/v1/users",le="1.0"} 140
+http_request_duration_seconds_bucket{route="/api/v1/users",le="+Inf"} 150
+http_request_duration_seconds_count{route="/api/v1/users"} 150
+http_request_duration_seconds_sum{route="/api/v1/users"} 34.5
+
+# HELP process_memory_used_bytes Resident memory used by the process in bytes.
+# TYPE process_memory_used_bytes gauge
+process_memory_used_bytes 536870912
+
+# HELP process_cpu_usage_ratio CPU usage as a 0..1 ratio.
+# TYPE process_cpu_usage_ratio gauge
+process_cpu_usage_ratio 0.734
+
+# HELP active_connections Current number of active connections.
+# TYPE active_connections gauge
+active_connections 42
+
+# HELP queue_size Current number of items in the queue.
+# TYPE queue_size gauge
+queue_size{queue="jobs"} 17
+
+# HELP node_filesystem_free_bytes Free space on the filesystem in bytes.
+# TYPE node_filesystem_free_bytes gauge
+node_filesystem_free_bytes{device="nvme0n1"} 137438953472

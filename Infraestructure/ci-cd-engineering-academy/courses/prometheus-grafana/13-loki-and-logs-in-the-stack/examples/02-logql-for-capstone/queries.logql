@@ -1,0 +1,39 @@
+# ---------------------------------------------------------------------------
+# Example queries — paste into Grafana Explore (Loki data source).
+# Assumes JSON logs with fields: level, msg, path, status, duration_ms, request_id.
+# ---------------------------------------------------------------------------
+
+# 1. Basic filter by app
+{app="api"}
+
+# 2. Errors in the last 5 minutes (log query)
+{app="api"} |= "ERROR"
+
+# 3. Error rate as a time series (log-based metric)
+sum(rate({app="api"} |= "ERROR" [5m]))
+
+# 4. Top 5 paths with most errors in the last 15 minutes
+topk(5,
+  sum by (path) (
+    count_over_time({app="api"} | json | level="error" [15m])
+  )
+)
+
+# 5. p95 of request latency derived from the log
+quantile_over_time(0.95,
+  {app="api"} | json | unwrap duration_ms [5m]
+) by ()
+
+# 6. Reformat the line for human reading
+{app="api"} | json | line_format "[{{.request_id}}] {{.msg}} ({{.duration_ms}}ms)"
+
+# 7. Exclude healthcheck noise before counting
+sum(rate({app="api"} != "GET /healthz" |= "ERROR" [5m]))
+
+# 8. Compare today vs 24h ago (useful during an incident)
+sum(rate({app="api"} |= "ERROR" [5m]))
+  /
+sum(rate({app="api"} |= "ERROR" [5m] offset 24h))
+
+# 9. Alert on panic across any app in prod
+sum by (app) (count_over_time({env="prod"} |~ "(?i)panic|fatal" [1m])) > 0

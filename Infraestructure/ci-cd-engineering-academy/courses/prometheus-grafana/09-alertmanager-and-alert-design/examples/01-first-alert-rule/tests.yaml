@@ -1,0 +1,40 @@
+rule_files:
+  - alerts.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # 1. Error rate 10/60 = ~16% sostenido => debe disparar a los 10m.
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="api",status="500"}'
+        values: '0+10x30'
+      - series: 'http_requests_total{job="api",status="200"}'
+        values: '0+50x30'
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: HighErrorRate
+        exp_alerts: []           # pending aun; for=10m
+      - eval_time: 16m
+        alertname: HighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              team: platform
+            exp_annotations:
+              summary: "API 5xx rate >5% (10m)"
+              description: "La tasa de errores 5xx del job api supera 5% durante 10m."
+              runbook_url: "https://runbooks.example.com/api/high-error-rate"
+
+  # 2. Trafico sano: no debe disparar nunca.
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="api",status="200"}'
+        values: '0+100x30'
+      - series: 'http_requests_total{job="api",status="500"}'
+        values: '0+1x30'          # 1/101 ~ 1%
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: HighErrorRate
+        exp_alerts: []

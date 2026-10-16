@@ -1,0 +1,42 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: ex02-prom
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-otlp-receiver
+      - --enable-feature=otlp-write-receiver
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom-data:/prometheus
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: ex02-otelcol
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8888:8888"
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      - prometheus
+
+  metric-gen:
+    image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.111.0
+    container_name: ex02-metric-gen
+    command:
+      - metrics
+      - --otlp-endpoint=otel-collector:4317
+      - --otlp-insecure
+      - --rate=5
+      - --duration=24h
+    depends_on:
+      - otel-collector
+
+volumes:
+  prom-data:

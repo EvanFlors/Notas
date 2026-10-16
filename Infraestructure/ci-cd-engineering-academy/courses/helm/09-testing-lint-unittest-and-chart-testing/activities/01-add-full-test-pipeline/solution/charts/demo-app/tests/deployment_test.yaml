@@ -1,0 +1,28 @@
+suite: deployment
+templates:
+  - deployment.yaml
+tests:
+  - it: default replica count is 1
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: image override reflected in container image
+    set:
+      image.repository: ghcr.io/acme/demo
+      image.tag: "2.0.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ghcr.io/acme/demo:2.0.0"
+
+  - it: custom replica count applied
+    set:
+      replicaCount: 4
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 4

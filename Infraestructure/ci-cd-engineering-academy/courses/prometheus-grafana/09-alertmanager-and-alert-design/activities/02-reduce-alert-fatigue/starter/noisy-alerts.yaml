@@ -1,0 +1,66 @@
+# 15 alertas heredadas. Ruidosas. Mezclan sintomas, causas, umbrales arbitrarios
+# y duplicaciones. Tu trabajo: refactorizar a 5 alertas SLO/sintoma.
+# NO edites este fichero. Crea un alerts.yaml nuevo y un WHY.md.
+
+groups:
+  - name: legacy.rules
+    rules:
+      - alert: CpuHigh
+        expr: node_cpu_seconds_total{mode="idle"} < 20
+        annotations: { summary: "CPU idle bajo" }
+
+      - alert: CpuHighStaging
+        expr: node_cpu_seconds_total{env="staging",mode="idle"} < 30
+        annotations: { summary: "CPU staging alto" }
+
+      - alert: MemoryHigh
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.1
+        annotations: { summary: "Memoria baja" }
+
+      - alert: DiskFillingUp
+        expr: node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.2
+        annotations: { summary: "Disco <20%" }
+
+      - alert: NetworkRxHigh
+        expr: rate(node_network_receive_bytes_total[1m]) > 100000000
+        annotations: { summary: "Red RX alta" }
+
+      - alert: PodRestarts
+        expr: increase(kube_pod_container_status_restarts_total[5m]) > 0
+        annotations: { summary: "Un pod reinicio" }
+
+      - alert: PodCrashLoop
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+        annotations: { summary: "Crashloop detectado" }
+
+      - alert: NodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        annotations: { summary: "Nodo NotReady" }
+
+      - alert: TargetDown
+        expr: up == 0
+        annotations: { summary: "Target DOWN" }
+
+      - alert: HTTP5xx
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) > 0
+        annotations: { summary: "Hay 5xx" }
+
+      - alert: HTTP4xx
+        expr: sum(rate(http_requests_total{status=~"4.."}[5m])) > 10
+        annotations: { summary: "Muchos 4xx" }
+
+      - alert: LatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m]))) > 1
+        annotations: { summary: "p95 > 1s" }
+
+      - alert: QueueLag
+        expr: kafka_consumer_lag_sum > 1000
+        annotations: { summary: "Lag de consumer alto" }
+
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        annotations: { summary: "Postgres down" }
+
+      - alert: CertExpiring
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 30
+        annotations: { summary: "Cert expira en <30d" }

@@ -1,0 +1,29 @@
+# TODO (student): PrometheusRule 'payments-slo' en namespace 'payments'.
+# Debe cumplir:
+#   - labels: release=kps, tenant=payments
+#   - al menos 1 recording rule y 2 alerting rules
+#   - cada alerta: annotations.summary, description, runbook_url
+#   - severidades 'critical' y 'warning'
+#
+# apiVersion: monitoring.coreos.com/v1
+# kind: PrometheusRule
+# metadata:
+#   name: payments-slo
+#   namespace: payments
+#   labels:
+#     release: kps
+#     tenant: payments
+# spec:
+#   groups:
+#     - name: payments.slo.rules
+#       rules:
+#         - record: ...
+#           expr: ...
+#         - alert: ...
+#           expr: ...
+#           for: ...
+#           labels: { severity: critical }
+#           annotations:
+#             summary: ...
+#             description: ...
+#             runbook_url: ...

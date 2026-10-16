@@ -1,0 +1,103 @@
+---
+# Self-contained: includes the ingredients needed by the MWMBR alerts.
+# Target SLO: 99.9% availability for the `payments` service => budget = 0.001.
+groups:
+  - name: slo-ingredients-payments
+    interval: 30s
+    rules:
+      - record: sli:payments_requests:ratio_rate5m
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="payments",code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="payments"}[5m]))
+          )
+      - record: sli:payments_requests:ratio_rate30m
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="payments",code=~"5.."}[30m]))
+            /
+            sum(rate(http_requests_total{job="payments"}[30m]))
+          )
+      - record: sli:payments_requests:ratio_rate1h
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="payments",code=~"5.."}[1h]))
+            /
+            sum(rate(http_requests_total{job="payments"}[1h]))
+          )
+      - record: sli:payments_requests:ratio_rate2h
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="payments",code=~"5.."}[2h]))
+            /
+            sum(rate(http_requests_total{job="payments"}[2h]))
+          )
+      - record: sli:payments_requests:ratio_rate6h
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="payments",code=~"5.."}[6h]))
+            /
+            sum(rate(http_requests_total{job="payments"}[6h]))
+          )
+
+  - name: slo-alerts-payments-availability
+    rules:
+      # ---- PAGE severity: fast burn ----
+      - alert: PaymentsAvailabilityErrorBudgetBurnFast1h
+        expr: |
+          (1 - sli:payments_requests:ratio_rate1h)  > (14.4 * 0.001)
+          and
+          (1 - sli:payments_requests:ratio_rate5m)  > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: page
+          slo: payments-availability
+          burn_rate: "14.4"
+        annotations:
+          summary: "Payments availability burning budget 14.4x (1h/5m)"
+          description: |
+            The error rate over the last 1h and 5m exceeds 14.4x the 99.9% SLO budget.
+            At this rate the 30d budget would be consumed in ~2 days.
+            Runbook: https://runbooks.example.com/payments-availability
+      - alert: PaymentsAvailabilityErrorBudgetBurnFast6h
+        expr: |
+          (1 - sli:payments_requests:ratio_rate6h)  > (6 * 0.001)
+          and
+          (1 - sli:payments_requests:ratio_rate30m) > (6 * 0.001)
+        for: 15m
+        labels:
+          severity: page
+          slo: payments-availability
+          burn_rate: "6"
+        annotations:
+          summary: "Payments availability burning budget 6x (6h/30m)"
+          description: "Sustained burn above 6x: 5% of budget would be gone in 6h."
+
+      # ---- TICKET severity: slow burn ----
+      - alert: PaymentsAvailabilityErrorBudgetBurnSlow1d
+        expr: |
+          (1 - sli:payments_requests:ratio_rate1h) > (3 * 0.001)
+          and
+          (1 - sli:payments_requests:ratio_rate2h) > (3 * 0.001)
+        for: 1h
+        labels:
+          severity: ticket
+          slo: payments-availability
+          burn_rate: "3"
+        annotations:
+          summary: "Payments availability burning budget 3x"
+          description: "At 3x burn, 10% of budget consumed in ~24h."
+      - alert: PaymentsAvailabilityErrorBudgetBurnSlow3d
+        expr: |
+          (1 - sli:payments_requests:ratio_rate6h) > (1 * 0.001)
+          and
+          (1 - sli:payments_requests:ratio_rate1h) > (1 * 0.001)
+        for: 3h
+        labels:
+          severity: ticket
+          slo: payments-availability
+          burn_rate: "1"
+        annotations:
+          summary: "Payments availability burning budget 1x"
+          description: "Sustained 1x burn would exhaust the 30d budget on schedule."

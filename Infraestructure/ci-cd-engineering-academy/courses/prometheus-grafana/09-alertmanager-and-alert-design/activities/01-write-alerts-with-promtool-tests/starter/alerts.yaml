@@ -1,0 +1,33 @@
+groups:
+  - name: api.rules
+    interval: 30s
+    rules:
+      # TODO 1: HighErrorRate
+      # expr: ratio de http_requests_total con status=~"5.." sobre el total, > 0.05
+      # for: 10m
+      # labels: severity=page, team=platform
+      # annotations: summary, description, runbook_url
+      - alert: HighErrorRate
+        expr: vector(0)              # <-- reemplazar
+        for: 0s                      # <-- reemplazar
+        labels: {}
+        annotations: {}
+
+      # TODO 2: HighLatencyP95
+      # expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="api"}[5m]))) > 0.5
+      # for: 5m
+      - alert: HighLatencyP95
+        expr: vector(0)              # <-- reemplazar
+        for: 0s
+        labels: {}
+        annotations: {}
+
+      # TODO 3: AbsentTarget
+      # expr: absent(up{job="api"}) == 1   (o up{job="api"} == 0)
+      # for: 2m
+      # severity=page
+      - alert: AbsentTarget
+        expr: vector(0)              # <-- reemplazar
+        for: 0s
+        labels: {}
+        annotations: {}

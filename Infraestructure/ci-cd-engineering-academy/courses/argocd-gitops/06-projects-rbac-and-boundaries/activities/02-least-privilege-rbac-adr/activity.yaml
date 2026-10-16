@@ -1,0 +1,29 @@
+id: argo-06-02-least-privilege-rbac-adr
+title: Least-privilege migration ADR for a wildcard AppProject
+technology: argocd-gitops
+module: 06-projects-rbac-and-boundaries
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - argo-06-01-multi-team-projects
+
+objectives:
+  - Audit a wildcard AppProject across seven canonical risk points
+  - Infer minimum sufficient permissions from the Applications it serves
+  - Produce multiple scoped AppProjects as a migration proposal
+  - Document the decision as an ADR with migration plan
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/argo-06-02"
+
+status: not-started

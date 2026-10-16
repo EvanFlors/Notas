@@ -1,0 +1,31 @@
+id: argo-07-01-env-per-folder-appset
+title: ApplicationSet con Git generator por carpeta
+technology: argocd-gitops
+module: 07-applicationsets-and-generators
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - argo-04-01-deploy-capstone-via-helm-source
+  - argo-06-01-multi-team-projects
+
+objectives:
+  - Construir un repo local con envs/dev, envs/stg, envs/prod
+  - Escribir un ApplicationSet con git.directories que genere 3 Applications
+  - Usar goTemplate true con missingkey error y variables path.basename
+  - Validar que las 3 Applications aparecen (si argocd+kind disponibles) o que el manifest es correcto (modo offline)
+  - Observar que al añadir envs/qa aparece una App nueva sin tocar el ApplicationSet
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

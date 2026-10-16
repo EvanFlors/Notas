@@ -1,0 +1,40 @@
+// Discover containers via the Docker socket and ship their stdout/stderr to Loki.
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Promote the `app` label on the container to the stream label `app`.
+  rule {
+    source_labels = ["__meta_docker_container_label_app"]
+    target_label  = "app"
+  }
+  // Promote `env`.
+  rule {
+    source_labels = ["__meta_docker_container_label_env"]
+    target_label  = "env"
+  }
+  // Keep only containers that opted in by having an `app` label.
+  rule {
+    source_labels = ["app"]
+    regex         = ".+"
+    action        = "keep"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.write.default.receiver]
+  labels     = { job = "docker" }
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

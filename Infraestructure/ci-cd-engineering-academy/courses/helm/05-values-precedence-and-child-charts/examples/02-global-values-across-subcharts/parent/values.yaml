@@ -1,0 +1,4 @@
+global:
+  imageRegistry: ghcr.io/acme
+
+appName: parent-app

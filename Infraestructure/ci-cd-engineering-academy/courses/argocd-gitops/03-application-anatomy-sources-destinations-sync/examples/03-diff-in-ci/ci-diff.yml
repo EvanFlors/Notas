@@ -1,0 +1,74 @@
+name: argocd-app-diff
+
+on:
+  pull_request:
+    paths:
+      - 'envs/**'
+      - 'charts/**'
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+      APP_NAME: capstone-api-dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install argocd CLI
+        run: |
+          curl -sSL -o /usr/local/bin/argocd \
+            https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x /usr/local/bin/argocd
+          argocd version --client
+
+      - name: Compute diff against PR HEAD
+        id: diff
+        run: |
+          set -eu
+          # Deliberately NOT using `set -o pipefail`: `argocd app diff` returns 1
+          # when there IS a diff, and we want to capture that cleanly.
+          PR_SHA="${{ github.event.pull_request.head.sha }}"
+          echo "Diffing $APP_NAME against revision $PR_SHA"
+          OUT=$(mktemp)
+          argocd app diff "$APP_NAME" \
+            --server "$ARGOCD_SERVER" \
+            --auth-token "$ARGOCD_AUTH_TOKEN" \
+            --revision "$PR_SHA" \
+            --server-side-generate \
+            > "$OUT" 2>&1
+          RC=$?
+          echo "argocd app diff exit code: $RC"
+          echo "diff_file=$OUT" >> "$GITHUB_OUTPUT"
+          echo "diff_rc=$RC"    >> "$GITHUB_OUTPUT"
+
+      - name: Comment diff on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('${{ steps.diff.outputs.diff_file }}', 'utf8');
+            const header = '### argocd app diff — ' + process.env.APP_NAME + '\n\n';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: header + '```diff\n' + body.slice(0, 60000) + '\n```'
+            });
+
+      - name: Block merge if destructive change detected (StatefulSet / PVC)
+        run: |
+          set -eu
+          if grep -qE '^\-.*(kind: StatefulSet|kind: PersistentVolumeClaim)' \
+              "${{ steps.diff.outputs.diff_file }}"; then
+            echo "Destructive change detected (StatefulSet or PVC removal). Blocking."
+            exit 1
+          fi
+          echo "No destructive change detected."

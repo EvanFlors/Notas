@@ -1,0 +1,16 @@
+# Creates: Deployment, Service (headless), ConfigMap, Secret (external-secrets ref),
+#          NetworkPolicy. Namespace pre-provisioned.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payments-worker
+  namespace: argocd
+spec:
+  project: legacy-everything
+  source:
+    repoURL: https://github.com/acme-payments/payments-manifests.git
+    path: envs/prod/worker
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: payments-prod

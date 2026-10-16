@@ -1,0 +1,29 @@
+id: obs-04-01-build-red-queries
+title: Build the RED trio in PromQL
+technology: prometheus-grafana
+module: 04-promql-fundamentals
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-03-metric-types-and-naming
+
+objectives:
+  - Escribir la query de Rate agregada por job
+  - Escribir la query de Errors como ratio con matching binario
+  - Escribir la query de Duration como p95 usando histogram_quantile con le en el by
+  - Validar las queries con promtool o contra un Prometheus en vivo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

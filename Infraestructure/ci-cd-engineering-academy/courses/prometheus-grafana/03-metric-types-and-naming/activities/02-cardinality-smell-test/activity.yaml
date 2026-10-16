@@ -1,0 +1,28 @@
+id: obs-03-02-cardinality-smell-test
+title: Cardinality smell test on a given /metrics
+technology: prometheus-grafana
+module: 03-metric-types-and-naming
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-02-install-local-stack-and-first-scrape
+
+objectives:
+  - Identificar labels de alta cardinalidad (user_id, request_id, trace_id) en un /metrics dado
+  - Estimar impacto en nº de series de cada label unbounded
+  - Proponer corrección accionable (drop, exemplar, acotar) en CARDINALITY-ANALYSIS.md
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

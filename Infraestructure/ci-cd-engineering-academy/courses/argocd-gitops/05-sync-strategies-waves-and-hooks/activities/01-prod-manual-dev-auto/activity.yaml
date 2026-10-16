@@ -1,0 +1,29 @@
+id: argo-05-01-prod-manual-dev-auto
+title: Diferentiate sync policies by environment (prod manual + sync window, dev automated)
+technology: argocd-gitops
+module: 05-sync-strategies-waves-and-hooks
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - argo-03-application-anatomy-sources-destinations-sync
+
+objectives:
+  - Configurar syncPolicy.automated con prune y selfHeal para una Application de dev
+  - Dejar la Application de prod con sync manual y syncOptions con PruneLast y ServerSideApply
+  - Añadir un sync window deny con manualSync=true al AppProject prod
+  - Justificar la decisión selfHeal on/off por entorno
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/argo05-act01"
+
+status: not-started

@@ -1,0 +1,49 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: capstone
+  labels:
+    app: capstone
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: capstone
+  template:
+    metadata:
+      labels:
+        app: capstone
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 2
+            failureThreshold: 3
+  strategy:
+    canary:
+      canaryService: capstone-canary
+      stableService: capstone-stable
+      steps:
+        - setWeight: 10
+        - pause: { duration: 2m }
+        - analysis:
+            templates:
+              - templateName: error-rate-5xx
+            args:
+              - name: service-name
+                value: capstone
+        - setWeight: 50
+        - pause: { duration: 5m }
+        - analysis:
+            templates:
+              - templateName: error-rate-5xx
+            args:
+              - name: service-name
+                value: capstone
+        - pause: {}
+        - setWeight: 100

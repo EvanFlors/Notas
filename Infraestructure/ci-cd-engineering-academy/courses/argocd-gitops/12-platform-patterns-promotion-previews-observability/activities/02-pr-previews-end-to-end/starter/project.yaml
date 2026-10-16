@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: previews
+  namespace: argocd
+spec:
+  description: Preview environments per PR (ephemeral)
+  sourceRepos:
+    - '*'                 # lab-only; in real orgs restrict to the service repo
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: 'pr-*'
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: '*'
+    - group: 'apps'
+      kind: '*'
+    - group: 'networking.k8s.io'
+      kind: '*'
+  orphanedResources:
+    warn: true

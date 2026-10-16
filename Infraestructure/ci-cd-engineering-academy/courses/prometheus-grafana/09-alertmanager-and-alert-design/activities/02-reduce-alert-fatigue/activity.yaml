@@ -1,0 +1,29 @@
+id: obs-09-02-reduce-alert-fatigue
+title: Reducir alert fatigue a 5 alertas SLO
+technology: prometheus-grafana
+module: 09-alertmanager-and-alert-design
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - obs-04-promql-fundamentals
+  - obs-09-01-write-alerts-with-promtool-tests
+
+objectives:
+  - Clasificar un set de 15 alertas en sintoma vs causa y actionable vs no
+  - Rediseniar a 5 alertas basadas en SLO/user-impact con campos obligatorios
+  - Justificar en WHY.md cada decision (keep/drop/merge/rewrite)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/obs-09-02"
+
+status: not-started

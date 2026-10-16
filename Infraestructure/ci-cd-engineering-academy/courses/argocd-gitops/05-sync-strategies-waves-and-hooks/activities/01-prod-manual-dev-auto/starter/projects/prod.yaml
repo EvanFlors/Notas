@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: prod
+  namespace: argocd
+spec:
+  description: Production project
+  sourceRepos:
+    - https://github.com/example/infra
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: web-prod
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  # TODO: añadir spec.syncWindows con al menos una entrada:
+  #   - kind: deny
+  #     schedule: "* * * * *"
+  #     duration: 24h
+  #     applications: ["web-prod"]
+  #     manualSync: true

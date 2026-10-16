@@ -1,0 +1,71 @@
+---
+groups:
+  - name: slo-ingredients-payments-availability
+    interval: 30s
+    rules:
+      - record: sli:payments_requests:ratio_rate5m
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="payments",code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="payments"}[5m]))
+          )
+      - record: sli:payments_requests:ratio_rate30m
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="payments",code=~"5.."}[30m]))
+            /
+            sum(rate(http_requests_total{job="payments"}[30m]))
+          )
+      - record: sli:payments_requests:ratio_rate1h
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="payments",code=~"5.."}[1h]))
+            /
+            sum(rate(http_requests_total{job="payments"}[1h]))
+          )
+      - record: sli:payments_requests:ratio_rate2h
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="payments",code=~"5.."}[2h]))
+            /
+            sum(rate(http_requests_total{job="payments"}[2h]))
+          )
+      - record: sli:payments_requests:ratio_rate6h
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{job="payments",code=~"5.."}[6h]))
+            /
+            sum(rate(http_requests_total{job="payments"}[6h]))
+          )
+
+  - name: slo-alerts-payments-availability
+    rules:
+      - alert: PaymentsAvailabilityErrorBudgetBurnFast1h
+        expr: |
+          (1 - sli:payments_requests:ratio_rate1h) > (14.4 * 0.001)
+          and
+          (1 - sli:payments_requests:ratio_rate5m) > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: page
+          slo: payments-availability
+          burn_rate: "14.4"
+        annotations:
+          summary: "Payments availability burning budget 14.4x (1h/5m)"
+          description: "At 14.4x burn, 30d budget would be gone in ~2 days."
+          runbook: "https://runbooks.example.com/payments-availability"
+      - alert: PaymentsAvailabilityErrorBudgetBurnSlow6h
+        expr: |
+          (1 - sli:payments_requests:ratio_rate6h) > (1 * 0.001)
+          and
+          (1 - sli:payments_requests:ratio_rate1h) > (1 * 0.001)
+        for: 3h
+        labels:
+          severity: ticket
+          slo: payments-availability
+          burn_rate: "1"
+        annotations:
+          summary: "Payments availability burning budget 1x"
+          description: "Sustained 1x burn would exhaust the 30d budget on schedule."
+          runbook: "https://runbooks.example.com/payments-availability"

@@ -1,0 +1,29 @@
+id: argo-13-02-choice-adr-final
+title: ADR final — Argo CD vs Flux para una organización concreta
+technology: argocd-gitops
+module: 13-flux-as-alternative
+level: advanced
+type: architecture
+
+estimated_minutes: 60
+
+prerequisites:
+  - argo-13-01-port-capstone-from-argocd-to-flux
+
+objectives:
+  - Describir una organización concreta y sus restricciones
+  - Enumerar criterios de decisión con pesos cuantitativos
+  - Evaluar Argo CD y Flux contra los criterios con evidencia
+  - Emitir una decisión fundamentada con consecuencias y plan de salida
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

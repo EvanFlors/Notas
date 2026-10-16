@@ -1,0 +1,29 @@
+id: helm-01-01-install-helm-and-explore
+title: Instalar Helm y explorar charts del ecosistema
+technology: helm
+module: 01-mental-model-and-setup
+level: beginner
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites: []
+
+objectives:
+  - Instalar el binario helm y verificar version y env
+  - Añadir un chart repository HTTP y refrescar su índice
+  - Buscar charts en Artifact Hub y en repos locales
+  - Inspeccionar la metadata y los values por defecto de un chart popular
+  - Documentar el entorno y los hallazgos en NOTES.md
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/helm-01-explore"
+
+status: not-started

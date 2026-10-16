@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Public URL where users reach Argo CD (must match GitHub OAuth callback host).
+  url: https://argocd.example.com
+
+  # Dex configuration — federates GitHub (not native OIDC) into Argo CD's OIDC layer.
+  # NOTE: $dex.github.clientSecret resolves against the Secret 'argocd-secret', key 'dex.github.clientSecret'.
+  dex.config: |
+    connectors:
+      - type: github
+        id: github
+        name: GitHub
+        config:
+          clientID: REPLACE_WITH_GITHUB_OAUTH_APP_CLIENT_ID
+          clientSecret: $dex.github.clientSecret
+          orgs:
+            - name: acme-org
+              # teams: [platform, team-a]   # optional: restrict login to specific teams
+          loadAllGroups: true
+          teamNameField: slug
+          useLoginAsID: false

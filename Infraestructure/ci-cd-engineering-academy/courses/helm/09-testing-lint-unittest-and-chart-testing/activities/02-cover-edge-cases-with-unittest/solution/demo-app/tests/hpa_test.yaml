@@ -1,0 +1,28 @@
+suite: hpa
+templates:
+  - hpa.yaml
+tests:
+  - it: with autoscaling disabled, no HPA is rendered
+    set:
+      autoscaling.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: with autoscaling enabled, an HPA is rendered with defaults
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: HorizontalPodAutoscaler
+      - equal:
+          path: spec.minReplicas
+          value: 1
+      - equal:
+          path: spec.maxReplicas
+          value: 5
+      - equal:
+          path: spec.metrics[0].resource.target.averageUtilization
+          value: 80

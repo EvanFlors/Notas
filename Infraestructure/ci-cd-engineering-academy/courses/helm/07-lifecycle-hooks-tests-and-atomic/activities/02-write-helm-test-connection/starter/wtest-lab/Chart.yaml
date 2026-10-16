@@ -1,0 +1,6 @@
+apiVersion: v2
+name: wtest-lab
+description: Starter chart with Deployment + Service. Student adds templates/tests/test-connection.yaml.
+type: application
+version: 0.1.0
+appVersion: "1.25"

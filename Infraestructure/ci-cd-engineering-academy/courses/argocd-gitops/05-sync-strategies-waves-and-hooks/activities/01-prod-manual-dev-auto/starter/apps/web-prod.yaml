@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: web-prod
+  namespace: argocd
+spec:
+  project: prod
+  source:
+    repoURL: https://github.com/example/infra
+    path: envs/prod/web
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: web-prod
+  # TODO: añadir syncPolicy con:
+  #   - NO poner automated (sync manual)
+  #   - syncOptions con al menos ServerSideApply=true y PruneLast=true
+  #   - retry opcional con limit bajo (p. ej. 2)

@@ -1,0 +1,112 @@
+---
+# Reference output (hand-written equivalent of what `sloth generate` emits).
+# Shown here for the "offline" path when Docker/Sloth are unavailable.
+# NOTE: Sloth's real output uses different record names (e.g. `slo:sli_error:ratio_rate5m`
+# with labels `sloth_id`, `sloth_service`, `sloth_slo`). We keep the same semantics
+# with the conventions used elsewhere in this module so promtool validation is uniform.
+groups:
+  - name: sloth-slo-sli-recordings-payments-availability
+    rules:
+      - record: slo:sli_error:ratio_rate5m
+        expr: |
+          sum(rate(http_requests_total{job="payments",code=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="payments"}[5m]))
+        labels:
+          sloth_id: payments-availability
+          sloth_service: payments
+          sloth_slo: availability
+      - record: slo:sli_error:ratio_rate30m
+        expr: |
+          sum(rate(http_requests_total{job="payments",code=~"5.."}[30m]))
+          /
+          sum(rate(http_requests_total{job="payments"}[30m]))
+        labels:
+          sloth_id: payments-availability
+          sloth_service: payments
+          sloth_slo: availability
+      - record: slo:sli_error:ratio_rate1h
+        expr: |
+          sum(rate(http_requests_total{job="payments",code=~"5.."}[1h]))
+          /
+          sum(rate(http_requests_total{job="payments"}[1h]))
+        labels:
+          sloth_id: payments-availability
+          sloth_service: payments
+          sloth_slo: availability
+      - record: slo:sli_error:ratio_rate2h
+        expr: |
+          sum(rate(http_requests_total{job="payments",code=~"5.."}[2h]))
+          /
+          sum(rate(http_requests_total{job="payments"}[2h]))
+        labels:
+          sloth_id: payments-availability
+          sloth_service: payments
+          sloth_slo: availability
+      - record: slo:sli_error:ratio_rate6h
+        expr: |
+          sum(rate(http_requests_total{job="payments",code=~"5.."}[6h]))
+          /
+          sum(rate(http_requests_total{job="payments"}[6h]))
+        labels:
+          sloth_id: payments-availability
+          sloth_service: payments
+          sloth_slo: availability
+
+  - name: sloth-slo-meta-recordings-payments-availability
+    rules:
+      - record: slo:objective:ratio
+        expr: vector(0.999)
+        labels:
+          sloth_id: payments-availability
+          sloth_service: payments
+          sloth_slo: availability
+      - record: slo:error_budget:ratio
+        expr: vector(0.001)
+        labels:
+          sloth_id: payments-availability
+          sloth_service: payments
+          sloth_slo: availability
+
+  - name: sloth-slo-alerts-payments-availability
+    rules:
+      - alert: PaymentsAvailabilityErrorBudgetBurn
+        expr: |
+          (
+              max(slo:sli_error:ratio_rate1h{sloth_id="payments-availability"} > (14.4 * 0.001))
+              and
+              max(slo:sli_error:ratio_rate5m{sloth_id="payments-availability"} > (14.4 * 0.001))
+          )
+          or
+          (
+              max(slo:sli_error:ratio_rate6h{sloth_id="payments-availability"} > (6 * 0.001))
+              and
+              max(slo:sli_error:ratio_rate30m{sloth_id="payments-availability"} > (6 * 0.001))
+          )
+        labels:
+          severity: page
+          slo: payments-availability
+          sloth_severity: page
+        annotations:
+          summary: "Payments availability SLO burn-rate"
+          runbook: "https://runbooks.example.com/payments-availability"
+      - alert: PaymentsAvailabilityErrorBudgetBurn
+        expr: |
+          (
+              max(slo:sli_error:ratio_rate2h{sloth_id="payments-availability"} > (3 * 0.001))
+              and
+              max(slo:sli_error:ratio_rate1h{sloth_id="payments-availability"} > (3 * 0.001))
+          )
+          or
+          (
+              max(slo:sli_error:ratio_rate6h{sloth_id="payments-availability"} > (1 * 0.001))
+              and
+              max(slo:sli_error:ratio_rate30m{sloth_id="payments-availability"} > (1 * 0.001))
+          )
+        labels:
+          severity: ticket
+          slo: payments-availability
+          sloth_severity: ticket
+        annotations:
+          summary: "Payments availability SLO burn-rate"
+          runbook: "https://runbooks.example.com/payments-availability"

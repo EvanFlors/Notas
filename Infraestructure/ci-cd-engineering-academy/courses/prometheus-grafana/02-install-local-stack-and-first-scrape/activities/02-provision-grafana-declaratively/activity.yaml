@@ -1,0 +1,29 @@
+id: obs-02-02-provision-grafana-declaratively
+title: Provision Grafana declaratively — datasource + dashboard sin tocar la UI
+technology: prometheus-grafana
+module: 02-install-local-stack-and-first-scrape
+level: beginner
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - obs-02-01-up-and-running-local-stack
+
+objectives:
+  - Declarar un datasource Prometheus mediante provisioning YAML
+  - Declarar un provider de dashboards file-based y versionar un dashboard JSON
+  - Verificar via API de Grafana que ambos aparecen como provisioned al primer boot
+  - Confirmar que down -v && up -d reproduce el estado exacto sin clics
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

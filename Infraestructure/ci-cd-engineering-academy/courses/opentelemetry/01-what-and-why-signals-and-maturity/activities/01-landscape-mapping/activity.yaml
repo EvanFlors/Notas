@@ -1,0 +1,30 @@
+id: otel-01-01-landscape-mapping
+title: Mapeo del panorama OTel vs Jaeger / Prometheus / Loki / vendor
+technology: opentelemetry
+module: 01-what-and-why-signals-and-maturity
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - obs-01-observability-pillars-and-pull-model
+
+objectives:
+  - Clasificar cada pieza (Prometheus, Jaeger, Zipkin, Loki, vendor APM, Grafana, Fluentbit) como reemplazada, convive o fuera-de-scope respecto a OTel
+  - Dibujar un diagrama ASCII del stack antes y despues de adoptar OTel
+  - Argumentar por que OTel no es un backend
+  - Nombrar que piezas del Collector (receiver vs exporter) hacen posible la convivencia con herramientas pre-OTel
+  - Producir un documento LANDSCAPE.md con las tres secciones requeridas y las 5 piezas clasificadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/otel-01-landscape"
+
+status: not-started

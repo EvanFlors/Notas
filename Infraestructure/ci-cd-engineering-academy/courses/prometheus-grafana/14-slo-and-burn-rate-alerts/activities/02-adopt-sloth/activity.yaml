@@ -1,0 +1,29 @@
+id: obs-14-02-adopt-sloth
+title: Adopta Sloth y compara con las reglas MWMBR escritas a mano
+technology: prometheus-grafana
+module: 14-slo-and-burn-rate-alerts
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-14-01-define-capstone-slos
+
+objectives:
+  - Escribir una spec Sloth v1 para un SLO de availability
+  - Generar PrometheusRule con sloth generate dentro de Docker
+  - Validar la salida con promtool check rules
+  - Comparar la salida con las reglas escritas a mano y justificar la elección
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

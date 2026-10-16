@@ -1,0 +1,55 @@
+global:
+  scrape_interval: 10s
+  # Platform-wide labels: do it once here, inherited by every scraped series.
+  external_labels:
+    env: lab
+    team: sre
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'promhttp_metric_handler_requests_total'
+        action: drop
+      - source_labels: [__name__]
+        regex: 'promhttp_metric_handler_requests_in_flight'
+        action: drop
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    relabel_configs:
+      - target_label: instance
+        replacement: node1
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'promhttp_metric_handler_requests_total'
+        action: drop
+      - source_labels: [__name__]
+        regex: 'promhttp_metric_handler_requests_in_flight'
+        action: drop
+
+  - job_name: blackbox
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://example.com
+          - https://prometheus.io
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'promhttp_metric_handler_requests_total'
+        action: drop
+      - source_labels: [__name__]
+        regex: 'promhttp_metric_handler_requests_in_flight'
+        action: drop

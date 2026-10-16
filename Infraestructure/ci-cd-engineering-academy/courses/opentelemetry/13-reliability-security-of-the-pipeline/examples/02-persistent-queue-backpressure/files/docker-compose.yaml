@@ -1,0 +1,25 @@
+services:
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    container_name: otel13-ex02-collector
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./collector.yaml:/etc/otel/config.yaml:ro
+      - /tmp/otel13-ex02/queue:/var/lib/otelcol/queue
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8888:8888"
+    networks: [otel13ex02]
+
+  backend:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    container_name: otel13-ex02-backend
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./backend.yaml:/etc/otel/config.yaml:ro
+    networks: [otel13ex02]
+
+networks:
+  otel13ex02:
+    driver: bridge

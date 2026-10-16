@@ -1,0 +1,77 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default-slack
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # 1) Toda alerta critica tambien va a PagerDuty, en paralelo (continue).
+    - matchers:
+        - severity="page"
+      receiver: pagerduty-oncall
+      continue: true
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # 2) Enrutado por equipo.
+    - matchers:
+        - team="platform"
+      receiver: platform-slack
+      routes:
+        - matchers: [severity="page"]
+          receiver: platform-pagerduty
+
+    - matchers:
+        - team="payments"
+      receiver: payments-slack
+      routes:
+        - matchers: [severity="page"]
+          receiver: payments-pagerduty
+
+    # 3) Severity info -> solo tickets, nunca paginar.
+    - matchers:
+        - severity="info"
+      receiver: tickets-webhook
+      group_wait: 2m
+      group_interval: 30m
+      repeat_interval: 24h
+
+receivers:
+  - name: default-slack
+    slack_configs:
+      - api_url: 'https://hooks.slack.example.com/placeholder'
+        channel: '#alerts-default'
+        send_resolved: true
+
+  - name: platform-slack
+    slack_configs:
+      - api_url: 'https://hooks.slack.example.com/placeholder'
+        channel: '#alerts-platform'
+        send_resolved: true
+
+  - name: payments-slack
+    slack_configs:
+      - api_url: 'https://hooks.slack.example.com/placeholder'
+        channel: '#alerts-payments'
+        send_resolved: true
+
+  - name: pagerduty-oncall
+    pagerduty_configs:
+      - routing_key: 'PLACEHOLDER_PD_KEY'
+        severity: '{{ .CommonLabels.severity }}'
+
+  - name: platform-pagerduty
+    pagerduty_configs:
+      - routing_key: 'PLACEHOLDER_PD_KEY_PLATFORM'
+
+  - name: payments-pagerduty
+    pagerduty_configs:
+      - routing_key: 'PLACEHOLDER_PD_KEY_PAYMENTS'
+
+  - name: tickets-webhook
+    webhook_configs:
+      - url: 'http://ticket-bot.internal:8080/alert'
+        send_resolved: true

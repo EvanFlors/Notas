@@ -1,0 +1,29 @@
+id: obs-06-01-scrape-pods-by-annotation
+title: Scrape de pods por annotation en Kubernetes
+technology: prometheus-grafana
+module: 06-service-discovery
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-05-exporters-and-relabeling
+
+objectives:
+  - Configurar kubernetes_sd_configs con role pod
+  - Filtrar targets por annotation prometheus.io/scrape=true via relabel
+  - Promover meta labels a labels Prometheus utiles (namespace, pod)
+  - Diagnosticar porque un pod sin anotar no aparece en /targets
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

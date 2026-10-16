@@ -1,0 +1,87 @@
+groups:
+  - name: slo.rules
+    interval: 30s
+    rules:
+      # 1. Availability user-facing (sintoma SLO).
+      - alert: ApiAvailabilityBelowSlo
+        expr: |
+          (
+            sum(rate(http_requests_total{job="api",status!~"5.."}[5m]))
+              /
+            sum(rate(http_requests_total{job="api"}[5m]))
+          ) < 0.999
+        for: 10m
+        labels:
+          severity: page
+          team: platform
+        annotations:
+          summary: "API availability <99.9% (10m)"
+          description: "La disponibilidad user-facing del job api esta por debajo del SLO."
+          runbook_url: "https://runbooks.example.com/api/slo-availability"
+
+      # 2. Latencia p95 user-facing.
+      - alert: ApiLatencyP95AboveSlo
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{job="api"}[5m]))
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: page
+          team: platform
+        annotations:
+          summary: "API p95 >500ms (10m)"
+          description: "p95 latencia user-facing supera el SLO de 500ms."
+          runbook_url: "https://runbooks.example.com/api/slo-latency"
+
+      # 3. Error rate 5xx user-facing.
+      - alert: ApiErrorRateHigh
+        expr: |
+          sum(rate(http_requests_total{job="api",status=~"5.."}[5m]))
+            /
+          sum(rate(http_requests_total{job="api"}[5m]))
+            > 0.01
+        for: 10m
+        labels:
+          severity: page
+          team: platform
+        annotations:
+          summary: "API 5xx rate >1% (10m)"
+          description: "La tasa de 5xx user-facing supera 1%, quemando error budget."
+          runbook_url: "https://runbooks.example.com/api/error-rate"
+
+      # 4. Burn-rate rapido del error budget (predictor de incidente < 1h).
+      - alert: ApiErrorBudgetBurnFast
+        expr: |
+          (
+            sum(rate(http_requests_total{job="api",status=~"5.."}[1h]))
+              /
+            sum(rate(http_requests_total{job="api"}[1h]))
+          ) > (14.4 * 0.001)
+          and
+          (
+            sum(rate(http_requests_total{job="api",status=~"5.."}[5m]))
+              /
+            sum(rate(http_requests_total{job="api"}[5m]))
+          ) > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: page
+          team: platform
+        annotations:
+          summary: "Fast burn-rate: 2% error budget en <1h"
+          description: "Multi-window burn-rate (1h & 5m) excede 14.4x el SLO budget."
+          runbook_url: "https://runbooks.example.com/api/burn-rate"
+
+      # 5. Dependencia critica caida (si Postgres cae, todo el user-facing cae).
+      - alert: PostgresPrimaryDown
+        expr: up{job="postgres",role="primary"} == 0
+        for: 2m
+        labels:
+          severity: page
+          team: data
+        annotations:
+          summary: "Postgres primary down"
+          description: "El primary de Postgres no responde al scrape; impacto inmediato en API."
+          runbook_url: "https://runbooks.example.com/db/postgres-primary-down"

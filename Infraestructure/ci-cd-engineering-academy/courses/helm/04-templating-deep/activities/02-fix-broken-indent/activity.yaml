@@ -1,0 +1,29 @@
+id: helm-04-02-fix-broken-indent
+title: Debug de 3 errores clasicos de templating en Helm
+technology: helm
+module: 04-templating-deep
+level: intermediate
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - helm-04-01-refactor-template-with-helpers
+
+objectives:
+  - Diagnosticar errores de render con helm template --debug
+  - Distinguir error de parse vs error de ejecucion
+  - Aplicar correcciones minimas sin re-escribir el chart
+  - Explicar cada bug en una frase
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/fix-broken-indent"
+
+status: not-started

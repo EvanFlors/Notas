@@ -1,0 +1,32 @@
+id: helm-10-02-platform-chart-contract-adr
+title: ADR — Contrato del chart de plataforma y frontera Helm/Kustomize/operador
+technology: helm
+module: 10-platform-patterns-library-charts-argo-flux-and-kustomize-boundary
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - helm-07-lifecycle-hooks-tests-and-atomic
+  - helm-08-repositories-oci-and-provenance
+  - helm-09-testing-lint-unittest-and-chart-testing
+
+objectives:
+  - Definir el contrato del chart de plataforma (golden chart) explicitamente
+  - Decidir Helm vs Kustomize vs operador para 3 escenarios reales con justificacion
+  - Fijar politica de versionado (SemVer, deprecation window, migration guides)
+  - Documentar la integracion con Argo CD o Flux y sus trampas conocidas
+  - Nombrar alternativas descartadas, consecuencias, riesgos y triggers de revision
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh starter/ADR-001-platform-chart-contract.md"
+
+status: not-started

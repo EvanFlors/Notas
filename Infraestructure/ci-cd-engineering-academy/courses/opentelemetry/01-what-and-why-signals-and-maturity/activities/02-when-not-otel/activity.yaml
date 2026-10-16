@@ -1,0 +1,30 @@
+id: otel-01-02-when-not-otel
+title: Analisis - cuando NO adoptar OTel (todavia)
+technology: opentelemetry
+module: 01-what-and-why-signals-and-maturity
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - obs-01-observability-pillars-and-pull-model
+
+objectives:
+  - Decidir con criterio tecnico si OTel encaja (si / parcial / no / esperar) para 4 escenarios dados
+  - Justificar cada decision citando madurez por lenguaje/signal, costo de instrumentacion, lock-in, horizonte de cambio de backend
+  - Nombrar alternativa concreta o estrategia parcial cuando OTel no encaja hoy
+  - Producir un documento DECISIONS.md con una seccion por escenario mas una sintesis con 7 criterios
+  - Articular por que profiling en incubacion afecta la decision de adopcion
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/otel-01-when-not"
+
+status: not-started

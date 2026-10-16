@@ -1,0 +1,30 @@
+id: obs-05-01-add-postgres-exporter
+title: Agregar postgres_exporter al stack y verificar métricas
+technology: prometheus-grafana
+module: 05-exporters-and-relabeling
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-02-install-local-stack-and-first-scrape
+  - obs-03-metric-types-and-naming
+
+objectives:
+  - Levantar un stack docker-compose con Prometheus + Postgres + postgres_exporter
+  - Configurar el job de scrape con relabel que normaliza instance y agrega env
+  - Verificar que pg_up vale 1 y que al menos 3 métricas pg_* persisten en Prometheus
+  - Dropear una metrica ruidosa (pg_stat_database_blks_read por base del sistema) con metric_relabel_configs
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

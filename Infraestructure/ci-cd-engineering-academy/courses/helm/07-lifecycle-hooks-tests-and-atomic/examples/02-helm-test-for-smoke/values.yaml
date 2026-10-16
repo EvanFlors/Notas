@@ -1,0 +1,9 @@
+image:
+  repository: nginx
+  tag: "1.25-alpine"
+replicaCount: 1
+service:
+  port: 80
+test:
+  image: "busybox:1.36"
+  timeoutSeconds: 5

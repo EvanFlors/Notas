@@ -1,0 +1,5 @@
+apiVersion: v2
+name: platform-lib
+description: Shared helpers for internal platform charts (labels, selectors, naming).
+type: library
+version: 0.1.0

@@ -1,0 +1,29 @@
+id: helm-02-01-install-cert-manager
+title: Instalar cert-manager con Helm
+technology: helm
+module: 02-consume-charts-install-upgrade-rollback
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - helm-01-mental-model-and-setup
+
+objectives:
+  - Añadir un repo de charts y refrescarlo
+  - Instalar cert-manager con version pinneada, create-namespace y wait
+  - Localizar el Secret donde Helm guarda el estado del release
+  - Explicar qué pasa si se borra ese Secret
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

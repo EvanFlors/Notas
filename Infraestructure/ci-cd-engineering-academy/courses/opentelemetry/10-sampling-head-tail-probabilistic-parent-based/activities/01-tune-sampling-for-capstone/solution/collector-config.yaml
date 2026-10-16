@@ -1,0 +1,42 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  tail_sampling:
+    decision_wait: 5s
+    num_traces: 10000
+    expected_new_traces_per_sec: 100
+    policies:
+      - name: errors-100
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: slow-100
+        type: latency
+        latency:
+          threshold_ms: 500
+      - name: random-10
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+  batch:
+    send_batch_size: 128
+    timeout: 1s
+
+exporters:
+  file:
+    path: /out/out.json
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      # batch MUST follow tail_sampling: tail buffers, then releases a burst at
+      # decision_wait; batch smooths it before the exporter.
+      processors: [tail_sampling, batch]
+      exporters: [file, debug]

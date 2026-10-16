@@ -1,0 +1,31 @@
+id: helm-03-01-chart-for-fastapi
+title: Chart propio para la app FastAPI del capstone
+technology: helm
+module: 03-chart-anatomy
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - helm-02-01-install-cert-manager
+
+objectives:
+  - Generar y recortar un scaffold de helm create para una app FastAPI
+  - Escribir Chart.yaml v2 con los campos obligatorios correctos
+  - Definir values.yaml como contrato público del chart (image, service, resources, probes)
+  - Mantener _helpers.tpl con labels y nombres estables
+  - Validar el chart con helm lint y helm template
+  - Opcionalmente instalar en un cluster kind con helm install --dry-run
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

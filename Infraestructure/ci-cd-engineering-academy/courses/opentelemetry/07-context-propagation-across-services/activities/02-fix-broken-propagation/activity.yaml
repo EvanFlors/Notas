@@ -1,0 +1,29 @@
+id: otel-07-02-fix-broken-propagation
+title: Diagnose and fix broken context propagation between two services
+technology: opentelemetry
+module: 07-context-propagation-across-services
+level: intermediate
+type: debug
+
+estimated_minutes: 60
+
+prerequisites:
+  - otel-02-specification-semconv-and-context-propagation
+  - otel-04-instrumenting-python-traces
+
+objectives:
+  - Diagnosticar las dos causas del trace roto (lado cliente y lado servidor)
+  - Aplicar el fix minimo que restaura la continuidad del trace_id
+  - Verificar automaticamente que B observa un parent no-cero
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

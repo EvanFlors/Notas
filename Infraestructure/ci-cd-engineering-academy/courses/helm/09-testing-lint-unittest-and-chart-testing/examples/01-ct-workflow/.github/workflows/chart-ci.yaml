@@ -1,0 +1,86 @@
+name: chart-ci
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'charts/**'
+      - '.github/workflows/chart-ci.yaml'
+      - 'ct.yaml'
+
+jobs:
+  lint:
+    name: helm lint + template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.0
+      - name: helm lint (strict) on every chart
+        run: |
+          set -euo pipefail
+          for d in charts/*/; do
+            echo "== lint $d =="
+            helm lint --strict "$d"
+          done
+      - name: helm template (dry render) on every chart
+        run: |
+          set -euo pipefail
+          for d in charts/*/; do
+            echo "== template $d =="
+            helm template rel "$d" > /dev/null
+          done
+
+  unittest:
+    name: helm-unittest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.0
+      - name: install helm-unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest
+      - name: run unittests
+        run: |
+          set -euo pipefail
+          for d in charts/*/; do
+            if [ -d "$d/tests" ]; then
+              echo "== unittest $d =="
+              helm unittest "$d"
+            fi
+          done
+
+  install:
+    name: ct install on kind (${{ matrix.k8s }})
+    needs: [lint, unittest]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s:
+          - v1.31.0   # n
+          - v1.30.0   # n-1
+          - v1.29.0   # n-2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # ct needs history to diff against target-branch
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: helm/chart-testing-action@v2
+        with:
+          version: v3.11.0
+      - name: ct lint (changed charts)
+        run: ct lint --config ct.yaml
+      - uses: helm/kind-action@v1
+        with:
+          node_image: kindest/node:${{ matrix.k8s }}
+          wait: 120s
+      - name: ct install (changed charts)
+        run: ct install --config ct.yaml

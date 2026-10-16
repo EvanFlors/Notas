@@ -1,0 +1,12 @@
+# This file would live in the "values" repo at: apps/postgresql/values.yaml
+auth:
+  existingSecret: pg-auth    # provided out-of-band (e.g. by ESO)
+primary:
+  persistence:
+    size: 20Gi
+    storageClass: standard
+  resources:
+    requests: {cpu: 200m, memory: 512Mi}
+    limits:   {cpu: 1000m, memory: 1Gi}
+metrics:
+  enabled: true

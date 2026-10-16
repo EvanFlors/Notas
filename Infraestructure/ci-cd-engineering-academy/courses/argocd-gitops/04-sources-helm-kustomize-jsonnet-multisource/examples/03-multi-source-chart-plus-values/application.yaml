@@ -1,0 +1,44 @@
+# Multi-source Application (GA since Argo CD 2.6).
+# Two sources: an upstream chart and a repo that holds the values file.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pg-multi
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: postgres
+    server: https://kubernetes.default.svc
+
+  sources:
+    # 1) Upstream chart. Pinned by SemVer.
+    - repoURL: https://charts.bitnami.com/bitnami
+      chart: postgresql
+      targetRevision: 16.0.3
+      helm:
+        releaseName: pg
+        valueFiles:
+          # $values is the ref: name below. The path is RELATIVE TO THE VALUES REPO.
+          - $values/apps/postgresql/values.yaml
+
+    # 2) Values-only repo. Does not render manifests on its own; just provides files.
+    - repoURL: https://github.com/acme/infra   # TODO: your infra repo
+      targetRevision: main
+      ref: values
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

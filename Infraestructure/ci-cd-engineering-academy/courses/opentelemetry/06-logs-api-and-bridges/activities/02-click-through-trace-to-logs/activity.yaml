@@ -1,0 +1,30 @@
+id: otel-06-02-click-through-trace-to-logs
+title: Click-through trace a logs en Grafana via Tempo + Loki
+technology: opentelemetry
+module: 06-logs-api-and-bridges
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - otel-04-instrumenting-python-traces
+  - otel-06-01-add-otel-logging-to-capstone
+
+objectives:
+  - Levantar un stack docker-compose con Tempo, Loki, Grafana y Collector
+  - Configurar el Collector con pipelines separadas de traces y logs
+  - Instrumentar una app con 3+ spans anidados y logs correlacionados
+  - Demostrar click-through trace a logs en Grafana via TraceToLogs
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: broken-indent
+description: "Starter con 3 bugs plantados. Fix hasta que helm template pase."
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

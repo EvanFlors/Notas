@@ -1,0 +1,38 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "schemaVersion": 39,
+  "title": "Metrics-to-Logs correlation",
+  "uid": "obs13-corr-ex",
+  "tags": ["obs-13", "correlation"],
+  "time": {"from": "now-30m", "to": "now"},
+  "templating": {
+    "list": [
+      {"name": "app", "type": "query", "datasource": "Prometheus", "query": "label_values(http_requests_total, app)", "current": {"text": "api", "value": "api"}},
+      {"name": "instance", "type": "query", "datasource": "Prometheus", "query": "label_values(http_requests_total{app=\"$app\"}, instance)", "current": {"text": "all", "value": ".*"}}
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP request rate ($app)",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "sum by (instance) (rate(http_requests_total{app=\"$app\"}[5m]))", "refId": "A"}
+      ],
+      "options": {"legend": {"displayMode": "list"}},
+      "fieldConfig": {
+        "defaults": {
+          "links": [
+            {
+              "title": "See ERROR logs for this app/instance",
+              "url": "/explore?left=%7B%22datasource%22:%22Loki%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22expr%22:%22%7Bapp%3D%5C%22$app%5C%22%2Cinstance%3D%5C%22%24%7B__field.labels.instance%7D%5C%22%7D%20%7C%3D%20%5C%22ERROR%5C%22%22%7D%5D,%22range%22:%7B%22from%22:%22%24%7B__from%7D%22,%22to%22:%22%24%7B__to%7D%22%7D%7D",
+              "targetBlank": true
+            }
+          ]
+        }
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
+    }
+  ]
+}

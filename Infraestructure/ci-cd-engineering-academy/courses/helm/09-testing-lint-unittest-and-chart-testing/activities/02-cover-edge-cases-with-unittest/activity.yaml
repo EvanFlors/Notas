@@ -1,0 +1,30 @@
+id: helm-09-02-cover-edge-cases-with-unittest
+title: Cubre 5 edge cases de values con helm-unittest
+technology: helm
+module: 09-testing-lint-unittest-and-chart-testing
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - helm-04-templating-deep
+  - helm-06-dependencies-and-umbrella-charts
+
+objectives:
+  - Diseñar una suite helm-unittest desde cero
+  - Cubrir default, override, lista vacía, nil y flag booleano
+  - Usar asserts apropiados (equal, hasDocuments, notExists, isNull)
+  - Agrupar tests por template renderizado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

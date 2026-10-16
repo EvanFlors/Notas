@@ -1,0 +1,16 @@
+# Creates: Deployment, Service, ConfigMap, HorizontalPodAutoscaler.
+# Namespace is pre-provisioned by Platform.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payments-api
+  namespace: argocd
+spec:
+  project: legacy-everything
+  source:
+    repoURL: https://github.com/acme-payments/payments-manifests.git
+    path: envs/prod/api
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: payments-prod

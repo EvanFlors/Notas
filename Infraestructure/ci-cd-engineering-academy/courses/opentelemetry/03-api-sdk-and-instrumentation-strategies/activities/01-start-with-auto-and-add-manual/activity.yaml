@@ -1,0 +1,29 @@
+id: otel-03-01-start-with-auto-and-add-manual
+title: Guided lab — arranca con auto-instrumentation y añade spans manuales
+technology: opentelemetry
+module: 03-api-sdk-and-instrumentation-strategies
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - otel-01-what-and-why-signals-and-maturity
+
+objectives:
+  - Instalar los paquetes mínimos de OTel para una app FastAPI (api, sdk, instrumentation-fastapi, distro)
+  - Ejecutar la app con opentelemetry-instrument uvicorn y verificar spans en consola
+  - Añadir dos spans manuales a operaciones de dominio con start_as_current_span y set_attribute
+  - Producir el archivo app.py final y capturar la salida de consola en spans.log para auto-evaluación
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/otel-03-01"
+
+status: not-started

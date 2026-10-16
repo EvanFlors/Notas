@@ -1,0 +1,30 @@
+id: obs-13-02-log-based-metric-for-error-rate
+title: Build a log-based error-rate dashboard from Loki
+technology: prometheus-grafana
+module: 13-loki-and-logs-in-the-stack
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-13-01-add-loki-to-stack
+
+objectives:
+  - Justificar cuándo una log-based metric es la respuesta correcta
+  - Escribir la query sum(rate({app="api"} |= "ERROR" [5m])) en LogQL
+  - Construir un dashboard Grafana JSON con esa query
+  - Documentar la decisión en NOTES.md
+  - Añadir un segundo panel con top-5 paths con más errores
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/obs13-lab02"
+
+status: not-started

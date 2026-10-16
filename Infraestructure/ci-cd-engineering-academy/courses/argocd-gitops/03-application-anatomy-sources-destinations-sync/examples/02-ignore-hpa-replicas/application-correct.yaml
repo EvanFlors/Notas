@@ -1,0 +1,30 @@
+# CORRECT: Argo CD ignores /spec/replicas in this Deployment, both
+# when computing the diff AND when applying (RespectIgnoreDifferences=true).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: capstone-api-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/acme/capstone-infra.git
+    path: envs/dev/api
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: capstone-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true   # <-- indispensable
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: capstone-api                # scope to this Deployment only
+      jsonPointers:
+        - /spec/replicas                # owned by HPA

@@ -1,0 +1,18 @@
+# STARTER — escribe un AnalysisTemplate que mida la razón de 5xx del servicio canary.
+#
+# Debe:
+#   - llamarse 'error-rate-5xx'
+#   - aceptar args: service-name y prometheus-address
+#   - tener EXACTAMENTE una metric
+#   - usar provider prometheus con query que combine rate(5xx) / rate(total)
+#   - definir successCondition, failureCondition, failureLimit, count, interval
+#
+# No hay solución guiada; es una actividad independent.
+# Documenta en comentarios tus decisiones (umbral, ventana, etc).
+
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: TODO
+spec:
+  # TODO

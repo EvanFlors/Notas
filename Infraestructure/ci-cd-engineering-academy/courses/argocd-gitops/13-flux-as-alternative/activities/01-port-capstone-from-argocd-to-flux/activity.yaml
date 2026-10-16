@@ -1,0 +1,30 @@
+id: argo-13-01-port-capstone-from-argocd-to-flux
+title: Portar el capstone de Argo CD a Flux
+technology: argocd-gitops
+module: 13-flux-as-alternative
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - argo-04-sources-helm-kustomize-jsonnet-multisource
+  - argo-13-flux-as-alternative
+
+objectives:
+  - Instalar Flux en un cluster local kind
+  - Reimplementar el capstone de Argo CD como HelmRelease o Kustomization en Flux
+  - Documentar la decisión de porting y los trade-offs
+  - Verificar reconciliación Ready=True sobre el workload portado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

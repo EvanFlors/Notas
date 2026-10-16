@@ -1,0 +1,30 @@
+id: argo-07-02-pr-preview-environments
+title: Preview environments por Pull Request con ApplicationSet
+technology: argocd-gitops
+module: 07-applicationsets-and-generators
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - argo-07-01-env-per-folder-appset
+
+objectives:
+  - Diseñar un ApplicationSet que genere una Application efímera por PR
+  - Mockear eventos PR vía file generator cuando no hay GitHub webhook disponible
+  - Garantizar nombres y namespaces únicos y colisiones nulas con recursos cluster-scoped
+  - Demostrar ciclo abrir PR -> aparece preview, cerrar PR -> se destruye
+  - Justificar el valor de preserveResourcesOnDeletion false para previews
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

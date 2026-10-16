@@ -1,0 +1,11 @@
+# rate: tasa promedio (req/s) suavizada en los últimos 5 min
+rate(http_requests_total[5m])
+
+# increase: total absoluto en los últimos 5 min (= rate * 300)
+increase(http_requests_total[5m])
+
+# irate: tasa instantánea (2 muestras más recientes); solo para exploración
+irate(http_requests_total[1m])
+
+# equivalencia didáctica: increase == rate * seconds(range)
+increase(http_requests_total[5m]) == bool (rate(http_requests_total[5m]) * 300)

@@ -1,0 +1,43 @@
+# Starter: base config WITHOUT the attributes/resource/transform processor.
+# TODO (student): add a processor that upserts `deployment.environment = prod`
+#                 on every span and every metric data point, and reference it
+#                 in the traces and metrics pipelines in the correct order.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  batch:
+    send_batch_size: 512
+    timeout: 1s
+
+exporters:
+  debug:
+    verbosity: basic
+  file/traces:
+    path: /out/traces.jsonl
+  file/metrics:
+    path: /out/metrics.jsonl
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]      # TODO: insert your processor
+      exporters: [debug, file/traces]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]      # TODO: insert your processor
+      exporters: [debug, file/metrics]
+  telemetry:
+    logs:
+      level: info

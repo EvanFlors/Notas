@@ -1,0 +1,72 @@
+# Example Application manifest. Walked through field-by-field in walkthrough.sh.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # Application CRs ALWAYS live in the Argo CD namespace (typically "argocd").
+  name: capstone-api-dev
+  namespace: argocd
+  labels:
+    team: capstone
+    env: dev
+  annotations:
+    # Hint to speed up change detection in repos with many apps.
+    argocd.argoproj.io/manifest-generate-paths: "."
+    # Attach a finalizer so deleting the Application also cleans up its resources.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # The AppProject that bounds what this Application can do.
+  project: default
+
+  # Where the manifests come from.
+  source:
+    repoURL: https://github.com/acme/capstone-infra.git
+    path: envs/dev/api
+    # Branch for an environment that moves with each merge.
+    # For prod, prefer an immutable ref (tag or commit SHA).
+    targetRevision: main
+
+  # Where the resources are applied.
+  destination:
+    # In-cluster target. Replace with a registered cluster URL/name for multi-cluster.
+    server: https://kubernetes.default.svc
+    namespace: capstone-dev
+
+  # How and when to apply.
+  syncPolicy:
+    automated:
+      # Delete resources removed from Git.
+      prune: true
+      # Revert manual kubectl changes.
+      selfHeal: true
+      # Refuse to sync an empty manifest set (anti fat-finger).
+      allowEmpty: false
+    syncOptions:
+      # Create destination namespace if missing.
+      - CreateNamespace=true
+      # Only re-apply resources that are OutOfSync.
+      - ApplyOutOfSyncOnly=true
+      # Use server-side apply for cleaner multi-manager coexistence.
+      - ServerSideApply=true
+      # IMPORTANT: honour ignoreDifferences during apply too (not only in diff).
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+
+  # Fields written by other controllers that must not trigger drift.
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas         # written by HPA
+
+  # Operational metadata rendered in the Argo CD UI.
+  info:
+    - name: Runbook
+      value: https://wiki.acme.com/runbooks/capstone-api
+    - name: On-call
+      value: https://pagerduty.com/schedules/capstone

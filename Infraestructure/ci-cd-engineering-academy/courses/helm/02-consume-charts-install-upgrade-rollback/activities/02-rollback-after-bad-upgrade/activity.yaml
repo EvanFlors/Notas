@@ -1,0 +1,29 @@
+id: helm-02-02-rollback-after-bad-upgrade
+title: Rollback después de un upgrade roto
+technology: helm
+module: 02-consume-charts-install-upgrade-rollback
+level: beginner
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - helm-02-01-install-cert-manager
+
+objectives:
+  - Instalar un chart y hacer un upgrade con configuración rota
+  - Confirmar el problema con kubectl get pods/deploy
+  - Hacer rollback a la revisión 1 y verificar la restauración
+  - Explicar por qué el rollback crea una revisión nueva en vez de borrar la mala
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

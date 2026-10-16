@@ -1,0 +1,21 @@
+suite: service snapshot
+templates:
+  - service.yaml
+tests:
+  - it: Service renders identically to the recorded snapshot
+    asserts:
+      - matchSnapshot: {}
+
+  - it: Service also satisfies key invariants (defense-in-depth)
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - equal:
+          path: spec.ports[0].port
+          value: 80
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: demo-app

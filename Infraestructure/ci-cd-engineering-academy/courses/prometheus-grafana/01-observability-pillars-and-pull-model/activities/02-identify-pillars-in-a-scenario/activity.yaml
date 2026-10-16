@@ -1,0 +1,29 @@
+id: obs-01-02-identify-pillars-in-a-scenario
+title: Mapear los tres pilares en un postmortem narrado
+technology: prometheus-grafana
+module: 01-observability-pillars-and-pull-model
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites: []
+
+objectives:
+  - Clasificar cada pregunta de debugging en el pilar que la responde mejor
+  - Identificar qué señal faltaba cuando el equipo quedó "a ciegas"
+  - Proponer una métrica, un log o un trace concretos para cerrar cada laguna
+  - Diferenciar monitoring tradicional de observabilidad en el contexto del incidente
+  - Producir un PILLARS.md con tabla + explicación por pregunta y síntesis final
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/obs-01-pillars"
+
+status: not-started

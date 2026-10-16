@@ -1,0 +1,62 @@
+# Example: Helm source with the three ways to inject configuration.
+# Apply with: kubectl apply -n argocd -f application.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx-example
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: nginx-example
+    server: https://kubernetes.default.svc
+
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: nginx
+    targetRevision: 18.1.14    # pin the chart SemVer; HEAD does not apply to HTTP charts
+
+    helm:
+      # Release name is used to render helpers like `nginx.fullname`.
+      # If omitted, Argo CD uses metadata.name of this Application.
+      releaseName: nginx
+
+      # 1) valueFiles — RELATIVE TO THE CHART. For external overrides,
+      #    use the multi-source pattern (see example 03).
+      #    bitnami/nginx ships only `values.yaml`; this just reaffirms defaults.
+      valueFiles:
+        - values.yaml
+
+      # 2) Inline values — convenient, less reviewable.
+      values: |
+        service:
+          type: ClusterIP
+        resources:
+          requests: {cpu: 50m, memory: 64Mi}
+          limits:   {cpu: 200m, memory: 128Mi}
+
+      # 3) parameters — equivalent to `helm --set`. Highest precedence.
+      parameters:
+        - name: replicaCount
+          value: "2"
+        - name: image.tag
+          value: "1.27.3-debian-12-r0"
+        - forceString: true
+          name: podAnnotations.build
+          value: "20261013"
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

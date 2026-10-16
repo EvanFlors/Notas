@@ -1,0 +1,29 @@
+id: helm-07-01-add-migration-hook-with-weight
+title: Add a pre-install/pre-upgrade migration Job hook with correct weight and delete-policy
+technology: helm
+module: 07-lifecycle-hooks-tests-and-atomic
+level: advanced
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - helm-06-dependencies-and-umbrella-charts
+
+objectives:
+  - Convertir un Job regular en un hook pre-install,pre-upgrade con las anotaciones correctas
+  - Elegir y justificar un weight que fuerce el orden deseado
+  - Aplicar delete-policy before-hook-creation,hook-succeeded para idempotencia
+  - Verificar con helm get hooks que el Job es un hook y no un recurso del release
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/helm07-act01"
+
+status: not-started

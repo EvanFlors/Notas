@@ -1,0 +1,29 @@
+id: otel-11-01-switch-backend-no-code-change
+title: Swap tracing backend from Tempo to Jaeger with zero code change
+technology: opentelemetry
+module: 11-backends-tempo-jaeger-loki-prometheus-multi
+level: advanced
+type: guided-lab
+
+estimated_minutes: 70
+
+prerequisites:
+  - otel-08-collector-architecture-receivers-processors-exporters
+
+objectives:
+  - Añadir Jaeger a un docker-compose existente que ya exporta a Tempo
+  - Editar el pipeline del Collector para cambiar el exporter de Tempo a Jaeger
+  - Verificar que los traces llegan a Jaeger sin reiniciar la app
+  - Demostrar que el container de la app conserva su id (no fue redeployada)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/otel11-lab01"
+
+status: not-started

@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: canary-analysis-demo
+  labels:
+    app: canary-analysis-demo
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: canary-analysis-demo
+  template:
+    metadata:
+      labels:
+        app: canary-analysis-demo
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 2
+            failureThreshold: 3
+  strategy:
+    canary:
+      maxSurge: 1
+      maxUnavailable: 0
+      steps:
+        - setWeight: 25
+        - pause: { duration: 30s }
+        - analysis:
+            templates:
+              - templateName: error-rate-5xx
+            args:
+              - name: service-name
+                value: canary-analysis-demo
+        - setWeight: 50
+        - pause: { duration: 30s }
+        - analysis:
+            templates:
+              - templateName: error-rate-5xx
+            args:
+              - name: service-name
+                value: canary-analysis-demo
+        - setWeight: 100

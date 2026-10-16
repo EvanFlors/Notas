@@ -1,0 +1,29 @@
+id: otel-04-02-add-domain-spans
+title: Add domain spans (checkout.process, payment.charge, inventory.reserve)
+technology: opentelemetry
+module: 04-instrumenting-python-traces
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - otel-04-01-instrument-capstone-traces
+
+objectives:
+  - Añadir spans manuales de dominio sin tocar el middleware HTTP existente
+  - Garantizar jerarquía parent/child mediante start_as_current_span
+  - Marcar status=ERROR y record_exception cuando el pago falla
+  - Usar atributos con namespace de dominio en vez de nombres HTTP
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

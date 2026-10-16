@@ -1,0 +1,36 @@
+# Post-cutover (2026-12-11+).
+# Only the new attribute flows through. The old one, if emitted, is dropped.
+
+receivers:
+  otlp:
+    protocols:
+      grpc: {endpoint: 0.0.0.0:4317}
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 25
+  batch:
+    timeout: 5s
+
+  attributes/drop-deprecated:
+    actions:
+      - key: http.method
+        action: delete
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo.observability.svc:4317
+    tls: {ca_file: /etc/otel/tls/ca.crt}
+
+extensions:
+  health_check: {}
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/drop-deprecated, batch]
+      exporters: [otlp/tempo]

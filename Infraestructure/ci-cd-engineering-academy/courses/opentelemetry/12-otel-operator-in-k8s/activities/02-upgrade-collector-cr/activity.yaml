@@ -1,0 +1,30 @@
+id: otel-12-02-upgrade-collector-cr
+title: Upgrade de un OpenTelemetryCollector CR y comparación con Helm
+technology: opentelemetry
+module: 12-otel-operator-in-k8s
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - otel-12-01-full-otel-stack-via-operator
+
+objectives:
+  - Pinear la imagen del Collector y versionarla en el CR
+  - Disparar un rollout controlado por cambio de spec.image y verificar la nueva ReplicaSet
+  - Modificar spec.config y observar que el ConfigMap renderizado cambia de hash y re-rolla
+  - Comparar la operacion de upgrade con el equivalente en Helm (helm upgrade) en un ADR corto
+  - Documentar riesgos del auto-upgrade implicito via el default-image del Operator
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

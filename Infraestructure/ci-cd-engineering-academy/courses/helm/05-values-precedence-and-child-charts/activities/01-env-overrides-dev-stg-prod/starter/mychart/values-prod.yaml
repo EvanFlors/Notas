@@ -1,0 +1,6 @@
+# TODO: prod overrides.
+# Expected:
+#   replicas: 5
+#   logLevel: info
+#   image.tag: 1.0.0
+#   resources.requests.memory: 256Mi

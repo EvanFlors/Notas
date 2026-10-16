@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: 'ec2-nodes'
+    ec2_sd_configs:
+      - region: us-east-1
+        port: 9100
+        # credentials: via default chain (IAM role, env, profile)
+    relabel_configs:
+      # 1. keep instancias etiquetadas monitoring=true
+      - source_labels: [__meta_ec2_tag_monitoring]
+        action: keep
+        regex: "true"
+      # 2. keep solo instancias en running
+      - source_labels: [__meta_ec2_instance_state]
+        action: keep
+        regex: running
+      # 3. labels útiles
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance_name
+      - source_labels: [__meta_ec2_instance_id]
+        target_label: instance_id
+      - source_labels: [__meta_ec2_availability_zone]
+        target_label: az
+      - source_labels: [__meta_ec2_tag_env]
+        target_label: env

@@ -1,0 +1,42 @@
+# Starter: fill in each TODO. Read theory/lesson.md first.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: capstone-api-dev
+  # TODO: namespace where the Application CR itself lives
+  namespace: TODO
+spec:
+  project: default
+
+  source:
+    # TODO: repository URL
+    repoURL: TODO
+    # TODO: folder inside the repo
+    path: TODO
+    # TODO: a BRANCH (not HEAD) suitable for a dev environment
+    targetRevision: TODO
+
+  destination:
+    # TODO: in-cluster API server URL
+    server: TODO
+    # TODO: target namespace for workloads
+    namespace: TODO
+
+  syncPolicy:
+    automated:
+      # TODO: enable deletion of resources removed from Git
+      prune: TODO
+      # TODO: revert manual kubectl changes
+      selfHeal: TODO
+    syncOptions:
+      # TODO: list at least three options (see README.md section 5.4)
+      - TODO
+
+  # TODO: ignoreDifferences block so the HPA can scale /spec/replicas without
+  # triggering drift on apps/Deployment named "capstone-api".
+  # ignoreDifferences:
+  #   - group: ...
+  #     kind:  ...
+  #     name:  ...
+  #     jsonPointers:
+  #       - ...

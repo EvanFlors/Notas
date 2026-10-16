@@ -1,0 +1,18 @@
+groups:
+  - name: capstone-red
+    interval: 30s
+    rules:
+      # TODO 1: job:http_requests:rate5m
+      # Rate de requests por job sobre ventana 5m.
+      - record: job:http_requests:rate5m
+        expr: 0
+
+      # TODO 2: job:http_errors:ratio5m
+      # Ratio de errores 5xx sobre el total, agrupado por job.
+      - record: job:http_errors:ratio5m
+        expr: 0
+
+      # TODO 3: job:http_request_duration:p99_5m
+      # Percentil 99 de latencia por job, derivado de classic histogram.
+      - record: job:http_request_duration:p99_5m
+        expr: 0

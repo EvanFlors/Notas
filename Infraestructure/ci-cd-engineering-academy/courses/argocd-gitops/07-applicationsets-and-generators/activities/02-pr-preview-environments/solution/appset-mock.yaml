@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: myapp-pr-previews-mock
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: file:///tmp/argo-07-02/mock-repo
+        revision: HEAD
+        files:
+          - path: pulls/*.yaml
+  template:
+    metadata:
+      name: 'myapp-pr-{{.number}}'
+      labels:
+        generated-by: pr-preview
+        pr: '{{.number}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/acme/myapp.git
+        targetRevision: '{{.head_sha}}'
+        path: deploy/overlays/preview
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'myapp-pr-{{.number}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

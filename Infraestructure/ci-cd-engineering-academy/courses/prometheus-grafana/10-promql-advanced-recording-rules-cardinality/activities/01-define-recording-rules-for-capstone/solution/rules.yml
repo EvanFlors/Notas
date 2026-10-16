@@ -1,0 +1,25 @@
+groups:
+  - name: capstone-red
+    interval: 30s
+    rules:
+      - record: job:http_requests:rate5m
+        expr: sum by (job) (rate(http_requests_total[5m]))
+        # consume: dashboard "capstone-red" panel "Request rate by job"
+        # consume: alerta de volumen anómalo (burn-rate denominator en obs-14)
+
+      - record: job:http_errors:ratio5m
+        expr: |
+          sum by (job) (rate(http_requests_total{status=~"5.."}[5m]))
+            /
+          sum by (job) (rate(http_requests_total[5m]))
+        # consume: dashboard "capstone-red" panel "Error ratio by job"
+        # consume: alert "HighErrorRate" expr: job:http_errors:ratio5m > 0.05 for 5m
+
+      - record: job:http_request_duration:p99_5m
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (job, le) (rate(http_request_duration_seconds_bucket[5m]))
+          )
+        # consume: dashboard "capstone-red" panel "P99 latency by job"
+        # consume: alert "HighLatencyP99" expr: job:http_request_duration:p99_5m > 1 for 10m

@@ -1,0 +1,18 @@
+groups:
+  - name: api.rules
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="api",status=~"5.."}[5m]))
+            /
+          sum(rate(http_requests_total{job="api"}[5m]))
+            > 0.05
+        for: 10m
+        labels:
+          severity: page
+          team: platform
+        annotations:
+          summary: "API 5xx rate >5% (10m)"
+          description: "La tasa de errores 5xx del job api supera 5% durante 10m."
+          runbook_url: "https://runbooks.example.com/api/high-error-rate"

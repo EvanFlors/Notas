@@ -1,0 +1,29 @@
+id: otel-11-02-tempo-vs-jaeger-adr
+title: Write an ADR choosing Tempo or Jaeger for a mid-size org
+technology: opentelemetry
+module: 11-backends-tempo-jaeger-loki-prometheus-multi
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - otel-11-01-switch-backend-no-code-change
+
+objectives:
+  - Redactar un ADR Michael Nygard completo (Status/Context/Decision/Consequences)
+  - Enumerar al menos 5 criterios ponderados de decisión
+  - Argumentar la elección referenciando datos de la organización dada
+  - Declarar consecuencias negativas honestas y un review trigger
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/otel11-lab02"
+
+status: not-started

@@ -1,0 +1,102 @@
+org: acme-starter
+month_days: 30
+
+services:
+  - name: checkout
+    team: payments
+    env: prod
+    tier: gold
+    active_series: 42000       # OJO: incluye user_id como label (bug)
+    log_gb_day: 18.0
+    spans_per_sec: 300
+    sampling: 0.1
+  - name: orders
+    team: commerce
+    env: prod
+    tier: gold
+    active_series: 22000
+    log_gb_day: 10.0
+    spans_per_sec: 180
+    sampling: 0.1
+  - name: catalog
+    team: commerce
+    env: prod
+    tier: silver
+    active_series: 11000
+    log_gb_day: 4.0
+    spans_per_sec: 100
+    sampling: 0.1              # OJO: sampling alto para silver
+  - name: search
+    team: search
+    env: prod
+    tier: silver
+    active_series: 16000
+    log_gb_day: 6.0
+    spans_per_sec: 140
+    sampling: 0.05
+  - name: notifications
+    team: platform
+    env: prod
+    tier: silver
+    active_series: 7000
+    log_gb_day: 2.0
+    spans_per_sec: 40
+    sampling: 0.05
+  - name: billing-worker
+    team: payments
+    env: prod
+    tier: gold
+    active_series: 9000
+    log_gb_day: 25.0           # OJO: logs excesivos (debug level en prod)
+    spans_per_sec: 50
+    sampling: 0.1
+  - name: shipping
+    team: fulfillment
+    env: prod
+    tier: silver
+    active_series: 13000
+    log_gb_day: 4.5
+    spans_per_sec: 90
+    sampling: 0.05
+  - name: inventory
+    team: fulfillment
+    env: prod
+    tier: silver
+    active_series: 10000
+    log_gb_day: 3.5
+    spans_per_sec: 70
+    sampling: 0.05
+  - name: auth
+    team: platform
+    env: prod
+    tier: gold
+    active_series: 15000
+    log_gb_day: 5.0
+    spans_per_sec: 150
+    sampling: 0.1
+  - name: analytics
+    team: data
+    env: prod
+    tier: bronze
+    active_series: 6000
+    log_gb_day: 1.0
+    spans_per_sec: 20
+    sampling: 0.01
+  - name: debug-sandbox
+    team: platform
+    env: dev
+    tier: bronze
+    active_series: 3000
+    log_gb_day: 0.3
+    spans_per_sec: 2
+    sampling: 0.01
+  - name: internal-admin
+    team: platform
+    env: staging
+    tier: bronze
+    active_series: 2500
+    log_gb_day: 0.5
+    spans_per_sec: 5
+    sampling: 0.01
+
+egress_gb_month: 650

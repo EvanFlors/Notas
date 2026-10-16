@@ -1,0 +1,30 @@
+id: otel-09-01-deploy-agent-gateway-in-kind
+title: Desplegar agent + gateway en kind
+technology: opentelemetry
+module: 09-collector-deployment-patterns-agent-vs-gateway
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - otel-08-01-collector-local-with-three-signals
+
+objectives:
+  - Crear cluster kind de 2 nodos
+  - Desplegar otel-gateway (Deployment + Service) en namespace observability
+  - Desplegar otel-agent (DaemonSet) apuntando al Service DNS del gateway
+  - Enviar telemetria con telemetrygen y validar que el gateway la recibe
+  - Pasar los 5 checks del validador automatico
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

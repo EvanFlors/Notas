@@ -1,0 +1,9 @@
+service:
+  port: 8080
+  protocol: TCP
+
+# `exports.endpoints` keys become top-level values on the parent
+# when the parent writes `import-values: [endpoints]`.
+exports:
+  endpoints:
+    healthPath: /healthz

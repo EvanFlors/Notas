@@ -1,0 +1,24 @@
+groups:
+  - name: checkout-slo
+    interval: 30s
+    rules:
+      - record: job:http_requests:rate5m
+        expr: sum by (service, status) (rate(http_requests_total{service="checkout"}[5m]))
+
+      - record: job:http_requests:error_ratio5m
+        expr: |
+          sum(rate(http_requests_total{service="checkout",status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{service="checkout"}[5m]))
+
+      - alert: CheckoutErrorBudgetBurningFast
+        expr: job:http_requests:error_ratio5m > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: page
+          team: payments
+          service: checkout
+        annotations:
+          summary: "checkout burns error budget 14.4x faster than sustainable"
+          description: "5m error ratio {{ $value | humanizePercentage }} exceeds 14.4x the 99.9% SLO threshold."
+          runbook_url: "https://runbooks.example.com/checkout/slo-burn"

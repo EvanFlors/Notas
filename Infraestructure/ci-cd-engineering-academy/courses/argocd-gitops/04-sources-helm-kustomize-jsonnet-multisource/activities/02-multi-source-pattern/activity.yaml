@@ -1,0 +1,29 @@
+id: argo-04-02-multi-source-pattern
+title: Patrón multi-source — chart upstream + values en otro repo
+technology: argocd-gitops
+module: 04-sources-helm-kustomize-jsonnet-multisource
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - argo-04-01-deploy-capstone-via-helm-source
+
+objectives:
+  - Diseñar una Application multi-source separando chart upstream de values propios
+  - Usar ref y la variable $values correctamente
+  - Argumentar la elección de targetRevision para cada source
+  - Validar la Application mediante kustomize/helm template localmente
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

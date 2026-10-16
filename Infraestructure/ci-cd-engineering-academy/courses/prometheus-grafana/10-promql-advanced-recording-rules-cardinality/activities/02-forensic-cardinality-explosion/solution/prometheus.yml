@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: checkout-service
+    static_configs:
+      - targets: ["checkout-service:8000"]
+    # Hot-fix: drop the offending high-cardinality metric so the TSDB stabilises
+    # on restart. The real fix lives in the producer (see FIX.md).
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: checkout_requests_by_user_total
+        action: drop
+    # Defense in depth: cap samples and labels per scrape.
+    sample_limit: 50000
+    label_limit: 32

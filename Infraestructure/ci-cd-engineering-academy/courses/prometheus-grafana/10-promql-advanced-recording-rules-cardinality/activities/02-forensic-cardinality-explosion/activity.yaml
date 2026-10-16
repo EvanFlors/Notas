@@ -1,0 +1,30 @@
+id: obs-10-02-forensic-cardinality-explosion
+title: Forense de cardinality explosion (OOM)
+technology: prometheus-grafana
+module: 10-promql-advanced-recording-rules-cardinality
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - obs-04-promql-fundamentals
+  - obs-07-instrumentation-with-python
+
+objectives:
+  - Diagnosticar la métrica ofensora a partir de evidencia de un Prometheus que crasheó por OOM
+  - Identificar la label culpable analizando un /metrics con user_id como dimensión
+  - Aplicar metric_relabel_configs action drop para contener el sangrado
+  - Argumentar por escrito el fix definitivo en el productor
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

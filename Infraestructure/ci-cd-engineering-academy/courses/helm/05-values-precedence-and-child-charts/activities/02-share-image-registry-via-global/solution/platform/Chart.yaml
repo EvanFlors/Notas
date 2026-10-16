@@ -1,0 +1,13 @@
+apiVersion: v2
+name: platform
+description: Platform umbrella with web and worker subcharts sharing global.imageRegistry.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: web
+    version: 0.1.0
+    repository: ""
+  - name: worker
+    version: 0.1.0
+    repository: ""

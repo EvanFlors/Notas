@@ -1,0 +1,29 @@
+id: otel-06-01-add-otel-logging-to-capstone
+title: Adjuntar OTel Logging Handler a una app Python
+technology: opentelemetry
+module: 06-logs-api-and-bridges
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - otel-04-instrumenting-python-traces
+
+objectives:
+  - Crear un LoggerProvider con Resource compartido con el TracerProvider
+  - Adjuntar LoggingHandler al root logger sin romper handlers existentes
+  - Verificar correlacion automatica trace_id/span_id dentro de un span activo
+  - Shutdown ordenado del LoggerProvider para no perder records del batch
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

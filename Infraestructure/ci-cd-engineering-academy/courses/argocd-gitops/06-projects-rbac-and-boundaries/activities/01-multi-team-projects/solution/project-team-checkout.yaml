@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-checkout
+  namespace: argocd
+spec:
+  description: "Checkout team boundary"
+  sourceRepos:
+    - https://github.com/argoproj/argocd-example-apps.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: checkout-*
+  # Intentionally empty: Platform owns namespace creation for checkout.
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: '*'
+    - group: apps
+      kind: '*'
+  orphanedResources:
+    warn: true

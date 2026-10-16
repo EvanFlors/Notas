@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: error-rate-5xx
+spec:
+  args:
+    - name: service-name
+    - name: prometheus-address
+      value: http://prometheus-operated.monitoring.svc:9090
+  metrics:
+    - name: error-rate
+      # Decisiones:
+      #  - interval 30s + count 5 => 2.5 min de ventana de observacion total.
+      #  - failureLimit 2 => evita rollbacks por puntos espurios.
+      #  - initialDelay 30s => deja que el canary caliente antes de medir.
+      interval: 30s
+      count: 5
+      initialDelay: 30s
+      # successCondition: tolera NaN (sin trafico aun) y pide razon <= 1%.
+      successCondition: isNaN(result[0]) || result[0] <= 0.01
+      # failureCondition: razon de 5xx > 5% => peor que degradacion aceptable.
+      failureCondition: result[0] > 0.05
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: "{{args.prometheus-address}}"
+          # Compara canary vs total del mismo servicio para que picos globales
+          # no gatillen rollback del canary.
+          query: |
+            sum(rate(http_requests_total{service="{{args.service-name}}",version="canary",code=~"5.."}[2m]))
+            /
+            sum(rate(http_requests_total{service="{{args.service-name}}",version="canary"}[2m]))

@@ -1,0 +1,41 @@
+# The legacy project you inherit. Everything is open.
+# Four production Applications already depend on it (see apps/).
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: legacy-everything
+  namespace: argocd
+  annotations:
+    created-by: "someone-who-left@acme.com"
+    created-at: "2024-05-01"
+spec:
+  description: "Temporary wildcard project (never cleaned up)"
+
+  sourceRepos:
+    - '*'
+
+  destinations:
+    - server: '*'
+      namespace: '*'
+
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  roles:
+    - name: admin
+      description: "Full control"
+      policies:
+        - p, proj:legacy-everything:admin, applications, *, legacy-everything/*, allow
+        - p, proj:legacy-everything:admin, projects, *, legacy-everything, allow
+      groups: []
+      # NOTE: an untracked JWT was issued from this role on 2024-05-02 with
+      # --expires-in 8760h (1 year). It expired in 2025-05-02 — but is anyone
+      # sure it was really revoked? Check argocd proj role list-tokens.
+
+  orphanedResources:
+    warn: false

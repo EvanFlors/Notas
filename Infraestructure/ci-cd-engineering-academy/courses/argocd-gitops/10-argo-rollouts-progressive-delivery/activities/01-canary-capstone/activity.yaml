@@ -1,0 +1,30 @@
+id: argo-10-01-canary-capstone
+title: Canary de 4 pasos para el capstone
+technology: argocd-gitops
+module: 10-argo-rollouts-progressive-delivery
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - argo-04-sources-helm-kustomize-jsonnet-multisource
+  - k8s-10-health-probes-lifecycle-and-rollouts
+
+objectives:
+  - Convertir un Deployment en un Rollout canary
+  - Definir steps con setWeight, pause temporizado y pause manual
+  - Configurar canaryService y stableService con los selectores correctos
+  - Opcionalmente aplicar el Rollout contra un cluster local y observar la progresion
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

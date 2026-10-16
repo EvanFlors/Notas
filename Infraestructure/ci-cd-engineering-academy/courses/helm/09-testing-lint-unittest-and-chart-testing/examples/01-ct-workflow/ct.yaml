@@ -1,0 +1,17 @@
+# chart-testing configuration.
+# Reference: https://github.com/helm/chart-testing
+
+chart-dirs:
+  - charts
+
+target-branch: main
+
+# Validate SemVer bumps on changed charts.
+check-version-increment: true
+
+# Extra args passed through to `helm install`.
+helm-extra-args: --timeout 600s
+
+# Example extra repos (uncomment if your charts depend on upstream repos):
+# chart-repos:
+#   - bitnami=https://charts.bitnami.com/bitnami

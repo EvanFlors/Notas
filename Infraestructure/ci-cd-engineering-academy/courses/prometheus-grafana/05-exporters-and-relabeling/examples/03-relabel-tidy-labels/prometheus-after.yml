@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 10s
+  external_labels:
+    env: lab
+    team: platform
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    relabel_configs:
+      # Rename instance to a stable short name.
+      - source_labels: [__address__]
+        regex: 'node-exporter:9100'
+        target_label: instance
+        replacement: node1
+    metric_relabel_configs:
+      # Drop a noisy internal metric from the exporter.
+      - source_labels: [__name__]
+        regex: 'promhttp_metric_handler_requests_total'
+        action: drop
+      # Drop the per-collector 'collector' label globally — we rarely query by it in demo.
+      - regex: 'collector'
+        action: labeldrop

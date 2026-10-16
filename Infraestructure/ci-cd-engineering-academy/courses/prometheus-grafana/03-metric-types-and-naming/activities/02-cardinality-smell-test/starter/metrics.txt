@@ -1,0 +1,32 @@
+# HELP http_requests_total Total HTTP requests processed.
+# TYPE http_requests_total counter
+http_requests_total{method="GET",status="200",route="/api/v1/users",user_id="u-00001",request_id="req-abc123"} 1
+http_requests_total{method="GET",status="200",route="/api/v1/users",user_id="u-00002",request_id="req-abc124"} 1
+http_requests_total{method="POST",status="500",route="/api/v1/orders",user_id="u-00001",request_id="req-abc125"} 1
+http_requests_total{method="GET",status="200",route="/api/v1/users",user_id="u-00003",request_id="req-abc126"} 1
+
+# HELP http_request_duration_seconds Request latency distribution in seconds.
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{route="/api/v1/users",trace_id="trace-9f8e7d",le="0.1"} 1
+http_request_duration_seconds_bucket{route="/api/v1/users",trace_id="trace-9f8e7d",le="0.5"} 1
+http_request_duration_seconds_bucket{route="/api/v1/users",trace_id="trace-9f8e7d",le="+Inf"} 1
+http_request_duration_seconds_count{route="/api/v1/users",trace_id="trace-9f8e7d"} 1
+http_request_duration_seconds_sum{route="/api/v1/users",trace_id="trace-9f8e7d"} 0.084
+
+# HELP db_query_duration_seconds Database query duration in seconds.
+# TYPE db_query_duration_seconds histogram
+db_query_duration_seconds_bucket{query="SELECT * FROM users WHERE id=12345",le="0.01"} 1
+db_query_duration_seconds_bucket{query="SELECT * FROM users WHERE id=12345",le="+Inf"} 1
+db_query_duration_seconds_count{query="SELECT * FROM users WHERE id=12345"} 1
+db_query_duration_seconds_sum{query="SELECT * FROM users WHERE id=12345"} 0.004
+
+# HELP cache_hits_total Cache hits by key.
+# TYPE cache_hits_total counter
+cache_hits_total{cache_key="user:12345:profile"} 1
+cache_hits_total{cache_key="user:12346:profile"} 1
+cache_hits_total{cache_key="session:abc-xyz-123"} 1
+
+# HELP queue_depth Current queue depth.
+# TYPE queue_depth gauge
+queue_depth{queue="jobs"} 42
+queue_depth{queue="emails"} 7

@@ -1,0 +1,33 @@
+id: obs-12-01-full-stack-in-kind
+title: Stack kube-prometheus-stack completo sobre kind
+technology: prometheus-grafana
+module: 12-prometheus-operator-and-kube-prometheus-stack
+level: advanced
+type: guided-lab
+
+estimated_minutes: 120
+
+prerequisites:
+  - obs-06-recording-and-alerting-rules
+  - obs-09-service-discovery-and-relabeling
+  - k8s-14-operators-and-crds
+
+objectives:
+  - Levantar un cluster kind con 1 control-plane y 1 worker
+  - Instalar kube-prometheus-stack via Helm con values aptos para kind
+  - Desplegar una app con /metrics y exponerla via Service
+  - Crear un ServiceMonitor que aparezca UP en Prometheus
+  - Crear un dashboard de Grafana como ConfigMap (grafana_dashboard=1)
+  - Degradar con SKIP si faltan docker/kind/helm/kubectl o si hay poca RAM
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

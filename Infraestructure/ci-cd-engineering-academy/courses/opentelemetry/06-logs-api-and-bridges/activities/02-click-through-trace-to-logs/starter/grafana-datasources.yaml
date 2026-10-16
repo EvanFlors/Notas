@@ -1,0 +1,17 @@
+# INCOMPLETO: falta el bloque tracesToLogsV2 en el datasource de Tempo.
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    # TODO: anade jsonData.tracesToLogsV2 con datasourceUid=loki,
+    #       spanStartTimeShift='-5m', spanEndTimeShift='5m', y un tag 'trace_id'.

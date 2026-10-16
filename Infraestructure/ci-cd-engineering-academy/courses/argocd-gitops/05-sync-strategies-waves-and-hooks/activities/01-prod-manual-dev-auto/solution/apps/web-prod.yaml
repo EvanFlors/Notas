@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: web-prod
+  namespace: argocd
+spec:
+  project: prod
+  source:
+    repoURL: https://github.com/example/infra
+    path: envs/prod/web
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: web-prod
+  syncPolicy:
+    # Sin automated → sync manual (botón UI o `argocd app sync`).
+    syncOptions:
+      - ServerSideApply=true
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 2
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

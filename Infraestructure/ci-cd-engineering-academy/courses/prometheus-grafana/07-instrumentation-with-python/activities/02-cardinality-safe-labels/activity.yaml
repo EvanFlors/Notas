@@ -1,0 +1,28 @@
+id: obs-07-02-cardinality-safe-labels
+title: Audit and fix cardinality bugs in a FastAPI app
+technology: prometheus-grafana
+module: 07-instrumentation-with-python
+level: intermediate
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - obs-07-01-instrument-capstone
+
+objectives:
+  - Identificar labels de alta cardinalidad (user_id, trace_id, raw path) en /metrics
+  - Reemplazar labels peligrosos sin perder observabilidad útil
+  - Verificar que /metrics no explota series bajo tráfico sintético
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

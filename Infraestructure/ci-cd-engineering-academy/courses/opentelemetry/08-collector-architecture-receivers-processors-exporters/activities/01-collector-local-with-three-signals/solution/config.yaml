@@ -1,0 +1,46 @@
+# Solution — identical to starter (the activity is about running it, not fixing it).
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  batch:
+    send_batch_size: 512
+    timeout: 1s
+
+exporters:
+  debug:
+    verbosity: basic
+  file/traces:
+    path: /out/traces.jsonl
+  file/metrics:
+    path: /out/metrics.jsonl
+  file/logs:
+    path: /out/logs.jsonl
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, file/traces]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, file/metrics]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, file/logs]
+  telemetry:
+    logs:
+      level: info

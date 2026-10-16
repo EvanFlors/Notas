@@ -1,0 +1,48 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-annotated
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-annotated
+  template:
+    metadata:
+      labels:
+        app: app-annotated
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+    spec:
+      containers:
+        - name: node-exporter
+          image: prom/node-exporter:v1.8.2
+          ports:
+            - name: metrics
+              containerPort: 9100
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-unannotated
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-unannotated
+  template:
+    metadata:
+      labels:
+        app: app-unannotated
+      # NOTA: sin annotations → relabel keep lo descarta
+    spec:
+      containers:
+        - name: node-exporter
+          image: prom/node-exporter:v1.8.2
+          ports:
+            - name: metrics
+              containerPort: 9100

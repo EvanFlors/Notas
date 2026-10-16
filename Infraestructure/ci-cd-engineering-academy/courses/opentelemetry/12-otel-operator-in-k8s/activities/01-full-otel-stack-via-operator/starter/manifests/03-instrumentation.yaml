@@ -1,0 +1,23 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: default-instr
+  namespace: demo
+spec:
+  # Point to the agent on the same node (Downward API via status.hostIP would be
+  # ideal; for simplicity we point to the DaemonSet Service via its K8s DNS name).
+  exporter:
+    endpoint: http://agent-collector.observability:4318
+  propagators:
+    - tracecontext
+    - baggage
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1.0"
+  python:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:0.47b0
+    env:
+      - name: OTEL_LOGS_EXPORTER
+        value: otlp
+      - name: OTEL_METRICS_EXPORTER
+        value: otlp

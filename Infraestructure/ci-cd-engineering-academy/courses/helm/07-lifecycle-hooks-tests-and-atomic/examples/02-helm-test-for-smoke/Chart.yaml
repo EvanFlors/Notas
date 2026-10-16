@@ -1,0 +1,6 @@
+apiVersion: v2
+name: smoke-test-demo
+description: Minimal chart with a nginx Deployment, a Service, and a helm test that hits the Service.
+type: application
+version: 0.1.0
+appVersion: "1.25"

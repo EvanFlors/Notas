@@ -1,0 +1,28 @@
+id: argo-03-02-diagnose-out-of-sync
+title: Diagnosticar un Application OutOfSync
+technology: argocd-gitops
+module: 03-application-anatomy-sources-destinations-sync
+level: intermediate
+type: debug
+
+estimated_minutes: 60
+
+prerequisites:
+  - argo-03-01-write-application-manifest
+
+objectives:
+  - Diagnosticar las tres causas más comunes de OutOfSync (targetRevision movil, mutación por HPA, cambio manual con kubectl)
+  - Proponer la corrección mínima para cada causa (ref inmutable, ignoreDifferences, aceptar o revertir el cambio manual)
+  - Dejar documentada la causa raíz en un breve informe
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

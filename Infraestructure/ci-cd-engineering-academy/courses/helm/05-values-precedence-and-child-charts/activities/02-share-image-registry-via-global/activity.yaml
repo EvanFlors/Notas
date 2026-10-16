@@ -1,0 +1,29 @@
+id: helm-05-02-share-image-registry-via-global
+title: Share image registry via global
+technology: helm
+module: 05-values-precedence-and-child-charts
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - helm-03-chart-anatomy
+  - helm-04-templating-deep
+
+objectives:
+  - Diseñar un chart padre con dos subcharts que compartan global.imageRegistry.
+  - Demostrar que un único override de global propaga a todos los subcharts.
+  - Entregar un values-airgapped.yaml que redirige el registry sin forkear subcharts.
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

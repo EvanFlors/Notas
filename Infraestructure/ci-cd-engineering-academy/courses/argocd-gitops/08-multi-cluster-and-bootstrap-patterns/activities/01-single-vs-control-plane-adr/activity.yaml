@@ -1,0 +1,27 @@
+id: argo-08-01-single-vs-control-plane-adr
+title: "ADR: in-cluster vs control-plane para 3 orgs"
+technology: argocd-gitops
+module: 08-multi-cluster-and-bootstrap-patterns
+level: advanced
+type: architecture
+
+estimated_minutes: 60
+
+prerequisites:
+  - argo-02-install-and-first-application
+  - argo-07-applicationsets-and-generators
+
+objectives:
+  - Decidir topología Argo CD por organización usando trade-offs enumerados.
+  - Enumerar riesgos de la elección y mitigaciones concretas por cada uno.
+  - Describir el flujo "añadir un cluster" bajo la topología elegida.
+
+paths:
+  instructions: README.md
+  solution: solution/
+
+validation:
+  type: manual
+  command: ""
+
+status: not-started

@@ -1,0 +1,27 @@
+# Starter — complete the multi-source Application. See README section 5.
+# Do NOT consult solution/ until you have a candidate that passes tests/validate.sh.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: podinfo-multi
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: podinfo
+    server: https://kubernetes.default.svc
+
+  # TODO: declare TWO sources under `sources:` (plural).
+  #   - First: the podinfo chart (SemVer-pinned), using $values/apps/podinfo/values.yaml
+  #   - Second: a repo with `ref: values` and `targetRevision: main`
+  sources: []
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

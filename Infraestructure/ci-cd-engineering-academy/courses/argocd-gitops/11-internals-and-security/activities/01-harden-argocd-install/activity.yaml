@@ -1,0 +1,34 @@
+id: argo-11-01-harden-argocd-install
+title: Endurecer una instalación default de Argo CD (7 controles)
+technology: argocd-gitops
+module: 11-internals-and-security
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - argo-02-install-and-first-application
+  - argo-06-projects-rbac-and-boundaries
+  - k8s-16-01-harden-the-capstone
+
+objectives:
+  - Deshabilitar el admin local y verificar que la UI ya no acepta login local
+  - Forzar HTTPS en argocd-server (server.insecure=false)
+  - Aplicar Pod Security Admission restricted al namespace argocd
+  - Instalar una NetworkPolicy default-deny en el ns argocd con egress a kube-dns
+  - Rotar la clave server.secretkey y confirmar que invalida los JWTs previos
+  - Aplicar policy.csv deny-by-default con al menos un rol de tenant y binding
+  - Confirmar que el ServiceAccount argocd-application-controller NO tiene cluster-admin crudo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

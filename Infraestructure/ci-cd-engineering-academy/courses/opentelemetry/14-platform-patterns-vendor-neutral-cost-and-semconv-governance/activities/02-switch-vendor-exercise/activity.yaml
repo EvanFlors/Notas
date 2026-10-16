@@ -1,0 +1,30 @@
+id: otel-14-02-switch-vendor-exercise
+title: Cambiar backend (Tempo+Loki+Prometheus -> Datadog) sin tocar código
+technology: opentelemetry
+module: 14-platform-patterns-vendor-neutral-cost-and-semconv-governance
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - otel-14-01-platform-telemetry-contract-adr
+  - otel-11-01-switch-backend-no-code-change
+
+objectives:
+  - Modificar la configuración del Collector para cambiar de (Tempo+Loki+Prometheus) a Datadog
+  - Demostrar con git diff que no hay cambios fuera de collector/
+  - Documentar en MIGRATION.md el proceso, riesgos y rollback
+  - Pasar validadores estructurales (yaml válido + diff restringido a collector/)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,29 @@
+id: argo-09-02-tradeoffs-adr
+title: ADR comparando estrategias de secretos en GitOps
+technology: argocd-gitops
+module: 09-secrets-with-gitops
+level: advanced
+type: independent
+
+estimated_minutes: 120
+
+prerequisites:
+  - argo-09-01-capstone-secrets-via-eso
+
+objectives:
+  - Comparar las cinco estrategias (SOPS+KSOPS, Sealed Secrets, ESO, CSI Driver, Vault Injector)
+  - Elegir y justificar una estrategia por organización para tres casos distintos
+  - Documentar criterios ponderados, no sólo la recomendación
+  - Dejar un ADR revisable y rotable anualmente
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,8 @@
+replicas: 1
+logLevel: debug
+image:
+  repository: ghcr.io/acme/myapp
+  tag: 0.0.0-dev
+resources:
+  requests:
+    memory: 64Mi

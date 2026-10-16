@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: presync-demo
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "[migrate] applying schema v$(date +%s)"
+              sleep 3
+              echo "[migrate] done"
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits:   {cpu: 100m, memory: 32Mi}
