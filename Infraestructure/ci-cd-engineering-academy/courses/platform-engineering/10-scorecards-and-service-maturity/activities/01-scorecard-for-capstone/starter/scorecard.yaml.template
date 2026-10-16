@@ -1,0 +1,63 @@
+# scorecard.yaml — plantilla con los 8 chequeos canónicos.
+# Edita este archivo (como scorecard.yaml) para dejar entre 5 y 8 chequeos.
+# El evaluador exige: levels (al menos bronze/silver/gold) y 5-8 checks.
+
+name: capstone-maturity
+
+levels:
+  - bronze
+  - silver
+  - gold
+
+checks:
+  - id: has-owner
+    description: El servicio tiene owner definido en el catalogo.
+    weight: bronze
+    field: owner
+    operator: is_set
+
+  - id: has-slo
+    description: El servicio tiene SLO publicado y enlazado.
+    weight: silver
+    field: annotations.slo_url
+    operator: is_set
+
+  - id: has-runbook
+    description: El servicio tiene runbook enlazado.
+    weight: silver
+    field: annotations.runbook_url
+    operator: is_set
+
+  - id: has-oncall
+    description: El servicio tiene una rotacion on-call activa.
+    weight: silver
+    field: annotations.oncall_rotation
+    operator: is_set
+
+  - id: image-signed
+    description: La imagen del servicio esta firmada (cosign).
+    weight: gold
+    field: annotations.image_signed
+    operator: equals
+    value: true
+
+  - id: no-critical-cves
+    description: La imagen no tiene CVEs criticos abiertos.
+    weight: gold
+    field: annotations.cves_critical
+    operator: equals
+    value: 0
+
+  - id: deployed-recently
+    description: Hubo un deploy exitoso en los ultimos 90 dias.
+    weight: gold
+    field: annotations.last_deploy_days
+    operator: less_than
+    value: 90
+
+  - id: psa-restricted
+    description: El namespace tiene Pod Security Admission 'restricted'.
+    weight: gold
+    field: annotations.k8s_psa
+    operator: equals
+    value: restricted

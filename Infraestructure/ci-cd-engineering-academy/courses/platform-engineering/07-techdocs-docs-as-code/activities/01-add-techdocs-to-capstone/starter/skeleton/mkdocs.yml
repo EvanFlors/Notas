@@ -1,0 +1,11 @@
+# TODO: completa plugins y nav.
+site_name: Checkout Service
+docs_dir: docs
+
+plugins: []
+
+markdown_extensions:
+  - admonition
+  - toc
+
+nav: []

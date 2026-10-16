@@ -1,0 +1,30 @@
+id: plat-05-01-model-capstone-in-catalog
+title: Modelar el capstone en el Software Catalog de Backstage
+technology: platform-engineering
+module: 05-software-catalog-deep
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-04-backstage-architecture-and-setup
+
+objectives:
+  - Modelar un sistema capstone con al menos 3 Components, 2 APIs, 1 Resource, 1 System, 1 Domain y 2 Groups con owners declarados
+  - Declarar relaciones correctas (providesApis, consumesApis, dependsOn, partOf) entre entidades
+  - Usar al menos 2 annotations utiles por Component (de la lista well-known)
+  - Validar estructuralmente los catalog-info.yaml con python3 + pyyaml sin necesidad de Backstage corriendo
+  - Producir un arbol de archivos reusable como base de la actividad 02 y de modulos posteriores (plat-06 scaffolder)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-05-catalog"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: plat-08-02-write-minimal-custom-plugin
+title: Escribir un plugin propio minimo (esqueleto estructural)
+technology: platform-engineering
+module: 08-plugins-ecosystem-and-custom-plugin
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - plat-04-software-catalog-components-apis-and-ownership
+  - plat-05-software-templates-and-scaffolder
+
+objectives:
+  - Reproducir la estructura minima de un plugin frontend generado por backstage-cli create
+  - Entender el rol de package.json, src/plugin.ts, src/components y src/index.ts
+  - Escribir un componente React tipado que use Page/Header/Content del core
+  - Decidir si el plugin necesita backend propio o puede resolverse con proxy
+  - Dejar documentado el enganche en App.tsx y las anotaciones de catalogo (si aplica)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-08-plugin"
+
+status: not-started

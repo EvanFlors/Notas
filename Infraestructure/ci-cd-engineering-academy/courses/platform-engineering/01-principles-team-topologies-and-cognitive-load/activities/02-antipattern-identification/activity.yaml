@@ -1,0 +1,30 @@
+id: plat-01-02-antipattern-identification
+title: Identificacion de antipatterns de platform team
+technology: platform-engineering
+module: 01-principles-team-topologies-and-cognitive-load
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-01-observability-pillars-and-pull-model
+
+objectives:
+  - Nombrar el antipattern dominante en cada uno de 4 situaciones dadas (ivory tower, ticketing-driven ops, dumping ground, DevOps-as-role, platform sin product mindset, enabling eterno)
+  - Explicar la causa raiz y el danio concreto a cognitive load y DORA
+  - Proponer un movimiento correctivo accionable en 90 dias para cada situacion
+  - Articular por que un platform ticket queue degrada la propuesta de valor
+  - Producir un documento ANTIPATTERNS.md con las 4 secciones mas una sintesis con 6 criterios
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-01-anti"
+
+status: not-started

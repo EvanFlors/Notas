@@ -1,0 +1,31 @@
+id: plat-02-02-dx-interview-template
+title: Plantilla de entrevista DX para developers del capstone
+technology: platform-engineering
+module: 02-golden-paths-paved-roads-and-developer-experience
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - plat-01-principles-team-topologies-and-cognitive-load
+
+objectives:
+  - Disenar una plantilla reusable de entrevista DX de 30 a 45 min
+  - Formular al menos 6 preguntas abiertas (no leading, no yes/no)
+  - Incluir un bloque de rapport y un cierre con compromisos
+  - Definir el metodo de muestreo, cadencia y responsables
+  - Articular como se cruza la entrevista con telemetria y surveys (triangulacion)
+  - Producir un documento TEMPLATE.md estructurado y accionable
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-02-dx-interview"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: plat-07-02-docs-minimum-standard-adr
+title: ADR del estandar minimo de documentacion por servicio
+technology: platform-engineering
+module: 07-techdocs-docs-as-code
+level: advanced
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - plat-04-backstage-architecture-and-setup
+  - plat-05-software-catalog-deep
+
+objectives:
+  - Redactar un ADR del estandar minimo de documentacion por servicio
+  - Listar al menos 5 artefactos obligatorios (README/index, ADR, runbook, API ref, contactos, SLOs)
+  - Decidir modo in-situ vs centralized y justificar
+  - Definir politica de ownership (CODEOWNERS) y de enforcement (soft fail vs bloqueo)
+  - Argumentar como se mide la adopcion (scorecard) sin que se vuelva gaming
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/plat-07-standard"
+
+status: not-started

@@ -1,0 +1,108 @@
+# values.yaml — reference for plat-04-02-k8s-deploy-via-helm
+# Chart: backstage/backstage (https://github.com/backstage/charts)
+#
+# All secrets are injected via secretKeyRef pointing at K8s Secrets created
+# externally (External Secrets Operator / Vault / SOPS). No literal secret
+# values live in this file.
+
+backstage:
+  image:
+    registry: ghcr.io
+    repository: my-org/backstage
+    tag: 'v2026.10.01'
+    pullPolicy: IfNotPresent
+
+  replicas: 2
+
+  # Config comes from the baked-in app-config.yaml / app-config.production.yaml
+  # inside the image. Secrets are supplied via env vars below.
+  extraEnvVars:
+    - name: POSTGRES_HOST
+      valueFrom:
+        secretKeyRef:
+          name: backstage-pg
+          key: host
+    - name: POSTGRES_PORT
+      valueFrom:
+        secretKeyRef:
+          name: backstage-pg
+          key: port
+    - name: POSTGRES_USER
+      valueFrom:
+        secretKeyRef:
+          name: backstage-pg
+          key: user
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: backstage-pg
+          key: password
+    - name: AUTH_GITHUB_CLIENT_ID
+      valueFrom:
+        secretKeyRef:
+          name: backstage-gh
+          key: client-id
+    - name: AUTH_GITHUB_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: backstage-gh
+          key: client-secret
+    - name: GITHUB_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: backstage-gh
+          key: pat
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: '1'
+      memory: 1Gi
+
+  readinessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 7007
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+  livenessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 7007
+    initialDelaySeconds: 60
+    periodSeconds: 30
+
+ingress:
+  enabled: true
+  className: nginx
+  host: backstage.example.com
+  tls:
+    - secretName: backstage-tls
+      hosts:
+        - backstage.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: '10m'
+
+# Managed Postgres (RDS / Cloud SQL / Aiven) — the in-chart subchart is OFF.
+postgresql:
+  enabled: false
+
+serviceAccount:
+  create: true
+  name: backstage
+
+# Optional: Prometheus Operator ServiceMonitor
+serviceMonitor:
+  enabled: true
+  interval: 30s
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: false   # define en el repo de infra, no en este values

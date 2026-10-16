@@ -1,0 +1,15 @@
+# TODO: completa el pipeline con techdocs-cli generate + publish a S3 vía OIDC.
+name: techdocs
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: setup-python, setup-node, install techdocs-cli + mkdocs-techdocs-core
+      # TODO: configure-aws-credentials con OIDC
+      # TODO: techdocs-cli generate --no-docker && techdocs-cli publish ...

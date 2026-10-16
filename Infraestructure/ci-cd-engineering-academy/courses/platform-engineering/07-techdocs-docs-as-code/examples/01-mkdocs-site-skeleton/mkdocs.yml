@@ -1,0 +1,25 @@
+site_name: Example Service
+docs_dir: docs
+
+plugins:
+  - techdocs-core
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - ADRs:
+      - "0001 — Use TechDocs": adr/0001-use-techdocs.md
+  - Runbooks:
+      - "Incident — 5xx surge": runbook/incident-500s.md
+  - API:
+      - Overview: api/overview.md

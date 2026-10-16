@@ -1,0 +1,33 @@
+id: plat-03-01-tool-choice-adr
+title: ADR de seleccion de IDP (Backstage vs Port vs CNOE vs otros)
+technology: platform-engineering
+module: 03-idp-landscape-backstage-port-cnoe
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-01-01-map-your-org
+  - plat-02-01-define-first-golden-path
+
+objectives:
+  - Redactar un ADR formal con secciones estandar (Status, Context, Decision, Alternatives, Consequences, Follow-ups)
+  - Nombrar al menos 4 de las 6 herramientas IDP del modulo (Backstage, Port, OpsLevel, Cortex, Humanitec, CNOE)
+  - Descartar al menos 3 alternativas con razon especifica (no generica)
+  - Explicitar al menos 2 consecuencias negativas aceptadas y como se mitigan
+  - Articular al menos 2 criterios no-tecnologicos (TCO, hiring, adopcion, lock-in)
+  - Defender la decision ante presion comercial de un vendor
+  - Producir un documento ADR.md defendible por otro ingeniero del equipo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-03-adr"
+
+status: not-started

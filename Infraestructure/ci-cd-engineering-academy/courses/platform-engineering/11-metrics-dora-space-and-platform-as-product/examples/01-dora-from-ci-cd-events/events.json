@@ -1,0 +1,417 @@
+[
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0000bc",
+    "merged_at": "2026-09-16T10:00:00Z"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0001bc",
+    "merged_at": "2026-09-16T12:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-001",
+    "env": "prod",
+    "commit_sha": "a0000bc",
+    "started_at": "2026-09-16T14:24:00Z",
+    "finished_at": "2026-09-16T14:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0002bc",
+    "merged_at": "2026-09-16T15:00:00Z"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0003bc",
+    "merged_at": "2026-09-16T17:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-004",
+    "env": "prod",
+    "commit_sha": "a0003bc",
+    "started_at": "2026-09-16T18:54:00Z",
+    "finished_at": "2026-09-16T19:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-002",
+    "env": "prod",
+    "commit_sha": "a0001bc",
+    "started_at": "2026-09-16T19:24:00Z",
+    "finished_at": "2026-09-16T19:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-003",
+    "env": "prod",
+    "commit_sha": "a0002bc",
+    "started_at": "2026-09-16T19:24:00Z",
+    "finished_at": "2026-09-16T19:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0004bc",
+    "merged_at": "2026-09-19T02:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-005",
+    "env": "prod",
+    "commit_sha": "a0004bc",
+    "started_at": "2026-09-19T05:54:00Z",
+    "finished_at": "2026-09-19T06:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0005bc",
+    "merged_at": "2026-09-19T08:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-006",
+    "env": "prod",
+    "commit_sha": "a0005bc",
+    "started_at": "2026-09-19T13:54:00Z",
+    "finished_at": "2026-09-19T14:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0006bc",
+    "merged_at": "2026-09-19T17:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-007",
+    "env": "prod",
+    "commit_sha": "a0006bc",
+    "started_at": "2026-09-19T21:54:00Z",
+    "finished_at": "2026-09-19T22:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0007bc",
+    "merged_at": "2026-09-20T03:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-008",
+    "env": "prod",
+    "commit_sha": "a0007bc",
+    "started_at": "2026-09-20T07:24:00Z",
+    "finished_at": "2026-09-20T07:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0008bc",
+    "merged_at": "2026-09-21T07:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-009",
+    "env": "prod",
+    "commit_sha": "a0008bc",
+    "started_at": "2026-09-21T10:54:00Z",
+    "finished_at": "2026-09-21T11:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0009bc",
+    "merged_at": "2026-09-23T20:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-010",
+    "env": "prod",
+    "commit_sha": "a0009bc",
+    "started_at": "2026-09-24T00:24:00Z",
+    "finished_at": "2026-09-24T00:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a000abc",
+    "merged_at": "2026-09-24T16:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-011",
+    "env": "prod",
+    "commit_sha": "a000abc",
+    "started_at": "2026-09-24T20:54:00Z",
+    "finished_at": "2026-09-24T21:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a000bbc",
+    "merged_at": "2026-09-24T21:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-012",
+    "env": "prod",
+    "commit_sha": "a000bbc",
+    "started_at": "2026-09-25T00:24:00Z",
+    "finished_at": "2026-09-25T00:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "incident",
+    "service": "checkout-api",
+    "caused_by_deploy_id": "d-012",
+    "started_at": "2026-09-25T00:35:00Z",
+    "resolved_at": "2026-09-25T01:00:00Z"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a000cbc",
+    "merged_at": "2026-09-25T07:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-013",
+    "env": "prod",
+    "commit_sha": "a000cbc",
+    "started_at": "2026-09-25T10:24:00Z",
+    "finished_at": "2026-09-25T10:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-fail-1",
+    "env": "prod",
+    "commit_sha": "deadbeef",
+    "started_at": "2026-09-25T12:00:00Z",
+    "finished_at": "2026-09-25T12:04:00Z",
+    "status": "failure"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a000dbc",
+    "merged_at": "2026-09-25T19:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-014",
+    "env": "prod",
+    "commit_sha": "a000dbc",
+    "started_at": "2026-09-26T00:54:00Z",
+    "finished_at": "2026-09-26T01:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a000ebc",
+    "merged_at": "2026-09-27T02:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-015",
+    "env": "prod",
+    "commit_sha": "a000ebc",
+    "started_at": "2026-09-27T05:24:00Z",
+    "finished_at": "2026-09-27T05:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a000fbc",
+    "merged_at": "2026-10-03T06:00:00Z"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0010bc",
+    "merged_at": "2026-10-03T09:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-016",
+    "env": "prod",
+    "commit_sha": "a000fbc",
+    "started_at": "2026-10-03T10:54:00Z",
+    "finished_at": "2026-10-03T11:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-017",
+    "env": "prod",
+    "commit_sha": "a0010bc",
+    "started_at": "2026-10-03T13:54:00Z",
+    "finished_at": "2026-10-03T14:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0011bc",
+    "merged_at": "2026-10-06T22:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-018",
+    "env": "prod",
+    "commit_sha": "a0011bc",
+    "started_at": "2026-10-07T02:24:00Z",
+    "finished_at": "2026-10-07T02:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0012bc",
+    "merged_at": "2026-10-08T15:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-019",
+    "env": "prod",
+    "commit_sha": "a0012bc",
+    "started_at": "2026-10-08T16:54:00Z",
+    "finished_at": "2026-10-08T17:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0013bc",
+    "merged_at": "2026-10-09T07:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-020",
+    "env": "prod",
+    "commit_sha": "a0013bc",
+    "started_at": "2026-10-09T14:24:00Z",
+    "finished_at": "2026-10-09T14:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "incident",
+    "service": "checkout-api",
+    "caused_by_deploy_id": "d-020",
+    "started_at": "2026-10-09T14:35:00Z",
+    "resolved_at": "2026-10-09T15:17:00Z"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0014bc",
+    "merged_at": "2026-10-10T13:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-021",
+    "env": "prod",
+    "commit_sha": "a0014bc",
+    "started_at": "2026-10-10T16:24:00Z",
+    "finished_at": "2026-10-10T16:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "incident",
+    "service": "checkout-api",
+    "caused_by_deploy_id": "d-021",
+    "started_at": "2026-10-10T16:35:00Z",
+    "resolved_at": "2026-10-10T17:50:00Z"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0015bc",
+    "merged_at": "2026-10-11T01:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-022",
+    "env": "prod",
+    "commit_sha": "a0015bc",
+    "started_at": "2026-10-11T06:54:00Z",
+    "finished_at": "2026-10-11T07:00:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0016bc",
+    "merged_at": "2026-10-12T15:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-023",
+    "env": "prod",
+    "commit_sha": "a0016bc",
+    "started_at": "2026-10-12T18:24:00Z",
+    "finished_at": "2026-10-12T18:30:00Z",
+    "status": "success"
+  },
+  {
+    "type": "commit_merged",
+    "service": "checkout-api",
+    "sha": "a0017bc",
+    "merged_at": "2026-10-13T02:00:00Z"
+  },
+  {
+    "type": "deploy",
+    "service": "checkout-api",
+    "id": "d-024",
+    "env": "prod",
+    "commit_sha": "a0017bc",
+    "started_at": "2026-10-13T06:24:00Z",
+    "finished_at": "2026-10-13T06:30:00Z",
+    "status": "success"
+  }
+]

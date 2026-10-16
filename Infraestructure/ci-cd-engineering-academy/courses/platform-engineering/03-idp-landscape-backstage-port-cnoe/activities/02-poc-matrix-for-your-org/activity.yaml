@@ -1,0 +1,33 @@
+id: plat-03-02-poc-matrix-for-your-org
+title: Matriz de evaluacion PoC para elegir IDP en tu organizacion
+technology: platform-engineering
+module: 03-idp-landscape-backstage-port-cnoe
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-01-01-map-your-org
+  - plat-02-01-define-first-golden-path
+
+objectives:
+  - Describir el contexto organizacional (tamano, equipo plataforma, stack, compliance, presupuesto, horizonte)
+  - Elegir 2 finalistas y descartar razonadamente los otros 4 del paisaje IDP (Backstage, Port, OpsLevel, Cortex, Humanitec, CNOE)
+  - Disenar una matriz de al menos 8 criterios ponderados (pesos suman 100) con metricas medibles
+  - Definir al menos 3 escenarios concretos que ambas herramientas deben superar durante el PoC
+  - Planificar un PoC ejecutable en 2-4 semanas con responsables y entregables semanales
+  - Establecer un go/no-go framework defendible (tie-breaker + plan B)
+  - Producir un documento POC-MATRIX.md reproducible por otro equipo plataforma
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-03-poc"
+
+status: not-started

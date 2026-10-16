@@ -1,0 +1,31 @@
+id: plat-07-01-add-techdocs-to-capstone
+title: Añadir TechDocs al capstone (mkdocs + catalog-info annotation)
+technology: platform-engineering
+module: 07-techdocs-docs-as-code
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-04-backstage-architecture-and-setup
+  - plat-05-software-catalog-deep
+
+objectives:
+  - Crear el esqueleto MkDocs del capstone (mkdocs.yml + docs/{index,adr,runbook,api}.md) con el bundle techdocs-core
+  - Anotar catalog-info.yaml con backstage.io/techdocs-ref para que Backstage descubra el sitio
+  - Validar el sitio localmente con mkdocs build --strict (si mkdocs esta disponible) o estructural (si no)
+  - Producir un pipeline CI (archivo .github/workflows/techdocs.yml) que publica a S3 en modo centralized
+  - Entender la diferencia entre render in-situ y centralized sin confundir render con serve
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/plat-07-techdocs"
+
+status: not-started

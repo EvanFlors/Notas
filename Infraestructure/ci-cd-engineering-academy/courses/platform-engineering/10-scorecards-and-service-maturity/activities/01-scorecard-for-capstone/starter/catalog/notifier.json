@@ -1,0 +1,16 @@
+{
+  "ref": "component:default/notifier",
+  "name": "notifier",
+  "owner": "team-growth",
+  "domain": "growth",
+  "tier": "tier-2",
+  "annotations": {
+    "slo_url": "https://wiki.example/slo/notifier",
+    "runbook_url": null,
+    "oncall_rotation": "growth-rotation",
+    "image_signed": false,
+    "cves_critical": 1,
+    "last_deploy_days": 42,
+    "k8s_psa": "baseline"
+  }
+}

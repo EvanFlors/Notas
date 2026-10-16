@@ -1,0 +1,42 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xnamespaceproducts.platform.io
+spec:
+  group: platform.io
+  names:
+    kind: XNamespaceProduct
+    plural: xnamespaceproducts
+  claimNames:
+    kind: NamespaceProductClaim
+    plural: namespaceproductclaims
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  required: [name, tier, env]
+                  properties:
+                    name:
+                      type: string
+                      pattern: '^[a-z][a-z0-9-]{2,30}$'
+                    tier:
+                      type: string
+                      enum: [small, medium, large]
+                    env:
+                      type: string
+                      enum: [dev, staging, prod]
+              required: [parameters]
+            status:
+              type: object
+              properties:
+                namespaceReady:
+                  type: boolean

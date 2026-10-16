@@ -1,0 +1,30 @@
+id: plat-09-01-self-service-namespace-claim
+title: Self-service NamespaceProduct via Crossplane en kind
+technology: platform-engineering
+module: 09-self-service-infra-crossplane-and-templates
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - plat-06-01-build-microservice-template
+
+objectives:
+  - Instalar Crossplane y provider-kubernetes en un cluster kind efimero
+  - Aplicar un XRD y Composition propios que exponen un NamespaceProduct
+  - Crear un Claim desde el namespace del team y observar su materializacion
+  - Validar que el namespace, ResourceQuota y NetworkPolicy quedaron creados con los valores derivados del tier
+  - Pasar los 5 checks del validador automatico
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

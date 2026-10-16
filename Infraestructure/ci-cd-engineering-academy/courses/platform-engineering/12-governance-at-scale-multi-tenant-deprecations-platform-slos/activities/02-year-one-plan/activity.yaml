@@ -1,0 +1,32 @@
+id: plat-12-02-year-one-plan
+title: Plan de ano uno de la plataforma con defensa de 3 escenarios
+technology: platform-engineering
+module: 12-governance-at-scale-multi-tenant-deprecations-platform-slos
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - plat-09-self-service-infra-crossplane
+  - plat-10-scorecards-service-maturity
+  - plat-11-metrics-dora-space-platform-as-product
+
+objectives:
+  - Redactar un plan trimestral (Q1-Q4) para la plataforma con objetivos, SLO targets, scope, riesgos y capacity
+  - Defender el plan frente a 3 escenarios adversariales (crecimiento rapido, hiring freeze, consolidacion post-merger)
+  - Definir metricas de exito ancladas en DORA, scorecard adoption, SLO burn y satisfaction
+  - Priorizar deprecations y features con criterio publico defensible
+  - Producir un documento YEAR-ONE-PLAN.md que supere el validador estructural
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-12-year-one"
+
+status: not-started

@@ -1,0 +1,30 @@
+id: plat-06-01-build-microservice-template
+title: Construir el template "nuevo microservicio Python"
+technology: platform-engineering
+module: 06-templates-and-scaffolder
+level: intermediate
+type: mini-project
+
+estimated_minutes: 90
+
+prerequisites:
+  - plat-05-software-catalog-deep
+
+objectives:
+  - Escribir un template.yaml v1beta3 valido con parameters (JSON Schema), steps y output
+  - Modelar el skeleton con nunjucks e invocar fetch:template, publish:github y catalog:register
+  - Nombrar al menos un step condicional (if) para un opt-out limpio
+  - Opcional - validar el render localmente con cookiecutter como analogo (SKIP si no esta disponible)
+  - Entregar un paquete reproducible en /tmp/plat-06-build
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-06-build"
+
+status: not-started

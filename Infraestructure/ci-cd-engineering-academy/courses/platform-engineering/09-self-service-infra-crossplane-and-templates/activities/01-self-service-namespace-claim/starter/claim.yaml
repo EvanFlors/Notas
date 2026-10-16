@@ -1,0 +1,10 @@
+apiVersion: platform.io/v1alpha1
+kind: NamespaceProductClaim
+metadata:
+  name: REPLACE_ME        # debe ser student-claim
+  namespace: team-student # ya tiene el namespace esperado
+spec:
+  parameters:
+    name: REPLACE_ME      # debe ser student-ns
+    tier: REPLACE_ME      # small | medium | large
+    env:  dev

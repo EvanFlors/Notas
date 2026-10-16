@@ -1,0 +1,16 @@
+{
+  "ref": "component:default/orphan-cronjob",
+  "name": "orphan-cronjob",
+  "owner": null,
+  "domain": "unknown",
+  "tier": "tier-3",
+  "annotations": {
+    "slo_url": null,
+    "runbook_url": null,
+    "oncall_rotation": null,
+    "image_signed": false,
+    "cves_critical": 3,
+    "last_deploy_days": 180,
+    "k8s_psa": "baseline"
+  }
+}

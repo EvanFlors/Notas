@@ -1,0 +1,31 @@
+id: plat-02-01-define-first-golden-path
+title: Canvas del primer golden path - nuevo microservicio Python
+technology: platform-engineering
+module: 02-golden-paths-paved-roads-and-developer-experience
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-01-principles-team-topologies-and-cognitive-load
+
+objectives:
+  - Rellenar un canvas de golden path candidato para "nuevo microservicio Python" con 8 secciones minimas
+  - Justificar la eleccion con los criterios del lesson (volumen, variabilidad, dolor, impacto, riesgo)
+  - Definir una constelacion de 3 a 5 metricas DX con valores objetivo
+  - Nombrar explicitamente el long tail y la postura (opcion B soportada, no soportada o mandato selectivo)
+  - Identificar al menos 3 antipatterns y como evitarlos
+  - Producir un archivo CANVAS.md estructurado y defendible
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-02-golden-path"
+
+status: not-started

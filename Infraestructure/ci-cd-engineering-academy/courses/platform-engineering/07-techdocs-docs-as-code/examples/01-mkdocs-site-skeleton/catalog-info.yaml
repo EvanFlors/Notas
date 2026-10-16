@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: example-service
+  description: Minimal TechDocs skeleton (demo).
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: example-org/example-service
+spec:
+  type: service
+  lifecycle: experimental
+  owner: team-platform
+  system: example-system

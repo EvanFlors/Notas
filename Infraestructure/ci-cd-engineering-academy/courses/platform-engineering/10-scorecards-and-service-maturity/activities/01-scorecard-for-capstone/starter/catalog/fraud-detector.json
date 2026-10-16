@@ -1,0 +1,16 @@
+{
+  "ref": "component:default/fraud-detector",
+  "name": "fraud-detector",
+  "owner": "team-risk",
+  "domain": "payments",
+  "tier": "tier-1",
+  "annotations": {
+    "slo_url": "https://wiki.example/slo/fraud",
+    "runbook_url": "https://wiki.example/runbook/fraud",
+    "oncall_rotation": "risk-primary",
+    "image_signed": true,
+    "cves_critical": 2,
+    "last_deploy_days": 14,
+    "k8s_psa": "baseline"
+  }
+}

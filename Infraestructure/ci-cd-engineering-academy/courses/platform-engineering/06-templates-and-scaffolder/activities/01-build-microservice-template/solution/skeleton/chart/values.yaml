@@ -1,0 +1,10 @@
+replicaCount: ${{ values.replicas }}
+environment: ${{ values.environment }}
+
+image:
+  repository: ghcr.io/my-org/${{ values.name }}
+  tag: latest
+
+service:
+  type: ClusterIP
+  port: 8080

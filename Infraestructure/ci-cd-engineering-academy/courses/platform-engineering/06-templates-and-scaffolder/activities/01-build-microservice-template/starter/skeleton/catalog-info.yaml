@@ -1,0 +1,10 @@
+# TODO: use ${{ values.name }}, ${{ values.description }}, ${{ values.owner }}
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: TODO
+  description: TODO
+spec:
+  type: service
+  lifecycle: experimental
+  owner: TODO

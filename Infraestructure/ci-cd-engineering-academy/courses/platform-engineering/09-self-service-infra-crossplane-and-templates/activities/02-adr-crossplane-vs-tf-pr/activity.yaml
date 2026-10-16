@@ -1,0 +1,30 @@
+id: plat-09-02-adr-crossplane-vs-tf-pr
+title: ADR - Crossplane vs Terraform-via-PR para self-service infra
+technology: platform-engineering
+module: 09-self-service-infra-crossplane-and-templates
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-06-01-build-microservice-template
+
+objectives:
+  - Comparar Crossplane y Terraform-via-PR en 7 dimensiones (stack dominante, curva, debugging, GitOps, policies, overhead, rollback)
+  - Decidir con criterio tecnico para 3 contextos distintos cual encaja mejor
+  - Articular 5 preguntas-criterio reutilizables para la decision
+  - Nombrar riesgos de cada eleccion y planes de mitigacion
+  - Producir un documento ADR.md con las 4 secciones requeridas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-09-02-adr"
+
+status: not-started

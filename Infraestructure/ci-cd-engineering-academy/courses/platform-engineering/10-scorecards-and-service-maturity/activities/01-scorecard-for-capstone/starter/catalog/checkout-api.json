@@ -1,0 +1,16 @@
+{
+  "ref": "component:default/checkout-api",
+  "name": "checkout-api",
+  "owner": "team-payments",
+  "domain": "payments",
+  "tier": "tier-1",
+  "annotations": {
+    "slo_url": "https://wiki.example/slo/checkout",
+    "runbook_url": "https://wiki.example/runbook/checkout",
+    "oncall_rotation": "checkout-primary",
+    "image_signed": true,
+    "cves_critical": 0,
+    "last_deploy_days": 7,
+    "k8s_psa": "restricted"
+  }
+}

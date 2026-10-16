@@ -1,0 +1,4 @@
+# TODO: parametrise replicaCount with ${{ values.replicas }}
+# TODO: parametrise environment with ${{ values.environment }}
+replicaCount: 1
+environment: dev

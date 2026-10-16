@@ -1,0 +1,30 @@
+id: plat-04-01-local-backstage-with-github-auth
+title: Backstage local con auth GitHub + Postgres documentado
+technology: platform-engineering
+module: 04-backstage-architecture-and-setup
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - plat-03-idp-landscape-backstage-port-cnoe
+
+objectives:
+  - Documentar la ejecucion de `npx @backstage/create-app` y la estructura generada
+  - Explicar el merge por capas de `app-config.yaml` -> `app-config.<env>.yaml` -> `app-config.local.yaml`
+  - Configurar auth GitHub (OAuth App + variables de entorno con placeholders) sin exponer secretos reales
+  - Describir el switch de SQLite a Postgres en produccion
+  - Producir un diagrama ASCII de componentes (frontend, backend, DB, auth)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-04-backstage"
+
+status: not-started

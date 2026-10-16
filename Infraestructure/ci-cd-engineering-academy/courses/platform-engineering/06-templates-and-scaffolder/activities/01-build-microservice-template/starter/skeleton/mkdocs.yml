@@ -1,0 +1,4 @@
+# TODO: site_name must be ${{ values.name }}
+site_name: TODO
+nav:
+  - Home: index.md

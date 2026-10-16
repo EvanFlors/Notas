@@ -1,0 +1,13 @@
+# TODO - implement the workflow per README.md section 5.3
+# Required:
+#   - trigger on pull_request and push to main
+#   - job that: checkout, setup-python, pip install cookiecutter,
+#     bash scripts/regenerate-fixture.sh --check
+name: TODO
+on:
+  workflow_dispatch:
+jobs:
+  todo:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "TODO"

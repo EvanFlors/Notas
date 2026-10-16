@@ -1,0 +1,31 @@
+id: plat-10-02-production-readiness-review-template
+title: Redactar una plantilla de Production Readiness Review que cite al scorecard
+technology: platform-engineering
+module: 10-scorecards-and-service-maturity
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-05-catalog
+  - plat-08-plugins
+
+objectives:
+  - Escribir una plantilla PRR en Markdown reusable para cualquier servicio de producción
+  - Diferenciar explicitamente que mide el scorecard (automatico) y que mide la PRR (humano)
+  - Incluir al menos 6 secciones cualitativas que NO se automatizan (dependencias, modos de fallo, capacidad, DR, ownership on-call, rollback)
+  - Articular el flujo de archivo y revision periodica de la PRR
+  - Documentar en NOTES.md por que la PRR no reemplaza al scorecard ni al reves
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-10-prr"
+
+status: not-started

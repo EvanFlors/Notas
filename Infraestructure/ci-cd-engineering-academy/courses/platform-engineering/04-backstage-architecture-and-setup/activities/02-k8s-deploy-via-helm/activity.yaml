@@ -1,0 +1,30 @@
+id: plat-04-02-k8s-deploy-via-helm
+title: Deploy de Backstage en K8s via chart Helm oficial
+technology: platform-engineering
+module: 04-backstage-architecture-and-setup
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - plat-03-idp-landscape-backstage-port-cnoe
+
+objectives:
+  - Preparar un `values.yaml` del chart oficial `backstage/backstage` con image, extraEnvVars, ingress TLS y Postgres externo
+  - Documentar la cadena de secretos (OAuth GitHub, Postgres) via `secretKeyRef` sin exponer valores
+  - Explicar por que `postgresql.enabled=false` + managed PG es el default productivo
+  - Nombrar los 5+ bloques criticos del values.yaml y por que
+  - Producir un `HELM-DEPLOY.md` + `values.yaml` validables
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-04-helm"
+
+status: not-started

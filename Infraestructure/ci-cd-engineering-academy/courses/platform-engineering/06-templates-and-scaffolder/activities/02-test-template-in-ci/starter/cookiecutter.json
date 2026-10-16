@@ -1,0 +1,7 @@
+{
+  "project_slug": "orders-api",
+  "description": "Sample FastAPI microservice",
+  "owner": "group:platform-team",
+  "environment": "dev",
+  "replicas": "2"
+}

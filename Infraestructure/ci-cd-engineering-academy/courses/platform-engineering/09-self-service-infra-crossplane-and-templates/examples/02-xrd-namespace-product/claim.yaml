@@ -1,0 +1,10 @@
+apiVersion: platform.io/v1alpha1
+kind: NamespaceProductClaim
+metadata:
+  name: demo
+  namespace: team-foo
+spec:
+  parameters:
+    name: demo-ns
+    tier: small
+    env:  dev

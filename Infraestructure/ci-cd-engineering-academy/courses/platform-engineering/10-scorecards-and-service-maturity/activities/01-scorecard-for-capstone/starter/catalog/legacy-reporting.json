@@ -1,0 +1,16 @@
+{
+  "ref": "component:default/legacy-reporting",
+  "name": "legacy-reporting",
+  "owner": "team-analytics",
+  "domain": "analytics",
+  "tier": "tier-3",
+  "annotations": {
+    "slo_url": null,
+    "runbook_url": null,
+    "oncall_rotation": null,
+    "image_signed": false,
+    "cves_critical": 7,
+    "last_deploy_days": 420,
+    "k8s_psa": "privileged"
+  }
+}

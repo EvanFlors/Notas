@@ -1,0 +1,15 @@
+apiVersion: platform.io/v1alpha1
+kind: NamespaceProductClaim
+metadata:
+  name: ${{ values.name }}
+  namespace: ${{ values.team }}
+  labels:
+    cost-center: platform-120
+    team: ${{ values.team }}
+    env:  ${{ values.env }}
+    product: namespace-product
+spec:
+  parameters:
+    name: ${{ values.name }}
+    tier: ${{ values.tier }}
+    env:  ${{ values.env }}

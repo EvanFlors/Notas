@@ -1,0 +1,30 @@
+id: plat-05-02-pre-commit-validate-catalog-info
+title: Hook pre-commit que valida catalog-info.yaml antes del push
+technology: platform-engineering
+module: 05-software-catalog-deep
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-04-backstage-architecture-and-setup
+
+objectives:
+  - Entender por que un hook pre-commit es la defensa primaria para que el catalogo no se vuelva stale
+  - Escribir un hook en Bash que detecte YAML invalido, falta de kind/metadata.name/spec.owner, y annotations minimas
+  - Probar el hook con fixtures (uno bueno, varios malos) y demostrar que rechaza solo los malos
+  - Documentar como instalar el hook en un repo real (snippet para .pre-commit-config.yaml o .git/hooks/pre-commit)
+  - Producir un entregable reusable como starter en templates del Scaffolder (plat-06)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-05-precommit"
+
+status: not-started

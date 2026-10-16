@@ -1,0 +1,56 @@
+name: techdocs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'catalog-info.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: techdocs-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write      # OIDC federado hacia AWS (sin long-lived keys)
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install TechDocs toolchain
+        run: |
+          npm install -g @techdocs/cli
+          pip install mkdocs mkdocs-techdocs-core
+
+      - name: Build strict (fail on broken links)
+        run: mkdocs build --strict --site-dir ./_strict_check
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/techdocs-publisher
+          aws-region: us-east-1
+
+      - name: Generate & publish to S3
+        run: |
+          ENTITY="default/component/${{ github.event.repository.name }}"
+          techdocs-cli generate --no-docker --verbose
+          techdocs-cli publish \
+            --publisher-type awsS3 \
+            --storage-name "$TECHDOCS_BUCKET" \
+            --entity "$ENTITY"
+        env:
+          TECHDOCS_BUCKET: platform-techdocs-prod

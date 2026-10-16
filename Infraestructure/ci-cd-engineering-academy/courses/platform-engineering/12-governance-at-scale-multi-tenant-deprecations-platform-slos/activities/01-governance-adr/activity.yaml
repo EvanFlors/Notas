@@ -1,0 +1,34 @@
+id: plat-12-01-governance-adr
+title: ADR de gobernanza - multi-tenancy, deprecations, SLOs, inner-source
+technology: platform-engineering
+module: 12-governance-at-scale-multi-tenant-deprecations-platform-slos
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - plat-09-self-service-infra-crossplane
+  - plat-10-scorecards-service-maturity
+  - plat-11-metrics-dora-space-platform-as-product
+
+objectives:
+  - Redactar un ADR de gobernanza con 9 secciones (contexto, 6 decisiones, consecuencias, alternativas)
+  - Decidir y defender un modelo multi-tenant que cubra los 4 planos (K8s, cloud, Argo CD AppProjects, Backstage permissions)
+  - Formalizar una deprecation policy con ciclo anuncio-warn-remove, TTLs y clasificacion supported/maintenance/legacy
+  - Definir al menos 4 SLOs para la propia plataforma (uptime Backstage, p95 scaffolder, catalog freshness, MTTR)
+  - Articular la estrategia de versionado de contratos (XRDs, templates, APIs) con SemVer y changelog
+  - Definir el modelo inner-source con CODEOWNERS, SLA de review y escala trusted-committer
+  - Producir un documento GOVERNANCE-ADR.md completo que supere el validador estructural
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-12-governance"
+
+status: not-started

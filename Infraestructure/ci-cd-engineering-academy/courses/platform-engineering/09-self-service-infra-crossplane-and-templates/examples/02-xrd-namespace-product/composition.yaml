@@ -1,0 +1,100 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xnamespaceproducts.k8s-native
+  labels:
+    crossplane.io/xrd: xnamespaceproducts.platform.io
+spec:
+  compositeTypeRef:
+    apiVersion: platform.io/v1alpha1
+    kind: XNamespaceProduct
+  resources:
+    # 1) Namespace
+    - name: namespace
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: Namespace
+              metadata:
+                name: ""
+                labels:
+                  managed-by: crossplane
+                  product: namespace-product
+      patches:
+        - fromFieldPath: spec.parameters.name
+          toFieldPath: spec.forProvider.manifest.metadata.name
+        - fromFieldPath: spec.parameters.env
+          toFieldPath: spec.forProvider.manifest.metadata.labels.env
+
+    # 2) ResourceQuota — valores derivados de tier
+    - name: quota
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: ResourceQuota
+              metadata:
+                name: ""
+                namespace: ""
+              spec:
+                hard:
+                  requests.cpu: "2"
+                  requests.memory: "4Gi"
+      patches:
+        - fromFieldPath: spec.parameters.name
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+        - fromFieldPath: spec.parameters.name
+          toFieldPath: spec.forProvider.manifest.metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-quota"
+        - fromFieldPath: spec.parameters.tier
+          toFieldPath: spec.forProvider.manifest.spec.hard.requests\.cpu
+          transforms:
+            - type: map
+              map:
+                small:  "2"
+                medium: "8"
+                large:  "32"
+        - fromFieldPath: spec.parameters.tier
+          toFieldPath: spec.forProvider.manifest.spec.hard.requests\.memory
+          transforms:
+            - type: map
+              map:
+                small:  "4Gi"
+                medium: "16Gi"
+                large:  "64Gi"
+
+    # 3) NetworkPolicy default-deny
+    - name: netpol
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: networking.k8s.io/v1
+              kind: NetworkPolicy
+              metadata:
+                name: ""
+                namespace: ""
+              spec:
+                podSelector: {}
+                policyTypes: [Ingress, Egress]
+      patches:
+        - fromFieldPath: spec.parameters.name
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+        - fromFieldPath: spec.parameters.name
+          toFieldPath: spec.forProvider.manifest.metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-deny-all"

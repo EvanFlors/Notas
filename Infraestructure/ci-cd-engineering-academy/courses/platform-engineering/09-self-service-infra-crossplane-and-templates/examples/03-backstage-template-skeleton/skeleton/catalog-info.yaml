@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}-namespace
+  annotations:
+    backstage.io/kubernetes-id: ${{ values.name }}
+spec:
+  type: namespace
+  owner: group:${{ values.team }}
+  system: platform

@@ -1,0 +1,99 @@
+survey:
+  id: platform-space-q
+  version: 1
+  cadence: quarterly
+  anonymous: true
+  identify_optional: true
+  intro: |
+    Esta encuesta trimestral mide la experiencia que tienes con la Plataforma Interna.
+    Responde pensando en los últimos 3 meses. Es anónima; marca la última casilla si
+    quieres un follow-up 1:1 de 30 min.
+  scale_likert:
+    min: 1
+    max: 5
+    labels:
+      1: strongly disagree
+      3: neutral
+      5: strongly agree
+
+  sections:
+
+    - dimension: S  # Satisfaction & wellbeing
+      questions:
+        - id: s1
+          text: "La plataforma me ahorra tiempo frente a hacer las cosas por mi cuenta."
+          type: likert
+        - id: s2
+          text: "¿Qué tan probable es que recomiendes la plataforma a un equipo nuevo? (NPS 0-10)"
+          type: nps
+        - id: s3
+          text: "Cuéntame la última vez que la plataforma te frustró. ¿Qué pasó?"
+          type: open
+        - id: s4
+          text: "Me siento con energía para construir cosas nuevas cada semana."
+          type: likert
+
+    - dimension: P  # Performance
+      questions:
+        - id: p1
+          text: "Cuando algo que entregué falla en prod, suele ser por un bug mío, no de la plataforma."
+          type: likert
+        - id: p2
+          text: "Los deploys que inicio llegan a prod sin requerir intervención manual."
+          type: likert
+        - id: p3
+          text: "¿Cuántos deploys-que-rompieron-prod recuerdas del último trimestre causados por la plataforma?"
+          type: integer
+        - id: p4
+          text: "Breve historia de un deploy que funcionó limpiamente de principio a fin:"
+          type: open
+
+    - dimension: A  # Activity
+      questions:
+        - id: a1
+          text: "¿Cuántos servicios nuevos has creado via template este trimestre?"
+          type: integer
+        - id: a2
+          text: "¿Cuántas DB / colas / buckets provisionaste via self-service?"
+          type: integer
+        - id: a3
+          text: "¿Cuántos tickets abriste al platform team este trimestre?"
+          type: integer
+        - id: a4
+          text: "De esos tickets, ¿cuántos sentiste que deberían haber sido self-service?"
+          type: integer
+
+    - dimension: C  # Communication & collaboration
+      questions:
+        - id: c1
+          text: "La documentación de la plataforma responde el 80% de mis dudas sin preguntar."
+          type: likert
+        - id: c2
+          text: "Cuando pregunto en el canal #platform, recibo respuesta útil en <24h."
+          type: likert
+        - id: c3
+          text: "Me entero de los cambios breaking de la plataforma con al menos 2 semanas de antelación."
+          type: likert
+        - id: c4
+          text: "He contribuido código al repo de la plataforma al menos una vez (inner-source)."
+          type: boolean
+
+    - dimension: E  # Efficiency & flow
+      questions:
+        - id: e1
+          text: "El tiempo entre merge y prod se siente razonable (<1 día típicamente)."
+          type: likert
+        - id: e2
+          text: "Las interrupciones causadas por la plataforma (incidents, migraciones) son raras."
+          type: likert
+        - id: e3
+          text: "Setup inicial de un nuevo servicio me toma <1 día de trabajo real."
+          type: likert
+        - id: e4
+          text: "¿Qué cosa concreta harías tú diferente si fueras el PM de la plataforma el próximo trimestre?"
+          type: open
+
+  consent:
+    - id: identify
+      text: "Quiero que el platform team me contacte para un follow-up 1:1."
+      type: boolean

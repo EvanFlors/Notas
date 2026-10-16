@@ -1,0 +1,30 @@
+id: plat-01-01-map-your-org
+title: Mapeo de una organizacion en Team Topologies
+technology: platform-engineering
+module: 01-principles-team-topologies-and-cognitive-load
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - obs-01-observability-pillars-and-pull-model
+
+objectives:
+  - Mapear cada equipo de una organizacion dada o propia a uno de los 4 tipos Team Topologies (stream-aligned, platform, enabling, complicated-subsystem)
+  - Clasificar cada interaccion inter-equipo en uno de los 3 modos (X-as-a-Service, collaboration, facilitating)
+  - Dibujar un diagrama ASCII con las interacciones y marcar el DEFAULT platform-stream como X-as-a-Service
+  - Decidir y justificar si la organizacion necesita un platform team formal hoy o si todavia no esta lista
+  - Producir un documento ORG_MAP.md con las 4 secciones requeridas y al menos 5 equipos clasificados
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-01-map"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: plat-08-01-wire-essential-plugins
+title: Cablear 3 plugins esenciales (K8s, GitHub Actions, Argo CD)
+technology: platform-engineering
+module: 08-plugins-ecosystem-and-custom-plugin
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - plat-04-software-catalog-components-apis-and-ownership
+  - plat-05-software-templates-and-scaffolder
+
+objectives:
+  - Elegir y justificar 3 plugins oficiales que agreguen mas valor primero a un Backstage recien instalado
+  - Producir fragmentos reales de app-config.yaml, catalog-info.yaml y EntityPage.tsx para los 3 plugins
+  - Distinguir cuando usar OAuth del usuario vs GitHub App vs proxy con token de servicio
+  - Documentar las anotaciones well-known que cada plugin consume
+  - Entregar un WIRING.md que un ingeniero junior pueda seguir sin leer la lecion
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-08-wiring"
+
+status: not-started

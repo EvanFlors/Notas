@@ -1,0 +1,30 @@
+id: plat-06-02-test-template-in-ci
+title: Tratar el template como producto - fixture y CI
+technology: platform-engineering
+module: 06-templates-and-scaffolder
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-05-software-catalog-deep
+
+objectives:
+  - Entender por que una fixture regenerable es la pieza clave para tratar un template como producto
+  - Escribir un script regenerate-fixture.sh que renderiza el skeleton y lo compara con el output de referencia
+  - Escribir un workflow de GitHub Actions que ejecuta la regeneracion y falla si diverge
+  - Garantizar que el script funciona con cookiecutter si esta disponible y degrada graciosamente si no
+  - Entregar un paquete reproducible en /tmp/plat-06-ci
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-06-ci"
+
+status: not-started

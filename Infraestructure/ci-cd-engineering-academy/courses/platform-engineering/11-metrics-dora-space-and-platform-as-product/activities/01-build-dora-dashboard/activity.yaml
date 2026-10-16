@@ -1,0 +1,30 @@
+id: plat-11-01-build-dora-dashboard
+title: Construir un dashboard DORA desde eventos CI/CD sintéticos
+technology: platform-engineering
+module: 11-metrics-dora-space-and-platform-as-product
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-10-scorecards-and-service-maturity
+
+objectives:
+  - Generar un flujo de eventos sinteticos (commit_merged, deploy, incident) para 2 servicios distintos
+  - Computar las 4 metricas DORA con un script Python puro para cada servicio
+  - Clasificar cada servicio en un bucket (Elite / High / Medium / Low) y justificar la clasificacion
+  - Producir un DORA.md con tabla de metricas, bucket por servicio, y 3 recomendaciones accionables
+  - Articular por que celebrar deployment_frequency sin change_failure_rate es un antipattern
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-11-dora"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: plat-11-02-platform-product-canvas
+title: Canvas platform-as-product con 7 metricas defendibles anti-Goodhart
+technology: platform-engineering
+module: 11-metrics-dora-space-and-platform-as-product
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - plat-02-golden-paths-paved-roads-and-developer-experience
+  - plat-10-scorecards-and-service-maturity
+
+objectives:
+  - Redactar un canvas platform-as-product con 7 secciones (vision, usuarios, propuesta, roadmap now/next/later, financiamiento, metricas, antipatterns)
+  - Elegir 7 metricas que combinen DORA, SPACE, adoption y NPS, cada una con justificacion y riesgo-Goodhart
+  - Articular el modelo de financiamiento elegido (showback / chargeback / fee / central) con razonamiento
+  - Nombrar 3 antipatterns de medicion especificos a evitar en el dashboard propuesto
+  - Producir un CANVAS.md autocontenido defendible frente a critica de un CFO escéptico
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-11-canvas"
+
+status: not-started

@@ -1,0 +1,63 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: namespace-product
+  title: Namespace product (self-service)
+  description: Provisiona un namespace con quota y network policy via Crossplane
+  tags:
+    - crossplane
+    - platform
+spec:
+  owner: group:platform-team
+  type: resource
+  parameters:
+    - title: Namespace product
+      required: [name, tier, env, team]
+      properties:
+        name:
+          title: Nombre del namespace
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,30}$'
+          description: 3-31 caracteres, [a-z0-9-], empieza por letra
+        tier:
+          title: Tier
+          type: string
+          enum: [small, medium, large]
+          default: small
+        env:
+          title: Entorno
+          type: string
+          enum: [dev, staging, prod]
+          default: dev
+        team:
+          title: Equipo dueño
+          type: string
+          description: slug del equipo (ownership + namespace del claim)
+  steps:
+    - id: fetch
+      name: Render claim manifest
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          tier: ${{ parameters.tier }}
+          env:  ${{ parameters.env }}
+          team: ${{ parameters.team }}
+    - id: publish
+      name: Open PR against gitops repo
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=example-org&repo=gitops
+        branchName: claim-${{ parameters.name }}
+        title: "feat(claim): NamespaceProduct ${{ parameters.name }}"
+        description: |
+          Nuevo NamespaceProduct claim generado desde Backstage.
+          - name: ${{ parameters.name }}
+          - tier: ${{ parameters.tier }}
+          - env:  ${{ parameters.env }}
+          - team: ${{ parameters.team }}
+  output:
+    links:
+      - title: Pull Request
+        url: ${{ steps.publish.output.remoteUrl }}

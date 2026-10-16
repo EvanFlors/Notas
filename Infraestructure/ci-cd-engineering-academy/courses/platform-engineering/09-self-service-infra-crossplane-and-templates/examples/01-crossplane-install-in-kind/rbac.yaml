@@ -1,0 +1,15 @@
+# Da a la ServiceAccount del provider-kubernetes permisos cluster-admin
+# dentro del propio cluster. En producción se escopetaría al mínimo necesario
+# para los kinds que la Composition materializa.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: provider-kubernetes-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: provider-kubernetes
+    namespace: crossplane-system

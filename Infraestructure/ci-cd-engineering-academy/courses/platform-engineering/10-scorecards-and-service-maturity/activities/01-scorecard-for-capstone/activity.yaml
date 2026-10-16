@@ -1,0 +1,31 @@
+id: plat-10-01-scorecard-for-capstone
+title: Diseñar y evaluar un scorecard aplicado al capstone
+technology: platform-engineering
+module: 10-scorecards-and-service-maturity
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - plat-05-catalog
+  - plat-08-plugins
+
+objectives:
+  - Diseñar un scorecard con 5 a 8 chequeos, cada uno justificado y defendible
+  - Repartir los chequeos entre bronze, silver y gold sin usar peso ponderado continuo
+  - Evaluar el scorecard contra un catálogo sintético usando un script Python local
+  - Interpretar la adopción agregada y proponer qué cortes publicarías y cuáles no
+  - Documentar en NOTES.md las decisiones de diseño y los antipatrones evitados
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/plat-10-scorecard"
+
+status: not-started
