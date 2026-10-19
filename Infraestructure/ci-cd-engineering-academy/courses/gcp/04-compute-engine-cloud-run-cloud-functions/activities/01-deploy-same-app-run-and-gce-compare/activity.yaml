@@ -1,0 +1,31 @@
+id: gcp-04-01-deploy-same-app-run-and-gce-compare
+title: Desplegar (en papel) la misma app en Cloud Run y en GCE y comparar
+technology: gcp
+module: 04-compute-engine-cloud-run-cloud-functions
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+  - gcp-03-vpc-global-and-networking
+
+objectives:
+  - Construir localmente la imagen Docker de una app FastAPI y correrla con docker run sin tocar GCP
+  - Escribir Terraform de un google_cloud_run_v2_service con service account dedicada y lectura de PORT
+  - Escribir Terraform de un google_compute_instance_template y un google_compute_region_instance_group_manager para la misma app
+  - Producir un DECISION.md comparando Cloud Run vs GCE para el workload (3 criterios minimo) y declarando cual se elige
+  - Pasar terraform init y terraform validate localmente contra ambos .tf sin tocar GCP
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-04-run-vs-gce"
+
+status: not-started

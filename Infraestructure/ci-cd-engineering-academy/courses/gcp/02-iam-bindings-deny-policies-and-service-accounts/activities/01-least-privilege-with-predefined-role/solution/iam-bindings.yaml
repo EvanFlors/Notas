@@ -1,0 +1,29 @@
+# Allow policy bindings de minimo privilegio para la SA del workload
+# receipts-processor@acme-prod.iam.gserviceaccount.com.
+#
+# Cada entry representa un binding en un recurso distinto. En Terraform:
+#   google_storage_bucket_iam_binding (para los dos buckets)
+#   google_pubsub_topic_iam_binding   (para el topic)
+
+bindings:
+  # Binding sobre gs://acme-prod-receipts-raw
+  # Role predefinido: lectura de objetos del bucket raw.
+  - resource: gs://acme-prod-receipts-raw
+    role: roles/storage.objectViewer
+    members:
+      - serviceAccount:receipts-processor@acme-prod.iam.gserviceaccount.com
+
+  # Binding sobre gs://acme-prod-receipts-processed
+  # Role predefinido: creacion de objetos (no permite leer ni borrar los existentes;
+  # exactamente lo que un pipeline de escritura necesita).
+  - resource: gs://acme-prod-receipts-processed
+    role: roles/storage.objectCreator
+    members:
+      - serviceAccount:receipts-processor@acme-prod.iam.gserviceaccount.com
+
+  # Binding sobre projects/acme-prod/topics/receipts-events
+  # Role predefinido: solo publicar; no gestionar el topic ni leer subscriptions.
+  - resource: projects/acme-prod/topics/receipts-events
+    role: roles/pubsub.publisher
+    members:
+      - serviceAccount:receipts-processor@acme-prod.iam.gserviceaccount.com

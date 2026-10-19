@@ -1,0 +1,30 @@
+id: gcp-05-02-dynamodb-to-firestore-translation
+title: Traducir un diseno DynamoDB a Firestore y detectar donde Bigtable gana
+technology: gcp
+module: 05-data-cloud-sql-firestore-bigtable-spanner
+level: intermediate
+type: architecture
+
+estimated_minutes: 75
+
+prerequisites:
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+
+objectives:
+  - Leer una especificacion DynamoDB con PK, SK, GSI y patrones de acceso y producir una traduccion a Firestore con colecciones, subcolecciones e indices compuestos
+  - Identificar al menos dos patrones donde el mapeo DynamoDB -> Firestore NO es 1:1 y justificar la divergencia
+  - Identificar al menos un patron donde Bigtable es materialmente mejor que Firestore y justificarlo con criterios cuantitativos (QPS, tamano, forma de query)
+  - Declarar al menos dos indices compuestos de Firestore (campos y orden) necesarios para las queries definidas
+  - Producir un documento TRANSLATION.md con tabla patron -> motor + bloque de indices + apartado de limites del emulador
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-05-02"
+
+status: not-started

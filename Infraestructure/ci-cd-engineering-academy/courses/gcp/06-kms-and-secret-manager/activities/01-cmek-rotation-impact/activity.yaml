@@ -1,0 +1,31 @@
+id: gcp-06-01-cmek-rotation-impact
+title: CMEK sobre GCS y envelope encryption local — plan Terraform, IAM y demo Python
+technology: gcp
+module: 06-kms-and-secret-manager
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+  - aws-09-kms-secrets-manager-parameter-store
+
+objectives:
+  - Escribir el plan Terraform de un keyring + CryptoKey con rotation period y un bucket GCS con CMEK
+  - Escribir el IAM binding JSON minimo para el service agent de GCS sobre la CryptoKey
+  - Implementar un demo local de envelope encryption en Python con la libreria cryptography
+  - Demostrar que rotar la KEK no re-cifra los datos y que la version vieja sigue siendo valida para decrypt
+  - Producir un README-IMPACT.md justificando cada decision y los efectos operativos de la rotacion
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-06-cmek"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: gcp-09-02-write-org-policy-baseline-and-validate
+title: Escribir Org Policies del baseline y perimetro VPC-SC en YAML y validarlos
+technology: gcp
+module: 09-multi-project-org-cloud-identity
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - gcp-01-model-projects-billing-and-cli
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+
+objectives:
+  - Escribir cuatro Org Policies del baseline (iam.disableServiceAccountKeyCreation, compute.vmExternalIpAccess, storage.publicAccessPrevention, iam.allowedPolicyMemberDomains) en YAML valido
+  - Usar correctamente los campos name, spec.rules, enforce, allowedValues y inheritFromParent del formato Org Policy v2
+  - Entender la diferencia entre boolean y list constraint y cuando se usa cada uno
+  - Disenar un perimetro VPC Service Controls en YAML con restrictedServices, resources y accessLevels sin project IDs reales
+  - Producir un README-INTENT.md justificando cada Org Policy y el perimetro, pasar el validador estructural y la validacion YAML con python3
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-09-org-policy"
+
+status: not-started

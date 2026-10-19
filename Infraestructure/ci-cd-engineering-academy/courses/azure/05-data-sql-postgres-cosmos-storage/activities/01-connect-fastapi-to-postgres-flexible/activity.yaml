@@ -1,0 +1,31 @@
+id: az-05-01-connect-fastapi-to-postgres-flexible
+title: Postgres Flexible + Azure SQL (plan + Postgres local) y ADR de topologia
+technology: azure
+module: 05-data-sql-postgres-cosmos-storage
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - az-02-entra-id-rbac-managed-identities
+  - az-03-vnet-nsg-asg-private-link-hub-spoke
+
+objectives:
+  - Leer y auditar un main.tf de Postgres Flexible Server + Azure SQL detectando los atributos de seguridad obligatorios y al menos un hallazgo intencionado
+  - Ejecutar terraform plan sin credenciales reales para validar HCL y entender el output
+  - Levantar un contenedor postgres:16 local y practicar DDL / FKs / indices razonables para un esquema OLTP pequeno
+  - Escribir un TOPOLOGY.md con la ADR que justifique zone-redundant HA, private access, Entra ID auth, backups y una comparativa Azure SQL vs Postgres Flexible
+  - Producir el entregable sin provisionar ningun recurso Azure real ni incurrir en coste
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-05-pg"
+
+status: not-started

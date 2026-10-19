@@ -1,0 +1,12 @@
+{
+  "bindings": [
+    {
+      "role": "roles/cloudkms.cryptoKeyEncrypterDecrypter",
+      "members": [
+        "serviceAccount:service-000000000000@gs-project-accounts.iam.gserviceaccount.com"
+      ]
+    }
+  ],
+  "etag": "BwAAAA==",
+  "version": 1
+}

@@ -1,0 +1,31 @@
+id: gcp-01-02-adc-from-local-dev
+title: Configurar ADC via impersonation para desarrollo local (plan + script)
+technology: gcp
+module: 01-model-projects-billing-and-cli
+level: beginner
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-01-model-regions-billing-and-free-tier
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Explicar por escrito la diferencia entre gcloud auth login (user, para la CLI) y gcloud auth application-default login (ADC, para las libraries cliente)
+  - Diseñar en papel un flujo de ADC via impersonation para un developer local sin crear service account keys
+  - Escribir un plan Markdown (adc-plan.md) con secciones Problema, Mecanismos, Flujo recomendado, Chequeos, Riesgos y Antipatron
+  - Escribir un script shell (verify-adc.sh) de verificacion local que lista cuentas, muestra el config activo y comprueba la cadena ADC, sin ejecutar llamadas que creen recursos
+  - Pasar el validador estructural + semantico (sintaxis bash, secciones del plan, comandos clave, antipatron de keys documentado)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-01-adc"
+
+status: not-started

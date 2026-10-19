@@ -1,0 +1,31 @@
+id: gcp-10-03-finops-unit-economics
+title: Unit economics sobre export de Billing (Python + CSV sintetico)
+technology: gcp
+module: 10-devsecops-platform-wif-binauthz-finops
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - gcp-01-model-projects-billing-and-cli
+
+objectives:
+  - Entender el schema del export de Billing a BigQuery (project, labels, cost, credits, service, sku)
+  - Calcular el coste neto (cost + credits) por workload a partir de un CSV sintetico
+  - Calcular el coste por request del workload checkout usando metricas de negocio
+  - Calcular el coste por customer activo mensual (MAC) del workload checkout
+  - Producir un README-UNIT-ECONOMICS.md resumiendo los KPIs y como se interpretan
+  - Pasar un validador que ejecuta los scripts contra un CSV conocido y comprueba los numeros
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-10-03-finops"
+
+status: not-started

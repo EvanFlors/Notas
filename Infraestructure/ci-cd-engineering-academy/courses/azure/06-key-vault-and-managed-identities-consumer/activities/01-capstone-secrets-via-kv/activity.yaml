@@ -1,0 +1,30 @@
+id: az-06-01-capstone-secrets-via-kv
+title: Disenar Key Vault con RBAC data-plane y Managed Identity para el capstone
+technology: azure
+module: 06-key-vault-and-managed-identities-consumer
+level: intermediate
+type: architecture
+
+estimated_minutes: 75
+
+prerequisites:
+  - az-02-entra-id-rbac-managed-identities
+
+objectives:
+  - Escribir Terraform HCL plan-ready con azurerm_key_vault + azurerm_user_assigned_identity + azurerm_role_assignment
+  - Usar enable_rbac_authorization = true (no access policies legacy)
+  - Escribir un role-assignment-kv-secrets-user.json sintacticamente valido con principalId, roleDefinitionId y scope
+  - Justificar por escrito por que principal_id (no client_id), por que scope al vault (no al RG) y por que soft_delete + purge_protection
+  - Producir README-INTENT.md con secciones por recurso y pasar el validador estructural
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-06-01"
+
+status: not-started

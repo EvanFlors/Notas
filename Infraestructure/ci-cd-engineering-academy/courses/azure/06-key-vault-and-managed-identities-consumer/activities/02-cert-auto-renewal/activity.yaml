@@ -1,0 +1,30 @@
+id: az-06-02-cert-auto-renewal
+title: Disenar certificate policy con auto-renewal en Key Vault
+technology: azure
+module: 06-key-vault-and-managed-identities-consumer
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - az-02-entra-id-rbac-managed-identities
+
+objectives:
+  - Escribir una certificate_policy JSON valida para azurerm_key_vault_certificate
+  - Configurar lifetimeActions con actionType=AutoRenew y daysBeforeExpiry=30
+  - Escribir Terraform plan-ready con azurerm_key_vault_certificate referenciando la policy
+  - Justificar por escrito la eleccion de issuer Self (dev) vs integrated (prod) y por que daysBeforeExpiry=30
+  - Producir README-INTENT.md con secciones por tema y pasar el validador estructural
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-06-02"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: az-04-02-build-and-plan-container-apps-canary
+title: Dockerfile buildable + Terraform plan de Container Apps con canary 90/10
+technology: azure
+module: 04-compute-vm-vmss-container-apps-functions-app-service
+level: intermediate
+type: mini-project
+
+estimated_minutes: 120
+
+prerequisites:
+  - az-02-entra-id-rbac-managed-identities
+  - az-03-vnet-nsg-asg-private-link-hub-spoke
+
+objectives:
+  - Escribir un Dockerfile multistage para una API FastAPI y buildearlo localmente con docker build
+  - Escribir un modulo Terraform (azurerm) para Container Apps con revision_mode Multiple y traffic_weight 90/10
+  - Pasar terraform init -backend=false y terraform validate sin cloud
+  - Usar Managed Identity SystemAssigned (sin secretos en env vars)
+  - Entregar los artefactos y pasar validador estructural + terraform validate + docker build
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-04-02"
+
+status: not-started

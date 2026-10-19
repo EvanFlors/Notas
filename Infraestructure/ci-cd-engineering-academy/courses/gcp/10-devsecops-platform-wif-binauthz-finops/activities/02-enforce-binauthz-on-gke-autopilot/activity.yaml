@@ -1,0 +1,31 @@
+id: gcp-10-02-enforce-binauthz-on-gke-autopilot
+title: Policy Binary Authorization + attestor para GKE Autopilot (YAML + TF plan + ADR)
+technology: gcp
+module: 10-devsecops-platform-wif-binauthz-finops
+level: advanced
+type: architecture
+
+estimated_minutes: 100
+
+prerequisites:
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+  - gcp-07-gke-and-autopilot
+
+objectives:
+  - Escribir la policy Binauthz en YAML con defaultAdmissionRule, clusterAdmissionRules y admissionWhitelistPatterns correctos
+  - Definir un attestor YAML (Container Analysis note + attestation authority) con clave PKIX
+  - Escribir Terraform (nunca aplicado) que habilita Binauthz en un cluster GKE Autopilot
+  - Diseniar un rollout en dos fases (DRYRUN -> ENFORCED) y documentarlo en un ADR
+  - Pasar un validador estructural (YAML parsea + claves obligatorias + ADR con secciones)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-10-02-binauthz"
+
+status: not-started

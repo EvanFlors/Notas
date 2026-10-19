@@ -1,0 +1,30 @@
+id: gcp-04-02-canary-5pct-rollout
+title: Canary 95/5 en Cloud Run via Terraform y README-INTENT.md
+technology: gcp
+module: 04-compute-engine-cloud-run-cloud-functions
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+
+objectives:
+  - Escribir un google_cloud_run_v2_service con dos revisiones nombradas y traffic 95/5
+  - Nombrar explicitamente las revisiones (capstone-api-v1 y capstone-api-v2) para habilitar rollback
+  - Mantener una service account dedicada (no la default) y lectura de PORT
+  - Producir README-INTENT.md justificando la estrategia de canary y el procedimiento de rollback
+  - Pasar terraform init y terraform validate localmente sin tocar GCP
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-04-canary"
+
+status: not-started

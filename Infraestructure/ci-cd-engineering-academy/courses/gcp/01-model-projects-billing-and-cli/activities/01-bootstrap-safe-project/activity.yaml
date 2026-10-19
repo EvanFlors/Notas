@@ -1,0 +1,31 @@
+id: gcp-01-01-bootstrap-safe-project
+title: Planear el bootstrap seguro de un project GCP (APIs minimas + budget)
+technology: gcp
+module: 01-model-projects-billing-and-cli
+level: beginner
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - aws-01-model-regions-billing-and-free-tier
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Diseñar en papel el bootstrap de un project GCP seguro con APIs minimas, Billing Account enlazada, labels obligatorios y budget con alerta
+  - Escribir un plan Markdown (bootstrap-plan.md) con secciones Contexto, Jerarquia, Project, APIs, Billing, Budget, Labels y Siguientes pasos
+  - Escribir un script shell (enable-apis.sh) con gcloud services enable para el set minimo (resourcemanager, iam, iamcredentials, logging, monitoring, cloudbilling, serviceusage) usando placeholder my-project-123 y NO ejecutable contra GCP real
+  - Escribir un budget YAML (budget.yaml) consumible por gcloud alpha billing budgets create con 3 threshold rules y notificaciones Pub/Sub
+  - Pasar el validador estructural + semantico (sintaxis bash, YAML parseable, secciones del plan, placeholder correcto, APIs minimas presentes)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-01-bootstrap"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: gcp-06-02-secret-rotation-pattern
+title: Secret Manager con rotacion — plan Terraform, IAM y rotador local
+technology: gcp
+module: 06-kms-and-secret-manager
+level: intermediate
+type: independent
+
+estimated_minutes: 70
+
+prerequisites:
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+  - aws-09-kms-secrets-manager-parameter-store
+
+objectives:
+  - Escribir el plan Terraform de un google_secret_manager_secret con rotation_period y topic Pub/Sub
+  - Escribir el IAM binding JSON minimo para un principal consumidor (roles/secretmanager.secretAccessor)
+  - Implementar un rotator local en Python que simule el ciclo create-new-version / overlap / disable-old sin tocar GCP
+  - Garantizar que los valores de secreto son ficticios (fake-sk-...) y nunca aparecen secretos reales
+  - Producir un README-ROTATION.md justificando ventana de solape, replicacion y modelo de acceso
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-06-secret"
+
+status: not-started

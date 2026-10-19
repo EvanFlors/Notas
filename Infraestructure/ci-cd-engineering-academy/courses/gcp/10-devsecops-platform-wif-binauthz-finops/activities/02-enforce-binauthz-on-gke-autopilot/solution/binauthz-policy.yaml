@@ -1,0 +1,36 @@
+# Reference Binary Authorization policy for prod-autopilot cluster.
+# NOT APPLIED. All project IDs are placeholders.
+#
+# Deny-by-default globally; prod-autopilot requires attestations from
+# the build-attestor; system images are explicitly whitelisted so GKE
+# Autopilot pods can boot.
+
+defaultAdmissionRule:
+  evaluationMode: ALWAYS_DENY
+  enforcementMode: ENFORCED_BLOCK_AND_AUDIT_LOG
+
+clusterAdmissionRules:
+  europe-west1.prod-autopilot:
+    evaluationMode: REQUIRE_ATTESTATION
+    enforcementMode: ENFORCED_BLOCK_AND_AUDIT_LOG
+    requireAttestationsBy:
+      - projects/my-project-123/attestors/build-attestor
+
+  europe-west1.dev-autopilot:
+    evaluationMode: REQUIRE_ATTESTATION
+    enforcementMode: DRYRUN_AUDIT_LOG_ONLY
+    requireAttestationsBy:
+      - projects/my-project-123/attestors/build-attestor
+
+admissionWhitelistPatterns:
+  # GKE Autopilot system images — mandatory, cluster won't boot otherwise.
+  - namePattern: gcr.io/gke-release/*
+  - namePattern: gcr.io/gke-release-staging/*
+  - namePattern: registry.k8s.io/*
+  - namePattern: k8s.gcr.io/*
+  # Google-managed add-ons.
+  - namePattern: gke.gcr.io/*
+  # Blessed internal system images (observability sidecars, etc.).
+  - namePattern: europe-west1-docker.pkg.dev/my-project-123/system/*
+
+globalPolicyEvaluationMode: ENABLE

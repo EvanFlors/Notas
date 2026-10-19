@@ -1,0 +1,32 @@
+id: gcp-09-01-design-folder-structure-and-adr
+title: Disenar folder structure y escribir ADR para un tenant GCP pequeno
+technology: gcp
+module: 09-multi-project-org-cloud-identity
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - gcp-01-model-projects-billing-and-cli
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+
+objectives:
+  - Disenar una jerarquia Organization-Folders-Projects razonada para un escenario dado (4-8 projects) justificando trade-offs
+  - Decidir patron "un project por app" vs "un project por app x ambiente" para 2 workloads
+  - Mapear Org Policies del baseline a folders (disableServiceAccountKeyCreation, vmExternalIpAccess, publicAccessPrevention, allowedPolicyMemberDomains) y justificar donde se adjuntan
+  - Mapear grupos de Cloud Identity a roles por folder sin bindings a usuario individual
+  - Bosquejar un perimetro VPC Service Controls para los projects regulados
+  - Producir un ADR ADR-ORG-STRUCTURE.md en formato estandar con decision, contexto, consecuencias y alternativas descartadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-09-folder-adr"
+
+status: not-started

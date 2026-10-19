@@ -1,0 +1,31 @@
+id: az-05-02-cosmos-consistency-tradeoff
+title: Cosmos DB consistency trade-off + emulador + Azurite para Storage
+technology: azure
+module: 05-data-sql-postgres-cosmos-storage
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - az-02-entra-id-rbac-managed-identities
+  - az-03-vnet-nsg-asg-private-link-hub-spoke
+
+objectives:
+  - Modelar un container single-table en Cosmos DB SQL API que resuelva 3 patrones de acceso de un dominio e-commerce multi-tenant
+  - Elegir y justificar uno de los 5 niveles de consistencia de Cosmos para el workload y explicar el trade-off latencia vs RU
+  - Ejecutar un script Python contra el Cosmos DB Linux Emulator (o SKIP limpio) y contra Azurite para probar Blob (o SKIP limpio)
+  - Analizar en que caso la partition key crearia un hot partition y proponer sharding sintetico
+  - Entregar CONSISTENCY.md con la decision + mapping DynamoDB -> Cosmos y evidencia de ejecucion en run.log
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-05-cosmos"
+
+status: not-started

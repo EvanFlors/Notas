@@ -1,0 +1,14 @@
+{
+  "name": "audit-logs-to-bq",
+  "description": "Org-wide sink: all Cloud Audit Logs (Admin Activity + System Event + Data Access + Policy Denied) to a central BigQuery dataset for SQL analysis and 400-day retention.",
+  "destination": "bigquery.googleapis.com/projects/LOG_SINK_PROJECT/datasets/audit_logs",
+  "filter": "logName:\"cloudaudit.googleapis.com\"",
+  "includeChildren": true,
+  "bigqueryOptions": {
+    "usePartitionedTables": true,
+    "usesTimestampColumnPartitioning": true
+  },
+  "writerIdentity": "serviceAccount:p000000000000-000000@gcp-sa-logging.iam.gserviceaccount.com",
+  "disabled": false,
+  "exclusions": []
+}

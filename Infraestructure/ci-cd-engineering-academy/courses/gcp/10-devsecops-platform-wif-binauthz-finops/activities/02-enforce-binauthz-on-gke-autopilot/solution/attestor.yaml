@@ -1,0 +1,32 @@
+# Reference attestor for the build-attestor used by prod-autopilot.
+# NOT APPLIED. publicKeyPem is a placeholder — in Fase 4 it comes from
+# `cosign public-key --key gcpkms://...` on the signing key.
+#
+# This file documents two logical resources (the Container Analysis note
+# and the attestor) in a single multi-doc YAML. The TF file re-creates
+# them with the google_container_analysis_note and
+# google_binary_authorization_attestor resources.
+
+---
+# Container Analysis note — the attestation "schema" the attestor binds to.
+kind: ContainerAnalysisNote
+name: projects/my-project-123/notes/build-attestation-note
+attestationAuthority:
+  hint:
+    humanReadableName: Build attestor (cosign + KMS)
+
+---
+# The attestor itself.
+kind: BinaryAuthorizationAttestor
+name: projects/my-project-123/attestors/build-attestor
+description: Signs images produced by the WIF pipeline after build+test+scan.
+attestationAuthorityNote:
+  noteReference: projects/my-project-123/notes/build-attestation-note
+  publicKeys:
+    - id: projects/my-project-123/locations/europe-west1/keyRings/binauthz/cryptoKeys/build-signer/cryptoKeyVersions/1
+      pkixPublicKey:
+        publicKeyPem: |
+          -----BEGIN PUBLIC KEY-----
+          PLACEHOLDER_REPLACE_WITH_cosign_public-key_OUTPUT
+          -----END PUBLIC KEY-----
+        signatureAlgorithm: ECDSA_P256_SHA256

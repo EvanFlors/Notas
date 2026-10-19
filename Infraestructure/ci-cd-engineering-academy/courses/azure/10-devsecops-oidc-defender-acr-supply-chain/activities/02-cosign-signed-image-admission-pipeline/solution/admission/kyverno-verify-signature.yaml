@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: require-signed-checkout-images
+  annotations:
+    policies.kyverno.io/title: Require cosign signature for checkout images
+    policies.kyverno.io/category: Supply Chain Security
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: verify-cosign-signature
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [checkout-prod]
+      verifyImages:
+        - imageReferences:
+            - "acrcheckoutprod.azurecr.io/checkout*"
+          mutateDigest: true
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    subject: "https://github.com/acme/checkout/.github/workflows/build-sign-push.yml@refs/heads/main"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev

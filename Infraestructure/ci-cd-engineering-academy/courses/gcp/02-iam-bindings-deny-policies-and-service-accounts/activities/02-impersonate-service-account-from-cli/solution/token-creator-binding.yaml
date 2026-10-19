@@ -1,0 +1,20 @@
+# Binding aplicado SOBRE la SA destino deployer@acme-prod.iam.gserviceaccount.com
+# (NO sobre el project). Habilita impersonation desde el grupo platform-eng.
+#
+# En Terraform:
+#   resource "google_service_account_iam_binding" "platform_can_impersonate_deployer" {
+#     service_account_id = google_service_account.deployer.name
+#     role               = "roles/iam.serviceAccountTokenCreator"
+#     members            = ["group:platform-eng@acme.io"]
+#   }
+#
+# En gcloud:
+#   gcloud iam service-accounts add-iam-policy-binding \
+#     deployer@acme-prod.iam.gserviceaccount.com \
+#     --member="group:platform-eng@acme.io" \
+#     --role="roles/iam.serviceAccountTokenCreator"
+
+bindings:
+  - role: roles/iam.serviceAccountTokenCreator
+    members:
+      - group:platform-eng@acme.io

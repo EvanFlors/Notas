@@ -1,0 +1,7 @@
+{
+  "component": "blob-storage",
+  "data-classification": "internal",
+  "backup-policy": "daily-7d",
+  "encryption": "cmk",
+  "exposure": "private-endpoint-only"
+}

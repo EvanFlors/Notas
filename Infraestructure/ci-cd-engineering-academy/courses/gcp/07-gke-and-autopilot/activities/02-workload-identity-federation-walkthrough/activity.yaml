@@ -1,0 +1,31 @@
+id: gcp-07-02-workload-identity-federation-walkthrough
+title: Workload Identity Federation for GKE — walkthrough y ADR vs IRSA
+technology: gcp
+module: 07-gke-and-autopilot
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+  - gcp-04-compute-engine-cloud-run-cloud-functions
+
+objectives:
+  - Producir el manifiesto K8s de un ServiceAccount anotado con iam.gke.io/gcp-service-account y un Deployment que lo use
+  - Validar el YAML con kubectl --dry-run=client (o cargarlo opcionalmente en un cluster kind local)
+  - Escribir el script scripts/provision-wif.sh con los comandos gcloud que crean el GSA y el binding roles/iam.workloadIdentityUser (sin ejecutarlos contra GCP)
+  - Escribir WORKLOAD-IDENTITY-ADR.md comparando IRSA (EKS) y Workload Identity Federation for GKE
+  - Justificar por que la anotacion sin workload_pool habilitado es un error silencioso
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-07-02-wif"
+
+status: not-started

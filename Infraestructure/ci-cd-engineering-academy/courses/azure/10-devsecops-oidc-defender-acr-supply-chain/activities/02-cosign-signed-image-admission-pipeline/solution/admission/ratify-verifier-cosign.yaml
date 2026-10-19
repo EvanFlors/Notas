@@ -1,0 +1,23 @@
+# Alternative to Kyverno: Ratify Verifier for cosign keyless.
+# Ratify is a dedicated artifact verifier (CNCF, Microsoft-sponsored).
+# Install via: helm install ratify ratify/ratify -n gatekeeper-system
+
+apiVersion: config.ratify.deislabs.io/v1beta1
+kind: Store
+metadata:
+  name: store-oras
+spec:
+  name: oras
+---
+apiVersion: config.ratify.deislabs.io/v1beta1
+kind: Verifier
+metadata:
+  name: verifier-cosign
+spec:
+  name: cosign
+  artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json
+  parameters:
+    key: ""   # keyless (no static key)
+    certificate-identity: "https://github.com/acme/checkout/.github/workflows/build-sign-push.yml@refs/heads/main"
+    certificate-oidc-issuer: "https://token.actions.githubusercontent.com"
+    rekor-url: https://rekor.sigstore.dev

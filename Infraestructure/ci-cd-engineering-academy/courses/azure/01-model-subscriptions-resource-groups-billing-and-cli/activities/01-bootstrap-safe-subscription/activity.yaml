@@ -1,0 +1,32 @@
+id: az-01-01-bootstrap-safe-subscription
+title: Bootstrap de subscription playground con RG, budget y CLI
+technology: azure
+module: 01-model-subscriptions-resource-groups-billing-and-cli
+level: beginner
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - aws-01-model-regions-billing-and-free-tier
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Disenar la configuracion de bootstrap de una subscription playground (jerarquia tenant-MG-sub-RG) usando placeholder GUIDs
+  - Elegir subscription type justificado para el escenario (Free, Dev-Test, PAYG o MCA) y naming de RG
+  - Producir un ADR ADR-SUBSCRIPTION-BOOTSTRAP.md con las seis secciones estandar y diagrama ASCII
+  - Entregar un bootstrap.sh ejecutable (chmod +x) con comandos az CLI anotados en modo dry-run (--help, what-if o comentados)
+  - Enumerar al menos tres resource providers requeridos y el budget con alertas Actual y Forecasted
+  - Mencionar explicitamente IAM Identity Center-equivalente Entra ID, Management Group y region europea de compliance
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-01-bootstrap"
+
+status: not-started

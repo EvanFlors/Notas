@@ -1,0 +1,45 @@
+name: build-sign-push
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required for OIDC token (Azure + Fulcio)
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC, no secrets)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name acrcheckoutprod
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: acrcheckoutprod.azurecr.io/checkout:${{ github.sha }}
+
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.4.0
+
+      - name: Sign image (cosign keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign sign --yes \
+            acrcheckoutprod.azurecr.io/checkout:${{ github.sha }}

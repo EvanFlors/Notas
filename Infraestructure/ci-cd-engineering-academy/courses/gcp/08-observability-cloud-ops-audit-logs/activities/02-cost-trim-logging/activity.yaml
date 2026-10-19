@@ -1,0 +1,30 @@
+id: gcp-08-02-cost-trim-logging
+title: Plan de retencion y filtros de exclusion para control de costo de Cloud Logging
+technology: gcp
+module: 08-observability-cloud-ops-audit-logs
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - gcp-04-compute-engine-cloud-run-cloud-functions
+
+objectives:
+  - Escribir exclusion-filter.json que recorte logs noisy en el bucket _Default sin romper auditoria
+  - Escribir sink.json que exporte audit logs a BigQuery con tablas particionadas
+  - Producir LOG-RETENTION-ADR.md decidiendo retention por bucket (_Required, _Default, audit-long)
+  - Producir README-INTENT.md justificando cada filtro y por que Data Access logs no se activan por default
+  - Pasar el validador estructural (0 issue(s))
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-08-cost"
+
+status: not-started

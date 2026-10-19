@@ -1,0 +1,31 @@
+id: gcp-03-01-shared-vpc-host-and-service
+title: Disenar Shared VPC (host + service projects) y firewall por service account
+technology: gcp
+module: 03-vpc-global-and-networking
+level: beginner
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - gcp-01-model-projects-billing-and-cli
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+
+objectives:
+  - Disenar la topologia Shared VPC con un host project y dos service projects (checkout y analytics)
+  - Decidir CIDR por region sin solapes y justificar el tamano
+  - Escribir al menos tres firewall rules del baseline (health-checks, allow-internal-by-sa, deny-egress-default) en JSON valido
+  - Justificar por que firewall rules por service account son mas fuertes que por tag
+  - Producir un ADR ADR-SHARED-VPC.md con decision, contexto, consecuencias y alternativas descartadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-03-shared-vpc"
+
+status: not-started

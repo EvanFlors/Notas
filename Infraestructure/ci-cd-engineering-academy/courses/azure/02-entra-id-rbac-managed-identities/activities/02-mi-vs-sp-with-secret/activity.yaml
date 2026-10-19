@@ -1,0 +1,31 @@
+id: az-02-02-mi-vs-sp-with-secret
+title: Plan Terraform y walkthrough MI vs Service Principal con secret
+technology: azure
+module: 02-entra-id-rbac-managed-identities
+level: intermediate
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - az-01-model-subscriptions-resource-groups-billing-and-cli
+  - az-02-01-least-privilege-storage-reader
+
+objectives:
+  - Escribir un main.tf azurerm que modele una VM con user-assigned Managed Identity leyendo un Key Vault via role assignment en modo RBAC
+  - Escribir un main.tf azurerm que modele el anti-patron de Service Principal con client secret y role assignment equivalente, sin aplicar nada
+  - Producir un README-INTENT.md con walkthrough paso a paso del plan y comparacion ejes (secret rotation, blast radius, auditability, recovery) MI vs SPN
+  - Justificar por escrito por que la jerarquia MI > OIDC federated > certificate > client secret y en que caso usarias cada una
+  - Pasar el validador estructural que comprueba HCL + presencia de recursos + secciones del README sin requerir terraform init ni credenciales reales
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-02-misp"
+
+status: not-started

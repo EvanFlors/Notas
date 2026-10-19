@@ -1,0 +1,32 @@
+id: gcp-02-01-least-privilege-with-predefined-role
+title: Least privilege con role predefinido + deny policy complementaria
+technology: gcp
+module: 02-iam-bindings-deny-policies-and-service-accounts
+level: beginner
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - gcp-01-model-projects-billing-and-cli
+  - aws-02-iam-fundamentals
+  - aws-06-iam-advanced
+
+objectives:
+  - Elegir el role predefinido de GCP de menor privilegio para un workload concreto (NO basic roles)
+  - Escribir un allow-policy binding YAML sintacticamente valido con role predefinido + member tipo group o serviceAccount
+  - Escribir una deny policy YAML complementaria que vete borrado de buckets con exceptionPrincipals break-glass
+  - Usar nombres de permisos cualificados (<service>.googleapis.com/<permission>) en la deny policy
+  - Producir un README-INTENT.md que justifique la eleccion del role, por que no basic, y la intencion de la deny policy
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-02-lpp"
+
+status: not-started

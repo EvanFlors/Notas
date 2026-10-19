@@ -1,0 +1,30 @@
+id: gcp-02-02-impersonate-service-account-from-cli
+title: Impersonar una service account desde gcloud (walkthrough sin GCP real)
+technology: gcp
+module: 02-iam-bindings-deny-policies-and-service-accounts
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - gcp-01-model-projects-billing-and-cli
+  - gcp-02-01-least-privilege-with-predefined-role
+
+objectives:
+  - Disenar el binding de iam.serviceAccountTokenCreator que habilita impersonation desde un grupo humano hacia una SA de deployment
+  - Documentar el flujo gcloud paso a paso (auth login, impersonate-service-account) sin ejecutarlo contra GCP real
+  - Documentar explicitamente por que no se emite una SA key (anti-patron) y que org policy lo refuerza
+  - Describir como aparecen humano y SA en los audit logs via serviceAccountDelegationInfo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-02-impersonate"
+
+status: not-started

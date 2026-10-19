@@ -1,0 +1,9 @@
+{
+  "env": "dev",
+  "owner": "team-checkout",
+  "cost-center": "CC-1234",
+  "workload": "checkout",
+  "managed-by": "terraform",
+  "lifecycle": "ephemeral",
+  "contact": "team-checkout@example.com"
+}

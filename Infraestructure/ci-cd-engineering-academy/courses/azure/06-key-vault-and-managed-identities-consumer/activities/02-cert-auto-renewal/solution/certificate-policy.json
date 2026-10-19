@@ -1,0 +1,38 @@
+{
+  "issuerParameters": {
+    "name": "Self"
+  },
+  "keyProperties": {
+    "exportable": true,
+    "keySize": 2048,
+    "keyType": "RSA",
+    "reuseKey": false
+  },
+  "lifetimeActions": [
+    {
+      "action": {
+        "actionType": "AutoRenew"
+      },
+      "trigger": {
+        "daysBeforeExpiry": 30
+      }
+    }
+  ],
+  "secretProperties": {
+    "contentType": "application/x-pkcs12"
+  },
+  "x509CertificateProperties": {
+    "keyUsage": [
+      "digitalSignature",
+      "keyEncipherment"
+    ],
+    "subject": "CN=capstone.example.com",
+    "subjectAlternativeNames": {
+      "dnsNames": [
+        "capstone.example.com",
+        "www.capstone.example.com"
+      ]
+    },
+    "validityInMonths": 12
+  }
+}

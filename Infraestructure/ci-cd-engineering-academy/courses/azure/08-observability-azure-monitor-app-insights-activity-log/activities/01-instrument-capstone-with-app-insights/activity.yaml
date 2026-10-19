@@ -1,0 +1,32 @@
+id: az-08-01-instrument-capstone-with-app-insights
+title: Instrumentar la app del capstone con App Insights, alertas y KQL
+technology: azure
+module: 08-observability-azure-monitor-app-insights-activity-log
+level: advanced
+type: architecture
+
+estimated_minutes: 120
+
+prerequisites:
+  - az-04-compute-vm-vmss-container-apps-functions-app-service
+  - az-07-aks-and-workload-identity
+
+objectives:
+  - Escribir un walkthrough reproducible de instrumentacion OpenTelemetry hacia Azure Monitor Application Insights
+  - Declarar un Log Analytics Workspace como JSON ARM valido con sku, retention y publicNetworkAccess coherentes
+  - Declarar al menos una regla de alerta scheduledQueryRules apuntando al workspace con windowSize y evaluationFrequency validos
+  - Escribir al menos tres consultas KQL cubriendo tasa de errores, p95 de latencia y correlacion entre AppExceptions y AppRequests
+  - Documentar el intent de cada archivo en un README-INTENT.md con secciones por fichero y mencion explicita de OpenTelemetry, Application Insights y Log Analytics
+  - Pasar el validador estructural con 0 issue(s) sin ningun ID real de tenant ni de subscription en los archivos entregados
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-08-01"
+
+status: not-started

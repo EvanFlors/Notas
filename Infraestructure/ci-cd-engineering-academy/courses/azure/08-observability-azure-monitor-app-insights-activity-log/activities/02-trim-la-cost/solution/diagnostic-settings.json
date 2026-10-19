@@ -1,0 +1,32 @@
+{
+  "type": "Microsoft.Insights/diagnosticSettings",
+  "apiVersion": "2021-05-01-preview",
+  "name": "appgw-filtered-to-la",
+  "properties": {
+    "workspaceId": "/subscriptions/REDACTED-SUB-ID/resourceGroups/rg-platform-observability/providers/Microsoft.OperationalInsights/workspaces/la-shared-prod",
+    "logs": [
+      {
+        "category": "ApplicationGatewayAccessLog",
+        "enabled": true,
+        "retentionPolicy": { "enabled": false, "days": 0 }
+      },
+      {
+        "category": "ApplicationGatewayPerformanceLog",
+        "enabled": false,
+        "retentionPolicy": { "enabled": false, "days": 0 }
+      },
+      {
+        "category": "ApplicationGatewayFirewallLog",
+        "enabled": true,
+        "retentionPolicy": { "enabled": false, "days": 0 }
+      }
+    ],
+    "metrics": [
+      {
+        "category": "AllMetrics",
+        "enabled": false,
+        "retentionPolicy": { "enabled": false, "days": 0 }
+      }
+    ]
+  }
+}

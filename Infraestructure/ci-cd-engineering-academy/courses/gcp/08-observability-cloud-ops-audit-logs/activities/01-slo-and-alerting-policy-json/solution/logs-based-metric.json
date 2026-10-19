@@ -1,0 +1,20 @@
+{
+  "name": "payment_declined_count",
+  "description": "Counter of payment_declined events emitted by checkout-api, labelled by decline reason and app version.",
+  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"checkout-api\" AND jsonPayload.event=\"payment_declined\"",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "displayName": "Payment declined events",
+    "labels": [
+      {"key": "reason", "valueType": "STRING", "description": "Decline reason code (card_declined, insufficient_funds, fraud_blocked, ...)."},
+      {"key": "app_version", "valueType": "STRING", "description": "Version label from the app logs."}
+    ]
+  },
+  "labelExtractors": {
+    "reason": "EXTRACT(jsonPayload.reason)",
+    "app_version": "EXTRACT(jsonPayload.app_version)"
+  },
+  "bucketOptions": null
+}

@@ -1,0 +1,22 @@
+{
+  "properties": {
+    "displayName": "Deny Public IP addresses",
+    "policyType": "Custom",
+    "mode": "All",
+    "description": "Denies creation of Microsoft.Network/publicIPAddresses in the assigned scope. Intended for 'Landing Zones/Corp' to force Private Endpoints + ExpressRoute/App Gateway topology.",
+    "metadata": {
+      "category": "Network",
+      "version": "1.0.0"
+    },
+    "parameters": {},
+    "policyRule": {
+      "if": {
+        "field": "type",
+        "equals": "Microsoft.Network/publicIPAddresses"
+      },
+      "then": {
+        "effect": "deny"
+      }
+    }
+  }
+}

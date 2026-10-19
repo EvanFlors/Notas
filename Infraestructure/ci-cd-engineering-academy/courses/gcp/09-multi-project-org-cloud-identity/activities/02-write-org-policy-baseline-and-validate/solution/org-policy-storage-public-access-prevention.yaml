@@ -1,0 +1,8 @@
+# Boolean constraint — ningún bucket GCS puede abrirse a allUsers /
+# allAuthenticatedUsers. Baseline no negociable.
+name: organizations/<ORG-NUMBER-PLACEHOLDER>/policies/storage.publicAccessPrevention
+spec:
+  rules:
+    - enforce: true
+  inheritFromParent: false
+  reset: false

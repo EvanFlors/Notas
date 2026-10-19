@@ -1,0 +1,26 @@
+{
+  "type": "Microsoft.OperationalInsights/workspaces",
+  "apiVersion": "2022-10-01",
+  "name": "la-shared-prod",
+  "location": "westeurope",
+  "properties": {
+    "sku": {
+      "name": "PerGB2018"
+    },
+    "retentionInDays": 30,
+    "features": {
+      "enableLogAccessUsingOnlyResourcePermissions": true,
+      "disableLocalAuth": false
+    },
+    "publicNetworkAccessForIngestion": "Enabled",
+    "publicNetworkAccessForQuery": "Enabled",
+    "workspaceCapping": {
+      "dailyQuotaGb": 5
+    }
+  },
+  "tags": {
+    "env": "prod",
+    "owner": "platform-sre",
+    "costCenter": "observability"
+  }
+}

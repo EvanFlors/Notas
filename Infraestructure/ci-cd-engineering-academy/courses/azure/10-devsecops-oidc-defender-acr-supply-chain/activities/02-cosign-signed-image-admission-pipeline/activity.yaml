@@ -1,0 +1,31 @@
+id: az-10-02-cosign-signed-image-admission-pipeline
+title: Pipeline cosign keyless + admission policy en AKS (sin tenant real)
+technology: azure
+module: 10-devsecops-oidc-defender-acr-supply-chain
+level: advanced
+type: independent
+
+estimated_minutes: 80
+
+prerequisites:
+  - az-02-entra-id-rbac-managed-identities
+  - az-07-aks-and-workload-identity
+
+objectives:
+  - Escribir un workflow de GitHub Actions build-sign-push.yml que firme imagenes con cosign keyless usando el OIDC token del runner
+  - Escribir una policy de admission (Kyverno ClusterPolicy o Ratify Verifier) que verifique la firma cosign con certificate-identity y certificate-oidc-issuer pinneados
+  - Pinnear el certificate-identity al workflow concreto (.github/workflows/build-sign-push.yml@refs/heads/main) y rechazar firmas de otros workflows
+  - Documentar decisiones en README-INTENT.md (que verifica, donde se adjunta, excepciones)
+  - Pasar el validador estructural + semantico ligero sin ejecutar el pipeline ni montar cluster
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-10-02"
+
+status: not-started

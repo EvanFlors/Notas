@@ -1,0 +1,58 @@
+// =====================================================================
+// Auditoria de coste del Log Analytics Workspace la-shared-prod.
+// Base del diagnostico que precede al plan en cost-trim-plan.md.
+// =====================================================================
+
+// Query 1 — Top data types por GB facturables (ultimos 7 dias).
+Usage
+| where TimeGenerated > ago(7d)
+| where IsBillable == true
+| summarize GB = sum(Quantity) / 1024.0 by DataType
+| top 10 by GB desc
+
+//---
+
+// Query 2 — Serie temporal de GB/dia totales (identifica picos).
+Usage
+| where TimeGenerated > ago(30d)
+| where IsBillable == true
+| summarize GB = sum(Quantity) / 1024.0 by bin(TimeGenerated, 1d)
+| order by TimeGenerated asc
+
+//---
+
+// Query 3 — Top recursos emisores (por _ResourceId) en AzureDiagnostics.
+// Encuentra el App Gateway o NSG individual mas ruidoso.
+AzureDiagnostics
+| where TimeGenerated > ago(1d)
+| summarize events = count(), approx_bytes = sum(estimate_data_size(*)) by _ResourceId
+| top 10 by approx_bytes desc
+
+//---
+
+// Query 4 — GB por Solution (Insights/ContainerInsights/Security...).
+Usage
+| where TimeGenerated > ago(7d)
+| where IsBillable == true
+| summarize GB = sum(Quantity) / 1024.0 by Solution
+| order by GB desc
+
+//---
+
+// Query 5 — Deteccion de agente run-away: tabla con crecimiento repentino > 2x.
+let baseline =
+    Usage
+    | where TimeGenerated between (ago(14d) .. ago(7d))
+    | where IsBillable == true
+    | summarize baseline_gb = sum(Quantity) / 1024.0 by DataType;
+let current =
+    Usage
+    | where TimeGenerated > ago(7d)
+    | where IsBillable == true
+    | summarize current_gb = sum(Quantity) / 1024.0 by DataType;
+baseline
+| join kind=inner current on DataType
+| extend ratio = round(current_gb / baseline_gb, 2)
+| where ratio >= 2.0
+| project DataType, baseline_gb, current_gb, ratio
+| order by ratio desc

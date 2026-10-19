@@ -1,0 +1,32 @@
+id: gcp-07-01-gke-standard-vs-autopilot-tf-plan-and-adr
+title: GKE Standard vs Autopilot — Terraform plan y ADR
+technology: gcp
+module: 07-gke-and-autopilot
+level: advanced
+type: architecture
+
+estimated_minutes: 100
+
+prerequisites:
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+  - gcp-03-vpc-global-and-networking
+  - gcp-04-compute-engine-cloud-run-cloud-functions
+
+objectives:
+  - Escribir Terraform para un GKE Standard y para un GKE Autopilot con los bloques minimos (workload identity, release channel, private cluster, network policy)
+  - Validar sintacticamente los archivos Terraform (terraform validate, sin apply ni credenciales reales)
+  - Producir un ADR ADR-GKE-MODE.md que decida Standard vs Autopilot vs EKS para dos workloads distintos
+  - Justificar las restricciones de Autopilot que afectan a cada workload concreto
+  - Documentar el release channel elegido por entorno (dev vs prod)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-07-01-gke-tf-adr"
+
+status: not-started

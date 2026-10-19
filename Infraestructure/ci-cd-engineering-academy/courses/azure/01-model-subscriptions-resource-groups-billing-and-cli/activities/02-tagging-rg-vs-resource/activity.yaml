@@ -1,0 +1,31 @@
+id: az-01-02-tagging-rg-vs-resource
+title: Estrategia de tags RG vs recurso y Azure Policy sketch
+technology: azure
+module: 01-model-subscriptions-resource-groups-billing-and-cli
+level: beginner
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-01-model-regions-billing-and-free-tier
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Definir el catalogo minimo de tags (env, owner, cost-center, workload, managed-by) con valores validos
+  - Decidir cuales tags van en el Resource Group y cuales en el recurso individual y justificar
+  - Escribir dos JSON validos (tags-rg.json, tags-resource.json) y un Azure Policy sketch (tag-policy.json) de effect append o modify o audit sobre tag obligatorio
+  - Producir README-INTENT.md justificando por archivo que tags lleva y por que
+  - Explicar por que los tags del RG no heredan por defecto y por que Azure Policy modify es la via para forzar baseline
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-01-tagging"
+
+status: not-started

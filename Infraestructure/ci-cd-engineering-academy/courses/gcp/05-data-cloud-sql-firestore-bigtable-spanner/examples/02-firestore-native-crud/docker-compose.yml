@@ -1,0 +1,10 @@
+services:
+  firestore-emulator:
+    image: google/cloud-sdk:slim
+    container_name: gcp05-firestore
+    command: >
+      gcloud beta emulators firestore start
+      --host-port=0.0.0.0:8080
+      --project=example-project-id
+    ports:
+      - "8080:8080"

@@ -1,0 +1,34 @@
+id: az-07-01-provision-aks-and-run-app
+title: Disenar la provision de AKS y correr la app en kind
+technology: azure
+module: 07-aks-and-workload-identity
+level: advanced
+type: architecture
+
+estimated_minutes: 120
+
+prerequisites:
+  - az-02-entra-id-rbac-managed-identities
+  - az-03-vnet-nsg-asg-private-link-hub-spoke
+  - az-04-compute-vm-vmss-container-apps-functions-app-service
+
+objectives:
+  - Escribir un main.tf valido que llame a azurerm_kubernetes_cluster con OIDC issuer y Workload Identity habilitados
+  - Declarar al menos un system node pool con zones multiples y un user node pool con cluster-autoscaler
+  - Elegir Azure CNI Overlay y justificarlo frente a Azure CNI plano y kubenet
+  - Validar la sintaxis del Terraform (terraform validate) SIN crear nada en Azure
+  - Desplegar la app de ejemplo (Deployment + Service + Ingress) en un cluster local kind como proxy del comportamiento en AKS
+  - Escribir un ADR que decida mix de node pools, modo de CNI y modelo de acceso (Entra RBAC vs local accounts) con criterios explicitos
+  - Producir AKS_PLAN.md, main.tf, k8s/app.yaml y ADR.md en el directorio de scratch
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-07-01"
+
+status: not-started

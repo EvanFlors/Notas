@@ -1,0 +1,57 @@
+// =====================================================================
+// Playbook del on-call de checkout — queries KQL de referencia.
+// Cada query es independiente, separada por "//---".
+// =====================================================================
+
+// Query 1 — Tasa de errores (5xx) por minuto en la ultima hora.
+// Entra en el dashboard de incidentes y en el chat del on-call.
+AppRequests
+| where TimeGenerated > ago(1h)
+| where AppRoleName == "checkout-api"
+| summarize total = count(),
+            failed = countif(ResultCode startswith "5")
+        by bin(TimeGenerated, 1m)
+| extend error_rate_pct = round(100.0 * failed / total, 2)
+| project TimeGenerated, total, failed, error_rate_pct
+| order by TimeGenerated asc
+
+//---
+
+// Query 2 — Percentiles de latencia (p50, p95, p99) por endpoint.
+// Para distinguir "lento todo" de "lento un endpoint concreto".
+AppRequests
+| where TimeGenerated > ago(1h)
+| where AppRoleName == "checkout-api"
+| summarize p50 = percentile(DurationMs, 50),
+            p95 = percentile(DurationMs, 95),
+            p99 = percentile(DurationMs, 99),
+            calls = count()
+        by Name, bin(TimeGenerated, 1m)
+| order by TimeGenerated asc, p95 desc
+
+//---
+
+// Query 3 — Correlacion: por cada excepcion, su request padre.
+// Base para armar un timeline cuando salta la alerta.
+AppExceptions
+| where TimeGenerated > ago(15m)
+| join kind=inner (
+    AppRequests
+    | where TimeGenerated > ago(15m)
+    | project OperationId, Url, ResultCode, DurationMs, request_time = TimeGenerated
+  ) on OperationId
+| project TimeGenerated, ExceptionType, OuterMessage, Url, ResultCode, DurationMs, OperationId
+| order by TimeGenerated desc
+
+//---
+
+// Query 4 (extra) — Top dependencies lentas de la ultima hora.
+// Usada para discernir si el problema es la app o el backend al que llama.
+AppDependencies
+| where TimeGenerated > ago(1h)
+| where AppRoleName == "checkout-api"
+| summarize avg_ms = avg(DurationMs),
+            p95_ms = percentile(DurationMs, 95),
+            calls = count()
+        by Target, Type
+| top 10 by p95_ms desc

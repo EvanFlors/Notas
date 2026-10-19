@@ -1,0 +1,11 @@
+# List constraint — restringe los principales permitidos en bindings IAM
+# al customer ID del dominio corporativo. C01abc234 es placeholder; el real
+# se obtiene con: `gcloud organizations list` (campo DIRECTORY_CUSTOMER_ID).
+name: organizations/<ORG-NUMBER-PLACEHOLDER>/policies/iam.allowedPolicyMemberDomains
+spec:
+  rules:
+    - values:
+        allowedValues:
+          - C01abc234
+  inheritFromParent: false
+  reset: false

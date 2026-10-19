@@ -1,0 +1,30 @@
+id: az-02-01-least-privilege-storage-reader
+title: Escribir un custom role de minimo privilegio para leer blobs
+technology: azure
+module: 02-entra-id-rbac-managed-identities
+level: beginner
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - az-01-model-subscriptions-resource-groups-billing-and-cli
+
+objectives:
+  - Escribir un custom role definition JSON sintacticamente correcto con Name, Description, Actions, DataActions, NotActions, NotDataActions y AssignableScopes
+  - Distinguir correctamente Actions (management plane) de DataActions (data plane) y colocar la lectura de blobs donde corresponde
+  - Producir una variante del role con una condition de ejemplo (StringEquals sobre un path/prefix) para ensayar scoping fino
+  - Justificar por escrito en README-INTENT.md por que cada campo esta como esta y donde se asignaria el role
+  - Pasar el validador estructural que comprueba jq + presencia de claves + ausencia de acciones excesivas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-02-role"
+
+status: not-started

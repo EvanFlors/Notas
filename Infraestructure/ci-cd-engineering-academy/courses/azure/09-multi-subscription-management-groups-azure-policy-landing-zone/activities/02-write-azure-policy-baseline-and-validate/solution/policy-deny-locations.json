@@ -1,0 +1,47 @@
+{
+  "properties": {
+    "displayName": "Deny resources outside allowed locations (EU)",
+    "policyType": "Custom",
+    "mode": "All",
+    "description": "Denies creation of any resource whose location is not in the allowed set. Exempts resources with location 'global' (Front Door, DNS zones, Traffic Manager, role definitions) and B2C directories.",
+    "metadata": {
+      "category": "General",
+      "version": "1.0.0"
+    },
+    "parameters": {
+      "allowedLocations": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Allowed locations",
+          "description": "List of Azure regions where resources may be created.",
+          "strongType": "location"
+        },
+        "defaultValue": [
+          "westeurope",
+          "northeurope"
+        ]
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          {
+            "field": "location",
+            "notIn": "[parameters('allowedLocations')]"
+          },
+          {
+            "field": "location",
+            "notEquals": "global"
+          },
+          {
+            "field": "type",
+            "notEquals": "Microsoft.AzureActiveDirectory/b2cDirectories"
+          }
+        ]
+      },
+      "then": {
+        "effect": "deny"
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "properties": {
+    "displayName": "Audit Key Vaults without Log Analytics diagnostic settings",
+    "policyType": "Custom",
+    "mode": "All",
+    "description": "Audits any Microsoft.KeyVault/vaults that does not have a diagnostic setting enabled sending logs to a Log Analytics workspace. Does not block creation; marks the resource as non-compliant for the central compliance report.",
+    "metadata": {
+      "category": "Monitoring",
+      "version": "1.0.0"
+    },
+    "parameters": {
+      "logAnalyticsWorkspaceId": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Log Analytics workspace resource ID",
+          "description": "Resource ID of the central Log Analytics workspace. Leave empty to match any workspace.",
+          "strongType": "Microsoft.OperationalInsights/workspaces"
+        },
+        "defaultValue": ""
+      }
+    },
+    "policyRule": {
+      "if": {
+        "field": "type",
+        "equals": "Microsoft.KeyVault/vaults"
+      },
+      "then": {
+        "effect": "auditIfNotExists",
+        "details": {
+          "type": "Microsoft.Insights/diagnosticSettings",
+          "existenceCondition": {
+            "allOf": [
+              {
+                "field": "Microsoft.Insights/diagnosticSettings/logs.enabled",
+                "equals": "true"
+              },
+              {
+                "field": "Microsoft.Insights/diagnosticSettings/workspaceId",
+                "exists": "true"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

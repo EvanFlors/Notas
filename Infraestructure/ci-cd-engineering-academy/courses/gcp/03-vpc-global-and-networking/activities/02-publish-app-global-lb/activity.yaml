@@ -1,0 +1,31 @@
+id: gcp-03-02-publish-app-global-lb
+title: Publicar una app con Global External HTTPS LB y managed TLS cert
+technology: gcp
+module: 03-vpc-global-and-networking
+level: beginner
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - gcp-01-model-projects-billing-and-cli
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+
+objectives:
+  - Declarar en HCL las piezas minimas de un global external HTTPS Load Balancer (IP, cert managed, target proxy, URL map, backend service, forwarding rule)
+  - Validar el HCL estructuralmente sin ejecutar apply en GCP
+  - Dibujar un diagrama ASCII del flujo de request end-to-end
+  - Justificar por que LB global con IP anycast simplifica DNS y failover frente a ALB por region
+  - Producir lb.tf, variables.tf y ARCHITECTURE.md que pasen el validador
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-03-global-lb"
+
+status: not-started

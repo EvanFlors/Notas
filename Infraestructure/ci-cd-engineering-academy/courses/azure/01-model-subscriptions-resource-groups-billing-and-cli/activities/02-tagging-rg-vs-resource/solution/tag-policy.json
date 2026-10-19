@@ -1,0 +1,51 @@
+{
+  "properties": {
+    "displayName": "Require env tag on resources (inherit from RG when missing)",
+    "description": "Audits resources that have no env tag. In Fase 4, replace effect with 'modify' to copy env from the parent Resource Group automatically.",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "metadata": {
+      "category": "Tags",
+      "version": "0.1.0"
+    },
+    "parameters": {
+      "effect": {
+        "type": "String",
+        "defaultValue": "audit",
+        "allowedValues": ["audit", "append", "modify", "deny"],
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Start as audit; promote to modify once remediation role is in place."
+        }
+      },
+      "tagName": {
+        "type": "String",
+        "defaultValue": "env",
+        "metadata": {
+          "displayName": "Tag name"
+        }
+      }
+    },
+    "policyRule": {
+      "if": {
+        "field": "tags['env']",
+        "exists": "false"
+      },
+      "then": {
+        "effect": "[parameters('effect')]",
+        "details": {
+          "roleDefinitionIds": [
+            "/providers/microsoft.authorization/roleDefinitions/4a9ae827-6dc8-4573-8ac7-8239d42aa03f"
+          ],
+          "operations": [
+            {
+              "operation": "addOrReplace",
+              "field": "tags['env']",
+              "value": "[resourcegroup().tags['env']]"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

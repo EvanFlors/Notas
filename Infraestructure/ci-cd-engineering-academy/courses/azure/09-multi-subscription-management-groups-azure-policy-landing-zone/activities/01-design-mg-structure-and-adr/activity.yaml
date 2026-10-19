@@ -1,0 +1,32 @@
+id: az-09-01-design-mg-structure-and-adr
+title: Disenar jerarquia de Management Groups y escribir ADR para una org pequena
+technology: azure
+module: 09-multi-subscription-management-groups-azure-policy-landing-zone
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - az-01-model-subscriptions-resource-groups-billing-and-cli
+  - az-02-entra-id-rbac-managed-identities
+  - az-03-vnet-nsg-asg-private-link-hub-spoke
+
+objectives:
+  - Disenar una jerarquia de Management Groups razonada para un escenario dado (3-5 subscriptions) justificando trade-offs
+  - Decidir patron "una app = una subscription" vs "una app = N subscriptions" para 2 workloads
+  - Mapear Azure Policies del baseline a MGs (deny-locations, deny-public-ip, audit-diagnostic-settings) y justificar
+  - Mapear role assignments y grupos de Entra ID a MGs sin asignar por usuario-subscription individual
+  - Producir un ADR ADR-MG-STRUCTURE.md en formato estandar con decision, contexto, consecuencias y alternativas descartadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-09-mg-adr"
+
+status: not-started

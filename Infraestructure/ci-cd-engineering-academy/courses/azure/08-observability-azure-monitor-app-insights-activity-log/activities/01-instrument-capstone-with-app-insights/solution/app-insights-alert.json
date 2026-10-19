@@ -1,0 +1,38 @@
+{
+  "type": "Microsoft.Insights/scheduledQueryRules",
+  "apiVersion": "2023-03-15-preview",
+  "name": "alert-checkout-5xx-sustained",
+  "location": "westeurope",
+  "properties": {
+    "displayName": "checkout: 5xx sostenidos (>10 en 15 min)",
+    "description": "Dispara cuando AppRequests de checkout acumula >10 respuestas 5xx en una ventana de 15 min.",
+    "severity": 2,
+    "enabled": true,
+    "scopes": [
+      "/subscriptions/REDACTED-SUB-ID/resourceGroups/rg-platform-observability/providers/Microsoft.OperationalInsights/workspaces/la-shared-prod"
+    ],
+    "evaluationFrequency": "PT5M",
+    "windowSize": "PT15M",
+    "autoMitigate": true,
+    "criteria": {
+      "allOf": [
+        {
+          "query": "AppRequests | where TimeGenerated > ago(15m) | where AppRoleName == 'checkout-api' | where ResultCode startswith '5' | summarize failed = count()",
+          "timeAggregation": "Count",
+          "operator": "GreaterThan",
+          "threshold": 10,
+          "failingPeriods": {
+            "numberOfEvaluationPeriods": 1,
+            "minFailingPeriodsToAlert": 1
+          }
+        }
+      ]
+    },
+    "actions": {
+      "actionGroups": [],
+      "customProperties": {
+        "runbook": "https://wiki.example.test/runbooks/checkout-5xx"
+      }
+    }
+  }
+}

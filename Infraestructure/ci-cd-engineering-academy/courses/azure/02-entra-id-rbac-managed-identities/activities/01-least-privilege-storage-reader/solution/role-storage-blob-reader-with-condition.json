@@ -1,0 +1,15 @@
+{
+  "Name": "Checkout Blob Reader (public prefix only)",
+  "Description": "Permite leer blobs cuyo path empiece por 'public/'. Variante con condition ABAC (version 2.0) para scoping fino sin crear roles por container. Pensado para asignarse a una Managed Identity.",
+  "Actions": [],
+  "NotActions": [],
+  "DataActions": [
+    "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read"
+  ],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/<SUB-UUID-PLACEHOLDER>/resourceGroups/rg-checkout-prod"
+  ],
+  "Condition": "((!(ActionMatches{'Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read'})) OR (@Resource[Microsoft.Storage/storageAccounts/blobServices/containers/blobs:path] StringStartsWith 'public/'))",
+  "ConditionVersion": "2.0"
+}

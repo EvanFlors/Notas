@@ -1,0 +1,32 @@
+id: az-10-01-oidc-pipeline-tf-plan-and-adr
+title: Disenar la base DevSecOps (OIDC + ACR + Defender) con ADR y Terraform plan-only
+technology: azure
+module: 10-devsecops-oidc-defender-acr-supply-chain
+level: advanced
+type: architecture
+
+estimated_minutes: 100
+
+prerequisites:
+  - az-02-entra-id-rbac-managed-identities
+  - az-07-aks-and-workload-identity
+  - az-09-multi-subscription-management-groups-azure-policy-landing-zone
+
+objectives:
+  - Disenar la base DevSecOps del tenant (app registration + federated credential + ACR Premium + Defender for Containers) justificando decisiones en un ADR
+  - Escribir Terraform plan-only sintacticamente valido (azuread_application_federated_identity_credential, azurerm_container_registry, azurerm_security_center_subscription_pricing)
+  - Pinnear el subject claim del federated credential a repo:owner/repo:ref:refs/heads/main (sin wildcards sobre repo)
+  - Elegir SKU de ACR razonada (Basic vs Standard vs Premium) para dos workloads
+  - Producir ADR-DEVSECOPS-SUPPLY-CHAIN.md con las 6 secciones estandar y referencia explicita a OIDC, ACR, Defender y cosign
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-10-01"
+
+status: not-started

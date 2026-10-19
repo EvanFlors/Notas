@@ -1,0 +1,24 @@
+# Deny policy adjuntada al folder prod (folder id de ejemplo: 000000000000
+# — placeholder; en real seria el folder de produccion de la organizacion).
+#
+# Veta el borrado y el cambio de IAM de buckets de recibos, excepto para el
+# grupo break-glass. Un deny policy aqui gana a cualquier role predefined o
+# basic concedido mas arriba en la jerarquia.
+
+name: policies/cloudresourcemanager.googleapis.com%2Ffolders%2F000000000000/denypolicies/no-receipts-bucket-delete
+displayName: Prohibir borrado y cambio IAM de buckets de recibos salvo break-glass
+
+rules:
+  - description: Veto storage.buckets.delete para todos salvo break-glass-storage
+    denyRule:
+      deniedPrincipals:
+        - principalSet://goog/public:all
+      exceptionPrincipals:
+        - principalSet://goog/group/break-glass-storage@acme.io
+      deniedPermissions:
+        - storage.googleapis.com/buckets.delete
+        - storage.googleapis.com/buckets.setIamPolicy
+      denialCondition:
+        title: always
+        description: Siempre denegar (no hay bypass por tiempo ni por recurso)
+        expression: "true"

@@ -1,0 +1,32 @@
+id: az-07-02-wi-vs-pod-identity-v1
+title: Migrar un workload de AAD Pod Identity v1 a Workload Identity
+technology: azure
+module: 07-aks-and-workload-identity
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - az-02-entra-id-rbac-managed-identities
+
+objectives:
+  - Enumerar las diferencias concretas entre AAD Pod Identity v1 y Workload Identity (setup, trust, token flow, scope)
+  - Escribir manifiestos ANTES (Pod Identity v1) y DESPUES (Workload Identity) para el mismo workload sin perder la minima politica Azure
+  - Documentar la federated identity credential (issuer, subject, audience) sobre una User-Assigned Managed Identity
+  - Justificar la eleccion de Workload Identity vs Pod Identity v1 con criterios tecnicos para 3 escenarios dados (greenfield, cluster legacy, workload cross-platform)
+  - Articular un plan de migracion por fases (dual-run, cutover, rollback) sin downtime
+  - Producir MIGRATION.md con comparativa, 2 manifiestos (sa-pod-identity-v1.yaml, sa-wi.yaml) y matriz de decision
+  - Documentar que NO funcionaria si el workload corriese tambien en Container Apps o en una VM fuera del cluster
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-07-02"
+
+status: not-started

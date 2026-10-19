@@ -1,0 +1,29 @@
+{
+  "bucket": "projects/PROJECT_ID/locations/global/buckets/_Default",
+  "exclusions": [
+    {
+      "name": "drop-health-probes",
+      "description": "GKE/Cloud Run readiness, liveness and healthz probes (noise, no diagnostic value).",
+      "filter": "(httpRequest.requestUrl=~\"/healthz|/readyz|/livez|/health$\" OR textPayload=~\"readiness probe|liveness probe\" OR jsonPayload.message=~\"probe\") AND NOT logName:\"cloudaudit.googleapis.com\"",
+      "disabled": false
+    },
+    {
+      "name": "drop-debug-in-prod",
+      "description": "Drop DEBUG and lower severity in prod environment (should never ship but we defend-in-depth).",
+      "filter": "severity<INFO AND resource.labels.environment=\"prod\" AND NOT logName:\"cloudaudit.googleapis.com\"",
+      "disabled": false
+    },
+    {
+      "name": "drop-vpc-flow-internal",
+      "description": "VPC Flow Logs for intra-subnet traffic between known health-check source ranges.",
+      "filter": "resource.type=\"gce_subnetwork\" AND logName=~\"compute.googleapis.com%2Fvpc_flows\" AND (jsonPayload.src_vpc.vpc_name=\"prod-vpc\" AND jsonPayload.dest_vpc.vpc_name=\"prod-vpc\") AND NOT logName:\"cloudaudit.googleapis.com\"",
+      "disabled": false
+    },
+    {
+      "name": "drop-successful-gcs-reads",
+      "description": "Drop 2xx GCS object reads from the public assets bucket (noisy, no security value).",
+      "filter": "resource.type=\"gcs_bucket\" AND resource.labels.bucket_name=\"PROJECT_ID-public-assets\" AND httpRequest.status<300 AND NOT logName:\"cloudaudit.googleapis.com\"",
+      "disabled": false
+    }
+  ]
+}

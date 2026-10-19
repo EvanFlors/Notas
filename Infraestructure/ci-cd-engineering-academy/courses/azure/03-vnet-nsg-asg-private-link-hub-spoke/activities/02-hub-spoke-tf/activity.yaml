@@ -1,0 +1,31 @@
+id: az-03-02-hub-spoke-tf
+title: Hub-Spoke minimo con 1 hub y 2 spokes en Terraform + diagrama ASCII
+technology: azure
+module: 03-vnet-nsg-asg-private-link-hub-spoke
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - az-01-model-subscriptions-resource-groups-billing-and-cli
+  - az-02-entra-id-rbac-managed-identities
+
+objectives:
+  - Escribir HCL para una topologia Hub-Spoke minima (1 hub + 2 spokes) con subnets especiales (AzureFirewallSubnet, GatewaySubnet)
+  - Crear peerings bidireccionales hub-spoke-a y hub-spoke-b con settings allow_forwarded_traffic y allow_gateway_transit justificados
+  - Declarar al menos una Private DNS Zone en el hub y linkearla tanto al hub como a los dos spokes (3 links)
+  - Justificar en TOPOLOGY.md con un diagrama ASCII por que spokes no se peerean entre si (non-transitividad) y como se habilitaria spoke-a <-> spoke-b si fuera necesario
+  - Validar el HCL con terraform init -backend=false y terraform validate sin autenticarse en Azure
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-03-02-hub-spoke"
+
+status: not-started

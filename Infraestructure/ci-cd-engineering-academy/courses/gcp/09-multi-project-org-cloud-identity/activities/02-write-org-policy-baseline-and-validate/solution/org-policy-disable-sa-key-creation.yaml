@@ -1,0 +1,8 @@
+# Boolean constraint — baseline del tenant.
+# Adjunta en Organization. Overrideable en Folder Sandbox con enforce=false.
+name: organizations/<ORG-NUMBER-PLACEHOLDER>/policies/iam.disableServiceAccountKeyCreation
+spec:
+  rules:
+    - enforce: true
+  inheritFromParent: false
+  reset: false

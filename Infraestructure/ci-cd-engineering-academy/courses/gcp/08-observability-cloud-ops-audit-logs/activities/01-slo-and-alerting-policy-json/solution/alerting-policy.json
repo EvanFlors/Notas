@@ -1,0 +1,30 @@
+{
+  "displayName": "checkout-api — SLO 99.9% fast burn (2% budget in 1h)",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Fast burn: >=14.4x on availability SLI during last 60m",
+      "conditionThreshold": {
+        "filter": "select_slo_burn_rate(\"projects/PROJECT_ID/services/SERVICE_ID/serviceLevelObjectives/SLO_ID\", \"3600s\")",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 14.4,
+        "duration": "0s",
+        "aggregations": [
+          {"alignmentPeriod": "60s", "perSeriesAligner": "ALIGN_MEAN"}
+        ]
+      }
+    }
+  ],
+  "notificationChannels": [
+    "projects/PROJECT_ID/notificationChannels/CHANNEL_ID_PAGERDUTY",
+    "projects/PROJECT_ID/notificationChannels/CHANNEL_ID_SLACK_SRE"
+  ],
+  "documentation": {
+    "content": "## Runbook: checkout-api fast burn\n\n- **Dashboard**: https://console.cloud.google.com/monitoring/dashboards/custom/PLACEHOLDER\n- **Owner**: team-checkout (@checkout-oncall)\n- **Playbook**: 1) check recent deploys (Cloud Run revisions last 2h). 2) rollback via `gcloud run services update-traffic`. 3) look at traces in Cloud Trace for 5xx spans. 4) escalate to platform if infra-wide.\n- **Why this fires**: consuming 2% of the 30d error budget in the last 60m. SLI = non-5xx request ratio.\n",
+    "mimeType": "text/markdown"
+  },
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "severity": "CRITICAL"
+}

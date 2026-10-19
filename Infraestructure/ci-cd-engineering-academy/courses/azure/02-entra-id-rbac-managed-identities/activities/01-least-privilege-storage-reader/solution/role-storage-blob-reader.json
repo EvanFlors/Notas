@@ -1,0 +1,13 @@
+{
+  "Name": "Checkout Blob Reader",
+  "Description": "Permite leer blobs (data plane) de la storage account del workload checkout. No permite ninguna operacion de management plane ni listar keys. Pensado para asignarse a una Managed Identity.",
+  "Actions": [],
+  "NotActions": [],
+  "DataActions": [
+    "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read"
+  ],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/<SUB-UUID-PLACEHOLDER>/resourceGroups/rg-checkout-prod"
+  ]
+}

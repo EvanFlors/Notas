@@ -1,0 +1,8 @@
+# List constraint con denyAll — obliga a tráfico saliente vía Cloud NAT y
+# a tráfico entrante vía Load Balancer. Overrideable en projects de bastion.
+name: organizations/<ORG-NUMBER-PLACEHOLDER>/policies/compute.vmExternalIpAccess
+spec:
+  rules:
+    - denyAll: true
+  inheritFromParent: false
+  reset: false

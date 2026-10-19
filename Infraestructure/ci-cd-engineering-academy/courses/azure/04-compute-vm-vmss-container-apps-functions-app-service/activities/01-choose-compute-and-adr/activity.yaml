@@ -1,0 +1,32 @@
+id: az-04-01-choose-compute-and-adr
+title: Elegir compute Azure para 3 workloads y escribir un ADR
+technology: azure
+module: 04-compute-vm-vmss-container-apps-functions-app-service
+level: intermediate
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - az-01-model-subscriptions-resource-groups-billing-and-cli
+  - az-02-entra-id-rbac-managed-identities
+  - az-03-vnet-nsg-asg-private-link-hub-spoke
+
+objectives:
+  - Comparar VM, VMSS, App Service, Container Apps, ACI y Functions por caso de uso
+  - Elegir compute para 3 workloads distintos (HTTP latency-sensitive, batch nocturno, worker a cola) y defender cada eleccion
+  - Escribir un ADR con tabla comparativa, decision por workload y alternativas descartadas
+  - Mencionar explicitamente trade-offs cold-start, portabilidad, coste y operabilidad
+  - Producir ADR-COMPUTE-CHOICE.md y pasar validador estructural
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/az-04-01"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: gcp-05-01-connect-fastapi-to-cloud-sql
+title: Conectar una API FastAPI a Cloud SQL via Auth Proxy (stand-in local)
+technology: gcp
+module: 05-data-cloud-sql-firestore-bigtable-spanner
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+  - gcp-03-vpc-global-and-networking
+
+objectives:
+  - Levantar Postgres 15 en Docker como stand-in de Cloud SQL en localhost:5432 sin tocar GCP
+  - Escribir una app FastAPI con endpoints GET/POST /items y GET /healthz que persiste en Postgres leyendo DATABASE_URL
+  - Escribir Terraform real de google_sql_database_instance Postgres 15 en region europea con ipv4Enabled=false, backups con PITR y IAM authentication habilitada
+  - Declarar en Terraform una google_service_account dedicada y un binding roles/cloudsql.client para el patron Auth Proxy
+  - Producir un ADR corto ADR-DB-CHOICE.md justificando Postgres vs AlloyDB con criterios explicitos
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-05-01"
+
+status: not-started

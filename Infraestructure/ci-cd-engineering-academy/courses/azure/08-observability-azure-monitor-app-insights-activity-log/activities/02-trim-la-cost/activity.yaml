@@ -1,0 +1,32 @@
+id: az-08-02-trim-la-cost
+title: Plan de reduccion de coste del Log Analytics Workspace
+technology: azure
+module: 08-observability-azure-monitor-app-insights-activity-log
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - az-04-compute-vm-vmss-container-apps-functions-app-service
+  - az-07-aks-and-workload-identity
+
+objectives:
+  - Diagnosticar la ingesta de un Log Analytics Workspace con queries KQL sobre la tabla Usage
+  - Proponer un plan de reduccion de coste con cinco palancas accionables (filtrado de categorias, Basic Logs, Archive, sampling, tope diario)
+  - Declarar una diagnosticSettings JSON ARM filtrada por categorias que ilustre la primera palanca
+  - Escribir al menos tres consultas KQL de auditoria de coste (Usage, DataType, filtering per table)
+  - Documentar el plan en cost-trim-plan.md con contexto, hipotesis de ahorro y riesgos
+  - Pasar el validador estructural con 0 issue(s) sin ningun ID real de tenant ni de subscription
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-08-02"
+
+status: not-started

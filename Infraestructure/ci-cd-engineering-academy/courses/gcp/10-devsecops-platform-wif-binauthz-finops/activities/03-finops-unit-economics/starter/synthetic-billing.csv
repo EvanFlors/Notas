@@ -1,0 +1,13 @@
+invoice_month,project_id,service,sku,usage_amount,usage_unit,cost,credits,label_env,label_workload,label_cost_center,region
+202610,checkout-prod,Compute Engine,N2 Instance Core running EMEA,720,hour,1000.00,-200.00,prod,checkout,eng,europe-west1
+202610,checkout-prod,Cloud SQL,Postgres HA Zonal,720,hour,500.00,-50.00,prod,checkout,eng,europe-west1
+202610,checkout-prod,Networking,Internet Egress,2000,GB,300.00,0,prod,checkout,eng,europe-west1
+202610,checkout-prod,Cloud Logging,Log Ingestion,500,GB,100.00,-20.00,prod,checkout,eng,europe-west1
+202610,checkout-prod,Artifact Registry,Storage,200,GB,20.00,0,prod,checkout,eng,europe-west1
+202610,checkout-stg,Compute Engine,N2 Instance Core running EMEA,360,hour,500.00,-100.00,stg,checkout,eng,europe-west1
+202610,checkout-stg,Cloud SQL,Postgres Zonal,360,hour,200.00,-20.00,stg,checkout,eng,europe-west1
+202610,checkout-stg,Cloud Logging,Log Ingestion,250,GB,50.00,-10.00,stg,checkout,eng,europe-west1
+202610,checkout-stg,Artifact Registry,Storage,100,GB,10.00,0,stg,checkout,eng,europe-west1
+202610,analytics-prod,BigQuery,Analysis Slot Usage,1000,slot-hour,400.00,-40.00,prod,analytics,data,europe-west1
+202610,analytics-prod,Cloud Storage,Standard Storage,500,GB,100.00,-10.00,prod,analytics,data,europe-west1
+202610,analytics-prod,Compute Engine,N2 Instance Core running EMEA,200,hour,300.00,-30.00,prod,analytics,data,europe-west1

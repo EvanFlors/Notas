@@ -1,0 +1,31 @@
+id: gcp-08-01-slo-and-alerting-policy-json
+title: Disenar SLO para Cloud Run y escribir alerting policy + logs-based metric en JSON
+technology: gcp
+module: 08-observability-cloud-ops-audit-logs
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - gcp-04-compute-engine-cloud-run-cloud-functions
+  - gcp-07-gke-and-autopilot
+
+objectives:
+  - Disenar un SLO de disponibilidad para un servicio Cloud Run justificando SLI, goal y rolling period
+  - Escribir alerting-policy.json valido con condition sobre burn rate o threshold, notification channel y documentation
+  - Escribir logs-based-metric.json valido (counter o distribution) con labels y filtro reproducible
+  - Producir SLO-ADR.md con decision, contexto, consecuencias y alternativas descartadas
+  - Justificar en README-INTENT.md por que cada pieza es necesaria y como se integran
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-08-slo"
+
+status: not-started

@@ -1,0 +1,30 @@
+id: az-09-02-write-azure-policy-baseline-and-validate
+title: Escribir Azure Policies del baseline y validarlas
+technology: azure
+module: 09-multi-subscription-management-groups-azure-policy-landing-zone
+level: advanced
+type: guided-lab
+
+estimated_minutes: 80
+
+prerequisites:
+  - az-01-model-subscriptions-resource-groups-billing-and-cli
+  - az-02-entra-id-rbac-managed-identities
+
+objectives:
+  - Escribir una Azure policyDefinition sintacticamente correcta usando properties.mode, parameters, policyRule.if/then y effect
+  - Explicar por que deny-locations debe exceptuar location global y servicios regionales especificos
+  - Nombrar las acciones de diagnostic settings y Log Analytics que audit-diagnostic-settings debe comprobar
+  - Justificar por escrito donde asignar cada policy (MG vs subscription vs RG) y con que parametros
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/az-09-policy"
+
+status: not-started

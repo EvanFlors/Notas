@@ -1,0 +1,32 @@
+# Reference workflow for gcp-10-01.
+# Copy to /tmp/gcp-10-01-wif/.github/workflows/publish.yml
+name: build-and-publish
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/123456789012/locations/global/workloadIdentityPools/github-pool/providers/github-oidc
+          service_account: gha-publisher@my-project-123.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Configure docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+
+      - name: Build and push
+        run: |
+          IMAGE=europe-west1-docker.pkg.dev/my-project-123/prod-images/checkout:${{ github.sha }}
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"

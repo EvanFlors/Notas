@@ -1,0 +1,31 @@
+id: az-03-01-vnet-plus-private-endpoints
+title: VNet con NSG, ASG y Private Endpoints a Storage y Key Vault en Terraform
+technology: azure
+module: 03-vnet-nsg-asg-private-link-hub-spoke
+level: intermediate
+type: architecture
+
+estimated_minutes: 100
+
+prerequisites:
+  - az-01-model-subscriptions-resource-groups-billing-and-cli
+  - az-02-entra-id-rbac-managed-identities
+
+objectives:
+  - Escribir HCL azurerm para una VNet regional con subnets segregadas por rol (app y pe)
+  - Modelar un NSG stateful apoyado en al menos dos ASG y justificar las prioridades
+  - Crear Private Endpoints a Storage (blob) y a Key Vault con sus Private DNS Zones linkeadas
+  - Validar el HCL con terraform init -backend=false y terraform validate sin credenciales reales
+  - Producir un ADR ADR-VNET-DESIGN.md justificando el plan CIDR, la segregacion de subnets y la eleccion de Private Endpoint sobre Service Endpoint
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/az-03-01-vnet-pe"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: gcp-10-01-wif-pipeline-no-keys-adr
+title: Disenar pipeline WIF sin keys estaticas (TF plan + GHA workflow + ADR)
+technology: gcp
+module: 10-devsecops-platform-wif-binauthz-finops
+level: advanced
+type: architecture
+
+estimated_minutes: 110
+
+prerequisites:
+  - gcp-02-iam-bindings-deny-policies-and-service-accounts
+  - gcp-09-multi-project-org-cloud-identity
+
+objectives:
+  - Escribir Terraform (nunca aplicado) que define un Workload Identity Pool, un provider OIDC para GitHub Actions y un binding sobre una service account
+  - Pinnear el provider al repo correcto con attribute_condition sobre assertion.repository (y opcionalmente assertion.ref)
+  - Escribir un workflow GitHub Actions que impersona la SA sin usar secrets.GCP_SA_KEY y publica a Artifact Registry
+  - Producir un ADR ADR-WIF-PIPELINE.md justificando decisiones (pin del provider, principio de minimo privilegio, excepciones)
+  - Pasar un validador estructural (TF fmt + presencia de recursos clave + workflow con id-token write + ADR con secciones estandar)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gcp-10-01-wif"
+
+status: not-started

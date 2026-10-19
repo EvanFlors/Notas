@@ -1,0 +1,10 @@
+services:
+  bigtable-emulator:
+    image: google/cloud-sdk:slim
+    container_name: gcp05-bigtable
+    command: >
+      gcloud beta emulators bigtable start
+      --host-port=0.0.0.0:8086
+      --project=example-project-id
+    ports:
+      - "8086:8086"
