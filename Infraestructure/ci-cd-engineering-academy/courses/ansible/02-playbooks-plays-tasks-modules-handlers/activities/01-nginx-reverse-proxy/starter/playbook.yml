@@ -1,0 +1,30 @@
+---
+# TODO: Convierte este skeleton en una play completa.
+#
+# Requisitos:
+#   - hosts: web
+#   - become: true
+#   - tasks: instalar nginx, publicar vhost, enable site, disable default,
+#     garantizar nginx started/enabled.
+#   - handlers: Reload nginx (service reloaded).
+#   - notify desde las tasks que cambian la config.
+#
+# Pistas: usa ansible.builtin.apt, template, file, service. NO uses shell/command.
+
+- name: Configure nginx as reverse proxy
+  hosts: web
+  become: true
+  tasks:
+    - name: TODO install nginx
+      ansible.builtin.debug:
+        msg: "Reemplazame por una task real que instale nginx"
+
+    # TODO: template vhost -> /etc/nginx/sites-available/reverse-proxy.conf (notify Reload nginx)
+    # TODO: enable site symlink -> /etc/nginx/sites-enabled/reverse-proxy.conf (notify Reload nginx)
+    # TODO: disable default site (state: absent, notify Reload nginx)
+    # TODO: ensure nginx service started + enabled
+
+  handlers:
+    - name: Reload nginx
+      ansible.builtin.debug:
+        msg: "Reemplazame por un reload real del servicio nginx"

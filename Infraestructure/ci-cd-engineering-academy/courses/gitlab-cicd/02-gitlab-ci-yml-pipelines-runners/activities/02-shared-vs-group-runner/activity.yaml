@@ -1,0 +1,30 @@
+id: gl-02-02-shared-vs-group-runner
+title: ADR shared SaaS runner vs group runner propio
+technology: gitlab-cicd
+module: 02-gitlab-ci-yml-pipelines-runners
+level: beginner
+type: architecture
+
+estimated_minutes: 60
+
+prerequisites:
+  - gl-01-model-and-mapping-to-gha
+
+objectives:
+  - Comparar shared SaaS runner vs group runner propio en al menos tres criterios (coste, red, secretos, autoscaling, compliance, operacion)
+  - Elegir una opcion para un escenario concreto y justificarla con trade-offs explicitos
+  - Nombrar al menos dos alternativas descartadas (project runner dedicado, hybrid, otros CI)
+  - Explicar como se materializa la eleccion en el .gitlab-ci.yml via tags
+  - Producir un ADR ADR-RUNNERS.md con secciones estandar que pase el validador estructural
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-02-02"
+
+status: not-started

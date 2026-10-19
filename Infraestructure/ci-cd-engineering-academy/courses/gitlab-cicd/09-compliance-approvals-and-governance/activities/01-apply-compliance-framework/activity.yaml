@@ -1,0 +1,31 @@
+id: gl-09-01-apply-compliance-framework
+title: Escribir el skeleton de un Compliance Framework (pipeline + CODEOWNERS + approval rules)
+technology: gitlab-cicd
+module: 09-compliance-approvals-and-governance
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - gl-07-environments-deployments-and-review-apps
+  - gl-08-security-scanners-registry-and-supply-chain
+
+objectives:
+  - Escribir un compliance-pipeline.yml que inyecte SAST y Secret Detection obligatorios reusando el include reciproco $CI_PROJECT_PATH
+  - Redactar un CODEOWNERS con al menos 3 secciones (infra, compliance config, dominio sensible) y owners por grupo (no por usuario)
+  - Describir un approval-rules.yml con regla default de 2 approvers, code_owner_approval_required y security approval por findings high/critical
+  - Justificar en README-INTENT.md que puede y que no puede sobreescribir el project consumidor sobre el framework
+  - Pasar el validador estructural que comprueba YAML parseable, keys obligatorias y secciones del README
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-09-framework"
+
+status: not-started

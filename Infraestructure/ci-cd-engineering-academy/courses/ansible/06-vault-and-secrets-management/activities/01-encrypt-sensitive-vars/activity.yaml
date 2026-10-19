@@ -1,0 +1,30 @@
+id: ans-06-01-encrypt-sensitive-vars
+title: Encriptar variables sensibles con ansible-vault
+technology: ansible
+module: 06-vault-and-secrets-management
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - ans-02-playbooks-plays-tasks-modules-handlers
+
+objectives:
+  - Encriptar un archivo YAML completo (group_vars/prod.yml) con ansible-vault encrypt
+  - Verificar el header $ANSIBLE_VAULT y descifrarlo con ansible-vault view
+  - Encriptar un string individual con encrypt_string y pegarlo en group_vars/all.yml
+  - Operar con dos vault IDs (dev y prod) usando passwords distintas y verificar que sin la password de prod el archivo de prod no se descifra
+  - Producir un README-INTENT.md documentando que archivo esta encriptado, con que vault ID, y por que
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-06-vault"
+
+status: not-started

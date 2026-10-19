@@ -1,0 +1,31 @@
+id: gl-03-02-oidc-to-vault
+title: Eliminar token de larga vida usando ID Token y Vault via OIDC
+technology: gitlab-cicd
+module: 03-variables-and-secrets-protected-and-masked
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - gl-02-gitlab-ci-yml-pipelines-runners
+
+objectives:
+  - Reemplazar un VAULT_TOKEN de larga vida por un ID Token emitido por GitLab por job
+  - Declarar correctamente el bloque id_tokens con un aud alineado al rol JWT de Vault
+  - Usar el bloque secrets nativo con la clave vault para leer uno o mas secretos de HashiCorp Vault
+  - "Usar file: true para secretos multilinea y file: false para strings"
+  - Justificar en README-INTENT.md el pinning por project_path, ref y ref_protected en Vault
+  - Pasar el validador estructural que comprueba el YAML, el bloque id_tokens, el bloque secrets y la ausencia de credenciales de larga vida
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-03-02"
+
+status: not-started

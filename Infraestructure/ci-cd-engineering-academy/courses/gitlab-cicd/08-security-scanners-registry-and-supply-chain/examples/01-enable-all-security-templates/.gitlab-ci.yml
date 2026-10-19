@@ -1,0 +1,43 @@
+# Example: enable 5 native security scanners with minimal YAML.
+# Reference: https://docs.gitlab.com/ee/user/application_security/
+
+stages:
+  - build
+  - test
+  - deploy
+
+workflow:
+  rules:
+    # Avoid duplicate pipelines (one for the branch + one for the MR).
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.gitlab-ci.yml
+  - template: Jobs/Container-Scanning.gitlab-ci.yml
+  - template: Jobs/SAST-IaC.gitlab-ci.yml
+
+variables:
+  SECURE_LOG_LEVEL: "info"
+  SAST_EXCLUDED_PATHS: "spec,test,tests,tmp,vendor,.venv,node_modules"
+  DS_EXCLUDED_PATHS: "spec,test,tests,tmp"
+  # Container Scanning will scan this image. Set from the build job if dynamic.
+  CS_IMAGE: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+
+# Placeholder build job so Container-Scanning has an image to scan.
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.21.0-debug
+    entrypoint: [""]
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor
+        --context "$CI_PROJECT_DIR"
+        --dockerfile "$CI_PROJECT_DIR/Dockerfile"
+        --destination "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"

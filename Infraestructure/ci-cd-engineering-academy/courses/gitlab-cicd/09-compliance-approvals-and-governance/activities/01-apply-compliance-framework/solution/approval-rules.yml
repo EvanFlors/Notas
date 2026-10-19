@@ -1,0 +1,29 @@
+project: workloads/checkout
+
+rules:
+  - name: default-two-approvers
+    applies_to_all_protected_branches: true
+    approvals_required: 2
+    reset_on_push: true
+    prevent_author_approval: true
+    prevent_committers_approval: true
+    users_or_groups:
+      - group: workloads/checkout-reviewers
+
+  - name: codeowners
+    applies_to_all_protected_branches: true
+    code_owner_approval_required: true
+
+  - name: security-high-findings
+    applies_to_all_protected_branches: true
+    report_type: vulnerability
+    severity_levels: [high, critical]
+    approvals_required: 1
+    users_or_groups:
+      - group: platform/security
+
+  - name: release-branch-extra
+    applies_to_branches: ["release/*"]
+    approvals_required: 1
+    users_or_groups:
+      - group: platform/release-managers

@@ -1,0 +1,30 @@
+id: ans-05-02-collection-eval-adr
+title: Escribir un ADR comparando community.aws vs amazon.aws
+technology: ansible
+module: 05-collections-galaxy-and-automation-hub
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - ans-04-roles-structure-and-reuse
+
+objectives:
+  - Comparar dos collections candidatas (community.aws vs amazon.aws) para un escenario dado con 6 criterios explicitos
+  - Producir un ADR en formato estandar (Estado, Contexto, Decision, Consecuencias, Alternativas) legible por un ingeniero externo
+  - Nombrar al menos 3 criterios de adopcion de collection comunitaria (mantenimiento, dependencias upstream, licencia, alternativa certificada, cobertura, namespace)
+  - Justificar por escrito por que amazon.aws es la eleccion por defecto en una org con AAP y cuando community.aws complementa
+  - Mencionar Automation Hub, Galaxy publico y el patron de rollback via pin de version
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-05-02"
+
+status: not-started

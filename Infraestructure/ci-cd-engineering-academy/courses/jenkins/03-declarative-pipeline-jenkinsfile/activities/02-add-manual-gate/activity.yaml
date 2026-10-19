@@ -1,0 +1,31 @@
+id: jk-03-02-add-manual-gate
+title: Anadir un gate manual con input + timeout + post aborted
+technology: jenkins
+module: 03-declarative-pipeline-jenkinsfile
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - jk-02-install-ui-freestyle-vs-pipeline
+  - jk-03-01-port-gha-workflow-to-jenkinsfile
+
+objectives:
+  - Introducir un stage de aprobacion manual con input y restringirlo por submitter
+  - Envolver el input en timeout para evitar builds colgados consumiendo executors
+  - Usar when { branch 'main' } para que el gate solo aparezca en main
+  - Manejar el camino aborted con post { aborted { ... } }
+  - Pasar validacion estructural con 0 issue(s) comprobando input, timeout, submitter, when y post.aborted
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/jk-03-02"
+
+status: not-started

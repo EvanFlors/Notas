@@ -1,0 +1,19 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<!-- Export tal cual de $JENKINS_HOME/scriptApproval.xml. -->
+<scriptApproval plugin="script-security@1.76">
+  <approvedSignatures>
+    <string>method hudson.model.Run getPreviousBuild</string>
+    <string>method hudson.model.Job getLastBuild</string>
+    <string>staticMethod java.lang.Math max int int</string>
+    <!-- La siguiente firma fue aprobada en 2022 y nadie recuerda por que -->
+    <string>method groovy.lang.GroovyShell evaluate java.lang.String</string>
+    <!-- Esta tambien, "para resolver un pipeline urgente" segun el ticket -->
+    <string>staticMethod org.codehaus.groovy.runtime.InvokerHelper invokeMethod java.lang.Object java.lang.String java.lang.Object</string>
+    <string>method java.util.List add java.lang.Object</string>
+    <string>new java.io.File java.lang.String</string>
+    <string>method java.io.File delete</string>
+  </approvedSignatures>
+  <approvedScriptHashes/>
+  <pendingSignatures/>
+  <pendingScripts/>
+</scriptApproval>

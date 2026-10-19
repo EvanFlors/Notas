@@ -1,0 +1,74 @@
+# .github/workflows/dual-run.yml — orders-api-ci equivalente a Jenkinsfile.
+# PATRON NUEVO: OIDC federation a AWS, cero secretos de larga duracion.
+# Este workflow corre en paralelo con el Jenkinsfile durante el dual-run.
+
+name: dual-run-orders-api
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# OIDC: el runner recibe un JWT firmado por GitHub que AWS valida
+# contra su OIDC provider y canjea por credenciales STS temporales.
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  APP_NAME: orders-api
+  AWS_REGION: eu-west-1
+  S3_BUCKET: acme-releases-eu-west-1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install
+        run: pip install --no-cache-dir -r requirements.txt build
+
+      - name: Test
+        run: |
+          mkdir -p reports
+          pytest -q --junitxml=reports/junit.xml
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit
+          path: reports/junit.xml
+
+      - name: Build wheel
+        run: python -m build --wheel --outdir dist/
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: dist/
+
+  publish:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: dist/
+
+      # Nota: NO hay aws-access-key-id ni aws-secret-access-key como inputs.
+      # OIDC federation: el role trust policy pinnea sub a
+      # repo:acme/orders-api:ref:refs/heads/main
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::111111111111:role/gha-orders-api-publisher
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Publish to S3
+        run: aws s3 cp dist/ s3://${{ env.S3_BUCKET }}/${{ env.APP_NAME }}/ --recursive

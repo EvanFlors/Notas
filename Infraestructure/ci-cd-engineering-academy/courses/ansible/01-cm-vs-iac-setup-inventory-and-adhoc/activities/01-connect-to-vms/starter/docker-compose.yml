@@ -1,0 +1,18 @@
+services:
+  node-1:
+    build:
+      context: .
+    container_name: ans01-node-1
+    ports:
+      - "2201:22"
+    volumes:
+      - ./authorized_keys:/home/ansible/.ssh/authorized_keys:ro
+
+  node-2:
+    build:
+      context: .
+    container_name: ans01-node-2
+    ports:
+      - "2202:22"
+    volumes:
+      - ./authorized_keys:/home/ansible/.ssh/authorized_keys:ro

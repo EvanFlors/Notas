@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "cadence": "7d",
+  "keep_n": 10,
+  "older_than": "30d",
+  "name_regex_delete": "^(pr-\\d+|sha-[0-9a-f]{7,40})$",
+  "name_regex_keep": "^(v\\d+\\.\\d+\\.\\d+|main-.*|latest)$"
+}

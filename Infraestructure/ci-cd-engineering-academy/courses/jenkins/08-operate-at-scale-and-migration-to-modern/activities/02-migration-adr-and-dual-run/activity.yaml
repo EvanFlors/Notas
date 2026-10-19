@@ -1,0 +1,32 @@
+id: jk-08-02-migration-adr-and-dual-run
+title: ADR de migracion a GHA y pipeline en dual-run (Jenkinsfile + workflow)
+technology: jenkins
+module: 08-operate-at-scale-and-migration-to-modern
+level: advanced
+type: mini-project
+
+estimated_minutes: 120
+
+prerequisites:
+  - jk-04-scripted-pipeline-and-shared-libraries
+  - jk-06-plugins-jcasc-job-dsl-blue-ocean
+  - jk-07-security-rbac-credentials-and-script-approval
+
+objectives:
+  - Clasificar un inventario de pipelines Jenkins en migrar / consolidar / retirar con criterio defendible
+  - Elegir un target de migracion (GHA, GitLab CI o Argo Workflows) y justificarlo contra alternativas
+  - Disenar un plan de dual-run con criterios de corte y rollback explicitos
+  - Reemplazar withCredentials por OIDC federation en el workflow destino para eliminar secretos de larga duracion
+  - Producir ADR-MIGRATION.md + Jenkinsfile + .github/workflows/dual-run.yml equivalentes y pasar validacion estructural
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-08-02"
+
+status: not-started

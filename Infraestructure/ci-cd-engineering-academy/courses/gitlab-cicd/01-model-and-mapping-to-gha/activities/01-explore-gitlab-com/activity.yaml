@@ -1,0 +1,30 @@
+id: gl-01-01-explore-gitlab-com
+title: Explorar gitlab.com y producir un cheatsheet personal GHA to GitLab
+technology: gitlab-cicd
+module: 01-model-and-mapping-to-gha
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - gha-01-fundamentals-and-first-workflow
+
+objectives:
+  - Localizar en gitlab.com las pantallas de Group, Subgroup, Project y Settings (sin ejecutar nada)
+  - Mapear al menos 10 conceptos GHA a su equivalente GitLab y anotarlos con la ruta UI exacta
+  - Identificar donde se definen Group Runners, Group Variables, Protected Branches y Environments en GitLab
+  - Reconocer la diferencia entre pipeline, stages y jobs en la UI de un pipeline publico de ejemplo
+  - Producir CHEATSHEET.md estructurado con el mapping y la ubicacion de 10 pantallas clave, listo para consulta rapida en modulos posteriores
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-01-01"
+
+status: not-started

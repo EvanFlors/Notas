@@ -1,0 +1,31 @@
+id: jk-07-02-audit-and-remediate-legacy
+title: Auditar y remediar una instalacion Jenkins legacy
+technology: jenkins
+module: 07-security-rbac-credentials-and-script-approval
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - jk-02-install-ui-freestyle-vs-pipeline
+  - jk-06-plugins-jcasc-job-dsl-blue-ocean
+
+objectives:
+  - Leer un snapshot de instalacion legacy (plugins con versiones, roles existentes, credentials inventariadas, script approvals) y producir un AUDIT.md con hallazgos clasificados por severidad
+  - Priorizar los hallazgos usando la matriz severidad x esfuerzo descrita en la leccion
+  - Producir un REMEDIATION-PLAN.md con fases temporales (hoy, esta semana, esta quincena, backlog) y criterios de exito por fase
+  - Identificar al menos un plugin con CVE critica, una credential en scope inadecuado, un script approval con escape de sandbox y un rol asignado a anonymous
+  - Justificar por que la primera medida de hardening suele ser "desinstalar plugins" y no "configurar algo"
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-07-audit"
+
+status: not-started

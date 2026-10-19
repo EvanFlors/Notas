@@ -1,0 +1,7 @@
+---
+- name: restart fastapi-app
+  ansible.builtin.systemd:
+    name: "{{ fastapi_app_name }}"
+    state: restarted
+    daemon_reload: true
+  become: true

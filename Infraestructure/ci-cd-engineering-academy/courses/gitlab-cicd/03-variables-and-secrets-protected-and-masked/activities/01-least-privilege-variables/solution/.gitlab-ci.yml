@@ -1,0 +1,44 @@
+stages:
+  - deploy
+
+.base-deploy:
+  image: alpine:3.20
+  before_script:
+    - echo "Deploying from $CI_COMMIT_REF_NAME to $CI_ENVIRONMENT_NAME (protected ref? $CI_COMMIT_REF_PROTECTED)"
+    - echo "Pulling base images from $INTERNAL_REGISTRY_URL"
+
+deploy-dev:
+  extends: .base-deploy
+  stage: deploy
+  environment:
+    name: development
+  rules:
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "main" && $CI_COMMIT_BRANCH != "staging"
+  script:
+    - echo "Dev deploy using INTERNAL_REGISTRY_URL=$INTERNAL_REGISTRY_URL"
+    - echo "No secretos de prod en este job."
+
+deploy-stg:
+  extends: .base-deploy
+  stage: deploy
+  environment:
+    name: staging
+  rules:
+    - if: $CI_COMMIT_BRANCH == "staging"
+  script:
+    - echo "Stg deploy with INTERNAL_REGISTRY_URL=$INTERNAL_REGISTRY_URL"
+    - 'curl -sS -H "Authorization: Bearer $STG_API_KEY" https://api.stg.example.com/health || true'
+    - echo "DOCKER_HUB_READER_TOKEN usado por docker login (masked)."
+
+deploy-prod:
+  extends: .base-deploy
+  stage: deploy
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - echo "Prod deploy as role $PROD_DEPLOY_ROLE_ARN"
+    - 'curl -sS -H "Authorization: Bearer $PROD_API_KEY" https://api.prod.example.com/health || true'
+    - echo "GCP SA credentials file at $GCP_SA_JSON (file-type variable)"
+    - export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_JSON"

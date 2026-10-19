@@ -1,0 +1,31 @@
+id: ans-07-02-rolling-restart-with-serial
+title: Rolling restart con serial, delegate_to y run_once sobre inventario local
+technology: ansible
+module: 07-idempotency-deep-and-advanced-patterns
+level: advanced
+type: scenario
+
+estimated_minutes: 90
+
+prerequisites:
+  - ans-02-playbooks-plays-tasks-modules-handlers
+  - ans-04-roles-structure-and-reuse
+
+objectives:
+  - Disenar un rolling restart por lotes con serial 1 y max_fail_percentage 0
+  - Usar delegate_to y run_once para notificar a un load balancer central una sola vez por play
+  - Envolver el restart de cada host en block rescue always para rollback por host
+  - Verificar salud tras cada lote y abortar el play si un host falla el health check
+  - Producir un recap donde los hosts se procesen de uno en uno en el orden correcto
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-07-02"
+
+status: not-started

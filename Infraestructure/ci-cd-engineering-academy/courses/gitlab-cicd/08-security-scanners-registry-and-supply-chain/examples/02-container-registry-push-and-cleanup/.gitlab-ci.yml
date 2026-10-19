@@ -1,0 +1,32 @@
+# Example: rootless build with Kaniko and push to the project Container Registry.
+
+stages:
+  - build
+
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.21.0-debug
+    entrypoint: [""]
+  variables:
+    IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor
+        --context "$CI_PROJECT_DIR"
+        --dockerfile "$CI_PROJECT_DIR/Dockerfile"
+        --destination "$IMAGE_TAG"
+        --digest-file "$CI_PROJECT_DIR/image.digest"
+    - cat "$CI_PROJECT_DIR/image.digest"
+  artifacts:
+    paths:
+      - image.digest
+    expire_in: 7 days
+
+build-latest:
+  extends: build
+  variables:
+    IMAGE_TAG: "$CI_REGISTRY_IMAGE:latest"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

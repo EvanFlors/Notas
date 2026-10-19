@@ -1,0 +1,75 @@
+jenkins:
+  systemMessage: "Jenkins — gestionado por JCasC. No modificar por UI."
+  numExecutors: 0
+  mode: EXCLUSIVE
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "${ADMIN_PASSWORD}"
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+          - name: "admin"
+            permissions:
+              - "Overall/Administer"
+            assignments:
+              - "admin"
+          - name: "readonly"
+            permissions:
+              - "Overall/Read"
+              - "Job/Read"
+            assignments:
+              - "authenticated"
+  clouds:
+    - kubernetes:
+        name: "k8s"
+        serverUrl: "https://kubernetes.default"
+        namespace: "jenkins-agents"
+        jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
+        containerCapStr: "20"
+        templates:
+          - name: "default"
+            label: "k8s"
+            containers:
+              - name: "jnlp"
+                image: "jenkins/inbound-agent:latest"
+                resourceRequestCpu: "200m"
+                resourceRequestMemory: "256Mi"
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-bot"
+              username: "ci-bot"
+              password: "${GITHUB_TOKEN}"
+              description: "Token del bot de GitHub para checkout y status."
+unclassified:
+  location:
+    url: "https://jenkins.example.com/"
+    adminAddress: "platform@example.com"
+  gitHubPluginConfig:
+    configs:
+      - name: "github.com"
+        apiUrl: "https://api.github.com"
+        credentialsId: "github-bot"
+tool:
+  git:
+    installations:
+      - name: "Default"
+        home: "git"
+jobs:
+  - script: >
+      pipelineJob('seed') {
+        description('Seed job — genera el resto de jobs vía Job DSL.')
+        definition {
+          cps {
+            script(readFileFromWorkspace('seed-jobs.groovy'))
+            sandbox()
+          }
+        }
+      }

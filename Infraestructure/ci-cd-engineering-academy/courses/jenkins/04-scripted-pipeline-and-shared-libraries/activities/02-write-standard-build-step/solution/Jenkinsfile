@@ -1,0 +1,9 @@
+// Jenkinsfile de prueba — repo consumidor hipotetico de acme-ci.
+@Library('acme-ci@v0.1.0') _
+
+standardBuild(
+  image:           'checkout-api',
+  registry:        'ghcr.io/acme',
+  deploy:          ['dev', 'stg'],
+  requireApproval: false
+)

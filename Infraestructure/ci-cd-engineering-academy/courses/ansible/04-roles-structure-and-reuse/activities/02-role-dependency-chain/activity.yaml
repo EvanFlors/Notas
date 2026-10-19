@@ -1,0 +1,30 @@
+id: ans-04-02-role-dependency-chain
+title: Encadenar tres roles (common, webserver, fastapi-app) con decisiones de meta/main.yml
+technology: ansible
+module: 04-roles-structure-and-reuse
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - ans-04-01-extract-role-from-playbook
+
+objectives:
+  - Disenar tres roles cohesivos por responsabilidad (common, webserver, fastapi-app)
+  - Decidir entre dependencies en meta/main.yml vs composicion explicita en site.yml y justificarlo
+  - Encadenar roles de forma que al correr site.yml se apliquen en orden determinista
+  - Documentar cada role como contrato (defaults vs vars, OS, ejemplo) y escribir README-INTENT.md con la decision de encadenado
+  - Validar estructura, YAML y correr --syntax-check contra localhost (si ansible esta instalado)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-04-chain"
+
+status: not-started

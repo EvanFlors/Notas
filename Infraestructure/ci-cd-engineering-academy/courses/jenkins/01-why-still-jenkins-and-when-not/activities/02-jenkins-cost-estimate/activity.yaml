@@ -1,0 +1,29 @@
+id: jk-01-02-jenkins-cost-estimate
+title: Estimar costo anual de mantener Jenkins vs migrar a una plataforma moderna
+technology: jenkins
+module: 01-why-still-jenkins-and-when-not
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites: []
+
+objectives:
+  - Enumerar las categorias de costo recurrente de operar Jenkins (personas, licencias, infra, CVE lifecycle, incidentes)
+  - Enumerar las categorias de costo one-off de migrar (inventario, dual-run, aprendizaje, archivado historico)
+  - Producir una tabla cuantitativa con horas anuales y USD anuales para ambos lados
+  - Calcular un break-even en meses de la migracion y defender el resultado con sensibilidad al coste hora
+  - Producir COST-ESTIMATE.md con tabla mantener, tabla migrar, break-even y recomendacion justificada
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-01-cost"
+
+status: not-started

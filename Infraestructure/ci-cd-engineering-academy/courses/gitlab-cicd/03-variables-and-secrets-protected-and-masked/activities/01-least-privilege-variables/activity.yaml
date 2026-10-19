@@ -1,0 +1,30 @@
+id: gl-03-01-least-privilege-variables
+title: Disenar jerarquia de variables dev/stg/prod con protected y masked
+technology: gitlab-cicd
+module: 03-variables-and-secrets-protected-and-masked
+level: beginner
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - gl-02-gitlab-ci-yml-pipelines-runners
+
+objectives:
+  - Documentar la jerarquia de variables Instance/Group/Project/Environment en un variables.yml estructurado
+  - Aplicar protected y masked con el criterio minimo privilegio por entorno (dev abierto, prod bloqueado)
+  - Distinguir cuando usar type variable vs file para credenciales multilinea
+  - Escribir un .gitlab-ci.yml con jobs deploy-dev, deploy-stg y deploy-prod que consume las variables definidas
+  - Pasar el validador estructural que comprueba YAML valido, flags correctos y presencia de las variables requeridas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-03-01"
+
+status: not-started

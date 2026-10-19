@@ -1,0 +1,26 @@
+# {{ ansible_managed }}
+# Rendered for server_name = {{ nginx_server_name }}
+
+worker_processes {{ nginx_worker_processes | default('auto') }};
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    upstream backend {
+{%- for u in nginx_upstreams %}
+        server {{ u.host }}:{{ u.port }};
+{%- endfor %}
+    }
+
+    server {
+        listen 80;
+        server_name {{ nginx_server_name }};
+
+        location / {
+            proxy_pass http://backend;
+            proxy_set_header Host $host;
+        }
+    }
+}

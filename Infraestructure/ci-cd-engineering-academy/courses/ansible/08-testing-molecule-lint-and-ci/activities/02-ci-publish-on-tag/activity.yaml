@@ -1,0 +1,30 @@
+id: ans-08-02-ci-publish-on-tag
+title: Disenar un workflow de GH Actions con matriz y publicacion a Galaxy on tag
+technology: ansible
+module: 08-testing-molecule-lint-and-ci
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - ans-04-roles-structure-and-reuse
+
+objectives:
+  - Escribir un workflow GH Actions role-ci.yml con jobs lint, molecule y publish
+  - Definir una matriz de al menos tres distros y dos versiones de ansible-core con fail-fast false
+  - Condicionar el job publish a tags SemVer (vX.Y.Z) usando startsWith(github.ref, 'refs/tags/v')
+  - Usar secrets.GALAXY_API_KEY para la publicacion sin exponerla en el YAML
+  - Pasar el validador estructural del workflow
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-08-02"
+
+status: not-started

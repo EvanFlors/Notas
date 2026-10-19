@@ -1,0 +1,31 @@
+id: gl-05-02-adr-components-vs-includes
+title: ADR comparando CI/CD Component vs include vs extends para 3 escenarios
+technology: gitlab-cicd
+module: 05-reuse-include-extends-and-cicd-components
+level: intermediate
+type: architecture
+
+estimated_minutes: 75
+
+prerequisites:
+  - gl-02-gitlab-ci-yml-pipelines-runners
+  - gl-04-rules-workflow-needs-dag-parallel-matrix
+
+objectives:
+  - Analizar 3 escenarios reales de reutilizacion y justificar el mecanismo adecuado (component, include o extends)
+  - Nombrar al menos 2 trade-offs operativos por mecanismo (contrato, versionado, blast radius, costo de mantenimiento)
+  - Reconocer anti-patrones (include remote con main, extends de 5 niveles, componente sin spec:inputs:)
+  - Producir un ADR ADR-REUSE-STRATEGY.md en formato estandar con contexto, decision, consecuencias y alternativas descartadas
+  - Pasar un validador estructural que verifica secciones ADR, mencion de los 3 mecanismos y presencia de los 3 escenarios
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/gl-05-02"
+
+status: not-started

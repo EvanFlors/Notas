@@ -1,0 +1,103 @@
+jenkins:
+  systemMessage: "Jenkins Plataforma — gestionado por JCasC. No modificar por UI."
+  numExecutors: 0
+  mode: EXCLUSIVE
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "${ADMIN_PASSWORD}"
+        - id: "platform-bot"
+          password: "${PLATFORM_BOT_PASSWORD}"
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+          - name: "admin"
+            permissions:
+              - "Overall/Administer"
+            assignments:
+              - "admin"
+          - name: "readonly"
+            permissions:
+              - "Overall/Read"
+              - "Job/Read"
+              - "View/Read"
+            assignments:
+              - "authenticated"
+  clouds:
+    - kubernetes:
+        name: "k8s"
+        serverUrl: "https://kubernetes.default"
+        namespace: "jenkins-agents"
+        jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
+        containerCapStr: "25"
+        templates:
+          - name: "default"
+            label: "k8s"
+            containers:
+              - name: "jnlp"
+                image: "jenkins/inbound-agent:latest"
+                resourceRequestCpu: "200m"
+                resourceRequestMemory: "256Mi"
+          - name: "nodejs"
+            label: "k8s-nodejs"
+            containers:
+              - name: "jnlp"
+                image: "jenkins/inbound-agent:latest"
+              - name: "node"
+                image: "node:20-bookworm"
+                command: "sleep"
+                args: "infinity"
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-bot"
+              username: "ci-bot"
+              password: "${GITHUB_TOKEN}"
+              description: "Token del bot de GitHub (checkout + status)."
+          - string:
+              scope: GLOBAL
+              id: "slack-webhook"
+              secret: "${SLACK_WEBHOOK}"
+              description: "Webhook de Slack para notificaciones de pipeline."
+unclassified:
+  location:
+    url: "https://jenkins.example.com/"
+    adminAddress: "platform@example.com"
+  gitHubPluginConfig:
+    configs:
+      - name: "github.com"
+        apiUrl: "https://api.github.com"
+        credentialsId: "github-bot"
+  slackNotifier:
+    teamDomain: "example"
+    tokenCredentialId: "slack-webhook"
+tool:
+  git:
+    installations:
+      - name: "Default"
+        home: "git"
+  jdk:
+    installations:
+      - name: "temurin-21"
+        properties:
+          - installSource:
+              installers:
+                - adoptOpenJdkInstaller:
+                    id: "jdk-21.0.3+9"
+jobs:
+  - script: >
+      pipelineJob('seed') {
+        description('Seed job — genera el resto de jobs via Job DSL.')
+        definition {
+          cps {
+            script(readFileFromWorkspace('seed-jobs.groovy'))
+            sandbox()
+          }
+        }
+      }

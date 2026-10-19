@@ -1,0 +1,18 @@
+# CODEOWNERS — plantilla aplicada al project workloads/checkout
+# Reglas default (todo lo que no caiga en una seccion mas especifica).
+*               @group/platform
+
+[Infra] @group/platform
+/infra/         @group/platform @group/sre
+/terraform/     @group/platform @group/sre
+
+[Compliance] @group/compliance
+.gitlab-ci.yml  @group/compliance
+/.gitlab/       @group/compliance
+
+[Payments] @group/security
+/src/payments/  @group/security @group/payments
+/db/migrations/ @group/security @group/payments
+
+[Documentation]
+docs/           @group/docwriters

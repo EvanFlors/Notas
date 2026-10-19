@@ -1,0 +1,30 @@
+id: jk-05-02-arc-vs-jenkins-k8s-adr
+title: ADR comparando Kubernetes plugin de Jenkins vs ARC de GitHub Actions
+technology: jenkins
+module: 05-agents-distributed-builds-kubernetes-plugin
+level: intermediate
+type: architecture
+
+estimated_minutes: 75
+
+prerequisites:
+  - jk-02-install-ui-freestyle-vs-pipeline
+  - k8s-02-core-objects
+
+objectives:
+  - Comparar Kubernetes plugin de Jenkins con ARC de GitHub Actions en dimensiones de control plane escalado networking y gobernanza
+  - Elegir una opcion para un escenario concreto y justificar con criterios de inercia operativa coste y madurez
+  - Documentar la decision en un ADR con estado contexto decision consecuencias y al menos dos alternativas descartadas
+  - Mencionar explicitamente ambos modelos y los riesgos de cada eleccion
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-05-arc-adr"
+
+status: not-started

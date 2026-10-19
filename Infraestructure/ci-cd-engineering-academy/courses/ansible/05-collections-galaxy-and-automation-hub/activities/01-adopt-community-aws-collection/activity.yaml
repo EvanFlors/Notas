@@ -1,0 +1,30 @@
+id: ans-05-01-adopt-community-aws-collection
+title: Adoptar collections comunitarias y empaquetar una propia
+technology: ansible
+module: 05-collections-galaxy-and-automation-hub
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - ans-04-roles-structure-and-reuse
+
+objectives:
+  - Escribir un collections/requirements.yml valido con al menos 3 collections externas pineadas por version
+  - Inicializar una collection propia con namespace reclamado y galaxy.yml con todos los campos obligatorios
+  - Dejar la estructura minima de la collection (plugins/, roles/, playbooks/, meta/runtime.yml) para que sea instalable como type=dir
+  - Correr ansible-galaxy collection install -r cuando haya red (SKIP marcado explicito si offline) y validar que las 3 collections aparecen en ./collections
+  - Producir un README.md del repo explicando el intent de cada collection declarada y por que el pin elegido
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-05-01"
+
+status: not-started

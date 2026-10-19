@@ -1,0 +1,58 @@
+---
+# STARTER — ans-07-01-make-playbook-idempotent
+#
+# Este playbook es intencionalmente NO idempotente y NO soporta check mode.
+# Tu trabajo es reescribirlo para que la SEGUNDA corrida reporte changed=0,
+# y para que el deploy riesgoso quede envuelto en block/rescue/always.
+#
+# Pistas:
+#   - task 1: necesita `creates:` o un `stat` + `when:`.
+#   - task 2: es read-only; `changed_when: false`.
+#   - task 3: `rc=1` es esperado; `failed_when:` explicito y `changed_when: false`.
+#              Ademas, para que corra en --check: `check_mode: false`.
+#   - task 4 y 5: envuelve en `block:` + `rescue:` + `always:`.
+#     - `always:` debe borrar el flag /tmp/ans-07-01.maintenance.
+#     - `rescue:` debe crear /tmp/ans-07-01.rollback.
+
+- name: Deploy app (STARTER — sucio)
+  hosts: localhost
+  gather_facts: false
+  vars:
+    marker:   /tmp/ans-07-01.marker
+    maintenance_flag: /tmp/ans-07-01.maintenance
+    rollback_flag:    /tmp/ans-07-01.rollback
+
+  tasks:
+    # 1) Siempre reporta changed, aunque el marker ya exista.
+    - name: Fetch marker
+      shell: "echo installed > {{ marker }}"
+
+    # 2) Query read-only; sin embargo reporta changed=true.
+    - name: Query hostname
+      command: hostname
+
+    # 3) Un check cuya salida puede ser rc=1 legitimamente.
+    #    Hoy se cae en --check porque command no se simula, y en modo real
+    #    detona por el rc != 0.
+    - name: Check if deploy ran before
+      command: "grep -q installed {{ marker }}"
+
+    # 4) Enter maintenance (NO esta en block; si lo siguiente falla, queda colgado).
+    - name: Enter maintenance
+      file:
+        path: "{{ maintenance_flag }}"
+        state: touch
+        mode: "0644"
+
+    # 5) Risky migration — hoy sin red: si falla, no hay rollback ni limpieza.
+    - name: Risky migration
+      command: "true"      # cambia a "false" para ver el fallo
+
+    - name: Restart app (simulado)
+      debug:
+        msg: "app reiniciada"
+
+    - name: Leave maintenance (si llegamos aqui)
+      file:
+        path: "{{ maintenance_flag }}"
+        state: absent

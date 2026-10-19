@@ -1,0 +1,94 @@
+jenkins:
+  systemMessage: "Managed by JCasC. Do not configure by UI."
+
+  securityRealm:
+    local:
+      allowsSignup: false
+      enableCaptcha: true
+      users:
+        - id: "admin-bootstrap"
+          password: "${ADMIN_BOOTSTRAP_PASSWORD}"
+
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+          - name: "admin"
+            description: "Platform team; full control."
+            permissions:
+              - "Overall/Administer"
+            entries:
+              - group: "jenkins-admins"
+
+          - name: "readonly-everyone"
+            description: "Read-only across controller."
+            permissions:
+              - "Overall/Read"
+              - "View/Read"
+              - "Job/Read"
+            entries:
+              - group: "all-staff"
+
+        items:
+          - name: "team-a-maintainers"
+            description: "team-a owns everything under team-a/*."
+            pattern: "^team-a/.*"
+            permissions:
+              - "Job/Build"
+              - "Job/Configure"
+              - "Job/Read"
+              - "Job/Cancel"
+              - "Job/Workspace"
+              - "Credentials/View"
+            entries:
+              - group: "team-a"
+
+          - name: "team-b-maintainers"
+            description: "team-b owns everything under team-b/*."
+            pattern: "^team-b/.*"
+            permissions:
+              - "Job/Build"
+              - "Job/Configure"
+              - "Job/Read"
+              - "Job/Cancel"
+              - "Job/Workspace"
+              - "Credentials/View"
+            entries:
+              - group: "team-b"
+
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: false
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              scope: GLOBAL
+              id: "github-token"
+              secret: "${GITHUB_TOKEN_SECRET}"
+              description: "GitHub PAT for CI (dummy via env)."
+
+          - usernamePassword:
+              scope: GLOBAL
+              id: "docker-registry"
+              username: "demo-user"
+              password: "${DOCKER_REGISTRY_PASSWORD}"
+              description: "Container registry push (dummy)."
+
+          - basicSSHUserPrivateKey:
+              scope: GLOBAL
+              id: "deploy-key-staging"
+              username: "deploy"
+              description: "SSH deploy key for staging (dummy)."
+              privateKeySource:
+                directEntry:
+                  privateKey: "${STAGING_DEPLOY_PRIVATE_KEY}"
+
+security:
+  scriptApproval:
+    approvedSignatures:
+      - "method hudson.model.Run getPreviousBuild"
+      - "staticMethod java.lang.Math max int int"
+      - "method hudson.model.Job getLastBuild"

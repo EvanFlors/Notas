@@ -1,0 +1,31 @@
+id: jk-06-01-reproduce-your-jenkins-with-jcasc
+title: Reproducir un Jenkins desde cero con JCasC + Job DSL + plugins pinneados
+technology: jenkins
+module: 06-plugins-jcasc-job-dsl-blue-ocean
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - jk-02-install-ui-freestyle-vs-pipeline
+  - jk-03-declarative-pipeline-jenkinsfile
+
+objectives:
+  - Escribir un jenkins.yaml completo (JCasC) con security realm, authorization, credentials, unclassified y jobs seed
+  - Escribir un plugins.txt pinneado (toda linea con version explicita) que incluya configuration-as-code, job-dsl y workflow-aggregator
+  - Escribir un seed-jobs.groovy que genere al menos 2 jobs (pipelineJob y/o multibranchPipelineJob)
+  - Producir un README-INTENT.md justificando decisiones y posicionando Blue Ocean como walkthrough
+  - Pasar el validador estructural que parsea YAML, verifica Groovy minimo y pinning de plugins
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/jk-06-01"
+
+status: not-started

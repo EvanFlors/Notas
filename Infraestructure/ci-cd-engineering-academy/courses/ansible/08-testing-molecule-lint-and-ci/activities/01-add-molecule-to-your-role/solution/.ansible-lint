@@ -1,0 +1,9 @@
+---
+profile: production
+exclude_paths:
+  - .cache/
+  - .github/
+  - molecule/
+skip_list: []
+warn_list:
+  - experimental

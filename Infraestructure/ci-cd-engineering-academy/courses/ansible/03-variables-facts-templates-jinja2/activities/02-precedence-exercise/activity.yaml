@@ -1,0 +1,30 @@
+id: ans-03-02-precedence-exercise
+title: Resolver precedence de variables en 4 niveles y renderizar un reporte
+technology: ansible
+module: 03-variables-facts-templates-jinja2
+level: beginner
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - ans-02-playbooks-plays-tasks-modules-handlers
+
+objectives:
+  - Definir una misma variable en al menos 4 niveles distintos (group_vars/all, group_vars/<grupo>, host_vars/<host>, vars de la play)
+  - Ejecutar el playbook y producir un precedence-report.txt que muestre el valor ganador por host
+  - Predecir el valor final antes de ejecutar y comparar con el renderizado real
+  - Repetir el ejercicio pasando extra vars (-e) y comprobar que ganan a todo lo anterior
+  - Pasar el validador que ejecuta el playbook y comprueba que el reporte refleja la jerarquia correcta
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-03-prec"
+
+status: not-started

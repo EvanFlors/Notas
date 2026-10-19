@@ -1,0 +1,23 @@
+---
+- name: Demo check and diff mode on a plain file
+  hosts: local
+  gather_facts: false
+  vars:
+    target_file: /tmp/ans02-check-demo.conf
+
+  tasks:
+    - name: Ensure target file exists with baseline content
+      ansible.builtin.copy:
+        dest: "{{ target_file }}"
+        content: |
+          # Managed by Ansible
+          mode = production
+          retries = 3
+        mode: "0644"
+
+    - name: Ensure 'retries' is bumped to 5 (shows diff with --diff)
+      ansible.builtin.lineinfile:
+        path: "{{ target_file }}"
+        regexp: '^retries\s*='
+        line: "retries = 5"
+        state: present

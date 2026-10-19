@@ -1,0 +1,65 @@
+---
+# SOLUTION — ans-07-02-rolling-restart-with-serial
+
+- name: Rolling restart web tier
+  hosts: web
+  gather_facts: false
+  serial: 1
+  max_fail_percentage: 0
+
+  vars:
+    processed_log: /tmp/ans-07-02.processed.log
+    failed_log:    /tmp/ans-07-02.failed.log
+    done_flag:     /tmp/ans-07-02.done
+
+  tasks:
+    - name: "Drain {{ inventory_hostname }} from LB"
+      debug:
+        msg: "LB: draining {{ inventory_hostname }}"
+      delegate_to: lb-primary
+
+    - name: Rolling cycle per host
+      block:
+        - name: "Restart app on {{ inventory_hostname }}"
+          debug:
+            msg: "restart simulado en {{ inventory_hostname }}"
+
+        - name: Health check
+          command: "true"
+          changed_when: false
+
+        - name: "Undrain {{ inventory_hostname }} back into LB"
+          debug:
+            msg: "LB: enabling {{ inventory_hostname }}"
+          delegate_to: lb-primary
+
+      rescue:
+        - name: Register host as failed
+          lineinfile:
+            path: "{{ failed_log }}"
+            create: true
+            mode: "0644"
+            line: "{{ inventory_hostname }}"
+          delegate_to: localhost
+
+        - name: "Fail loudly to abort rolling (max_fail_percentage 0 lo intercepta)"
+          fail:
+            msg: "Health check failed en {{ inventory_hostname }}"
+
+      always:
+        - name: Register host as processed
+          lineinfile:
+            path: "{{ processed_log }}"
+            create: true
+            mode: "0644"
+            line: "{{ inventory_hostname }}"
+          delegate_to: localhost
+
+    - name: Notify LB that deploy finished (one-shot, delegated)
+      file:
+        path: "{{ done_flag }}"
+        state: touch
+        mode: "0644"
+      changed_when: false
+      run_once: true
+      delegate_to: lb-primary

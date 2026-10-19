@@ -1,0 +1,19 @@
+# {{ ansible_managed }}
+# vhost for {{ vhost_server_name }}
+
+upstream backend {
+{%- for u in vhost_upstreams %}
+    server {{ u.host }}:{{ u.port }};
+{%- endfor %}
+}
+
+server {
+    listen {{ vhost_listen_port }};
+    server_name {{ vhost_server_name }};
+
+    location / {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}

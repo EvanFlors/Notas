@@ -1,0 +1,30 @@
+id: ans-01-02-dynamic-inventory-ec2
+title: Redactar aws_ec2.yml y un script dynamic inventory sin AWS real
+technology: ansible
+module: 01-cm-vs-iac-setup-inventory-and-adhoc
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - ans-01-01-connect-to-vms
+
+objectives:
+  - Redactar un prod.aws_ec2.yml valido para el plugin amazon.aws.aws_ec2 con regions, filters, keyed_groups y compose
+  - Explicar por que el fichero debe terminar en .aws_ec2.yml para activar el plugin automaticamente
+  - Escribir un script dynamic-inventory.py ejecutable que respete el contrato Ansible --list y --host
+  - Garantizar que el JSON del script incluye _meta.hostvars y al menos dos grupos no triviales
+  - Documentar en NOTES.md trade-offs entre plugin oficial, script dinamico y inventario estatico para tres escenarios
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-01-02"
+
+status: not-started

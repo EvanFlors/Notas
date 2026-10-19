@@ -1,0 +1,12 @@
+# Rename this file to nginx-proxy.conf.j2 and parametrize with {{ ... }} tokens.
+# Required placeholders: server_name, upstream_host, upstream_port.
+server {
+    listen 80;
+    server_name REPLACE_ME;
+
+    location / {
+        proxy_pass http://REPLACE_ME:REPLACE_ME;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}

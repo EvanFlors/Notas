@@ -1,0 +1,82 @@
+---
+# SOLUTION — ans-07-01-make-playbook-idempotent
+#
+# Reescrito para:
+#   - Idempotencia real (2a corrida -> changed=0).
+#   - check_mode compatible (--check --diff no explota).
+#   - block/rescue/always alrededor del deploy riesgoso.
+#
+# No es la UNICA respuesta correcta. Hay varios equivalentes
+# (usar `stat` + `when:` en vez de `creates:`, usar `copy:` en vez
+# de `shell:`, etc.). Lo clave son las palancas aplicadas, no la forma exacta.
+
+- name: Deploy app (idempotent)
+  hosts: localhost
+  gather_facts: false
+  vars:
+    marker:           /tmp/ans-07-01.marker
+    maintenance_flag: /tmp/ans-07-01.maintenance
+    rollback_flag:    /tmp/ans-07-01.rollback
+
+  tasks:
+    # 1) Idempotente via `creates`: ni siquiera corre si el marker existe.
+    - name: Fetch marker (only if missing)
+      shell: "echo installed > {{ marker }}"
+      args:
+        creates: "{{ marker }}"
+
+    # 2) Read-only: nunca contabilizar como changed; forzamos check_mode: false
+    #    para que la variable `host.stdout` este disponible aunque corramos --check.
+    - name: Query hostname (read-only)
+      command: hostname
+      register: host
+      changed_when: false
+      check_mode: false
+
+    # 3) Grep cuya salida puede ser rc=1 legitimamente (marker no encontrado).
+    #    Nunca cuenta como changed; falla solo si rc > 1 (grep devuelve 2 ante error real).
+    - name: Check if deploy ran before (rc=1 is legit)
+      command: "grep -q installed {{ marker }}"
+      register: deploy_check
+      changed_when: false
+      failed_when: deploy_check.rc not in [0, 1]
+      check_mode: false
+
+    # 4) + 5) Deploy riesgoso envuelto: enter -> migration -> restart, con rollback
+    #        y limpieza siempre.
+    - name: Risky deploy with safety net
+      block:
+        - name: Enter maintenance
+          file:
+            path: "{{ maintenance_flag }}"
+            state: touch
+            mode: "0644"
+          # `touch` reporta changed cada corrida; forzamos idempotencia logica.
+          changed_when: false
+
+        - name: Risky migration (toggle a 'false' para probar rescue)
+          command: "true"
+          changed_when: false
+
+        - name: Restart app (simulado)
+          debug:
+            msg: "app reiniciada en {{ host.stdout | default('unknown') }}"
+
+      rescue:
+        - name: Rollback flag
+          file:
+            path: "{{ rollback_flag }}"
+            state: touch
+            mode: "0644"
+
+        - name: Loggear que hubo rescue
+          debug:
+            msg: "rescue disparado por {{ ansible_failed_task.name | default('tarea desconocida') }}"
+
+      always:
+        # Bookkeeping: el flag se entra+sale en cada run; no contabilizamos como changed.
+        - name: Leave maintenance (siempre)
+          file:
+            path: "{{ maintenance_flag }}"
+            state: absent
+          changed_when: false

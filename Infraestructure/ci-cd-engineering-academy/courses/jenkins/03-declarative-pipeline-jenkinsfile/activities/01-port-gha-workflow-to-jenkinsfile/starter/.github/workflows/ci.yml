@@ -1,0 +1,83 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  APP_NAME: demo-api
+  REGISTRY: ghcr.io/acme
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container: node:20-alpine
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci --prefer-offline --no-audit
+      - run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm ci --prefer-offline --no-audit
+      - run: npm test -- --ci --reporters=default --reporters=jest-junit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-node-${{ matrix.node-version }}
+          path: junit.xml
+
+  build-and-push:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+      - run: |
+          docker build -t "$REGISTRY/$APP_NAME:$GITHUB_RUN_NUMBER" .
+          docker push "$REGISTRY/$APP_NAME:$GITHUB_RUN_NUMBER"
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_STAGING }}
+        run: |
+          echo "$KUBECONFIG_B64" | base64 -d > /tmp/kubeconfig
+          KUBECONFIG=/tmp/kubeconfig kubectl set image deploy/demo-api \
+            demo-api="$REGISTRY/$APP_NAME:$GITHUB_RUN_NUMBER"
+
+  deploy-prod:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      # Requires manual approval via GitHub environment protection rule.
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_PROD }}
+        run: |
+          echo "$KUBECONFIG_B64" | base64 -d > /tmp/kubeconfig
+          KUBECONFIG=/tmp/kubeconfig kubectl set image deploy/demo-api \
+            demo-api="$REGISTRY/$APP_NAME:$GITHUB_RUN_NUMBER"

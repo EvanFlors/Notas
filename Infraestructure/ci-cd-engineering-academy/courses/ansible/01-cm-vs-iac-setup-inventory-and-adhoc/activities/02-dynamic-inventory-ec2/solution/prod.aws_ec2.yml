@@ -1,0 +1,23 @@
+plugin: amazon.aws.aws_ec2
+regions:
+  - eu-west-1
+  - eu-central-1
+filters:
+  instance-state-name: running
+  tag:Env: prod
+  tag:ManagedBy: ansible
+hostnames:
+  - tag:Name
+  - private-ip-address
+keyed_groups:
+  - key: tags.Role
+    prefix: role
+  - key: placement.availability_zone
+    prefix: az
+  - key: instance_type
+    prefix: type
+compose:
+  ansible_host: private_ip_address
+cache: true
+cache_plugin: jsonfile
+cache_timeout: 300

@@ -1,0 +1,30 @@
+id: ans-02-01-nginx-reverse-proxy
+title: Escribir un playbook idempotente que configura nginx como reverse proxy
+technology: ansible
+module: 02-playbooks-plays-tasks-modules-handlers
+level: beginner
+type: guided-lab
+
+estimated_minutes: 80
+
+prerequisites:
+  - ans-01-cm-vs-iac-setup-inventory-and-adhoc
+
+objectives:
+  - Escribir un playbook con una play, tasks y al menos un handler
+  - Usar modulos nativos idempotentes (apt, template, file, service) en vez de shell
+  - Publicar una plantilla Jinja2 con el server_name y el upstream parametrizados
+  - Notificar un handler Reload nginx solo cuando la plantilla cambia
+  - Verificar que la segunda ejecucion reporta 0 changed (idempotencia)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh"
+
+status: not-started

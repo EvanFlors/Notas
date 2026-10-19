@@ -1,0 +1,30 @@
+id: ans-06-02-migrate-vault-to-sm
+title: ADR de migracion de ansible-vault a secret manager externo
+technology: ansible
+module: 06-vault-and-secrets-management
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - ans-02-playbooks-plays-tasks-modules-handlers
+
+objectives:
+  - Justificar por que ansible-vault no basta a escala y escribir el camino de migracion a un secret manager externo
+  - Comparar ansible-vault, SOPS y External Secrets Operator cubriendo cifrado, rotacion, auditoria y escenarios de uso
+  - Diseniar un snippet Ansible que lea un secreto desde AWS Secrets Manager via lookup (amazon.aws.aws_secret) con no_log
+  - Mapear los secretos actuales (3 ejemplos) y proponer destino para cada uno (vault | SOPS | SM | ESO)
+  - Producir ADR-SECRETS-MIGRATION.md con secciones estandar (Estado, Contexto, Decision, Consecuencias, Alternativas)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-06-sm"
+
+status: not-started

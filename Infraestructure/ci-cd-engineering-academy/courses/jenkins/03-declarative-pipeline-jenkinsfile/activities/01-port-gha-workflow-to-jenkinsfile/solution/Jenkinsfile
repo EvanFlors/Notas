@@ -1,0 +1,93 @@
+// Solución de referencia para jk-03-01.
+// Equivalente declarativo del workflow .github/workflows/ci.yml del starter.
+// No está pensado para ejecutarse tal cual: asume credenciales 'ghcr-token'
+// y 'kubeconfig-staging' en el credentials store.
+
+pipeline {
+  agent none
+
+  options {
+    timeout(time: 45, unit: 'MINUTES')
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+    timestamps()
+  }
+
+  environment {
+    APP_NAME = 'demo-api'
+    REGISTRY = 'ghcr.io/acme'
+    VERSION  = "${env.BUILD_NUMBER}"
+  }
+
+  stages {
+
+    stage('Checkout') {
+      agent { label 'linux' }
+      steps {
+        checkout scm
+        stash name: 'source', includes: '**/*'
+      }
+    }
+
+    stage('Lint') {
+      agent { docker { image 'node:20-alpine' } }
+      steps {
+        unstash 'source'
+        sh 'npm ci --prefer-offline --no-audit'
+        sh 'npm run lint'
+      }
+    }
+
+    stage('Test') {
+      // NOTA: en GHA hay un matrix [18, 20]. Aquí se simplifica a Node 20.
+      // Para replicar el matrix se usaría `matrix { axes { axis { name 'NODE'; values '18','20' } } stages { ... } }`.
+      agent { docker { image 'node:20-alpine' } }
+      steps {
+        unstash 'source'
+        sh 'npm ci --prefer-offline --no-audit'
+        sh 'npm test -- --ci --reporters=default --reporters=jest-junit'
+      }
+      post {
+        always {
+          junit allowEmptyResults: true, testResults: '**/junit.xml'
+          archiveArtifacts artifacts: '**/junit.xml', fingerprint: true, allowEmptyArchive: true
+        }
+      }
+    }
+
+    stage('Build') {
+      when { beforeAgent true; branch 'main' }
+      agent { label 'linux && docker' }
+      steps {
+        unstash 'source'
+        withCredentials([string(credentialsId: 'ghcr-token', variable: 'GHCR_TOKEN')]) {
+          sh '''
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u ci-bot --password-stdin
+            docker build -t "$REGISTRY/$APP_NAME:$VERSION" .
+            docker push    "$REGISTRY/$APP_NAME:$VERSION"
+          '''
+        }
+      }
+    }
+
+    stage('Deploy staging') {
+      when { beforeAgent true; branch 'main' }
+      agent { docker { image 'bitnami/kubectl:1.30' } }
+      steps {
+        withCredentials([file(credentialsId: 'kubeconfig-staging', variable: 'KUBECONFIG')]) {
+          sh '''
+            kubectl set image deploy/demo-api \
+              demo-api="$REGISTRY/$APP_NAME:$VERSION"
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always  { echo "Build result: ${currentBuild.result ?: 'SUCCESS'}" }
+    success { echo 'OK — publicar status check verde' }
+    failure { echo 'FAIL — avisar a #ci-alerts con enlace al build' }
+    changed { echo 'El estado cambió respecto al build anterior' }
+  }
+}

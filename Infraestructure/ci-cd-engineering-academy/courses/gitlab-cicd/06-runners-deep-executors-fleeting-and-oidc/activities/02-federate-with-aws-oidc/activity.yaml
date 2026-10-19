@@ -1,0 +1,31 @@
+id: gl-06-02-federate-with-aws-oidc
+title: Federar GitLab con AWS por OIDC (ID Tokens) y pinar el sub claim
+technology: gitlab-cicd
+module: 06-runners-deep-executors-fleeting-and-oidc
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - gl-02-gitlab-ci-yml-pipelines-runners
+  - gl-03-variables-and-secrets-protected-and-masked
+
+objectives:
+  - Escribir una trust policy JSON para GitLab como OIDC provider con Condition sobre aud y sub
+  - Pinar el sub claim por project_path, ref y environment usando StringLike
+  - Escribir un .gitlab-ci.yml con id_tokens que invoque sts assume-role-with-web-identity
+  - Documentar en README-INTENT.md el pinning y por que no usar wildcards amplios
+  - Pasar la validacion estructural de JSON, YAML y Markdown
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-06-oidc"
+
+status: not-started

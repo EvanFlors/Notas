@@ -1,0 +1,32 @@
+id: ans-10-02-deprecation-plan
+title: Plan de deprecacion de un playbook heredado (ADR)
+technology: ansible
+module: 10-platform-patterns-when-ansible-when-not
+level: advanced
+type: independent
+
+estimated_minutes: 80
+
+prerequisites:
+  - ans-04-roles-structure-and-reuse
+  - ans-09-hybrid-with-terraform-packer-and-awx-aap
+
+objectives:
+  - Redactar un ADR ADR-DEPRECATION-PLAN.md para retirar un playbook que ya no pertenece al dominio Ansible
+  - Documentar al menos 2 criterios por los que el playbook se marca deprecado
+  - Nombrar explicitamente la herramienta de reemplazo (Helm/Argo CD, Terraform, operador K8s, Packer, etc.) y el migration path
+  - Definir fases con fechas relativas (anuncio, freeze, canary, corte, post-mortem)
+  - Identificar owners y stakeholders a comunicar y canal de comunicacion
+  - Definir plan de rollback si el corte produce impacto no previsto
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/ans-10-deprecation"
+
+status: not-started

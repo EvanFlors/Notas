@@ -1,0 +1,37 @@
+---
+namespace: mycorp
+name: platform
+version: 1.0.0
+
+readme: README.md
+
+authors:
+  - "Platform Team <platform@mycorp.local>"
+
+description: >
+  Roles y modulos reusables de la plataforma interna de mycorp.
+  Incluye bootstrap de nodos, baseline de observabilidad y lookup
+  para Secrets Manager interno.
+
+license:
+  - Apache-2.0
+
+tags:
+  - platform
+  - internal
+  - linux
+  - aws
+
+dependencies:
+  "amazon.aws": ">=8.0.0,<9.0.0"
+  "ansible.posix": ">=1.5.0,<2.0.0"
+
+repository: https://gitlab.mycorp.local/platform/ansible-collection-platform
+documentation: https://docs.mycorp.local/platform/ansible/
+homepage: https://docs.mycorp.local/platform/
+issues: https://gitlab.mycorp.local/platform/ansible-collection-platform/-/issues
+
+build_ignore:
+  - "tests/"
+  - ".github/"
+  - ".gitlab-ci.yml"

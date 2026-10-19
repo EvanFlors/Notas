@@ -1,0 +1,8 @@
+---
+- name: Show which var level wins for each host
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Print the resolved app_port and app_env
+      ansible.builtin.debug:
+        msg: "host={{ inventory_hostname }} groups={{ group_names }} app_port={{ app_port }} app_env={{ app_env }}"

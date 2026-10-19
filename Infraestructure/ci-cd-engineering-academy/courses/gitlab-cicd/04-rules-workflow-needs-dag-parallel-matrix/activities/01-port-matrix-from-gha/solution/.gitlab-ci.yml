@@ -1,0 +1,52 @@
+# REFERENCIA — gl-04-01-port-matrix-from-gha
+# Es UNA respuesta correcta. Hay variantes equivalentes.
+
+workflow:
+  name: "pipeline for $CI_COMMIT_REF_NAME"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
+stages:
+  - test
+
+test:
+  stage: test
+  image: python:$PY_VERSION
+  tags:
+    - $OS_TAG
+  parallel:
+    matrix:
+      # Combinaciones efectivas (6):
+      # (3.11, linux-x64)
+      # (3.12, linux-x64) (3.12, linux-arm64)
+      # (3.13, linux-x64) (3.13, linux-arm64) (3.13, macos)
+      #
+      # Python 3.11 solo en linux-x64 (excluimos linux-arm64 por bug de wheels).
+      - PY_VERSION: ["3.11"]
+        OS_TAG: ["linux-x64"]
+      # Python 3.12 y 3.13 en ambas plataformas linux.
+      - PY_VERSION: ["3.12", "3.13"]
+        OS_TAG: ["linux-x64", "linux-arm64"]
+      # Python 3.13 adicional en macos (equivalente al include: de GHA).
+      - PY_VERSION: ["3.13"]
+        OS_TAG: ["macos"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "src/**/*"
+        - "tests/**/*"
+        - "pyproject.toml"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - "src/**/*"
+        - "tests/**/*"
+        - "pyproject.toml"
+  script:
+    - python --version
+    - pip install -e .[test]
+    - pytest -q
+    - echo "shard for PY_VERSION=$PY_VERSION OS_TAG=$OS_TAG"

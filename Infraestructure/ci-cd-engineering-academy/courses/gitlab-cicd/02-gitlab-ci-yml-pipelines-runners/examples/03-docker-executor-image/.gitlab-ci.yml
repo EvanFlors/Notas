@@ -1,0 +1,20 @@
+# Docker executor example: python image + postgres sidecar.
+# Requires a runner with the `docker` or `kubernetes` executor.
+stages:
+  - test
+
+pytest:
+  stage: test
+  image: python:3.12-slim
+  services:
+    - name: postgres:16
+      alias: postgres
+  variables:
+    POSTGRES_PASSWORD: test
+    POSTGRES_DB: app
+    POSTGRES_HOST_AUTH_METHOD: trust
+    DATABASE_URL: "postgres://postgres:test@postgres:5432/app"
+  before_script:
+    - pip install --no-cache-dir -r requirements.txt
+  script:
+    - pytest -q

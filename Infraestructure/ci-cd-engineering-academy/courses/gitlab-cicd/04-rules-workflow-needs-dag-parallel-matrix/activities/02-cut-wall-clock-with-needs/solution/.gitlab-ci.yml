@@ -1,0 +1,50 @@
+# REFERENCIA — gl-04-02-cut-wall-clock-with-needs
+# Es UNA respuesta correcta. Hay variantes equivalentes (p. ej. si decides
+# que deploy-stg sí deba esperar a integration-tests, el DAG cambia).
+
+stages:
+  - build
+  - test
+  - deploy
+
+build-amd64:
+  stage: build
+  script:
+    - echo "build amd64 (3 min simulados)"
+
+build-arm64:
+  stage: build
+  script:
+    - echo "build arm64 (3 min simulados)"
+
+lint:
+  stage: test
+  needs: []
+  script:
+    - echo "lint (1 min, independiente)"
+
+unit-tests:
+  stage: test
+  needs:
+    - job: build-amd64
+      artifacts: true
+  script:
+    - echo "unit (5 min, depende de build-amd64)"
+
+integration-tests:
+  stage: test
+  needs:
+    - job: build-amd64
+      artifacts: true
+    - job: build-arm64
+      artifacts: true
+  script:
+    - echo "integration (4 min, depende de ambos builds)"
+
+deploy-stg:
+  stage: deploy
+  needs:
+    - job: unit-tests
+      artifacts: false
+  script:
+    - echo "deploy stg (2 min; NO espera a integration-tests ni a lint)"

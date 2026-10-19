@@ -1,0 +1,30 @@
+id: gl-07-02-approval-rule-prod
+title: Protected environment production con approval rules y ADR de la politica
+technology: gitlab-cicd
+module: 07-environments-deployments-and-review-apps
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - gl-04-rules-workflow-needs-dag-parallel-matrix
+
+objectives:
+  - Escribir la configuracion YAML declarativa de un protected environment production con deploy_access_levels y approval_rules
+  - Distinguir con precision entre rules del pipeline y approval rules del protected environment
+  - Diseñar una politica multi aprobador con al menos dos grupos distintos y numeros minimos justificados
+  - Escribir un ADR ADR-APPROVAL-PROD.md que defienda la decision y liste alternativas descartadas
+  - Pasar un validador estructural que verifica YAML valido claves obligatorias y palabras clave en el ADR
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-07-02-approval-prod"
+
+status: not-started

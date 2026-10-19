@@ -1,0 +1,5 @@
+# Minimal .gitlab-ci.yml: one job, default stage, no image, no tags.
+# Suitable for gitlab.com shared SaaS runners out of the box.
+hello:
+  script:
+    - echo "hola GitLab"

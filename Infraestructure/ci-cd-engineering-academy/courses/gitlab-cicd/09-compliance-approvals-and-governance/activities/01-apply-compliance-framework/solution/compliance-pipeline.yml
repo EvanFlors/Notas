@@ -1,0 +1,52 @@
+# Compliance pipeline — Internal-Baseline
+# Mantenido por el equipo de compliance en platform/compliance-pipelines
+# Se inyecta a todo project del grupo workloads/* etiquetado con el framework.
+
+include:
+  - project: '$CI_PROJECT_PATH'
+    file: '$CI_CONFIG_PATH'
+    ref: '$CI_COMMIT_REF_NAME'
+
+stages:
+  - compliance
+  - build
+  - test
+  - deploy
+  - compliance-post
+
+default:
+  image: alpine:3.19
+  tags:
+    - shared-small
+
+compliance:sast:
+  stage: compliance
+  image: registry.gitlab.com/security/sast:latest
+  script:
+    - sast-run --fail-on high
+  allow_failure: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event"'
+
+compliance:secret-detection:
+  stage: compliance
+  image: registry.gitlab.com/security/secrets:latest
+  script:
+    - secret-scan --baseline .gitlab/secret-baseline.yml
+  allow_failure: false
+
+compliance:dependency:
+  stage: compliance
+  image: registry.gitlab.com/security/dep-scan:latest
+  script:
+    - dep-scan --fail-on critical
+  allow_failure: false
+
+compliance:license-report:
+  stage: compliance-post
+  script:
+    - gl-license-report --out licenses.json
+  artifacts:
+    reports:
+      license_scanning: licenses.json
+  allow_failure: false

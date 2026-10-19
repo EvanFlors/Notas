@@ -1,0 +1,30 @@
+id: ans-02-02-fix-non-idempotent-task
+title: Convertir un playbook roto con shell en uno idempotente
+technology: ansible
+module: 02-playbooks-plays-tasks-modules-handlers
+level: beginner
+type: debug
+
+estimated_minutes: 60
+
+prerequisites:
+  - ans-01-cm-vs-iac-setup-inventory-and-adhoc
+
+objectives:
+  - Diagnosticar por que cada task se marca changed en toda ejecucion
+  - Reemplazar shell/command por modulos nativos idempotentes cuando existan
+  - Cuando no haya modulo nativo, acotar shell/command con creates, removes o changed_when
+  - Garantizar que la segunda ejecucion reporta ok=N changed=0
+  - Documentar en comentarios por que cada cambio hace la task idempotente
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh"
+
+status: not-started

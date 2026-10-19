@@ -1,0 +1,35 @@
+id: ans-10-01-platform-contract-adr
+title: Escribir el contrato de plataforma Ansible como ADR
+technology: ansible
+module: 10-platform-patterns-when-ansible-when-not
+level: advanced
+type: architecture
+
+estimated_minutes: 100
+
+prerequisites:
+  - ans-05-collections-galaxy-and-automation-hub
+  - ans-06-vault-and-secrets-management
+  - ans-08-testing-molecule-lint-and-ci
+  - ans-09-hybrid-with-terraform-packer-and-awx-aap
+
+objectives:
+  - Redactar un ADR ADR-ANSIBLE-CONTRACT.md que delimite el dominio de Ansible en la organizacion
+  - Listar al menos 5 casos de uso donde Ansible es la herramienta por defecto y 5 donde no (anti-patrones)
+  - Nombrar al menos 3 herramientas alternativas (Terraform, Helm/Argo CD, Packer, operadores K8s) y en que casos las prefieres
+  - Definir ownership (CODEOWNERS), politica de review y lint/CI minimo para el repo Ansible
+  - Documentar la postura immutable-first y el uso de Packer + Ansible como provisioner
+  - Mencionar AWX/AAP y Event-Driven Ansible como control plane operacional
+  - Incluir al menos 2 alternativas descartadas con justificacion
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/ans-10-contract"
+
+status: not-started

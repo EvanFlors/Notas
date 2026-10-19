@@ -1,0 +1,31 @@
+id: ans-04-01-extract-role-from-playbook
+title: Extraer un role webserver a partir de un playbook monolitico
+technology: ansible
+module: 04-roles-structure-and-reuse
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - ans-02-playbooks-plays-tasks-modules-handlers
+  - ans-03-variables-facts-templates-jinja2
+
+objectives:
+  - Refactorizar un playbook monolitico en un role webserver con defaults, tasks, handlers, templates y meta
+  - Separar variables en defaults (sobreescribibles por el usuario) vs vars (internas del role)
+  - Dividir tasks/main.yml en install, configure y service y referenciarlos con import_tasks
+  - Documentar el role en README.md como contrato (variables, OS soportados, ejemplo de uso)
+  - Validar la estructura con bash + yq/python y correr --syntax-check contra localhost
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-04-extract"
+
+status: not-started

@@ -1,0 +1,30 @@
+id: jk-01-01-when-not-jenkins-adr
+title: Escribir un ADR de decision Jenkins si/no/migracion para un escenario dado
+technology: jenkins
+module: 01-why-still-jenkins-and-when-not
+level: beginner
+type: architecture
+
+estimated_minutes: 70
+
+prerequisites:
+  - gha-01-why-github-actions-and-when-not
+
+objectives:
+  - Aplicar el framework de decision brownfield/greenfield a un escenario concreto y defender la eleccion
+  - Nombrar al menos tres razones por las que una enterprise sigue con Jenkins y tres razones por las que no elegirlo
+  - Comparar Jenkins contra al menos tres alternativas (GHA, GitLab CI, Argo Workflows) en dimensiones operativas y de seguridad
+  - Describir el framework de migracion (inventario, clasificacion, dual-run, OIDC, retirada) como alternativa descartada o diferida
+  - Producir un ADR ADR-JENKINS-DECISION.md con las secciones estandar y al menos dos alternativas descartadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-01-adr"
+
+status: not-started

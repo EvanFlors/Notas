@@ -1,0 +1,26 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert nginx service is running
+      ansible.builtin.assert:
+        that:
+          - "'nginx.service' in services"
+          - services['nginx.service'].state == 'running'
+        fail_msg: "nginx.service is not running on the instance"
+
+    - name: Stat index.html
+      ansible.builtin.stat:
+        path: /var/www/html/index.html
+      register: index_stat
+
+    - name: Assert index.html exists and is readable
+      ansible.builtin.assert:
+        that:
+          - index_stat.stat.exists
+          - index_stat.stat.mode == "0644"

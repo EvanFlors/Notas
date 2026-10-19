@@ -1,0 +1,38 @@
+# Export de la seccion de seguridad del controller legacy.
+# Reconstruido por el SRE desde la UI (no habia JCasC versionado).
+jenkins:
+  securityRealm:
+    local:
+      allowsSignup: true        # SOSPECHOSO: cualquiera puede registrarse
+      users:
+        - id: "admin"
+          # password hash en el XML original - no reproducido aqui
+        - id: "jmartinez"       # ex empleado desde 2024, segun RRHH
+        - id: "sdevops"
+        - id: "contractor-2023" # contrato terminado hace 18 meses
+        - id: "readonly-bot"
+
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+          - name: "admin"
+            permissions:
+              - "Overall/Administer"
+            entries:
+              - user: "admin"
+              - user: "jmartinez"       # usuario inactivo con admin
+              - user: "sdevops"
+              - group: "developers"     # TODO el grupo developers es admin
+          - name: "anon-read"
+            permissions:
+              - "Overall/Read"
+              - "View/Read"
+              - "Job/Read"
+            entries:
+              - group: "anonymous"      # lectura publica habilitada
+        items: []                        # ningun role por folder/pattern
+
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: true    # CSRF debilitado

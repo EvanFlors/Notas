@@ -1,0 +1,73 @@
+// Credenciales en pipelines declarative: `credentials('id')` como env var vs
+// `withCredentials { ... }` como bloque. Incluye string, usernamePassword y file.
+
+pipeline {
+  agent any
+
+  environment {
+    // Forma corta: `credentials('id')` sobre tipos simples.
+    // Para un secret_text:  REGISTRY_TOKEN                 (una sola var)
+    // Para user/pass:       REGISTRY_CREDS                 (y REGISTRY_CREDS_USR / _PSW)
+    REGISTRY_TOKEN = credentials('registry-token-secret')
+    REGISTRY_CREDS = credentials('registry-userpass')
+  }
+
+  stages {
+
+    stage('Login al registry (forma corta)') {
+      steps {
+        // Jenkins enmascara automaticamente $REGISTRY_CREDS_PSW en los logs,
+        // pero: nunca concatenes el valor en Groovy — usalo dentro del shell.
+        sh '''
+          echo "$REGISTRY_CREDS_PSW" | docker login ghcr.io \
+            -u "$REGISTRY_CREDS_USR" --password-stdin
+        '''
+      }
+    }
+
+    stage('Vault lookup (withCredentials)') {
+      // withCredentials es necesario para tipos que `credentials()` no soporta:
+      // SSH keys, archivos (file), certs, y para renombrar explicitamente las vars.
+      steps {
+        withCredentials([
+          string(credentialsId: 'vault-token', variable: 'VAULT_TOKEN'),
+          file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG')
+        ]) {
+          sh '''
+            # El binario de Vault recibe el token por env var, no por argumento.
+            vault status
+            vault kv get -field=password secret/apps/demo-api/db > /tmp/db_pass
+
+            # kubectl lee $KUBECONFIG automaticamente.
+            kubectl get pods -n demo
+          '''
+        }
+      }
+    }
+
+    stage('Multi-cred en un solo bloque') {
+      steps {
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'nexus-creds',
+            usernameVariable: 'NEXUS_USER',
+            passwordVariable: 'NEXUS_PASS'),
+          string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK')
+        ]) {
+          sh '''
+            curl -u "$NEXUS_USER:$NEXUS_PASS" -T dist/app.tgz \
+              https://nexus.example.com/repository/releases/
+            curl -X POST -H 'Content-type: application/json' \
+              --data '{"text":"Release publicada"}' \
+              "$SLACK_WEBHOOK"
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always  { echo "Build result: ${currentBuild.result ?: 'SUCCESS'}" }
+    failure { echo 'Revisar logs sin credenciales accidentalmente expuestas' }
+  }
+}

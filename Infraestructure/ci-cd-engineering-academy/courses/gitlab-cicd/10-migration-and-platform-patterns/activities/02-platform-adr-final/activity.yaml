@@ -1,0 +1,32 @@
+id: gl-10-02-platform-adr-final
+title: ADR final del curso - GitLab como plataforma de CI/CD de la org
+technology: gitlab-cicd
+module: 10-migration-and-platform-patterns
+level: advanced
+type: architecture
+
+estimated_minutes: 120
+
+prerequisites:
+  - gl-08-security-scanners-registry-and-supply-chain
+  - gl-09-compliance-approvals-and-governance
+
+objectives:
+  - Definir la operacion del CI/CD Catalog interno (inner-source, Code Owners, SemVer, deprecation policy)
+  - Decidir cost model entre SaaS runners y runners propios (K8s + Fleeting) con criterios cuantitativos
+  - Especificar observabilidad del CI/CD (4 metricas minimas + fuentes + 2 alertas)
+  - Trazar la frontera CI/CD con Argo CD (que hace GitLab y que hace Argo)
+  - Defender la eleccion GHA vs GitLab para 3 organizaciones distintas en una tabla razonada
+  - Producir PLATFORM-ADR.md con las 6 secciones obligatorias y las 2+ alternativas descartadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-10-platform"
+
+status: not-started

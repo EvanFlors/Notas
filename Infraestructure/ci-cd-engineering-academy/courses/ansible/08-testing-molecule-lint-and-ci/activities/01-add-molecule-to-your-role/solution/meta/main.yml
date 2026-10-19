@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: nginx_site
+  namespace: academy
+  author: ci-cd-academy
+  description: Install nginx and serve a parametrized index.html.
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Ubuntu
+      versions: [jammy]
+    - name: Debian
+      versions: [bookworm]
+    - name: EL
+      versions: ["9"]
+  galaxy_tags: [nginx, web]
+dependencies: []

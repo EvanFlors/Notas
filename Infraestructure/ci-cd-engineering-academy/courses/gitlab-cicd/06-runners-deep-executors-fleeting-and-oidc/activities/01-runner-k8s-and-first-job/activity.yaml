@@ -1,0 +1,31 @@
+id: gl-06-01-runner-k8s-and-first-job
+title: Escribir values.yaml, config.toml y .gitlab-ci.yml para un runner K8s
+technology: gitlab-cicd
+module: 06-runners-deep-executors-fleeting-and-oidc
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - gl-02-gitlab-ci-yml-pipelines-runners
+  - gl-03-variables-and-secrets-protected-and-masked
+
+objectives:
+  - Escribir un values.yaml para el chart gitlab/gitlab-runner con authentication token moderno
+  - Redactar la seccion [runners.kubernetes] en config.toml con privileged false y limites de recursos
+  - Escribir un .gitlab-ci.yml que use tags coincidentes y una image rootless
+  - Justificar en NOTES.md por que no usar DinD y preferir Kaniko para builds de imagen
+  - Pasar la validacion estructural (YAML y TOML parseables, campos esperados presentes)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-06-runner-k8s"
+
+status: not-started

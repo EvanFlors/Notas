@@ -1,0 +1,58 @@
+# variables.yml — jerarquia documentada de variables de CI/CD
+# No es un archivo que GitLab lea; es documentacion versionada junto al .gitlab-ci.yml.
+# Fuente de verdad en runtime: Settings -> CI/CD -> Variables de cada Group/Project.
+
+variables:
+  - name: INTERNAL_REGISTRY_URL
+    scope: group
+    environment_scope: "*"
+    type: variable
+    protected: false
+    masked: false
+    example_value: "registry.internal.acme.com"
+    justification: "URL del registry interno. Compartida por todo el grupo acme/platform. No es secreto; no se enmascara. Vive en el Group para que todos los proyectos la hereden."
+
+  - name: DOCKER_HUB_READER_TOKEN
+    scope: group
+    environment_scope: "*"
+    type: variable
+    protected: false
+    masked: true
+    example_value: "dummy-dockerhub-reader-xxxxxxx"
+    justification: "Token read-only de Docker Hub para evitar rate limit en todos los jobs. Compartido a nivel Group. Enmascarado por si aparece en un log por accidente. No protected: lo necesitan jobs de feature branches tambien."
+
+  - name: STG_API_KEY
+    scope: project
+    environment_scope: "staging"
+    type: variable
+    protected: false
+    masked: true
+    example_value: "dummy-stg-api-key-xxxxxxxx"
+    justification: "API key del backend de staging. Scope project porque es especifica del checkout. environment_scope staging para que no se cargue en jobs de prod/dev. Enmascarada pero no protected: QA deploya desde branches de feature a stg."
+
+  - name: PROD_DEPLOY_ROLE_ARN
+    scope: project
+    environment_scope: "production"
+    type: variable
+    protected: true
+    masked: false
+    example_value: "arn:aws:iam::123456789012:role/REPLACE-ME-ProdDeployer"
+    justification: "ARN del rol de deploy de produccion. No es secreto (los ARNs son publicos en logs de CloudTrail) pero sensible al contexto: solo pipelines sobre main protegido deben verlo. protected: true, masked: false (los ARNs no cumplen el alfabeto estricto de masked bien y no aporta)."
+
+  - name: PROD_API_KEY
+    scope: project
+    environment_scope: "production"
+    type: variable
+    protected: true
+    masked: true
+    example_value: "REPLACE_IN_GITLAB_UI"
+    justification: "API key del backend de produccion. Caso canonico: protected: true (solo main) + masked: true (filtrada en logs). Ideal: migrar a Vault con ID Token en gl-03-02; mientras tanto, aqui con rotacion manual."
+
+  - name: GCP_SA_JSON
+    scope: project
+    environment_scope: "production"
+    type: file
+    protected: true
+    masked: false
+    example_value: "see-vault-or-rotate-via-iam"
+    justification: "JSON de GCP service account (multilinea). No se puede enmascarar: usar type: file para que el valor se escriba a disco y la env var contenga solo el path. protected: true porque es credencial de prod. Candidata #1 a Workload Identity Federation + ID Token (eliminar esta variable por completo)."

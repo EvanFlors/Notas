@@ -1,0 +1,86 @@
+// Jenkinsfile — orders-api-ci (patron viejo: withCredentials con access keys)
+// Este pipeline es el "lado Jenkins" del dual-run. En Fase 4-5, cuando GHA
+// gane consistentemente, este archivo se moverá a /legacy/ del repo.
+
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+        apiVersion: v1
+        kind: Pod
+        spec:
+          containers:
+            - name: python
+              image: python:3.12-slim
+              command: ["cat"]
+              tty: true
+            - name: awscli
+              image: amazon/aws-cli:2.17.0
+              command: ["cat"]
+              tty: true
+      '''
+    }
+  }
+
+  environment {
+    APP_NAME   = 'orders-api'
+    AWS_REGION = 'eu-west-1'
+    S3_BUCKET  = 'acme-releases-eu-west-1'
+  }
+
+  stages {
+    stage('Install') {
+      steps {
+        container('python') {
+          sh 'pip install --no-cache-dir -r requirements.txt build'
+        }
+      }
+    }
+
+    stage('Test') {
+      steps {
+        container('python') {
+          sh 'mkdir -p reports && pytest -q --junitxml=reports/junit.xml'
+        }
+      }
+      post {
+        always {
+          junit allowEmptyResults: true, testResults: 'reports/junit.xml'
+        }
+      }
+    }
+
+    stage('Build wheel') {
+      steps {
+        container('python') {
+          sh 'python -m build --wheel --outdir dist/'
+        }
+      }
+    }
+
+    stage('Publish') {
+      when { branch 'main' }
+      steps {
+        container('awscli') {
+          // PATRON VIEJO: access key de larga duracion inyectada por Jenkins.
+          // En GHA (dual-run.yml) este bloque se reemplaza por OIDC federation
+          // via aws-actions/configure-aws-credentials@v4 + role-to-assume.
+          withCredentials([usernamePassword(
+              credentialsId: 'aws-prod-orders-api',
+              usernameVariable: 'AWS_ACCESS_KEY_ID',
+              passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+            sh '''
+              aws s3 cp dist/ s3://${S3_BUCKET}/${APP_NAME}/ --recursive
+            '''
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: true
+    }
+  }
+}

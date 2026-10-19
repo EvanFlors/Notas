@@ -1,0 +1,63 @@
+# Pipeline que corre hoy en 7 proyectos del grupo `apps/`.
+# Cada proyecto lo copia casi igual, cambiando:
+#   - node_version (hay 3 en Node 18, 2 en Node 20, 2 en Node 22)
+#   - si corre coverage o no (3 sí, 4 no)
+#   - el `stage` de los tests ('test' vs 'quality')
+#   - el runner tag ('saas-linux-small-amd64' casi siempre; 1 proyecto 'saas-linux-medium-amd64')
+#   - el deploy final (todos lo tienen distinto)
+
+stages: [test, build, deploy]
+
+variables:
+  NPM_CACHE_DIR: ".npm"
+
+lint:
+  stage: test
+  image: node:20-alpine
+  tags: ['saas-linux-small-amd64']
+  before_script:
+    - npm ci --cache "$NPM_CACHE_DIR" --prefer-offline
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths: ["$NPM_CACHE_DIR/"]
+  script:
+    - npm run lint
+
+unit:
+  stage: test
+  image: node:20-alpine
+  tags: ['saas-linux-small-amd64']
+  before_script:
+    - npm ci --cache "$NPM_CACHE_DIR" --prefer-offline
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths: ["$NPM_CACHE_DIR/"]
+  script:
+    - npm test -- --coverage
+  artifacts:
+    when: always
+    paths:
+      - coverage/
+    expire_in: 7 days
+
+build:
+  stage: build
+  image: node:20-alpine
+  tags: ['saas-linux-small-amd64']
+  before_script:
+    - npm ci --cache "$NPM_CACHE_DIR" --prefer-offline
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths: ["$NPM_CACHE_DIR/"]
+  script:
+    - npm run build
+  artifacts:
+    paths: [dist/]
+
+deploy-staging:
+  stage: deploy
+  image: curlimages/curl:8.4.0
+  script:
+    - curl -X POST "$STAGING_DEPLOY_HOOK"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

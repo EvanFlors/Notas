@@ -1,0 +1,30 @@
+id: jk-02-01-first-pipeline-job
+title: Levantar Jenkins con Docker y escribir el primer Jenkinsfile declarative
+technology: jenkins
+module: 02-install-ui-freestyle-vs-pipeline
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - jk-01-why-still-jenkins-and-when-not
+
+objectives:
+  - Levantar Jenkins local con la imagen oficial jenkins/jenkins:lts y Docker
+  - Completar el setup wizard y obtener acceso a la UI como admin
+  - Escribir un Jenkinsfile declarative minimo con pipeline, agent, options, stages, steps y post
+  - Crear un Pipeline job que ejecute el Jenkinsfile (inline o desde SCM) y producir al menos un build verde
+  - Producir un README-INTENT.md justificando los bloques del pipeline y el motivo de preferir Pipeline sobre Freestyle
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-02-pipeline"
+
+status: not-started

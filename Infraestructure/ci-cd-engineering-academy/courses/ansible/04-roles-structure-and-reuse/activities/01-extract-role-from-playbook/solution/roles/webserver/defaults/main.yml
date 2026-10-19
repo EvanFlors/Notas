@@ -1,0 +1,7 @@
+---
+# Variables sobreescribibles por el consumidor del role.
+webserver_port: 80
+webserver_server_name: localhost
+webserver_worker_processes: auto
+webserver_worker_connections: 1024
+webserver_user: www-data

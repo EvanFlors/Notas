@@ -1,0 +1,10 @@
+# Defaults de la organizacion consumidos por BuildContext.
+# Leibles desde la library con libraryResource('org/acme/ci/pipeline-settings.yaml').
+registry: ghcr.io/acme
+defaultEnvs:
+  - dev
+timeoutMinutes: 20
+notify:
+  slackChannel: "#platform-builds"
+  pageOnCallOn:
+    - prod

@@ -1,0 +1,58 @@
+spec:
+  inputs:
+    node_version:
+      default: '20'
+      options: ['18', '20', '22']
+      description: 'Major de Node a usar en la imagen oficial node:<v>-alpine.'
+    coverage:
+      type: boolean
+      default: false
+      description: 'Si true, corre npm test -- --coverage y expone coverage/ como artifact.'
+    stage:
+      default: 'test'
+      description: 'Stage del pipeline en el que correr los jobs.'
+    runner_tag:
+      default: 'saas-linux-small-amd64'
+      options:
+        - 'saas-linux-small-amd64'
+        - 'saas-linux-medium-amd64'
+      description: 'Tag del runner GitLab SaaS.'
+---
+'.node-base-$[[ inputs.node_version ]]':
+  image: 'node:$[[ inputs.node_version ]]-alpine'
+  tags: ['$[[ inputs.runner_tag ]]']
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths: [.npm/]
+
+'node-lint:$[[ inputs.node_version ]]':
+  extends: '.node-base-$[[ inputs.node_version ]]'
+  stage: $[[ inputs.stage ]]
+  script:
+    - npm run lint
+
+'node-unit:$[[ inputs.node_version ]]':
+  extends: '.node-base-$[[ inputs.node_version ]]'
+  stage: $[[ inputs.stage ]]
+  script:
+    - |
+      if [ "$[[ inputs.coverage ]]" = "true" ]; then
+        npm test -- --coverage
+      else
+        npm test
+      fi
+  artifacts:
+    when: always
+    paths:
+      - coverage/
+    expire_in: 7 days
+
+'node-build:$[[ inputs.node_version ]]':
+  extends: '.node-base-$[[ inputs.node_version ]]'
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths: [dist/]

@@ -1,0 +1,31 @@
+id: ans-07-01-make-playbook-idempotent
+title: Convertir un playbook sucio en idempotente con check mode y block/rescue
+technology: ansible
+module: 07-idempotency-deep-and-advanced-patterns
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - ans-02-playbooks-plays-tasks-modules-handlers
+  - ans-04-roles-structure-and-reuse
+
+objectives:
+  - Convertir tasks shell no idempotentes en pseudo-idempotentes usando creates, changed_when y failed_when
+  - Diferenciar correctamente changed_when (contabilidad) de failed_when (criterio de fallo)
+  - Envolver un deploy riesgoso en block/rescue/always con rollback y limpieza final
+  - Marcar queries read-only con check_mode false para que corran en modo dry-run
+  - Lograr que la segunda corrida reporte changed=0 en el recap
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-07-01"
+
+status: not-started

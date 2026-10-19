@@ -1,0 +1,22 @@
+---
+- name: Precedence exercise — render a per-host report
+  hosts: all
+  gather_facts: false
+  vars:
+    app_port: 7000
+  tasks:
+    - name: Ensure output dir exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/output"
+        state: directory
+        mode: '0755'
+      run_once: true
+      delegate_to: localhost
+
+    - name: Render precedence-report.txt once with all hosts
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/templates/precedence-report.txt.j2"
+        dest: "{{ playbook_dir }}/output/precedence-report.txt"
+        mode: '0644'
+      run_once: true
+      delegate_to: localhost

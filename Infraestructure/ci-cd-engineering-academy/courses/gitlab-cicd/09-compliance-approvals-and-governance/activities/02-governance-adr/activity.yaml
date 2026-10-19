@@ -1,0 +1,31 @@
+id: gl-09-02-governance-adr
+title: Escribir ADR de gobernanza para una org GitLab de 50 proyectos
+technology: gitlab-cicd
+module: 09-compliance-approvals-and-governance
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - gl-07-environments-deployments-and-review-apps
+  - gl-08-security-scanners-registry-and-supply-chain
+
+objectives:
+  - Disenar el baseline de gobernanza (Compliance Framework, approval rules, push rules, SSO, audit stream) para una org GitLab de 50 proyectos
+  - Decidir que features caen en Premium vs Ultimate y justificar el tier elegido
+  - Mapear los controles de gobernanza a un marco de compliance reconocido (ISO 27001 o SOC2) de forma trazable
+  - Dibujar un diagrama ASCII del flujo end-to-end (push -> pipeline -> approvals -> merge -> audit stream)
+  - Producir un ADR ADR-GOVERNANCE-BASELINE.md en formato estandar con decision, contexto, consecuencias y al menos 2 alternativas descartadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-09-governance"
+
+status: not-started

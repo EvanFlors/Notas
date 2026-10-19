@@ -1,0 +1,78 @@
+// Esqueleto Declarative Pipeline con todos los bloques top-level.
+// Lectura y análisis. No está pensado para ejecutarse tal cual: los
+// comandos `make lint`, `make test`, etc. son placeholders.
+
+pipeline {
+  agent any
+
+  options {
+    timeout(time: 30, unit: 'MINUTES')
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+    timestamps()
+  }
+
+  parameters {
+    choice(name: 'ENV', choices: ['dev', 'stg', 'prod'], description: 'Entorno destino')
+    booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Saltar tests (NO en main)')
+  }
+
+  environment {
+    APP_NAME = 'demo-api'
+    REGISTRY = 'ghcr.io/acme'
+    VERSION  = "${env.BUILD_NUMBER}"
+  }
+
+  triggers {
+    pollSCM('H/5 * * * *')
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Lint') {
+      steps {
+        sh 'make lint'
+      }
+    }
+
+    stage('Test') {
+      when {
+        not { expression { return params.SKIP_TESTS } }
+      }
+      steps {
+        sh 'make test'
+      }
+      post {
+        always {
+          junit allowEmptyResults: true, testResults: '**/test-results/*.xml'
+        }
+      }
+    }
+
+    stage('Build') {
+      steps {
+        sh 'make build'
+        archiveArtifacts artifacts: 'dist/**', fingerprint: true, allowEmptyArchive: true
+      }
+    }
+
+    stage('Deploy') {
+      when { branch 'main' }
+      steps {
+        sh "./scripts/deploy.sh ${params.ENV}"
+      }
+    }
+  }
+
+  post {
+    always  { echo "Build result: ${currentBuild.result ?: 'SUCCESS'}" }
+    success { echo 'OK — publicar status check verde' }
+    failure { echo 'FAIL — avisar al canal de Slack #ci-alerts' }
+    changed { echo 'El estado cambió respecto al build anterior' }
+  }
+}

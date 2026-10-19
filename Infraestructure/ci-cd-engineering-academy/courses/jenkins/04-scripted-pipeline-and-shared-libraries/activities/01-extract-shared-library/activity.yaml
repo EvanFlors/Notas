@@ -1,0 +1,30 @@
+id: jk-04-01-extract-shared-library
+title: Refactorizar un Jenkinsfile monolitico en una Shared Library
+technology: jenkins
+module: 04-scripted-pipeline-and-shared-libraries
+level: intermediate
+type: mini-project
+
+estimated_minutes: 90
+
+prerequisites:
+  - jk-03-declarative-pipeline-jenkinsfile
+
+objectives:
+  - Reconocer un Jenkinsfile monolitico como anti-patron y mapear que lineas pertenecen a vars/, src/ y resources/
+  - Crear una Shared Library con layout canonico (vars/, src/<pkg>/, resources/<pkg>/) desde cero
+  - Escribir un step global standardBuild() en vars/ que delegue en una clase bajo src/
+  - Reescribir el Jenkinsfile del consumidor para que cargue la library con pin a tag y la invoque en menos de 20 lineas
+  - Documentar el refactor en README-INTENT.md justificando que entro en cada carpeta y por que
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-04-shared-library"
+
+status: not-started

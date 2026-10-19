@@ -1,0 +1,27 @@
+# Three stages, two parallel lint jobs, one test job, one build job.
+# Classic "stage = sync barrier" model — no needs:, no DAG.
+stages:
+  - lint
+  - test
+  - build
+
+lint-yaml:
+  stage: lint
+  script:
+    - echo "yamllint ."
+
+lint-shell:
+  stage: lint
+  script:
+    - echo "shellcheck scripts/*.sh"
+
+unit-tests:
+  stage: test
+  script:
+    - echo "pytest -q"
+
+build-artifact:
+  stage: build
+  script:
+    - echo "building release artifact..."
+    - echo "done"

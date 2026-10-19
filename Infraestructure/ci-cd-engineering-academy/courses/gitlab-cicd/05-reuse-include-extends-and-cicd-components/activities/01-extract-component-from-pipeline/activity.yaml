@@ -1,0 +1,31 @@
+id: gl-05-01-extract-component-from-pipeline
+title: Extraer un CI/CD Component de un pipeline duplicado
+technology: gitlab-cicd
+module: 05-reuse-include-extends-and-cicd-components
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - gl-02-gitlab-ci-yml-pipelines-runners
+  - gl-04-rules-workflow-needs-dag-parallel-matrix
+
+objectives:
+  - Identificar los jobs duplicados de un pipeline y decidir qué pertenece a un componente reutilizable
+  - Crear la estructura obligatoria de un CI/CD Component (templates/<name>/template.yml) con spec:inputs: tipados
+  - Documentar el componente con un README.md compatible con el formato del CI/CD Catalog
+  - "Consumir el componente desde un pipeline con include/component y pasarle inputs validos"
+  - Pasar un validador estructural en python3 que verifica YAML, spec:inputs: y uso correcto del consumidor
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/gl-05-01"
+
+status: not-started

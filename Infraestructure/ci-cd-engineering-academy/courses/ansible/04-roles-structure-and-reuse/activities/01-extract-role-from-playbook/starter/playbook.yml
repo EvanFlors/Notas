@@ -1,0 +1,66 @@
+---
+# Playbook monolitico de partida.
+# Instala nginx, despliega una config templatizada y reinicia el servicio.
+# Todo mezclado: vars inline, template inline, handler al final.
+# Tu mision: refactorizar esto a un role webserver reutilizable.
+
+- name: Configure a webserver on localhost (monolithic version)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  become: false  # Pon true si corres contra una VM real.
+
+  vars:
+    nginx_port: 80
+    nginx_server_name: localhost
+    nginx_worker_processes: auto
+    nginx_worker_connections: 1024
+    nginx_user: www-data
+    nginx_pkg: nginx
+    nginx_service: nginx
+    nginx_conf_path: /etc/nginx/nginx.conf
+
+  tasks:
+    - name: Install nginx package
+      ansible.builtin.package:
+        name: "{{ nginx_pkg }}"
+        state: present
+
+    - name: Deploy nginx.conf from inline template
+      ansible.builtin.copy:
+        dest: "{{ nginx_conf_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          user {{ nginx_user }};
+          worker_processes {{ nginx_worker_processes }};
+
+          events {
+            worker_connections {{ nginx_worker_connections }};
+          }
+
+          http {
+            server {
+              listen {{ nginx_port }};
+              server_name {{ nginx_server_name }};
+
+              location / {
+                return 200 'ok';
+                add_header Content-Type text/plain;
+              }
+            }
+          }
+      notify: reload nginx
+
+    - name: Ensure nginx is running and enabled
+      ansible.builtin.service:
+        name: "{{ nginx_service }}"
+        state: started
+        enabled: true
+
+  handlers:
+    - name: reload nginx
+      ansible.builtin.service:
+        name: "{{ nginx_service }}"
+        state: reloaded

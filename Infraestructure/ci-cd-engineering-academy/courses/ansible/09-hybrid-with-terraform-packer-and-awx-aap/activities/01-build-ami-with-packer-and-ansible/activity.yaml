@@ -1,0 +1,31 @@
+id: ans-09-01-build-ami-with-packer-and-ansible
+title: Escribir plantilla Packer con Ansible provisioner y validarla localmente
+technology: ansible
+module: 09-hybrid-with-terraform-packer-and-awx-aap
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - ans-04-roles-structure-and-reuse
+  - ans-07-idempotency-deep-and-advanced-patterns
+
+objectives:
+  - Escribir una plantilla Packer HCL2 (webapp.pkr.hcl) con source amazon-ebs y provisioner ansible
+  - Escribir el playbook (playbook.yml) que hornea nginx + usuario de servicio + cloudwatch agent, idempotente y con --syntax-check limpio
+  - Declarar required_plugins para amazon y ansible y variables tipadas para region y app_version
+  - Pasar packer validate (si packer esta instalado) y ansible-playbook --syntax-check (si ansible esta instalado); si falta la herramienta el validador marca SKIP y sigue
+  - Producir un README-INTENT.md explicando que se hornea y que no, por que se usa provisioner ansible vs ansible-local y como consume Terraform la AMI resultante
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-09-01"
+
+status: not-started

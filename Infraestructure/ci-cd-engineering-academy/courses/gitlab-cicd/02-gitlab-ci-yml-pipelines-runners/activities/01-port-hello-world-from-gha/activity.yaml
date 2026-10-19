@@ -1,0 +1,30 @@
+id: gl-02-01-port-hello-world-from-gha
+title: Portar un workflow hello-world de GHA a .gitlab-ci.yml
+technology: gitlab-cicd
+module: 02-gitlab-ci-yml-pipelines-runners
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - gl-01-model-and-mapping-to-gha
+
+objectives:
+  - Portar un workflow mínimo de GitHub Actions (hello.yml) a un .gitlab-ci.yml equivalente
+  - Declarar 3 stages (lint, test, build) y al menos 3 jobs ubicados en sus stages
+  - Usar image Docker en al menos un job (Docker executor) y script como lista de comandos
+  - "Reemplazar on: y if: por workflow:rules: y rules: (sin usar only/except legacy)"
+  - Validar estructuralmente el .gitlab-ci.yml con Python + yaml y pasar el validator
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-02-01"
+
+status: not-started

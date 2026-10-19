@@ -1,0 +1,17 @@
+---
+# Dependencias de collections. Pin exacto para prod. Comentar el intent.
+collections:
+  # Certified: modulos AWS oficiales (ec2, s3, iam, aws_ec2 inventory).
+  - name: amazon.aws
+    version: "8.2.0"
+    source: https://galaxy.ansible.com
+
+  # Comunitaria: utilidades generales (docker_*, ufw, pacman, pipx, homebrew).
+  - name: community.general
+    version: "9.4.0"
+    source: https://galaxy.ansible.com
+
+  # POSIX: sysctl, mount, firewalld, authorized_key, patch.
+  - name: ansible.posix
+    version: "1.5.4"
+    source: https://galaxy.ansible.com

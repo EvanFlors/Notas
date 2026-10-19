@@ -1,0 +1,31 @@
+id: gl-10-01-migrate-capstone-pipeline
+title: Portar workflow GHA del capstone a GitLab y documentar la migracion
+technology: gitlab-cicd
+module: 10-migration-and-platform-patterns
+level: advanced
+type: architecture
+
+estimated_minutes: 120
+
+prerequisites:
+  - gl-05-reuse-include-extends-and-cicd-components
+  - gl-06-runners-deep-executors-fleeting-and-oidc
+
+objectives:
+  - Portar un workflow GHA concreto (lint + test matrix + build-and-push con OIDC a AWS) a un .gitlab-ci.yml equivalente
+  - Documentar la decision en MIGRATION-ADR.md (Estado, Contexto, Decision, Consecuencias, Alternativas) incluyendo el mapping GHA->GitLab y el plan de dual-run
+  - Pinnear la trust policy AWS por claims (project_path, ref_type, ref) y no por sub literal
+  - Decidir que bloques reutilizables promover a CI/CD Component del catalogo interno
+  - Pasar el validador estructural que comprueba ambos artefactos (ADR + .gitlab-ci.yml)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-10-migration"
+
+status: not-started

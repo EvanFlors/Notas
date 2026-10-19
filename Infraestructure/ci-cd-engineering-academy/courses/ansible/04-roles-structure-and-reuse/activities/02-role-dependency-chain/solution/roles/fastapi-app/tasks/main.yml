@@ -1,0 +1,33 @@
+---
+- name: Install python3
+  ansible.builtin.package:
+    name: python3
+    state: present
+  become: true
+
+- name: Ensure workdir exists
+  ansible.builtin.file:
+    path: "{{ fastapi_app_workdir }}"
+    state: directory
+    owner: "{{ fastapi_app_user }}"
+    group: "{{ fastapi_app_user }}"
+    mode: "0755"
+  become: true
+
+- name: Deploy systemd unit
+  ansible.builtin.template:
+    src: fastapi-app.service.j2
+    dest: "/etc/systemd/system/{{ fastapi_app_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart fastapi-app
+
+- name: Enable and start service
+  ansible.builtin.systemd:
+    name: "{{ fastapi_app_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true

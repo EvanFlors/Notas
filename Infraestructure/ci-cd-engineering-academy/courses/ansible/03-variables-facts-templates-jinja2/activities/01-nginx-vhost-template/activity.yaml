@@ -1,0 +1,30 @@
+id: ans-03-01-nginx-vhost-template
+title: Escribir una plantilla Jinja2 para un vhost de nginx parametrizado
+technology: ansible
+module: 03-variables-facts-templates-jinja2
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - ans-02-playbooks-plays-tasks-modules-handlers
+
+objectives:
+  - Escribir una plantilla Jinja2 (vhost.conf.j2) que acepte server_name, listen_port y una lista de upstreams
+  - Usar el modulo ansible.builtin.template para renderizar el archivo final en /tmp
+  - Diferenciar valores en vars de la play vs valores inyectados por extra vars (-e)
+  - Entender el whitespace control de Jinja2 ({%- -%}) para evitar lineas vacias
+  - Pasar el validador estructural que ejecuta el playbook en localhost y verifica el output
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-03-vhost"
+
+status: not-started

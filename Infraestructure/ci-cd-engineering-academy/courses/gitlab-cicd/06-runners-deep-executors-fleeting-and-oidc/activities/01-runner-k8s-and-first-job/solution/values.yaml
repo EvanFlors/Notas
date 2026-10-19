@@ -1,0 +1,41 @@
+gitlabUrl: "https://gitlab.com/"
+runnerToken: "glrt-REEMPLAZA_ESTO"
+
+rbac:
+  create: true
+  clusterWideAccess: false
+
+serviceAccount:
+  create: true
+  name: gitlab-runner
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::111122223333:role/gitlab-runner-irsa"
+
+concurrent: 20
+checkInterval: 5
+logLevel: info
+
+runners:
+  config: |
+    [[runners]]
+      name = "k8s-shared"
+      executor = "kubernetes"
+      [runners.kubernetes]
+        namespace = "{{ .Release.Namespace }}"
+        image = "alpine:3.20"
+        privileged = false
+        cpu_request = "200m"
+        memory_request = "256Mi"
+        helper_cpu_request = "50m"
+        helper_memory_request = "64Mi"
+      [runners.cache]
+        Type = "s3"
+        Shared = true
+        [runners.cache.s3]
+          ServerAddress = "s3.eu-west-1.amazonaws.com"
+          BucketName = "gitlab-runner-cache-prod"
+          BucketLocation = "eu-west-1"
+          AuthenticationType = "iam"
+  tags: "k8s,shared,eu-west-1"
+  runUntagged: false
+  locked: false

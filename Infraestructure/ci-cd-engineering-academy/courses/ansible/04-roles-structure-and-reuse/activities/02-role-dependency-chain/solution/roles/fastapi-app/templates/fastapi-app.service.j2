@@ -1,0 +1,13 @@
+[Unit]
+Description=FastAPI app ({{ fastapi_app_name }})
+After=network.target
+
+[Service]
+Type=simple
+User={{ fastapi_app_user }}
+WorkingDirectory={{ fastapi_app_workdir }}
+ExecStart=/usr/bin/python3 -m http.server {{ fastapi_app_port }}
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

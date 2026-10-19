@@ -1,0 +1,31 @@
+id: jk-07-01-harden-fresh-jenkins
+title: Endurecer un Jenkins nuevo via JCasC (RBAC + credentials + script approval)
+technology: jenkins
+module: 07-security-rbac-credentials-and-script-approval
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - jk-02-install-ui-freestyle-vs-pipeline
+  - jk-06-plugins-jcasc-job-dsl-blue-ocean
+
+objectives:
+  - Escribir un jenkins.yaml con authorizationStrategy roleBased (roles global + items) asignados a grupos
+  - Declarar credentials dummy de 3 tipos (string, usernamePassword, basicSSHUserPrivateKey) con secretos via variables de entorno
+  - Declarar al menos 2 approvedSignatures explicitas en security.scriptApproval sin incluir escapes del sandbox
+  - Aplicar baseline de hardening (CSRF on, anonymous sin permisos, local signup off)
+  - Producir HARDENING-NOTES.md justificando cada bloque y pasar el validador estructural
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-07-harden"
+
+status: not-started

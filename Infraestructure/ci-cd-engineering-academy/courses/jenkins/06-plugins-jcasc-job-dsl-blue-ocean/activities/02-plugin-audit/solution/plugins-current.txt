@@ -1,0 +1,26 @@
+# Estado actual del Jenkins legacy — sin pinning, 25 plugins.
+configuration-as-code
+job-dsl
+workflow-aggregator
+pipeline-model-definition
+credentials
+credentials-binding
+role-strategy
+matrix-auth
+git
+github
+github-branch-source
+kubernetes
+blueocean
+blueocean-pipeline-editor
+blueocean-dashboard
+slack
+email-ext
+mailer
+timestamper
+ws-cleanup
+ant
+maven-plugin
+subversion
+cvs
+build-timeout

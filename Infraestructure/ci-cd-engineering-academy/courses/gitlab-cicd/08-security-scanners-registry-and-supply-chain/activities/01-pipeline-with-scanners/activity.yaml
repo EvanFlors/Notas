@@ -1,0 +1,30 @@
+id: gl-08-01-pipeline-with-scanners
+title: Pipeline con 5+ scanners nativos de GitLab
+technology: gitlab-cicd
+module: 08-security-scanners-registry-and-supply-chain
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - gl-02-gitlab-ci-yml-pipelines-runners
+
+objectives:
+  - Habilitar al menos 5 scanners nativos con include:template de los Jobs oficiales (SAST, Secret-Detection, Dependency-Scanning, Container-Scanning, IaC)
+  - Declarar un stage test consistente con los templates y evitar pipelines duplicados con workflow:rules
+  - Parametrizar los scanners con variables documentadas (SAST_EXCLUDED_PATHS, DS_EXCLUDED_PATHS, CS_IMAGE)
+  - Validar sintaxis YAML sin red y pasar el validador estructural del repo
+  - Documentar en NOTES.md por que include:template es preferible a copiar el YAML del scanner
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-08-scanners"
+
+status: not-started

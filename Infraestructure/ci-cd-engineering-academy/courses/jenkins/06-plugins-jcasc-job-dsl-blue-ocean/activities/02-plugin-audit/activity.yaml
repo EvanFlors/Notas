@@ -1,0 +1,31 @@
+id: jk-06-02-plugin-audit
+title: Auditar plugins de un Jenkins legacy y proponer plan de reduccion y pinning
+technology: jenkins
+module: 06-plugins-jcasc-job-dsl-blue-ocean
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - jk-02-install-ui-freestyle-vs-pipeline
+  - jk-03-declarative-pipeline-jenkinsfile
+
+objectives:
+  - Clasificar plugins instalados en keep / replace / remove con justificacion
+  - Escribir plugins-current.txt (estado actual sin pinning) y plugins-target.txt (destino con pinning estricto)
+  - Reducir numero de plugins respecto al estado actual (menos superficie de CVE)
+  - Documentar el audit en plugin-audit.md cubriendo CVE, Blue Ocean, pinning y cadencia de actualizacion
+  - Pasar validador estructural que verifica pinning estricto en target, reduccion de count y secciones del audit
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/jk-06-02"
+
+status: not-started

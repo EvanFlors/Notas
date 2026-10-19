@@ -1,0 +1,11 @@
+---
+- name: Apply webserver role to localhost
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  become: false
+  roles:
+    - role: webserver
+      vars:
+        webserver_port: 8080
+        webserver_server_name: localhost

@@ -1,0 +1,12 @@
+---
+- name: Install packages
+  ansible.builtin.import_tasks: install.yml
+  tags: [webserver, install]
+
+- name: Configure service
+  ansible.builtin.import_tasks: configure.yml
+  tags: [webserver, configure]
+
+- name: Ensure service running
+  ansible.builtin.import_tasks: service.yml
+  tags: [webserver, service]

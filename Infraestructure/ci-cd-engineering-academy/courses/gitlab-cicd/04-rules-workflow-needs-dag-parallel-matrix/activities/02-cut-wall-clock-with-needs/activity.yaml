@@ -1,0 +1,30 @@
+id: gl-04-02-cut-wall-clock-with-needs
+title: Convertir un pipeline lineal con stages a un DAG con needs y medir el wall clock
+technology: gitlab-cicd
+module: 04-rules-workflow-needs-dag-parallel-matrix
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - gl-02-gitlab-ci-yml-pipelines-runners
+
+objectives:
+  - Analizar un pipeline lineal con 6 jobs en 3 stages e identificar las dependencias reales entre jobs
+  - Reescribir el pipeline con needs para construir un DAG que respete las dependencias reales
+  - Calcular el wall clock antes y despues en base a duraciones conocidas y justificar la ganancia
+  - Usar needs vacio para linters que no dependen de nada previo
+  - Validar el .gitlab-ci.yml con python yaml y una suite estructural que compruebe presencia de needs needs vacio y numero minimo de jobs con DAG
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/gl-04-02"
+
+status: not-started

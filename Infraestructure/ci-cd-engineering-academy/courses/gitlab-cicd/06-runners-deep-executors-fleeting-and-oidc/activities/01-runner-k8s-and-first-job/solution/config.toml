@@ -1,0 +1,29 @@
+concurrent = 20
+check_interval = 5
+log_level = "info"
+
+[[runners]]
+  name = "k8s-shared"
+  url = "https://gitlab.com/"
+  token = "glrt-REEMPLAZA_ESTO"
+  executor = "kubernetes"
+
+  [runners.kubernetes]
+    namespace = "gitlab-runner"
+    image = "alpine:3.20"
+    privileged = false
+    cpu_request = "200m"
+    memory_request = "256Mi"
+    helper_cpu_request = "50m"
+    helper_memory_request = "64Mi"
+    poll_timeout = 180
+
+  [runners.cache]
+    Type = "s3"
+    Shared = true
+
+    [runners.cache.s3]
+      ServerAddress = "s3.eu-west-1.amazonaws.com"
+      BucketName = "gitlab-runner-cache-prod"
+      BucketLocation = "eu-west-1"
+      AuthenticationType = "iam"

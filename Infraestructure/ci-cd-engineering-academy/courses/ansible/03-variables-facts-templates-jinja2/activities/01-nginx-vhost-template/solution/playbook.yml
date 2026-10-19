@@ -1,0 +1,23 @@
+---
+- name: Render nginx vhost from a Jinja2 template
+  hosts: local
+  gather_facts: false
+  vars:
+    vhost_server_name: app.example.local
+    vhost_listen_port: 8080
+    vhost_upstreams:
+      - { host: 10.0.0.11, port: 9000 }
+      - { host: 10.0.0.12, port: 9000 }
+      - { host: 10.0.0.13, port: 9000 }
+  tasks:
+    - name: Ensure output directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/output"
+        state: directory
+        mode: '0755'
+
+    - name: Render vhost.conf
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/templates/vhost.conf.j2"
+        dest: "{{ playbook_dir }}/output/vhost.conf"
+        mode: '0644'

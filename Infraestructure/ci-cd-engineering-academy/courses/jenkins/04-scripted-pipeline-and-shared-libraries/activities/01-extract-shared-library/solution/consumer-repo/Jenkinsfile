@@ -1,0 +1,10 @@
+// Jenkinsfile del repo consumidor (checkout-api).
+// Toda la logica vive en acme-ci; aqui solo expresamos la intencion.
+@Library('acme-ci@v1.0.0') _
+
+standardBuild(
+  image:          'checkout-api',
+  registry:       'ghcr.io/acme',
+  deploy:         ['dev', 'stg', 'prod'],
+  timeoutMinutes: 20
+)

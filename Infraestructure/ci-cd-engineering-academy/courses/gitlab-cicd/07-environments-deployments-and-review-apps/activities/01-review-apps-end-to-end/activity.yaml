@@ -1,0 +1,30 @@
+id: gl-07-01-review-apps-end-to-end
+title: Diseñar un .gitlab-ci.yml con Review Apps por MR y ADR de la decision
+technology: gitlab-cicd
+module: 07-environments-deployments-and-review-apps
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - gl-04-rules-workflow-needs-dag-parallel-matrix
+
+objectives:
+  - Escribir un .gitlab-ci.yml valido con un job review y un job stop_review que modelan un Review App por Merge Request
+  - Usar correctamente environment.name con CI_MERGE_REQUEST_IID environment.url environment.on_stop environment.auto_stop_in y action stop
+  - Filtrar los jobs de Review App a merge_request_event con rules para no disparar en push a ramas
+  - Justificar en un ADR ADR-REVIEW-APPS.md la eleccion de Review Apps nativas frente al patron equivalente en GitHub Actions
+  - Pasar el validador estructural que verifica YAML valido secciones del ADR y palabras clave requeridas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-07-01-review-apps"
+
+status: not-started

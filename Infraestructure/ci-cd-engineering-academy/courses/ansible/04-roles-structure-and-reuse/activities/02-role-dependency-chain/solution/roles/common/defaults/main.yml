@@ -1,0 +1,4 @@
+---
+common_timezone: UTC
+common_appuser: appuser
+common_appuser_home: /home/appuser

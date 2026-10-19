@@ -1,0 +1,116 @@
+// Solución de referencia para jk-03-02.
+// Extiende la solución de jk-03-01 con un stage de aprobación manual
+// (input + timeout + submitter) y un stage de deploy a prod gateado.
+
+pipeline {
+  agent none
+
+  options {
+    timeout(time: 60, unit: 'MINUTES')
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+    timestamps()
+  }
+
+  environment {
+    APP_NAME = 'demo-api'
+    REGISTRY = 'ghcr.io/acme'
+    VERSION  = "${env.BUILD_NUMBER}"
+  }
+
+  stages {
+
+    stage('Checkout') {
+      agent { label 'linux' }
+      steps {
+        checkout scm
+        stash name: 'source', includes: '**/*'
+      }
+    }
+
+    stage('Lint') {
+      agent { docker { image 'node:20-alpine' } }
+      steps {
+        unstash 'source'
+        sh 'npm ci --prefer-offline --no-audit'
+        sh 'npm run lint'
+      }
+    }
+
+    stage('Test') {
+      agent { docker { image 'node:20-alpine' } }
+      steps {
+        unstash 'source'
+        sh 'npm ci --prefer-offline --no-audit'
+        sh 'npm test -- --ci --reporters=default --reporters=jest-junit'
+      }
+      post {
+        always {
+          junit allowEmptyResults: true, testResults: '**/junit.xml'
+        }
+      }
+    }
+
+    stage('Build') {
+      when { beforeAgent true; branch 'main' }
+      agent { label 'linux && docker' }
+      steps {
+        unstash 'source'
+        withCredentials([string(credentialsId: 'ghcr-token', variable: 'GHCR_TOKEN')]) {
+          sh '''
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u ci-bot --password-stdin
+            docker build -t "$REGISTRY/$APP_NAME:$VERSION" .
+            docker push    "$REGISTRY/$APP_NAME:$VERSION"
+          '''
+        }
+      }
+    }
+
+    stage('Deploy staging') {
+      when { beforeAgent true; branch 'main' }
+      agent { docker { image 'bitnami/kubectl:1.30' } }
+      steps {
+        withCredentials([file(credentialsId: 'kubeconfig-staging', variable: 'KUBECONFIG')]) {
+          sh '''
+            kubectl set image deploy/demo-api \
+              demo-api="$REGISTRY/$APP_NAME:$VERSION"
+          '''
+        }
+      }
+    }
+
+    // ---- Gate manual ----------------------------------------------------
+    stage('Approve prod deploy') {
+      when { branch 'main' }
+      steps {
+        timeout(time: 15, unit: 'MINUTES') {
+          input message: '¿Desplegar a producción?',
+                ok: 'Desplegar',
+                submitter: 'release-managers',
+                submitterParameter: 'APPROVER'
+        }
+      }
+    }
+
+    stage('Deploy prod') {
+      when { beforeAgent true; branch 'main' }
+      agent { docker { image 'bitnami/kubectl:1.30' } }
+      steps {
+        withCredentials([file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG')]) {
+          sh '''
+            kubectl set image deploy/demo-api \
+              demo-api="$REGISTRY/$APP_NAME:$VERSION"
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always  { echo "Build result: ${currentBuild.result ?: 'SUCCESS'}" }
+    success { echo 'Deploy a prod OK — publicar status check verde' }
+    failure { echo 'FAIL — rollback manual necesario, revisar logs' }
+    aborted { echo 'Deploy a prod abortado (timeout o cancelacion del gate)' }
+    changed { echo 'El estado cambió respecto al build anterior' }
+  }
+}

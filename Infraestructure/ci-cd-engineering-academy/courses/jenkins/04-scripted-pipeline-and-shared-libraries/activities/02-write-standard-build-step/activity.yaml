@@ -1,0 +1,30 @@
+id: jk-04-02-write-standard-build-step
+title: Escribir el step standardBuild() opinado de la organizacion
+technology: jenkins
+module: 04-scripted-pipeline-and-shared-libraries
+level: intermediate
+type: independent
+
+estimated_minutes: 80
+
+prerequisites:
+  - jk-03-declarative-pipeline-jenkinsfile
+
+objectives:
+  - Disenar la API publica del step standardBuild(args) con parametros obligatorios, opcionales y defaults sensatos
+  - Validar los argumentos en el propio step y lanzar errores claros ante uso incorrecto
+  - Delegar la logica de negocio a una clase StandardBuild en src/<pkg>/ reservando vars/ para orquestacion
+  - Resolver notificaciones leyendo una plantilla desde resources/<pkg>/ con libraryResource
+  - Documentar la API en README-INTENT.md con contrato publico, defaults, excepciones y plan de evolucion
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-04-standard-build"
+
+status: not-started

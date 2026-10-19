@@ -1,0 +1,55 @@
+---
+- name: Bake webapp AMI (used by Packer as a provisioner)
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    app_user: webapp
+    app_version: "0.0.0"
+
+  tasks:
+    - name: Install base packages (nginx, python, cloudwatch-agent)
+      ansible.builtin.dnf:
+        name:
+          - nginx
+          - python3
+          - amazon-cloudwatch-agent
+        state: present
+
+    - name: Create service user for the webapp
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        system: true
+        shell: /sbin/nologin
+        create_home: false
+
+    - name: Deploy minimal nginx config
+      ansible.builtin.copy:
+        content: |
+          user nginx;
+          worker_processes auto;
+          events { worker_connections 1024; }
+          http {
+            server {
+              listen 80 default_server;
+              location / { return 200 "ok {{ app_version }}\n"; }
+            }
+          }
+        dest: /etc/nginx/nginx.conf
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Enable nginx (will start on first boot of the AMI, not during build)
+      ansible.builtin.systemd:
+        name: nginx
+        enabled: true
+
+    - name: Write baked version marker
+      ansible.builtin.copy:
+        content: "{{ app_version }}\n"
+        dest: /etc/webapp-version
+        owner: root
+        group: root
+        mode: "0644"

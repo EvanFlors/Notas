@@ -1,0 +1,17 @@
+stages: [test, build, deploy]
+
+include:
+  - component: 'gitlab.example.com/platform/ci-components/node-test@v1.0.0'
+    inputs:
+      node_version: '22'
+      coverage: true
+      runner_tag: 'saas-linux-medium-amd64'
+
+deploy-staging:
+  stage: deploy
+  image: curlimages/curl:8.4.0
+  script:
+    - curl -X POST "$STAGING_DEPLOY_HOOK"
+  needs: ['node-build:22']
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

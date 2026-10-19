@@ -1,0 +1,6 @@
+---
+- name: Ensure nginx package is installed
+  ansible.builtin.package:
+    name: "{{ webserver_pkg }}"
+    state: present
+  become: true

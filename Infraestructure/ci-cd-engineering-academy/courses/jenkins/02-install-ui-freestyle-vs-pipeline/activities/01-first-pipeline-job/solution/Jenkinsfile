@@ -1,0 +1,43 @@
+// Reference solution for jk-02-01-first-pipeline-job.
+// Minimal declarative pipeline covering: pipeline / agent / options /
+// stages (>=2) / sh / echo / post. Validated structurally by
+// tests/validate.sh. Semantic execution happens in Jenkins (optional,
+// requires docker + wizard completed).
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '10', daysToKeepStr: '30'))
+        timeout(time: 10, unit: 'MINUTES')
+    }
+
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'Hello from the first pipeline job'
+                sh 'uname -a'
+            }
+        }
+
+        stage('Environment') {
+            steps {
+                echo 'Dumping a few environment variables (safe subset)'
+                sh 'printf "BUILD_NUMBER=%s\\nJOB_NAME=%s\\nWORKSPACE=%s\\n" "$BUILD_NUMBER" "$JOB_NAME" "$WORKSPACE"'
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Finished with status: ${currentBuild.currentResult}"
+        }
+        success {
+            echo 'Pipeline SUCCEEDED'
+        }
+        failure {
+            echo 'Pipeline FAILED — check console output for the broken stage'
+        }
+    }
+}

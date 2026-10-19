@@ -1,0 +1,30 @@
+stages:
+  - build
+  - test
+
+variables:
+  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+build-image:
+  stage: build
+  tags:
+    - k8s
+    - shared
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.0-debug
+    entrypoint: [""]
+  script:
+    - /kaniko/executor
+        --context "$CI_PROJECT_DIR"
+        --dockerfile "$CI_PROJECT_DIR/Dockerfile"
+        --destination "$IMAGE_TAG"
+        --no-push
+
+unit-test:
+  stage: test
+  tags:
+    - k8s
+  image: python:3.12-slim
+  script:
+    - python -m pip install --no-cache-dir pytest
+    - pytest -q || echo "no tests yet"

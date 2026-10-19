@@ -1,0 +1,44 @@
+// Reference Jenkinsfile for jk-05-01-run-pipeline-on-k8s-agent.
+// Declarative pipeline consuming a Kubernetes-plugin podTemplate.
+pipeline {
+  agent {
+    kubernetes {
+      yamlFile 'podTemplate.yaml'
+      defaultContainer 'jnlp'
+    }
+  }
+
+  options {
+    timeout(time: 15, unit: 'MINUTES')
+    timestamps()
+  }
+
+  stages {
+    stage('build-jar') {
+      steps {
+        container('build') {
+          sh 'echo "running inside the build container"'
+          sh 'mvn --version'
+          sh 'mvn -B -DskipTests package || true'
+        }
+      }
+    }
+
+    stage('build-image') {
+      steps {
+        container('kaniko') {
+          sh '''
+            echo "would build an OCI image with kaniko here"
+            /kaniko/executor version || true
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "Pod will be terminated by the Kubernetes plugin once the build ends."
+    }
+  }
+}

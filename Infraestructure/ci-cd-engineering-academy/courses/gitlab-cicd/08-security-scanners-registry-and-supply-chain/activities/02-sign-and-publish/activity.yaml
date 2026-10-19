@@ -1,0 +1,31 @@
+id: gl-08-02-sign-and-publish
+title: Build, firma keyless con cosign y verificacion en Container Registry
+technology: gitlab-cicd
+module: 08-security-scanners-registry-and-supply-chain
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - gl-02-gitlab-ci-yml-pipelines-runners
+  - gl-03-variables-and-secrets-protected-and-masked
+
+objectives:
+  - Diseniar un pipeline build -> sign -> verify que firme el digest de la imagen (nunca el tag) con cosign keyless
+  - Usar id_tokens con aud sigstore y evitar cualquier credencial de larga vida (sin COSIGN_KEY)
+  - Pinnear la verificacion a project_path + ref con --certificate-identity y --certificate-oidc-issuer
+  - Declarar un manifiesto cleanup-policy.json para el Container Registry y justificar name_regex_keep
+  - Producir README-INTENT.md explicando SBOM CycloneDX nativo, estado parcial de SLSA provenance y por que keyless elimina la rotacion
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-08-sign"
+
+status: not-started

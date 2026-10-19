@@ -1,0 +1,31 @@
+id: jk-08-01-operate-at-scale-adr
+title: Escribir ADR de operacion a escala para un Jenkins de produccion
+technology: jenkins
+module: 08-operate-at-scale-and-migration-to-modern
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - jk-06-plugins-jcasc-job-dsl-blue-ocean
+  - jk-07-security-rbac-credentials-and-script-approval
+
+objectives:
+  - Elegir y defender un patron de HA (activo-pasivo manual, CloudBees CI o Jenkins Operator) con criterio coste-beneficio
+  - Disenar estrategia de backup del JENKINS_HOME (que incluir, donde guardarlo, frecuencia, prueba de restore)
+  - Definir cadencia de upgrade LTS (patch, minor, salto maximo) y pre-upgrade checklist
+  - Dimensionar capacidad (controller vs agents) y nombrar al menos 3 metricas que deben alertar
+  - Producir un ADR ADR-OPERATE-AT-SCALE.md con secciones estandar y pasar validacion estructural
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-08-01"
+
+status: not-started

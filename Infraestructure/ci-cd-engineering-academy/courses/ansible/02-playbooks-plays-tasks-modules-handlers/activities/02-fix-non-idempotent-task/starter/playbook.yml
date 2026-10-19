@@ -1,0 +1,32 @@
+---
+# Playbook roto: cada task se marca `changed` en toda ejecucion.
+# Tu mision: convertirlo en idempotente.
+
+- name: Prepare host (NON-idempotent — fix me)
+  hosts: local
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Create deploy user
+      ansible.builtin.shell: adduser --disabled-password --gecos "" deploy || true
+      # PROBLEMA 1: `adduser` falla la segunda vez; `|| true` enmascara el error pero sigue
+      # marcando changed. Usa el modulo `user:` nativo.
+
+    - name: Ensure /opt/app exists
+      ansible.builtin.shell: mkdir -p /opt/app
+      # PROBLEMA 2: `mkdir -p` nunca falla, pero cualquier `shell:` marca changed por default.
+      # Usa `file: state=directory`.
+
+    - name: Add FOO=bar to /etc/environment
+      ansible.builtin.shell: echo "FOO=bar" >> /etc/environment
+      # PROBLEMA 3: Duplica la linea cada vez. Usa `lineinfile:`.
+
+    - name: Download mytool binary
+      ansible.builtin.shell: curl -fsSL https://example.com/mytool -o /usr/local/bin/mytool && chmod +x /usr/local/bin/mytool
+      # PROBLEMA 4: Vuelve a descargar siempre. Usa `get_url:` con `creates:` o `checksum:`.
+
+    - name: Write last-run timestamp
+      ansible.builtin.shell: date > /opt/app/last-run.txt
+      # PROBLEMA 5: El contenido cambia cada ejecucion. Si solo necesitas "el archivo existe",
+      # usa `copy:` con contenido fijo o `shell: ... creates: /opt/app/last-run.txt`.

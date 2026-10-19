@@ -1,0 +1,27 @@
+---
+- name: Capture command output and reuse it
+  hosts: local
+  gather_facts: false
+  tasks:
+    - name: Run uname -s
+      ansible.builtin.command: uname -s
+      register: uname_out
+      changed_when: false
+
+    - name: Derive a normalized OS name
+      ansible.builtin.set_fact:
+        detected_os: "{{ uname_out.stdout | lower }}"
+
+    - name: Show detected OS
+      ansible.builtin.debug:
+        msg: "Detected OS = {{ detected_os }}"
+
+    - name: Branch on the detected OS
+      ansible.builtin.debug:
+        msg: "This is a Linux host"
+      when: detected_os == "linux"
+
+    - name: Branch on the detected OS (darwin)
+      ansible.builtin.debug:
+        msg: "This is a macOS host"
+      when: detected_os == "darwin"

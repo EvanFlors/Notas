@@ -1,0 +1,5 @@
+# {{ ansible_managed }}
+# precedence-report generado desde {{ inventory_hostname }}
+{% for h in groups['all'] -%}
+{{ h }}: app_port={{ hostvars[h].app_port }}
+{% endfor %}

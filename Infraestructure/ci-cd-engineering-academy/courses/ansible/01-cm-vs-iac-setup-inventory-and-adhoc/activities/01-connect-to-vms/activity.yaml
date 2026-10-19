@@ -1,0 +1,30 @@
+id: ans-01-01-connect-to-vms
+title: Conectarse a managed nodes locales con inventory + ad-hoc ping
+technology: ansible
+module: 01-cm-vs-iac-setup-inventory-and-adhoc
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - tf-01-fundamentals
+
+objectives:
+  - Instalar o verificar ansible-core en el control node y listar collections instaladas
+  - Escribir un inventory YAML con al menos dos hosts agrupados bajo managed y variables de conexion correctas
+  - Correr ansible-inventory --list y validar la estructura del grafo de hosts
+  - Ejecutar ansible all -m ping contra el inventory y obtener pong en todos los hosts
+  - Ejecutar ansible managed -m shell -a "uptime" y capturar la salida en un fichero adhoc-output.txt
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-01-01"
+
+status: not-started

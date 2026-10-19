@@ -1,0 +1,25 @@
+# Core — JCasC + Job DSL + Pipeline
+configuration-as-code:1850.va_a_8c31d_83b_29
+job-dsl:1.90
+workflow-aggregator:600.vb_57cdd26fdd7
+pipeline-model-definition:2.2214.vb_b_34b_2ea_9b_83
+
+# Credentials y autorizacion
+credentials:1407.v_ef1580c9fb_8e
+credentials-binding:681.vf91669a_32e45
+role-strategy:755.v1a_c56eb_f27c0
+
+# SCM
+git:5.2.2
+github:1.40.0
+github-branch-source:1797.v86fdb_4d57d2b_
+
+# Agents Kubernetes
+kubernetes:4287.v73451380b_576
+
+# Notificaciones y utilidades
+slack:684.v833089650554
+timestamper:1.26
+ws-cleanup:0.46
+
+# Blue Ocean deliberadamente NO instalado (ver README-INTENT.md).

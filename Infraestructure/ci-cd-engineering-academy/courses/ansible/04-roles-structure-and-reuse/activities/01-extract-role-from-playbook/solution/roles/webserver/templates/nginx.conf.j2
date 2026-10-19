@@ -1,0 +1,18 @@
+user {{ webserver_user }};
+worker_processes {{ webserver_worker_processes }};
+
+events {
+  worker_connections {{ webserver_worker_connections }};
+}
+
+http {
+  server {
+    listen {{ webserver_port }};
+    server_name {{ webserver_server_name }};
+
+    location / {
+      return 200 'ok';
+      add_header Content-Type text/plain;
+    }
+  }
+}

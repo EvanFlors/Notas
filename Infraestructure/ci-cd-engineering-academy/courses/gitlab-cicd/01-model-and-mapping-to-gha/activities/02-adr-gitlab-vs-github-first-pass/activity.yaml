@@ -1,0 +1,30 @@
+id: gl-01-02-adr-gitlab-vs-github-first-pass
+title: ADR GitLab vs GitHub Actions - primera pasada para un escenario dado
+technology: gitlab-cicd
+module: 01-model-and-mapping-to-gha
+level: beginner
+type: architecture
+
+estimated_minutes: 75
+
+prerequisites:
+  - gha-01-fundamentals-and-first-workflow
+
+objectives:
+  - Analizar un escenario de org pequena 20 personas y decidir plataforma GHA GitLab o convivencia
+  - Comparar planes equivalentes GitHub Team + GHAS vs GitLab Ultimate en vez de Free vs Free
+  - Justificar la decision citando jerarquia Group Subgroup gating por plan y compliance
+  - Enumerar al menos dos alternativas descartadas con el motivo concreto
+  - Producir un ADR ADR-GITLAB-VS-GITHUB.md en formato estandar con Estado Contexto Decision Consecuencias y Alternativas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/gl-01-02"
+
+status: not-started

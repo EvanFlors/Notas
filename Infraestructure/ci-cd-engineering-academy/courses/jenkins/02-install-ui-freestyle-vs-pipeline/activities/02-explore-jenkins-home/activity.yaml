@@ -1,0 +1,30 @@
+id: jk-02-02-explore-jenkins-home
+title: Inventariar JENKINS_HOME y razonar sobre versionabilidad de Freestyle
+technology: jenkins
+module: 02-install-ui-freestyle-vs-pipeline
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - jk-01-why-still-jenkins-and-when-not
+
+objectives:
+  - Inventariar la estructura de JENKINS_HOME (jobs, builds, workspace, plugins, secrets, users, nodes)
+  - Identificar donde vive el config.xml de un Freestyle y donde vive la referencia a un Pipeline from SCM
+  - Enumerar al menos tres directorios o archivos cuyo contenido crece sin limite si no hay retention ni rotacion
+  - Producir un INVENTORY.md con secciones estandar razonando por que Freestyle no es versionable y que gana Pipeline from SCM
+  - Pasar el validador estructural que comprueba layout observado y secciones del documento
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-02-home"
+
+status: not-started

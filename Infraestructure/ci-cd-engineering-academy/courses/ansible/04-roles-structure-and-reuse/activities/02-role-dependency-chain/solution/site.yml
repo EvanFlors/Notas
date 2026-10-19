@@ -1,0 +1,10 @@
+---
+# Option A: solo invocamos fastapi-app; sus dependencies arrastran
+# a webserver (que a su vez arrastra common).
+- name: Deploy fastapi-app chain on localhost
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  become: false
+  roles:
+    - role: fastapi-app

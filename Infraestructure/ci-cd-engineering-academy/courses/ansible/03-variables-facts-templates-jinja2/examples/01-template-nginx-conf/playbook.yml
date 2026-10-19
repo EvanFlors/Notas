@@ -1,0 +1,23 @@
+---
+- name: Render nginx.conf from a Jinja2 template
+  hosts: local
+  gather_facts: false
+  vars:
+    nginx_worker_processes: auto
+    nginx_server_name: app.example.local
+    nginx_upstreams:
+      - { host: 10.0.0.11, port: 8080 }
+      - { host: 10.0.0.12, port: 8080 }
+      - { host: 10.0.0.13, port: 8080 }
+  tasks:
+    - name: Ensure output dir exists
+      ansible.builtin.file:
+        path: /tmp/ans-03-nginx
+        state: directory
+        mode: '0755'
+
+    - name: Render nginx.conf
+      ansible.builtin.template:
+        src: templates/nginx.conf.j2
+        dest: /tmp/ans-03-nginx/nginx.conf
+        mode: '0644'

@@ -1,0 +1,50 @@
+# Example: build -> sign -> verify with cosign keyless + GitLab ID Token.
+
+stages:
+  - build
+  - sign
+  - verify
+
+variables:
+  IMAGE: "$CI_REGISTRY_IMAGE"
+
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.21.0-debug
+    entrypoint: [""]
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor
+        --context "$CI_PROJECT_DIR"
+        --dockerfile "$CI_PROJECT_DIR/Dockerfile"
+        --destination "$IMAGE:$CI_COMMIT_SHA"
+        --digest-file "$CI_PROJECT_DIR/image.digest"
+  artifacts:
+    paths: [image.digest]
+    expire_in: 7 days
+
+sign:
+  stage: sign
+  image: gcr.io/projectsigstore/cosign:v2.2.3
+  needs: ["build"]
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  script:
+    - DIGEST="$(cat image.digest)"
+    - cosign sign --yes
+        --identity-token "$SIGSTORE_ID_TOKEN"
+        "$IMAGE@$DIGEST"
+
+verify:
+  stage: verify
+  image: gcr.io/projectsigstore/cosign:v2.2.3
+  needs: ["sign", "build"]
+  script:
+    - DIGEST="$(cat image.digest)"
+    - cosign verify
+        --certificate-identity "https://gitlab.com/$CI_PROJECT_PATH//.gitlab-ci.yml@refs/heads/$CI_DEFAULT_BRANCH"
+        --certificate-oidc-issuer "https://gitlab.com"
+        "$IMAGE@$DIGEST"

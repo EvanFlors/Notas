@@ -1,0 +1,31 @@
+id: ans-09-02-tf-ansible-or-packer-ansible-adr
+title: ADR eligiendo mutable (TF+Ansible) vs immutable (Packer+Ansible) por workload
+technology: ansible
+module: 09-hybrid-with-terraform-packer-and-awx-aap
+level: advanced
+type: architecture
+
+estimated_minutes: 75
+
+prerequisites:
+  - ans-04-roles-structure-and-reuse
+  - ans-07-idempotency-deep-and-advanced-patterns
+
+objectives:
+  - Analizar tres workloads de perfil distinto (legacy monolith on-prem, API nueva en EC2 con autoscaling, API en EKS) y elegir patron mutable vs immutable para cada uno
+  - Justificar la eleccion con un cuadro de trade-offs cubriendo drift, blast radius, build time, secretos, estado en disco local, velocidad de iteracion y rollback
+  - Discutir el rol de AWX/AAP para orquestar ambos patrones y cuando aporta sobre un pipeline de CI simple
+  - Producir un ADR ADR-MUTABLE-VS-IMMUTABLE.md en formato estandar con decision, contexto, consecuencias y alternativas descartadas
+  - Pasar validacion estructural (secciones ADR, tabla de trade-offs, mencion de los 3 workloads y de AWX/AAP)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-09-02"
+
+status: not-started

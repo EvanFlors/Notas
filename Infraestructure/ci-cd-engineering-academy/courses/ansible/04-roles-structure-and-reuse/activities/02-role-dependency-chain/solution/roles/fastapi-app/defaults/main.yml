@@ -1,0 +1,5 @@
+---
+fastapi_app_name: fastapi-app
+fastapi_app_port: 8000
+fastapi_app_user: appuser
+fastapi_app_workdir: /opt/fastapi-app

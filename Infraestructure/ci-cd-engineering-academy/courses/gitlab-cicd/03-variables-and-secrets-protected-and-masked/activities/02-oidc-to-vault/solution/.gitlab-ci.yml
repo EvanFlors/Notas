@@ -1,0 +1,24 @@
+stages:
+  - deploy
+
+deploy-prod:
+  stage: deploy
+  image: alpine:3.20
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  id_tokens:
+    VAULT_ID_TOKEN:
+      aud: https://vault.example.com
+  secrets:
+    DB_PASSWORD:
+      vault: checkout/prod/db#password@kv
+      file: false
+    TLS_CERT:
+      vault: checkout/prod/tls#cert@kv
+      file: true
+  script:
+    - echo "DB_PASSWORD inyectado como env var (masked por GitLab)"
+    - echo "TLS_CERT escrito a $TLS_CERT (file-type variable)"
+    - echo "No long-lived Vault credentials: el JWT efimero vive solo durante este job."

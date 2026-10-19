@@ -1,0 +1,88 @@
+// Pipeline con `agent none` + agent por stage + stages en `parallel`.
+// Muestra `failFast`, `when { beforeAgent true }` y uso de `stash`/`unstash`
+// para pasar artefactos entre stages con workspace distinto.
+
+pipeline {
+  agent none
+
+  options {
+    timeout(time: 45, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+  }
+
+  environment {
+    APP_NAME = 'demo-api'
+  }
+
+  stages {
+
+    stage('Checkout') {
+      agent { label 'linux' }
+      steps {
+        checkout scm
+        stash name: 'source', includes: '**/*'
+      }
+    }
+
+    stage('Static checks') {
+      // Varios checks baratos en paralelo. failFast corta el resto si uno falla.
+      failFast true
+      parallel {
+        stage('Lint') {
+          agent { docker { image 'node:20-alpine' } }
+          steps {
+            unstash 'source'
+            sh 'npm ci --prefer-offline --no-audit'
+            sh 'npm run lint'
+          }
+        }
+        stage('Typecheck') {
+          agent { docker { image 'node:20-alpine' } }
+          steps {
+            unstash 'source'
+            sh 'npm ci --prefer-offline --no-audit'
+            sh 'npm run typecheck'
+          }
+        }
+        stage('SBOM') {
+          agent { docker { image 'anchore/syft:latest' } }
+          steps {
+            unstash 'source'
+            sh 'syft dir:. -o cyclonedx-json=sbom.json'
+            archiveArtifacts artifacts: 'sbom.json', fingerprint: true
+          }
+        }
+      }
+    }
+
+    stage('Test') {
+      agent { docker { image 'node:20-alpine' } }
+      steps {
+        unstash 'source'
+        sh 'npm ci --prefer-offline --no-audit'
+        sh 'npm test -- --ci --reporters=default --reporters=jest-junit'
+      }
+      post {
+        always {
+          junit allowEmptyResults: true, testResults: '**/junit.xml'
+        }
+      }
+    }
+
+    stage('Build & push image') {
+      // beforeAgent true evita levantar el runner Docker si no estamos en main.
+      when { beforeAgent true; branch 'main' }
+      agent { label 'linux && docker' }
+      steps {
+        unstash 'source'
+        sh 'docker build -t "$APP_NAME:$BUILD_NUMBER" .'
+        sh 'docker push "$APP_NAME:$BUILD_NUMBER"'
+      }
+    }
+  }
+
+  post {
+    always  { echo "Build result: ${currentBuild.result ?: 'SUCCESS'}" }
+    failure { echo 'Notificar a #ci-alerts con enlace al build' }
+  }
+}

@@ -1,0 +1,52 @@
+---
+# Version reparada: cada task consulta estado y solo actua si hay diferencia.
+
+- name: Prepare host (idempotent)
+  hosts: local
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Create deploy user
+      ansible.builtin.user:
+        name: deploy
+        state: present
+        shell: /bin/bash
+      # FIX 1: `user:` consulta /etc/passwd antes de actuar; si el usuario ya existe,
+      # reporta ok=changed=false.
+
+    - name: Ensure /opt/app exists
+      ansible.builtin.file:
+        path: /opt/app
+        state: directory
+        mode: "0755"
+        owner: deploy
+        group: deploy
+      # FIX 2: `file: state=directory` solo cambia atributos si difieren del estado deseado.
+
+    - name: Ensure FOO=bar in /etc/environment
+      ansible.builtin.lineinfile:
+        path: /etc/environment
+        regexp: '^FOO='
+        line: "FOO=bar"
+        state: present
+      # FIX 3: `lineinfile` reemplaza la linea existente (match por regexp) o la crea una vez;
+      # jamas duplica.
+
+    - name: Download mytool binary
+      ansible.builtin.get_url:
+        url: https://example.com/mytool
+        dest: /usr/local/bin/mytool
+        mode: "0755"
+        force: false
+      # FIX 4: `get_url` con `force: false` (default) solo descarga si el destino no existe.
+      # Si quisieramos re-validar contenido, usariamos `checksum: sha256:...`.
+
+    - name: Mark host as prepared (one-shot)
+      ansible.builtin.copy:
+        dest: /opt/app/last-run.txt
+        content: "prepared by ans-02-02\n"
+        mode: "0644"
+      # FIX 5: `copy:` compara el contenido deseado con el actual; si coincide, ok sin changed.
+      # Alternativa valida: `shell: date > /opt/app/last-run.txt` + `args: creates: /opt/app/last-run.txt`
+      # (pero perderiamos la propiedad de converger el contenido).

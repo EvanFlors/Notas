@@ -1,0 +1,30 @@
+id: ans-08-01-add-molecule-to-your-role
+title: Anadir Molecule, ansible-lint y yamllint a un role existente
+technology: ansible
+module: 08-testing-molecule-lint-and-ci
+level: advanced
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - ans-04-roles-structure-and-reuse
+
+objectives:
+  - Anadir un scenario Molecule default con driver Docker a un role dado
+  - Configurar ansible-lint con perfil production y yamllint con reglas razonables
+  - Escribir converge.yml y verify.yml con asserts nativos de Ansible
+  - Ejecutar molecule test y conseguir idempotencia probada (segunda pasada con 0 changed)
+  - Pasar el validador estructural del scenario, de los linters y del requirements.txt
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/ans-08-01"
+
+status: not-started

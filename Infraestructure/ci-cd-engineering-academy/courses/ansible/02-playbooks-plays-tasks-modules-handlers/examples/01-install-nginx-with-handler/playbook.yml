@@ -1,0 +1,59 @@
+---
+- name: Install nginx and configure site via handler
+  hosts: web
+  become: true
+  vars:
+    site_name: example
+    server_name: example.local
+    document_root: /var/www/example
+
+  tasks:
+    - name: Install nginx package
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: true
+
+    - name: Ensure document root exists
+      ansible.builtin.file:
+        path: "{{ document_root }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Publish index.html
+      ansible.builtin.copy:
+        dest: "{{ document_root }}/index.html"
+        content: "<h1>Hello from Ansible ans-02</h1>\n"
+        owner: www-data
+        group: www-data
+        mode: "0644"
+
+    - name: Render site vhost
+      ansible.builtin.template:
+        src: nginx.conf.j2
+        dest: "/etc/nginx/sites-available/{{ site_name }}.conf"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload nginx
+
+    - name: Enable site (symlink)
+      ansible.builtin.file:
+        src: "/etc/nginx/sites-available/{{ site_name }}.conf"
+        dest: "/etc/nginx/sites-enabled/{{ site_name }}.conf"
+        state: link
+      notify: Reload nginx
+
+    - name: Ensure nginx is running and enabled
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Reload nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded

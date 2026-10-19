@@ -1,0 +1,31 @@
+id: jk-05-01-run-pipeline-on-k8s-agent
+title: Definir podTemplate y Jenkinsfile para un agent efimero en Kubernetes
+technology: jenkins
+module: 05-agents-distributed-builds-kubernetes-plugin
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - jk-02-install-ui-freestyle-vs-pipeline
+  - k8s-02-core-objects
+
+objectives:
+  - Escribir un podTemplate.yaml valido con contenedor jnlp y al menos un contenedor de build
+  - Escribir un Jenkinsfile declarative que consume el podTemplate con agent kubernetes y usa container(name)
+  - Entender por que cada contenedor de build necesita sleep infinity y por que restartPolicy debe ser Never
+  - Dimensionar requests y limits coherentes con el tipo de build
+  - Validar estructura del YAML y del Jenkinsfile; opcionalmente arrancar un cluster kind para probarlo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/jk-05-k8s-agent"
+
+status: not-started

@@ -1,0 +1,30 @@
+id: jk-03-01-port-gha-workflow-to-jenkinsfile
+title: Portar un workflow de GitHub Actions a un Jenkinsfile declarative
+technology: jenkins
+module: 03-declarative-pipeline-jenkinsfile
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - jk-02-install-ui-freestyle-vs-pipeline
+
+objectives:
+  - Leer un workflow de GitHub Actions y mapear sus jobs/steps a stages/steps de un Jenkinsfile declarative
+  - Escribir un Jenkinsfile con pipeline, agent, environment, options, stages y post bien estructurados
+  - Usar agent none + agent por stage y stash/unstash para compartir artefactos entre stages
+  - Introducir condicionales when (branch, expression) para separar deploy de build
+  - Pasar validacion estructural con 0 issue(s) comprobando pipeline, agent, stages, post, condicionales y uso de credenciales
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/jk-03-01"
+
+status: not-started
