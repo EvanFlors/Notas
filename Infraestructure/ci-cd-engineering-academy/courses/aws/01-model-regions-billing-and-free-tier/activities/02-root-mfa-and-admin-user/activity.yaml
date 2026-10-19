@@ -1,0 +1,30 @@
+id: aws-01-02-root-mfa-and-admin-user
+title: ADR y checklist — por que el root se blinda y como se crea el admin no-root
+technology: aws
+module: 01-model-regions-billing-and-free-tier
+level: beginner
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - Lectura de theory/lesson.md secciones 1, 4, 5, 6, 9
+
+objectives:
+  - Producir un ADR (Architecture Decision Record) explicando por que root no se usa a diario
+  - Decidir entre IAM user con MFA vs IAM Identity Center para el admin humano y defender la decision
+  - Entregar un checklist firmado (archivo CHECKLIST.md) de las acciones ejecutadas (simuladas)
+  - Enumerar los 3 vectores de ataque mitigados por MFA en root
+  - Modelar un escenario de "root comprometido sin MFA" y describir el blast radius
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/aws-01-root-mfa"
+
+status: not-started

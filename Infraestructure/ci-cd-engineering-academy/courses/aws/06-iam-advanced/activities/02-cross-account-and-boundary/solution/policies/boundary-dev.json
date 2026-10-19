@@ -1,0 +1,45 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AppRuntime",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "sns:Publish",
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query"
+      ],
+      "Resource": [
+        "arn:aws:s3:::app-*/*",
+        "arn:aws:sns:*:*:app-*",
+        "arn:aws:sqs:*:*:app-*",
+        "arn:aws:logs:*:*:log-group:/aws/app-*:*",
+        "arn:aws:dynamodb:*:*:table/app-*"
+      ]
+    },
+    {
+      "Sid": "DenyPrivilegeEscalation",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateUser",
+        "iam:AttachUserPolicy",
+        "iam:PutUserPolicy",
+        "iam:CreateAccessKey",
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:DeleteUserPermissionsBoundary",
+        "iam:PutRolePermissionsBoundary",
+        "iam:PutUserPermissionsBoundary",
+        "organizations:*",
+        "account:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

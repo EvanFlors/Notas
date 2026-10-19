@@ -1,0 +1,31 @@
+id: aws-01-01-safe-account-setup
+title: Runbook de puesta en marcha segura de una cuenta AWS nueva
+technology: aws
+module: 01-model-regions-billing-and-free-tier
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - Lectura completa de theory/lesson.md (en especial secciones 1, 7, 8, 9)
+  - Haber recorrido los dos examples/ del modulo
+
+objectives:
+  - Producir un runbook ACCOUNT-SETUP.md con los 7 pasos del dia 1 en el orden exacto
+  - Documentar comandos reales de AWS CLI v2 para cada paso (sin ejecutarlos contra AWS)
+  - Incluir una seccion de budget con alerta SNS basada en el ejemplo 02
+  - Enumerar al menos 5 cargos silenciosos no cubiertos por Free Tier
+  - Entregar un COSTS.md con estimacion de un workload trivial via Pricing Calculator (valores manuales)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/aws-01-setup"
+
+status: not-started

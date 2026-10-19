@@ -1,0 +1,30 @@
+id: aws-03-02-reduce-nat-cost-with-endpoints
+title: Auditar un stack con egress caro y proponer endpoints
+technology: aws
+module: 03-vpc-basics
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Analizar un stack dado con egress alto por NAT Gateway
+  - Clasificar cada flujo como "mover a Gateway endpoint", "mover a Interface endpoint" o "dejar por NAT"
+  - Calcular el ahorro mensual estimado en US dolares
+  - Dibujar un diagrama ASCII antes/despues
+  - Producir COST-ANALYSIS.md con la tabla, el calculo y las recomendaciones
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-03-nat-endpoints"
+
+status: not-started

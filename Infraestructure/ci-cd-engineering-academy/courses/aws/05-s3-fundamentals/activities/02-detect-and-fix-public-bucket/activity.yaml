@@ -1,0 +1,31 @@
+id: aws-05-02-detect-and-fix-public-bucket
+title: Detectar y arreglar un bucket S3 publico (auditoria)
+technology: aws
+module: 05-s3-fundamentals
+level: beginner
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Leer una configuracion de bucket S3 (settings + policy + ACL) y detectar por que es publico
+  - Enumerar al menos 4 hallazgos concretos (BPA off, policy con Principal *, ACL public-read, ownership permissive)
+  - Proponer una bucket policy minima que mantenga el uso legitimo descrito
+  - Proponer una configuracion de Block Public Access 4/4 true
+  - Entregar AUDIT.md con secciones de hallazgos, correcciones y riesgos residuales
+  - Producir policy-fixed.json y bpa-fixed.json validos estructuralmente
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-05-audit"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: aws-08-02-dynamodb-partition-key-design
+title: DynamoDB single-table - diseno de PK/SK y GSI con LocalStack
+technology: aws
+module: 08-managed-data-rds-aurora-dynamodb
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-03-vpc-basics
+  - aws-06-iam-advanced
+
+objectives:
+  - Disenar PK y SK para una tabla DynamoDB single-table que resuelva 3 patrones de acceso de un dominio e-commerce
+  - Justificar la eleccion de un GSI y los atributos a proyectar sobre el
+  - Implementar la tabla en LocalStack con boto3 y verificar los 3 patrones (o SKIP controlado si LocalStack no esta disponible)
+  - Explicar en que caso la PK elegida crearia un hot partition y proponer write sharding
+  - Entregar ACCESS_PATTERNS.md con el modelo single-table y el output de las verificaciones
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-08-dynamodb"
+
+status: not-started

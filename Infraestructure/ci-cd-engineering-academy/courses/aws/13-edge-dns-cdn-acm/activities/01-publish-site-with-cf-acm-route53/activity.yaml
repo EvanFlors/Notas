@@ -1,0 +1,31 @@
+id: aws-13-01-publish-site-with-cf-acm-route53
+title: Publicar sitio con CloudFront + ACM + Route 53 (plan + JSON + ADR)
+technology: aws
+module: 13-edge-dns-cdn-acm
+level: advanced
+type: mini-project
+
+estimated_minutes: 120
+
+prerequisites:
+  - aws-05-s3-foundations
+  - aws-07-networking-advanced
+
+objectives:
+  - Escribir una plantilla Terraform para CloudFront + ACM + Route 53 que pase terraform validate y produzca un plan legible
+  - Validar estructuralmente un JSON de distribucion CloudFront (OAC presente, cert en us-east-1, TLS 1.2 minimo, aliases)
+  - Documentar el flujo de validacion DNS de ACM en ACM_DNS_WALKTHROUGH.md
+  - Producir CACHE_ORDER_ADR.md decidiendo y justificando el orden de cache behaviors para una mezcla estatica + api
+  - Dejar explicito el costo real (hosted zone Route 53 a 0.50 USD/mes) y la decision de NO aplicar
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-13-publish"
+
+status: not-started

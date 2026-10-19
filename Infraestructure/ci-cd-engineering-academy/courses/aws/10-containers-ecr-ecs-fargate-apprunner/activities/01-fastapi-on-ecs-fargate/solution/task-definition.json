@@ -1,0 +1,30 @@
+{
+  "family": "capstone-api",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::000000000000:role/capstone-api-execution",
+  "taskRoleArn": "arn:aws:iam::000000000000:role/capstone-api-task",
+  "containerDefinitions": [
+    {
+      "name": "api",
+      "image": "000000000000.dkr.ecr.eu-west-1.amazonaws.com/capstone-api:v1",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 8000, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "APP_ENV", "value": "prod" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/capstone-api",
+          "awslogs-region": "eu-west-1",
+          "awslogs-stream-prefix": "api"
+        }
+      }
+    }
+  ]
+}

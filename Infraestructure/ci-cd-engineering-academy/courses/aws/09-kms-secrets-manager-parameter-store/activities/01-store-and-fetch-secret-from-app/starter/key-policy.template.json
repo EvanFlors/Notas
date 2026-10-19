@@ -1,0 +1,65 @@
+{
+  "Version": "2012-10-17",
+  "Id": "key-policy-checkout-cmk-localstack",
+  "Statement": [
+    {
+      "Sid": "EnableIAMDelegation",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::000000000000:root" },
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowKeyAdministration",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::000000000000:role/kms-admin" },
+      "Action": [
+        "kms:Create*",
+        "kms:Describe*",
+        "kms:Enable*",
+        "kms:List*",
+        "kms:Put*",
+        "kms:Update*",
+        "kms:Revoke*",
+        "kms:Disable*",
+        "kms:Get*",
+        "kms:Delete*",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:ScheduleKeyDeletion",
+        "kms:CancelKeyDeletion"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowCheckoutAppDecrypt",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::000000000000:role/checkout-task" },
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey*",
+        "kms:DescribeKey"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowSecretsManagerUse",
+      "Effect": "Allow",
+      "Principal": { "Service": "secretsmanager.amazonaws.com" },
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:GenerateDataKey*",
+        "kms:DescribeKey",
+        "kms:CreateGrant"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com",
+          "kms:CallerAccount": "000000000000"
+        }
+      }
+    }
+  ]
+}

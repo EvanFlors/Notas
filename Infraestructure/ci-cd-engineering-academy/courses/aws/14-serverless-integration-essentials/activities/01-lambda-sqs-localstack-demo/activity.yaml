@@ -1,0 +1,31 @@
+id: aws-14-01-lambda-sqs-localstack-demo
+title: Demo Lambda + SQS en LocalStack (sin tocar AWS real)
+technology: aws
+module: 14-serverless-integration-essentials
+level: advanced
+type: demo
+
+estimated_minutes: 50
+
+prerequisites:
+  - aws-02-iam-fundamentals
+  - aws-05-s3-storage-essentials
+
+objectives:
+  - Levantar un contenedor LocalStack localmente y confirmar que ofrece Lambda y SQS
+  - Empaquetar un handler Python minimo (sin dependencias extra) y registrarlo como funcion Lambda en LocalStack
+  - Crear una cola SQS, enviar un mensaje y confirmar que el handler lo procesa
+  - Observar los logs de la Lambda (CloudWatch Logs emulado) y correlacionar con el request_id
+  - Degradar limpiamente (SKIP) cuando Docker o LocalStack no estan disponibles sin marcar la actividad como fallida
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-14-lambda-sqs"
+
+status: not-started

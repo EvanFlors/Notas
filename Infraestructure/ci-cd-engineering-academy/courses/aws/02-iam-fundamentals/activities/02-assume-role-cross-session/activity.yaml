@@ -1,0 +1,30 @@
+id: aws-02-02-assume-role-cross-session
+title: Documentar y validar una cadena de asumcion de roles (SSO -> operator -> cross-account)
+technology: aws
+module: 02-iam-fundamentals
+level: beginner
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-01-model-regions-billing-and-free-tier
+
+objectives:
+  - Distinguir trust policy de permission policy en JSON concreto
+  - Escribir un trust policy que acepte un principal especifico con Condition de MFA
+  - Escribir un trust policy cross-account que use sts:ExternalId para evitar el confused deputy
+  - Documentar la cadena de asumcion y lo que STS hace en cada salto
+  - Validar los tres JSON con python json.load y chequeos estructurales
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-02-chain"
+
+status: not-started

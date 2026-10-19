@@ -1,0 +1,31 @@
+id: aws-15-02-write-scp-baseline-and-validate
+title: Escribir SCPs del baseline y validar su JSON
+technology: aws
+module: 15-multi-account-org-identity-center
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-02-iam-core
+  - aws-06-iam-advanced
+
+objectives:
+  - Escribir tres SCPs del baseline (deny-regions, deny-leave-org, deny-disable-logging) en JSON valido
+  - Usar correctamente Version, Statement, Effect, Action, NotAction, Resource y Condition
+  - Entender por que servicios globales (IAM, Organizations, CloudFront, Route 53, STS) deben excluirse del deny-regions
+  - Nombrar al menos tres acciones protegidas por deny-disable-logging para CloudTrail y Config
+  - Producir un README-INTENT.md justificando cada SCP (que deniega, por que, excepciones) y pasar el validador estructural + semantico
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-15-scp"
+
+status: not-started

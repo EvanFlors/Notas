@@ -1,0 +1,30 @@
+id: aws-02-01-write-least-privilege-policy
+title: Reducir "Action *" a una politica S3 de minimo privilegio
+technology: aws
+module: 02-iam-fundamentals
+level: beginner
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - aws-01-model-regions-billing-and-free-tier
+
+objectives:
+  - Analizar una politica permisiva (Action *) y enumerar que concede en realidad
+  - Escribir una politica S3 de minimo privilegio que solo permita list + get sobre un bucket y un prefijo concretos
+  - Separar correctamente los dos ARNs (bucket vs objeto) en dos statements
+  - Justificar en JUSTIFICATION.md por que cada accion / recurso / condicion aparece (o no) en la policy
+  - Validar la policy estructuralmente con Python json.load y opcionalmente con aws iam simulate-principal-policy
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-02-lpp"
+
+status: not-started

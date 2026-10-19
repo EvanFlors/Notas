@@ -1,0 +1,31 @@
+id: aws-11-01-provision-eks-and-run-app
+title: Disenar la provision de EKS y correr la app en kind
+technology: aws
+module: 11-eks-in-depth
+level: advanced
+type: architecture
+
+estimated_minutes: 120
+
+prerequisites:
+  - aws-10-compute-ec2-asg-alb
+
+objectives:
+  - Escribir un eksctl ClusterConfig valido para un cluster EKS "productivo tipico"
+  - Escribir un main.tf que llame al modulo oficial terraform-aws-modules/eks/aws con managed node group, OIDC habilitado y access entries
+  - Validar la sintaxis del Terraform (terraform validate) y del eksctl (dry-run) SIN crear nada en AWS
+  - Desplegar la app de ejemplo (Deployment + Service + Ingress) en un cluster local kind como proxy del comportamiento en EKS
+  - Escribir un ADR que decida managed vs self-managed vs Fargate, CAS vs Karpenter y access entries vs aws-auth con criterios explicitos
+  - Producir EKS_PLAN.md, eksctl-config.yaml, main.tf, k8s/app.yaml y ADR.md en el directorio de scratch
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-11-01"
+
+status: not-started

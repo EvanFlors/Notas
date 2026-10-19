@@ -1,0 +1,32 @@
+id: aws-14-02-event-driven-design-decisions
+title: Decisiones de diseno event-driven (DLQ, VisTO, FIFO vs Standard, Lambda vs ECS)
+technology: aws
+module: 14-serverless-integration-essentials
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - aws-02-iam-fundamentals
+  - aws-05-s3-storage-essentials
+  - aws-09-compute-ec2-ecs-eks
+
+objectives:
+  - Para 3 workloads dados, decidir Lambda vs ECS/Fargate vs EKS con justificacion basada en duracion, patron de carga y costo
+  - Disenar la topologia event-driven de un escenario con S3, Lambda, SNS, SQS y DLQ, incluyendo valores concretos de VisibilityTimeout y maxReceiveCount
+  - Decidir FIFO vs standard para 3 subcasos y justificar en terminos de orden, dedup y throughput
+  - Escribir una ASL JSON minima (StartAt + 3 estados Task/Choice/Pass) sintacticamente valida que oriente un flujo del escenario
+  - Nombrar 3 costos ocultos y la palanca concreta que los controla
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-14-design"
+
+status: not-started

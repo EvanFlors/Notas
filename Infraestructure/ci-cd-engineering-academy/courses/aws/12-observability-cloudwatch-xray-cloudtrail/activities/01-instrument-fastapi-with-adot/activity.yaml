@@ -1,0 +1,31 @@
+id: aws-12-01-instrument-fastapi-with-adot
+title: Pipeline ADOT Collector que exporta a X-Ray, CloudWatch (EMF) y Prometheus
+technology: aws
+module: 12-observability-cloudwatch-xray-cloudtrail
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-10-ecs-and-eks-essentials
+  - otel-08-collector-architecture-receivers-processors-exporters
+
+objectives:
+  - Escribir un config.yaml de ADOT Collector con receiver OTLP (gRPC+HTTP), batch y memory_limiter
+  - Configurar tres pipelines (traces, metrics, logs) con exporters awsxray, awsemf, awscloudwatchlogs y prometheusremotewrite
+  - Justificar en NOTES.md por que dual-write a CloudWatch y Prometheus es util en migraciones
+  - Validar estructuralmente el YAML sin usar credenciales ni cuota AWS real
+  - (Opcional) Ejecutar un smoke con LocalStack para CloudWatch Logs si esta disponible
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-12-adot"
+
+status: not-started

@@ -1,0 +1,33 @@
+id: aws-04-01-launch-ec2-reach-via-ssm
+title: Levantar EC2 alcanzable por SSM (sin SSH, con IMDSv2)
+technology: aws
+module: 04-ec2-fundamentals
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - aws-02-iam-fundamentals
+  - aws-03-vpc-basics
+  - terraform-02-setup-hcl-first-provider
+
+objectives:
+  - Escribir un main.tf que define una EC2 privada, Security Group sin ingress, instance profile con AmazonSSMManagedInstanceCore y metadata_options con http_tokens=required
+  - Resolver el AMI dinamicamente via SSM Parameter Store en vez de hardcodear ami-xxxx
+  - Escribir un user-data.sh idempotente con set -euo pipefail, logging a /var/log/user-data.log y health check propio
+  - Validar la estructura del HCL localmente sin aplicar en AWS real
+  - Validar el user-data con bash -n (y shellcheck si esta disponible)
+  - Producir una tabla EBS-choices.md justificando el tipo de disco elegido
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/aws-04-01"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: aws-13-02-add-waf-and-geo-restriction
+title: Diseno de WAF + decision geo restriction para CloudFront
+technology: aws
+module: 13-edge-dns-cdn-acm
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - aws-05-s3-foundations
+  - aws-07-networking-advanced
+
+objectives:
+  - Disenar un WAF web ACL con 3 reglas razonadas (managed, rate limit, geo match) y defender cada eleccion
+  - Decidir entre geo restriction nativa de CloudFront y geo match rule en WAF, con trade-offs
+  - Documentar costos aproximados mensuales de WAF y geo restriction
+  - Enumerar casos donde WAF no es la respuesta (ej. app-layer logic bugs)
+  - Producir un documento WAF_DESIGN.md con las secciones Reglas / Decision Geo / Costos / Limitaciones
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-13-waf"
+
+status: not-started

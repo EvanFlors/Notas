@@ -1,0 +1,31 @@
+id: aws-08-01-provision-rds-and-connect
+title: RDS Postgres multi-AZ (plan + Postgres local) y ADR de topologia
+technology: aws
+module: 08-managed-data-rds-aurora-dynamodb
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-03-vpc-basics
+  - aws-06-iam-advanced
+
+objectives:
+  - Leer y auditar un main.tf de RDS Postgres multi-AZ detectando los atributos de seguridad obligatorios
+  - Ejecutar terraform plan sin credenciales reales para validar HCL y entender el output
+  - Levantar un contenedor postgres:16 local y practicar DDL / FKs / indices razonables para un esquema OLTP pequeño
+  - Escribir un TOPOLOGY.md con la ADR que justifique multi-AZ, read replicas, backups y SG minimo
+  - Producir el entregable sin provisionar ningun recurso AWS real ni incurrir en coste
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-08-rds"
+
+status: not-started

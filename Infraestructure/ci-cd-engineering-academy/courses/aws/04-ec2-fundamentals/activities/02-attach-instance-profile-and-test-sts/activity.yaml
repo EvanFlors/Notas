@@ -1,0 +1,32 @@
+id: aws-04-02-attach-instance-profile-and-test-sts
+title: Instance profile minimo, test STS y comparativa de familias
+technology: aws
+module: 04-ec2-fundamentals
+level: beginner
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - aws-02-iam-fundamentals
+  - aws-04-01-launch-ec2-reach-via-ssm
+
+objectives:
+  - Definir un instance profile con una custom policy minima (p. ej. leer un parametro SSM concreto) y adjuntarlo via Terraform
+  - Escribir un snippet bash test-sts.sh que verifica identidad asumida via aws sts get-caller-identity + chequeo IMDSv2
+  - Validar el user-data y el test con bash -n (y shellcheck si disponible)
+  - Rellenar una tabla CSV instance-families.csv con 6 familias/tipos y su costo estimado (fuentes publicas)
+  - Esbozar un launch-template.yaml estructural reutilizable por un ASG
+  - Producir DECISION.md justificando que familia e instancia eligirias para 3 workloads
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/aws-04-02"
+
+status: not-started

@@ -1,0 +1,31 @@
+id: aws-11-02-migrate-irsa-to-pod-identity
+title: Migrar un workload de IRSA a EKS Pod Identity
+technology: aws
+module: 11-eks-in-depth
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - aws-10-compute-ec2-asg-alb
+
+objectives:
+  - Enumerar las diferencias concretas entre IRSA y EKS Pod Identity (setup, trust policy, token flow, reuso cross-cluster)
+  - Escribir manifiestos ANTES (IRSA) y DESPUES (Pod Identity) para el mismo workload sin perder la minima politica IAM
+  - Justificar la eleccion de Pod Identity vs IRSA con criterios tecnicos para 3 escenarios dados (greenfield, cluster legacy, workload cross-platform)
+  - Articular un plan de migracion por fases (dual-run, cutover, rollback) sin downtime
+  - Producir MIGRATION.md con comparativa, 2 manifiestos (sa-irsa.yaml, sa-pod-identity.yaml) y matriz de decision
+  - Documentar que NO funcionaria si el workload corriese tambien en ECS o EC2 fuera del cluster
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-11-02"
+
+status: not-started

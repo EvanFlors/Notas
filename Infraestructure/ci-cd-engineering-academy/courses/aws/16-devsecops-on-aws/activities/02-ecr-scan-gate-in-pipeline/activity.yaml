@@ -1,0 +1,30 @@
+id: aws-16-02-ecr-scan-gate-in-pipeline
+title: Gate de scanning de ECR en pipeline (basic vs enhanced)
+technology: aws
+module: 16-devsecops-on-aws
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - aws-10-containers
+  - aws-16-01-full-oidc-pipeline-no-keys
+
+objectives:
+  - Escribir Terraform HCL para un repositorio ECR con image_scanning_configuration.scan_on_push=true
+  - Escribir un workflow de GitHub Actions que publique una imagen y falle el pipeline si Inspector/ECR reporta findings de severidad CRITICAL o HIGH
+  - Producir un ADR comparando ECR basic scanning (gratis) vs enhanced con Inspector v2 (costo por imagen y mes) con criterios de decision
+  - Pasar validacion estructural del HCL, del workflow y del ADR, y si checkov/trivy estan instalados pasarlos sobre el HCL
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-16-02-ecr"
+
+status: not-started

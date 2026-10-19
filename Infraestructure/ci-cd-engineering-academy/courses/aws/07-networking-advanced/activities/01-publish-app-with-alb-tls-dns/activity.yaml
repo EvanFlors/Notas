@@ -1,0 +1,30 @@
+id: aws-07-01-publish-app-with-alb-tls-dns
+title: Publicar app con ALB + ACM + Route 53 (Terraform plan + ADRs)
+technology: aws
+module: 07-networking-advanced
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-03-vpc-basics
+
+objectives:
+  - Escribir Terraform valido (terraform validate en verde) para ALB con listener 443 (HTTPS) y redirect 80 a 443
+  - Integrar aws_acm_certificate con validacion DNS automatica via Route 53
+  - Crear un alias record en Route 53 apuntando al ALB
+  - Generar terraform plan offline sin ejecutar apply contra AWS real
+  - Redactar DECISIONS.md con tres ADRs (ALB vs NLB, DNS validation vs email, alias vs CNAME)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-07-alb"
+
+status: not-started

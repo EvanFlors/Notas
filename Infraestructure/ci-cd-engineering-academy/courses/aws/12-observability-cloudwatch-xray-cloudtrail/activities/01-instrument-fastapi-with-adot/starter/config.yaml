@@ -1,0 +1,42 @@
+# Starter template for ADOT Collector config. Fill the TODOs.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317  # TODO: keep as-is unless you have a reason to change
+      http:
+        endpoint: 0.0.0.0:4318  # TODO: keep as-is
+
+processors:
+  batch:
+    timeout: 5s           # TODO: choose a value and justify in NOTES.md
+    send_batch_size: 512
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 400        # TODO: adjust to your node sizing
+    spike_limit_mib: 100
+
+exporters:
+  # TODO: add awsxray exporter (region)
+  # TODO: add awsemf exporter (region, log_group_name, namespace)
+  # TODO: add awscloudwatchlogs exporter (region, log_group_name, log_stream_name)
+  # TODO: add prometheusremotewrite exporter (endpoint)
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: []       # TODO: wire awsxray here
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: []       # TODO: wire awsemf AND prometheusremotewrite here
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: []       # TODO: wire awscloudwatchlogs here
+  telemetry:
+    logs:
+      level: info

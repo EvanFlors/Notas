@@ -1,0 +1,30 @@
+id: aws-10-02-ecr-lifecycle-policy-cost
+title: Disenar una ECR lifecycle policy para contener coste y defender cada regla
+technology: aws
+module: 10-containers-ecr-ecs-fargate-apprunner
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Escribir un lifecycle-policy.json valido con la estructura oficial de ECR (rules, rulePriority, selection, action)
+  - Combinar al menos tres reglas que mezclen seleccion por tagStatus (tagged, untagged, any) y por countType (sinceImagePushed, imageCountMoreThan)
+  - Entender por que las reglas se evaluan en orden de rulePriority ascendente y por que la ultima regla debe ser la de menor especificidad
+  - Justificar en README-INTENT.md que deniega cada regla, por que, y que riesgo mitiga (coste de almacenamiento vs perder una imagen de rollback)
+  - Pasar un validador estructural que combina jq y chequeos de contenido en el README
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-10-ecr-lifecycle"
+
+status: not-started

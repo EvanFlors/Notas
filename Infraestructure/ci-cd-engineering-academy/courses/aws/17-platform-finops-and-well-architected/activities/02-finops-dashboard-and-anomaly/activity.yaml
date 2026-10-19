@@ -1,0 +1,30 @@
+id: aws-17-02-finops-dashboard-and-anomaly
+title: Dashboard FinOps con unit economics y deteccion de anomalia
+technology: aws
+module: 17-platform-finops-and-well-architected
+level: advanced
+type: mini-project
+
+estimated_minutes: 120
+
+prerequisites:
+  - aws-15-organizations-and-identity-center
+
+objectives:
+  - Procesar un CSV sintetico de costes AWS atribuidos por tag con Python stdlib
+  - Calcular dolar por MAU y dolar por request mensual por servicio
+  - Detectar el mes anomalo plantado en el dataset con una regla estadistica simple
+  - Generar un FINOPS-REPORT.md con tabla de unit economics y seccion de anomalias
+  - Articular acciones FinOps concretas priorizadas (rightsizing, Savings Plan, Spot, Graviton)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-17-finops"
+
+status: not-started

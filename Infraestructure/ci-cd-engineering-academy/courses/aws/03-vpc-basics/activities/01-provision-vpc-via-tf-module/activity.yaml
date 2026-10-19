@@ -1,0 +1,30 @@
+id: aws-03-01-provision-vpc-via-tf-module
+title: Modulo Terraform de VPC multi-AZ (plan-only, sin apply)
+technology: aws
+module: 03-vpc-basics
+level: beginner
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Escribir un modulo Terraform propio de VPC multi-AZ (3 AZ) con subnets publicas y privadas
+  - Expresar correctamente IGW, 3 route tables privadas (una por AZ) y 1 route table publica
+  - Anadir el S3 Gateway endpoint asociado a las route tables privadas
+  - Producir un diagrama ASCII del modulo en DESIGN.md
+  - Pasar un terraform validate y un terraform plan en modo offline (sin credenciales reales ni apply)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-03-vpc-module"
+
+status: not-started

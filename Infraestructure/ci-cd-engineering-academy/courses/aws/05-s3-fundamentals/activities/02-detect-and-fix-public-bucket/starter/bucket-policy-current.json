@@ -1,0 +1,15 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LegacyPublicRead",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::legacy-marketing-assets-us-east-1",
+        "arn:aws:s3:::legacy-marketing-assets-us-east-1/*"
+      ]
+    }
+  ]
+}

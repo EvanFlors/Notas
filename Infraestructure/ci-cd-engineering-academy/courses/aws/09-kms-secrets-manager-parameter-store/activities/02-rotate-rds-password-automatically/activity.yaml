@@ -1,0 +1,31 @@
+id: aws-09-02-rotate-rds-password-automatically
+title: Walkthrough y diseno - rotacion automatica de password de RDS
+technology: aws
+module: 09-kms-secrets-manager-parameter-store
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - aws-02-iam-identity-and-access
+  - aws-06-rds-and-managed-dbs
+
+objectives:
+  - Documentar el ciclo de rotacion de 4 pasos (createSecret setSecret testSecret finishSecret) en un diseno concreto
+  - Especificar red IAM y key policy minimas para una Lambda rotator contra RDS
+  - Decidir entre single-user y multi-user con criterio argumentado
+  - Clasificar 5 items dados entre Secrets Manager y SSM Parameter Store con justificacion por item
+  - Producir un documento ROTATION.md con 6 secciones estructurales que un validador pueda verificar
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-09-rotate-rds"
+
+status: not-started

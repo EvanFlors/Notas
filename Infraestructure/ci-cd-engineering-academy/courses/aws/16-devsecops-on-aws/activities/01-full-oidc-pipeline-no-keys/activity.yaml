@@ -1,0 +1,31 @@
+id: aws-16-01-full-oidc-pipeline-no-keys
+title: Pipeline OIDC GHA -> AWS sin access keys humanas (mini-proyecto)
+technology: aws
+module: 16-devsecops-on-aws
+level: advanced
+type: mini-project
+
+estimated_minutes: 120
+
+prerequisites:
+  - aws-02-iam
+  - aws-15-org-idc
+
+objectives:
+  - Escribir Terraform HCL para el IAM OIDC provider de GitHub Actions
+  - Escribir Terraform HCL para un IAM Role con trust policy que pinnea sub al repo + ref exacto y aud a sts.amazonaws.com
+  - Escribir un workflow de GitHub Actions que use aws-actions/configure-aws-credentials@v4 con permissions.id-token=write
+  - Producir un ADR que defienda el scoping del claim sub y por que no se usa StringLike con wildcard
+  - Pasar validacion estructural y, si checkov esta instalado, pasar checkov sobre el HCL
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-16-01-oidc"
+
+status: not-started

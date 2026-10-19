@@ -1,0 +1,30 @@
+id: aws-06-01-write-scp-baseline
+title: Redactar un baseline de SCPs para una OU
+technology: aws
+module: 06-iam-advanced
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Redactar tres SCPs validas estructuralmente para una OU tipo "prod"
+  - Deny de todas las regiones salvo las permitidas, respetando servicios globales
+  - Deny de operaciones destructivas sobre CloudTrail y Config
+  - Require MFA para operaciones destructivas sobre S3 y IAM
+  - Producir un BASELINE.md que explique por que cada SCP esta como esta y que ataque previene
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-06-scp-baseline"
+
+status: not-started

@@ -1,0 +1,19 @@
+# TODO: estructura minima de un launch template reutilizable por un ASG.
+# Rellena los campos marcados.
+
+LaunchTemplateName: aws-04-web
+LaunchTemplateData:
+  ImageId: null              # TODO: resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64
+  InstanceType: null         # TODO: p. ej. t4g.small
+  IamInstanceProfile:
+    Name: null               # TODO: aws04-sts-profile
+  MetadataOptions:
+    HttpTokens: null         # TODO: required
+    HttpPutResponseHopLimit: null   # TODO: 1
+    HttpEndpoint: null       # TODO: enabled
+  NetworkInterfaces:
+    - AssociatePublicIpAddress: null   # TODO: false
+      Groups: []
+  TagSpecifications:
+    - ResourceType: instance
+      Tags: []

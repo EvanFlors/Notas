@@ -1,0 +1,31 @@
+id: aws-15-01-design-ou-structure-and-adr
+title: Disenar OU structure y escribir ADR para una org pequena
+technology: aws
+module: 15-multi-account-org-identity-center
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - aws-02-iam-core
+  - aws-06-iam-advanced
+
+objectives:
+  - Disenar una OU structure razonada para un escenario dado (3-5 cuentas) justificando trade-offs
+  - Decidir patron "una app = una cuenta" vs "una app = N cuentas" para 2 workloads
+  - Mapear SCPs del baseline a OUs (deny-regions, deny-leave-org, deny-disable-logging) y justificar
+  - Mapear Permission Sets a grupos y a OUs sin asignar por usuario-cuenta individual
+  - Producir un ADR ADR-ORG-STRUCTURE.md en formato estandar con decision, contexto, consecuencias y alternativas descartadas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-15-ou-adr"
+
+status: not-started

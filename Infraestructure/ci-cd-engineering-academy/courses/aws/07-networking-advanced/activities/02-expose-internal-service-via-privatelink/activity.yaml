@@ -1,0 +1,31 @@
+id: aws-07-02-expose-internal-service-via-privatelink
+title: Exponer servicio interno via PrivateLink + analisis de coste NAT vs Interface Endpoint
+technology: aws
+module: 07-networking-advanced
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - aws-03-vpc-basics
+
+objectives:
+  - Escribir Terraform del productor PrivateLink (NLB + aws_vpc_endpoint_service + allowed_principals)
+  - Escribir Terraform del consumidor PrivateLink (aws_vpc_endpoint tipo Interface + SG)
+  - Pasar terraform validate en ambos modulos
+  - Redactar DECISIONS.md con dos ADRs (acceptance_required true/false, private_dns_enabled true/false)
+  - Producir cost-tradeoff.csv con filas para 1, 5 y 10 servicios AWS consumidos y columnas NAT vs Interface Endpoint
+  - Producir cost-tradeoff.md argumentando el ganador en cada tramo con cifras concretas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-07-privatelink"
+
+status: not-started

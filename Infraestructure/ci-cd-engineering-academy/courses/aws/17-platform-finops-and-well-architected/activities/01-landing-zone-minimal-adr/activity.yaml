@@ -1,0 +1,31 @@
+id: aws-17-01-landing-zone-minimal-adr
+title: ADR de landing zone AWS minima defendible
+technology: aws
+module: 17-platform-finops-and-well-architected
+level: advanced
+type: architecture
+
+estimated_minutes: 90
+
+prerequisites:
+  - aws-15-organizations-and-identity-center
+
+objectives:
+  - Disenar una landing zone AWS minima con 4 OUs y 6-8 cuentas canonicas
+  - Elegir el patron de red (hub-and-spoke con Transit Gateway) y justificar vs full-mesh VPC peering
+  - Definir SCPs base (al menos 3) y adscribirlas a OUs correctas
+  - Elegir estrategia de logging centralizado (CloudTrail organization, Config aggregator) con cuenta log-archive
+  - Producir ADR con contexto, decision, alternativas consideradas y consecuencias
+  - Nombrar explicitamente los trade-offs de coste de centralizar NAT en inspection VPC
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-17-landing-zone"
+
+status: not-started

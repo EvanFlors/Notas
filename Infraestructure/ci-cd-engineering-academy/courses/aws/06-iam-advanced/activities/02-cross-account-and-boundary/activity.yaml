@@ -1,0 +1,30 @@
+id: aws-06-02-cross-account-and-boundary
+title: Boundary para developers + trust policy cross-account defendida
+technology: aws
+module: 06-iam-advanced
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Escribir un permission boundary para delegar creacion de roles a developers sin permitir escalada
+  - Escribir una trust policy cross-account defendida contra confused deputy (PrincipalOrgID + ExternalId o MFA)
+  - Articular por que un Deny en el boundary bloquea tambien al principal con AdministratorAccess
+  - Elegir y justificar las condition keys adecuadas segun el caso (misma org vs vendor externo)
+  - Producir un DECISIONS.md que defienda cada decision en 2-5 lineas
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-06-cross-account"
+
+status: not-started

@@ -1,0 +1,30 @@
+id: aws-17-03-well-architected-review-and-dr-plan
+title: Capstone - revision Well-Architected de 6 pilares y plan DR razonado
+technology: aws
+module: 17-platform-finops-and-well-architected
+level: advanced
+type: scenario
+
+estimated_minutes: 180
+
+prerequisites:
+  - aws-15-organizations-and-identity-center
+
+objectives:
+  - Conducir una revision Well-Architected sobre un workload hipotetico cubriendo los 6 pilares
+  - Producir al menos 6 hallazgos priorizados (minimo uno por pilar) con riesgo HRI/MRI
+  - Elegir patron DR por workload entre backup-restore / pilot-light / warm-standby / active-active con RPO/RTO
+  - Producir plan DR con factura relativa a baseline y runbook de failover
+  - Escribir walkthrough textual de Cost Explorer para validar la postura cost optimization
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-17-war"
+
+status: not-started

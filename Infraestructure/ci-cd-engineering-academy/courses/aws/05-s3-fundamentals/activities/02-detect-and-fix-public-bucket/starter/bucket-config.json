@@ -1,0 +1,35 @@
+{
+  "Bucket": "legacy-marketing-assets-us-east-1",
+  "Region": "us-east-1",
+  "PublicAccessBlockConfiguration": {
+    "BlockPublicAcls": false,
+    "IgnorePublicAcls": false,
+    "BlockPublicPolicy": false,
+    "RestrictPublicBuckets": false
+  },
+  "OwnershipControls": {
+    "Rules": [
+      { "ObjectOwnership": "ObjectWriter" }
+    ]
+  },
+  "Versioning": { "Status": "Suspended" },
+  "BucketAcl": {
+    "Grants": [
+      {
+        "Grantee": { "Type": "Group", "URI": "http://acs.amazonaws.com/groups/global/AllUsers" },
+        "Permission": "READ"
+      }
+    ]
+  },
+  "ServerSideEncryptionConfiguration": {
+    "Rules": [
+      {
+        "ApplyServerSideEncryptionByDefault": { "SSEAlgorithm": "AES256" },
+        "BucketKeyEnabled": false
+      }
+    ]
+  },
+  "Tags": [
+    { "Key": "owner", "Value": "ex-marketing-team" }
+  ]
+}

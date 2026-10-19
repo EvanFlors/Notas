@@ -1,0 +1,15 @@
+{
+  "rules": [
+    {
+      "rulePriority": 1,
+      "description": "TODO: describe rule 1 (e.g. keep last N release images)",
+      "selection": {
+        "tagStatus": "tagged",
+        "tagPrefixList": ["TODO"],
+        "countType": "imageCountMoreThan",
+        "countNumber": 0
+      },
+      "action": { "type": "expire" }
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+type,family,vcpu,memory_gib,arch,use_case,on_demand_usd_per_hour_eu_west_1
+# TODO: 6 filas. Al menos t4g.*, m7g o m7i, c7g o c7i, r7g o r7i, y una g/p (GPU).
+# Al final anade una linea de comentario con la FUENTE y FECHA de consulta de precios.

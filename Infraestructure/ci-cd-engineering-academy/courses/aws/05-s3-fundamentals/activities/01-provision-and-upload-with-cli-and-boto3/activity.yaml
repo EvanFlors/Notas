@@ -1,0 +1,31 @@
+id: aws-05-01-provision-and-upload-with-cli-and-boto3
+title: Provisionar bucket seguro y subir via CLI + boto3 (LocalStack)
+technology: aws
+module: 05-s3-fundamentals
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - aws-02-iam-fundamentals
+
+objectives:
+  - Levantar LocalStack y configurar la CLI y boto3 para apuntar al endpoint local
+  - Crear un bucket aplicando Block Public Access, ownership BucketOwnerEnforced y versioning
+  - Escribir un JSON de lifecycle con transiciones, limpieza de versiones y multipart aborts
+  - Escribir una bucket policy minima con Deny para aws:SecureTransport false
+  - Escribir un JSON de event notification estructuralmente valido
+  - Subir un objeto via aws s3 CLI y via boto3 y verificar que aparece versionado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-05-upload"
+
+status: not-started

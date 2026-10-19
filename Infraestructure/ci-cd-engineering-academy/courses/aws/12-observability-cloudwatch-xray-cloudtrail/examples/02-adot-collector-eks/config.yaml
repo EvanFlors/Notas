@@ -1,0 +1,64 @@
+# ADOT Collector — DaemonSet config (reference, do NOT deploy as-is).
+# Pipelines: traces -> X-Ray; metrics -> CloudWatch (EMF) + Prometheus RW; logs -> CloudWatch Logs.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 400
+    spike_limit_mib: 100
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: prod
+        action: upsert
+
+exporters:
+  awsxray:
+    region: us-east-1
+    # IRSA / Pod Identity provides credentials; no keys here.
+
+  awsemf:
+    region: us-east-1
+    log_group_name: /aws/metrics/app
+    namespace: App/Checkout
+    dimension_rollup_option: NoDimensionRollup
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  awscloudwatchlogs:
+    region: us-east-1
+    log_group_name: /aws/app/checkout
+    log_stream_name: otel-collector
+
+  prometheusremotewrite:
+    endpoint: https://prometheus.internal.example/api/v1/write
+    # auth handled via sigv4 or basic_auth extension in production.
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [awsxray]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [awsemf, prometheusremotewrite]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [awscloudwatchlogs]
+  telemetry:
+    logs:
+      level: info

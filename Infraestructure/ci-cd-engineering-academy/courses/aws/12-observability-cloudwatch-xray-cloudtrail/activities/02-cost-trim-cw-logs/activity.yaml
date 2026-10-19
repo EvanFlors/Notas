@@ -1,0 +1,30 @@
+id: aws-12-02-cost-trim-cw-logs
+title: Plan de retencion CloudWatch Logs + metric filter + Logs Insights + alarma
+technology: aws
+module: 12-observability-cloudwatch-xray-cloudtrail
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - aws-04-identity-iam-and-vpc-essentials
+
+objectives:
+  - Diseñar una politica de retention por tier (hot/warm/cold) con dias concretos
+  - Escribir un metric filter JSON estructuralmente valido (filterPattern + metricTransformations)
+  - Escribir una query CloudWatch Logs Insights util y acotada en tiempo
+  - Escribir una alarma CloudWatch JSON (estatica o composite) con treat_missing_data justificado
+  - Producir RETENTION.md explicando trade-offs de coste vs señal
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-12-cost"
+
+status: not-started

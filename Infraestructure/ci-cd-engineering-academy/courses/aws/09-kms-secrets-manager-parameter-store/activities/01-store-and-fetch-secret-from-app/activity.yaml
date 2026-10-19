@@ -1,0 +1,32 @@
+id: aws-09-01-store-and-fetch-secret-from-app
+title: Guardar y resolver un secreto desde una app con envelope encryption
+technology: aws
+module: 09-kms-secrets-manager-parameter-store
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - aws-02-iam-identity-and-access
+  - aws-05-vpc-networking-essentials
+  - aws-06-rds-and-managed-dbs
+
+objectives:
+  - Crear una CMK customer-managed en LocalStack y validar su key policy estructuralmente
+  - Guardar un secreto fake en Secrets Manager y un parametro fake SecureString en SSM Parameter Store cifrados con esa CMK
+  - Hacer envelope encryption E2E con boto3 sobre un payload local (GenerateDataKey + AES-GCM + Decrypt)
+  - Escribir un consumidor en Python que resuelva ambos valores como lo haria una app con IAM role
+  - Producir artifacts estructurales (key policy JSON, secret JSON, param JSON, app log, envelope artifact)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-09-store-fetch"
+
+status: not-started

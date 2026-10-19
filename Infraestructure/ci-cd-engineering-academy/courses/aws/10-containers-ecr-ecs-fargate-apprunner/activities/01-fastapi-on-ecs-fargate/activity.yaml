@@ -1,0 +1,32 @@
+id: aws-10-01-fastapi-on-ecs-fargate
+title: Correr una API FastAPI en ECS Fargate detras de un ALB (sin AWS real)
+technology: aws
+module: 10-containers-ecr-ecs-fargate-apprunner
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 90
+
+prerequisites:
+  - aws-02-iam-fundamentals
+  - aws-03-vpc-basics
+  - aws-07-networking-advanced
+
+objectives:
+  - Completar un task-definition.json valido para Fargate con networkMode awsvpc, execution role y task role separados y logging a CloudWatch
+  - Escribir Terraform de un ECS cluster, un ECS service con launch_type FARGATE y un ALB con target_type ip
+  - Justificar por que el ALB para Fargate usa target_type ip y no instance
+  - Separar correctamente execution_role_arn de task_role_arn y explicar que asume cada uno
+  - Pasar terraform init y terraform validate localmente sin tocar AWS
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/aws-10-ecs-fargate"
+
+status: not-started

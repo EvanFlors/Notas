@@ -1,0 +1,14 @@
+{
+  "Object": "public/campaigns/2024-black-friday/banner.png",
+  "Owner": { "DisplayName": "ex-marketing-team", "ID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  "Grants": [
+    {
+      "Grantee": { "Type": "CanonicalUser", "ID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      "Permission": "FULL_CONTROL"
+    },
+    {
+      "Grantee": { "Type": "Group", "URI": "http://acs.amazonaws.com/groups/global/AllUsers" },
+      "Permission": "READ"
+    }
+  ]
+}
