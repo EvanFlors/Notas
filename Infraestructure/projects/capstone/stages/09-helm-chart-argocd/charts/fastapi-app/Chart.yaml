@@ -1,0 +1,24 @@
+apiVersion: v2
+name: fastapi-app
+description: |
+  Chart propio para la aplicacion FastAPI del capstone (etapa 09).
+  Expone Deployment, Service, Ingress opcional, HPA opcional y
+  ConfigMap/Secret de referencia; esta disenado para instalarse via
+  Argo CD con una Application CR.
+type: application
+version: 0.1.0
+appVersion: "0.9.0"
+kubeVersion: ">=1.27.0-0"
+keywords:
+  - fastapi
+  - capstone
+  - gitops
+maintainers:
+  - name: capstone-maintainers
+    email: capstone@example.invalid
+home: https://example.invalid/capstone/fastapi-app
+sources:
+  - https://example.invalid/capstone/fastapi-app
+annotations:
+  category: Application
+  licenses: Apache-2.0

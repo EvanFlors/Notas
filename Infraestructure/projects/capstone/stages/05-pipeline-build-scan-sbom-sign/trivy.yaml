@@ -1,0 +1,38 @@
+# Trivy config para el gate de imagen del release pipeline.
+# Fuente: https://aquasecurity.github.io/trivy/latest/docs/references/configuration/config-file/
+
+format: sarif
+output: trivy-results.sarif
+
+# Falla el job cuando Trivy encuentra >=1 vulnerabilidad con severidad listada
+# y para la que existe una version fixed. Vulnerabilidades sin fix (unfixed)
+# no bloquean: se trackean en el SARIF para triage posterior.
+exit-code: 1
+severity:
+  - HIGH
+  - CRITICAL
+
+scan:
+  scanners:
+    - vuln
+    - secret
+    - misconfig
+  # Para una imagen de app Python, los lockfiles son la fuente de verdad.
+  skip-dirs:
+    - usr/share/doc
+    - var/cache
+
+vulnerability:
+  ignore-unfixed: true
+  type:
+    - os
+    - library
+
+misconfiguration:
+  include-non-failures: false
+
+secret:
+  config: ""
+
+# El timeout alto evita falsos negativos cuando GHCR pull es lento.
+timeout: 10m

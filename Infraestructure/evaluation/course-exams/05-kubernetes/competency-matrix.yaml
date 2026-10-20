@@ -1,0 +1,85 @@
+---
+# Matriz de competencias — Examen de certificación Kubernetes
+# Nivel objetivo: intermedio-avanzado (módulos k8s-06 a k8s-14, con guiños a k8s-15/16)
+# Dimensiones evaluadas: conceptual, operativa, arquitectónica
+# Umbral de aprobación: 70%
+
+exam:
+  course: kubernetes
+  level: intermedio-avanzado
+  duration_min: 90
+  duration_max: 120
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: K8S-C1
+    source_module: k8s-06
+    statement: "Elegir el workload controller correcto (Deployment, StatefulSet, DaemonSet, Job, CronJob) para una carga dada y justificar la elección."
+    dimension: conceptual
+    weight: 8
+
+  - id: K8S-C2
+    source_module: k8s-07
+    statement: "Diseñar NetworkPolicies con patrón default-deny y reglas explícitas por namespace/pod/puerto."
+    dimension: conceptual
+    weight: 8
+
+  - id: K8S-C3
+    source_module: k8s-08
+    statement: "Explicar el efecto de volumeBindingMode y StorageClass en clusters multi-AZ."
+    dimension: conceptual
+    weight: 6
+
+  - id: K8S-C4
+    source_module: k8s-09
+    statement: "Diagnosticar OOMKill vs CPU throttling a partir de síntomas y métricas; definir requests/limits realistas."
+    dimension: conceptual
+    weight: 8
+
+  - id: K8S-C5
+    source_module: k8s-10
+    statement: "Instrumentar startup/readiness/liveness probes correctamente y justificar su interacción con rollouts."
+    dimension: conceptual
+    weight: 8
+
+  - id: K8S-C6
+    source_module: k8s-12
+    statement: "Auditar RBAC excesivo y producir Role/RoleBinding de mínimo privilegio para un workload o usuario CI."
+    dimension: conceptual
+    weight: 6
+
+  - id: K8S-C7
+    source_module: k8s-13
+    statement: "Comparar HPA, VPA, Cluster Autoscaler y Karpenter; detectar oscilaciones y conflictos de métricas."
+    dimension: conceptual
+    weight: 6
+
+  - id: K8S-O1
+    source_module: k8s-10
+    statement: "Desplegar un Deployment en un cluster kind con probes bien instrumentadas, PDB y rollout sin downtime demostrado."
+    dimension: operativa
+    weight: 20
+
+  - id: K8S-O2
+    source_module: k8s-07
+    statement: "Aplicar NetworkPolicies default-deny + reglas explícitas y validar bloqueo/permiso con pods de prueba."
+    dimension: operativa
+    weight: 10
+
+  - id: K8S-A1
+    source_module: k8s-14 + k8s-16 + k8s-17
+    statement: "Decidir arquitectura de plataforma Kubernetes multi-equipo con trade-offs explícitos (controllers, policy-as-code, DR) y producir ADR."
+    dimension: arquitectonica
+    weight: 20
+
+sections:
+  conceptual:
+    weight_pct: 30
+    items: [K8S-C1, K8S-C2, K8S-C3, K8S-C4, K8S-C5, K8S-C6, K8S-C7]
+  operativa:
+    weight_pct: 40
+    items: [K8S-O1, K8S-O2]
+  arquitectonica:
+    weight_pct: 30
+    items: [K8S-A1]

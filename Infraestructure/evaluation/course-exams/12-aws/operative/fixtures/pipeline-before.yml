@@ -1,0 +1,39 @@
+# Workflow DADO AL ESTUDIANTE — está roto. El estudiante debe auditarlo y entregar un `after/pipeline.yml` corregido.
+name: deploy-to-aws
+
+on:
+  push:
+    branches: ["**"]
+
+env:
+  AWS_REGION: us-east-1
+  DB_PASSWORD: "Sup3rSecret!"            # <-- hallazgo
+  ECR_REPO: "999988887777.dkr.ecr.us-east-1.amazonaws.com/platform-api"  # <-- hallazgo (account id real)
+
+permissions:
+  contents: write                        # <-- hallazgo (demasiado + falta id-token)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}        # <-- hallazgo (long-lived keys)
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # <-- hallazgo
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build and push image
+        run: |
+          docker build -t $ECR_REPO:latest .                         # <-- hallazgo (:latest y sin scan/sign)
+          docker push $ECR_REPO:latest
+
+      - name: Deploy ECS service
+        run: |
+          aws ecs update-service \
+            --cluster platform \
+            --service api \
+            --force-new-deployment

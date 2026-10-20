@@ -1,0 +1,15 @@
+# Dummy Pod that MUST fail the Kyverno verifyImages policy.
+# Image is in acme/* namespace but points to a tag with no signature
+# attached. In the exam this is only a static manifest; the admission
+# webhook is simulated via `kyverno apply`.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-bad
+  namespace: default
+  labels:
+    app: api
+spec:
+  containers:
+    - name: api
+      image: ghcr.io/acme/api:unsigned-build

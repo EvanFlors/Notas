@@ -1,0 +1,116 @@
+---
+# Matriz de competencias — Examen de certificación del curso Jenkins
+# Nivel: intermedio-avanzado (cubre jk-03 a jk-08, con base en jk-01..02)
+# Dimensiones: conceptual, operativa, arquitectónica (todas)
+# Umbral de aprobación: 70%
+# Duración: 90-120 min
+exam:
+  course: jenkins
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: C1
+    source_module: jk-03
+    statement: "Explicar por qué Declarative Pipeline es el modo recomendado frente a Scripted/Freestyle y qué garantías de mantenibilidad/validación aporta su DSL restringido."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q1, OP-task-1]
+
+  - id: C2
+    source_module: jk-03
+    statement: "Diseñar un Jenkinsfile declarativo con stages paralelos, when conditionals, post handlers y agent por stage; justificar agent none a nivel pipeline cuando corresponda."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q2, OP-task-1]
+
+  - id: C3
+    source_module: jk-04
+    statement: "Diferenciar Scripted vs Declarative y defender el uso de Shared Libraries versionadas por tag/branch frente a copy-paste de Groovy en cada Jenkinsfile."
+    dimension: conceptual, arquitectonica
+    weight: 8
+    assessed_in: [Q3, ARCH]
+
+  - id: C4
+    source_module: jk-04
+    statement: "Criticar una Shared Library sin versionado ni tests y proponer plan de hardening (pinning por tag, JenkinsPipelineUnit, CODEOWNERS, PR obligatorio)."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q4]
+
+  - id: C5
+    source_module: jk-05
+    statement: "Justificar agents efímeros en Kubernetes (Pod por build) sobre agents permanentes en términos de seguridad, reproducibilidad y contamination; comparar con ARC de GitHub Actions."
+    dimension: conceptual, arquitectonica
+    weight: 7
+    assessed_in: [Q5, ARCH]
+
+  - id: C6
+    source_module: jk-05
+    statement: "Escribir un bloque agent { kubernetes { yaml ... } } multi-container (jnlp + build) correcto y predecir fallas comunes (pod pending, controller sobrecargado, timeouts)."
+    dimension: operativa
+    weight: 6
+    assessed_in: [OP-task-1]
+
+  - id: C7
+    source_module: jk-06
+    statement: "Explicar por qué un Jenkins sin JCasC es un snowflake irreproducible y qué secciones mínimas debe cubrir jenkins.yaml (security, credentials, nodes/clouds, jobs seed, tools)."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q6, OP-task-2]
+
+  - id: C8
+    source_module: jk-06
+    statement: "Definir y defender una estrategia de pinning y update de plugins (reducir superficie, pin de versión, ventana de upgrade, test en staging)."
+    dimension: arquitectonica
+    weight: 5
+    assessed_in: [Q7]
+
+  - id: C9
+    source_module: jk-07
+    statement: "Aplicar hardening baseline (RBAC con Role Strategy, credentials binding con withCredentials, Groovy sandbox + script approval, deshabilitar anonymous read, CSRF on) y auditar instalación legacy."
+    dimension: conceptual, operativa
+    weight: 10
+    assessed_in: [Q8, OP-task-2]
+
+  - id: C10
+    source_module: jk-07
+    statement: "Diferenciar credentials() binding vs withCredentials {} vs OIDC federation al cloud y predecir qué patrones filtran secretos en logs/env."
+    dimension: conceptual, operativa
+    weight: 7
+    assessed_in: [Q9, OP-task-1]
+
+  - id: C11
+    source_module: jk-08
+    statement: "Diseñar plan de migración de Jenkins a GHA/GitLab CI/Argo Workflows: inventario (incluyendo freestyle fantasma), clasificación migrar/consolidar/retirar, dual-run, criterios de retiro, ADR con rollback."
+    dimension: arquitectonica
+    weight: 10
+    assessed_in: [ARCH]
+
+  - id: C12
+    source_module: jk-08
+    statement: "Argumentar HA/backup/capacity del controller (single point of failure por diseño, Velero sobre JENKINS_HOME, agents escalan carga, controller coordina) y defender el plan contra 'si funciona no lo toques' y 'migra todo ya'."
+    dimension: conceptual, arquitectonica
+    weight: 5
+    assessed_in: [Q10, ARCH]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 35
+  arquitectonica_pct: 30
+
+red_flags:
+  - "Credenciales/tokens hardcodeados en Jenkinsfile, jenkins.yaml, scripts o Shared Library."
+  - "Uso de env.PASSWORD = '...' o echo \"$SECRET\" que filtra el secreto a logs; omitir withCredentials o credentialsBinding."
+  - "Shared Library cargada con @Library('name') sin pin por tag/branch (equivale a 'latest' en producción)."
+  - "Groovy sandbox deshabilitado o script approval global para evitar fricción (abre RCE al controller)."
+  - "Anonymous read habilitado o 'Logged-in users can do anything' como estrategia de autorización en prod."
+  - "Agents permanentes compartidos entre builds de distintos equipos sin workspace isolation (contamination + privilege leak)."
+  - "Jenkinsfile con agent any a nivel pipeline que mantiene ocupado un ejecutor del controller durante stages de aprobación manual (input)."
+  - "Montaje de docker.sock del host dentro de un agent para hacer docker build (equivale a root en host)."
+  - "JCasC con secretos en texto plano en lugar de referenciar credentials:// o secret manager."
+  - "Plan de migración sin dual-run y sin criterios objetivos de retiro de Jenkins."
+  - "Instalar/actualizar plugins con 'install latest' sin pinning ni ventana de prueba."
+  - "curl | bash desde fuente no verificada dentro de un sh step o en un script de bootstrap del controller."

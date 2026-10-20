@@ -1,0 +1,33 @@
+# Override para desarrollo local.
+# Se aplica automáticamente con `docker compose up` (sin -f explícito).
+#
+# Ajustes:
+#   - bind mount de ./app para hot-reload
+#   - comando con --reload de uvicorn (requiere `uvicorn[standard]` en requirements)
+#   - puertos expuestos al host para debug directo
+#   - restart `no` para no pelear con reinicios durante dev
+
+services:
+  app:
+    command:
+      - "python"
+      - "-m"
+      - "uvicorn"
+      - "app.main:app"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8000"
+      - "--reload"
+      - "--reload-dir"
+      - "/app/app"
+    volumes:
+      - ./app:/app/app:delegated
+    ports:
+      - "8000:8000"
+    restart: "no"
+
+  db:
+    ports:
+      - "5432:5432"
+    restart: "no"

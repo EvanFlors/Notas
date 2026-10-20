@@ -1,0 +1,31 @@
+id: cap-07-01-deploy-fastapi-to-one-cloud
+title: Desplegar la API FastAPI firmada en una nube gestionada (ECS Fargate, Cloud Run o Container Apps)
+technology: capstone
+module: 07-cloud-deploy-ecs-cloudrun-aca
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 120
+
+prerequisites:
+  - cap-05-pipeline-sign-sbom
+  - cap-06-iac-terraform-local
+
+objectives:
+  - Elegir UNA de las tres plataformas gestionadas (ECS Fargate, Cloud Run, Container Apps) y completar los TODO de su modulo Terraform.
+  - Pinnar la imagen por DIGEST (no por tag) para preservar la cadena de firma de cosign.
+  - Modelar correctamente la separacion identidad-ejecucion vs identidad-aplicacion (execution role vs task role; runtime SA; user-assigned identity).
+  - Guardar la DSN de Postgres en el secret manager del cloud y leerla desde el contenedor mediante la identidad del runtime, nunca en terraform.tfvars.
+  - Pasar terraform validate y el validador estructural de la actividad SIN tocar la nube real.
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: structural
+  command: "bash tests/validate.sh /tmp/cap-07-01"
+
+status: not-started

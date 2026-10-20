@@ -1,0 +1,31 @@
+# required-labels: todo Pod/Deployment debe traer labels de ownership mínimas.
+# Enforce para namespaces 'prod*', Audit en el resto (shift-right gradual).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-ownership-labels
+  annotations:
+    policies.kyverno.io/title: Required ownership labels
+    policies.kyverno.io/category: Governance
+    policies.kyverno.io/severity: medium
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+                - Deployment
+      validate:
+        message: >
+          Faltan labels obligatorias: app.kubernetes.io/name, app.kubernetes.io/owner,
+          app.kubernetes.io/env.
+        pattern:
+          metadata:
+            labels:
+              app.kubernetes.io/name: "?*"
+              app.kubernetes.io/owner: "?*"
+              app.kubernetes.io/env: "?*"

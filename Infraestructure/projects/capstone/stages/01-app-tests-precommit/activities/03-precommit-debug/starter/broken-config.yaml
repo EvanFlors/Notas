@@ -1,0 +1,9 @@
+---
+# This YAML is broken on purpose. Fix indentation (no tabs, 2 spaces),
+# remove trailing whitespace, and make it parse clean.
+service:
+	name: capstone
+  port: 8000
+  features:
+   - healthz
+   - tasks

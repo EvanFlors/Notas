@@ -1,0 +1,29 @@
+id: cap-10-01-rollout-canary-promotion
+title: Promoción canary multi-ambiente con Argo Rollouts y análisis
+technology: capstone
+module: 10-gitops-multi-env-argo-rollouts
+
+level: advanced
+type: guided-lab
+
+estimated_minutes: 120
+
+prerequisites:
+  - cap-09-helm-chart-y-argocd
+
+objectives:
+  - Desplegar un ApplicationSet que genere Applications para dev/staging/prod
+  - Convertir el Deployment del chart en un Rollout canary 5/25/50/100
+  - Enlazar el Rollout a una AnalysisTemplate de success-rate contra Prometheus
+  - Ejecutar una promoción 1.0.0 -> 1.1.0 observando los 4 pasos del canary
+  - Degradar la métrica manualmente y confirmar que el Rollout aborta y rollback
+
+paths:
+  instructions: README.md
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

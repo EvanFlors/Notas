@@ -1,0 +1,29 @@
+id: cap-04-01-build-and-compose-up
+title: Construir imagen y levantar Compose con healthcheck
+technology: capstone
+module: 04-dockerization-compose-dev
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - cap-01-app-and-tests
+  - cap-02-versioning-and-releases
+  - cap-03-ci-lint-test-sast-sca
+
+objectives:
+  - Construir una imagen OCI multi-stage no-root y verificar que no contiene toolchain
+  - Levantar la topologia app + db con docker compose y esperar healthy en ambos
+  - Confirmar que /healthz responde 200 desde el host y desde dentro del contenedor
+  - Limpiar imagenes, contenedores y volumenes al terminar
+
+paths:
+  instructions: README.md
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,58 @@
+---
+# Configuración de Argo CD Image Updater para la etapa 10 del capstone.
+# Las anotaciones específicas por Application viven en el ApplicationSet
+# (ver argocd/applicationsets/fastapi-app.yaml). Este ConfigMap define los
+# defaults globales: registry, estrategia de write-back a Git y log level.
+#
+# IMPORTANTE: el Secret `git-creds` contiene credenciales dummy. En la etapa
+# 12 se migrará a External Secrets Operator + Vault/SSM.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-image-updater-config
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: argocd-image-updater
+    capstone.stage: "10"
+data:
+  log.level: "info"
+  argocd.grpc_web: "true"
+  argocd.server_addr: "argocd-server.argocd.svc.cluster.local:443"
+  argocd.insecure: "false"
+  git.user: "argocd-image-updater"
+  git.email: "image-updater@capstone.local"
+  registries.conf: |
+    registries:
+      - name: GitHub Container Registry
+        api_url: https://ghcr.io
+        prefix: ghcr.io
+        ping: yes
+        credentials: secret:argocd/ghcr-creds#token
+        defaultns: library
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ghcr-creds
+  namespace: argocd
+  labels:
+    capstone.stage: "10"
+type: Opaque
+stringData:
+  # DUMMY: reemplazar vía ESO en etapa 12. NO es un token real.
+  token: "ghp_REPLACE_ME_DUMMY_TOKEN_000000000000000000"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-creds
+  namespace: argocd
+  labels:
+    capstone.stage: "10"
+  annotations:
+    argocd.argoproj.io/image-updater-write-back: "true"
+type: Opaque
+stringData:
+  # DUMMY: PAT con permisos repo:write para el repo de manifiestos.
+  username: "argocd-image-updater"
+  password: "ghp_REPLACE_ME_DUMMY_PAT_0000000000000000000"

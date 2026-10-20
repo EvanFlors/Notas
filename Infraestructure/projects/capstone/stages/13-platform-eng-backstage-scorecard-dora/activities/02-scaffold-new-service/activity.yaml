@@ -1,0 +1,28 @@
+id: cap-13-02-scaffold-new-service
+title: Scaffoldear un microservicio nuevo con el template de Backstage
+technology: capstone
+module: 13-platform-eng-backstage-scorecard-dora
+level: intermediate
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - cap-13-01-register-in-backstage
+
+objectives:
+  - Renderizar el skeleton del template sustituyendo ${{ values.* }}
+  - Producir un servicio nuevo (svc-reports) con pyproject + main.py + catalog-info.yaml
+  - Verificar que evaluate.py puede leerlo y lo reporta como "bronze" (owner si, lo demas no)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/cap-13-02"
+
+status: not-started

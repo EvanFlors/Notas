@@ -1,0 +1,24 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  tags:
+    - python
+    - fastapi
+  annotations:
+    github.com/project-slug: dummy-org/${{ values.name }}
+    # Scorecard contract — nace vacío; el equipo las rellena al desplegar.
+    slo_url: ""
+    runbook_url: ""
+    oncall_rotation: ""
+    image_signed: "false"
+    cves_critical: "0"
+    last_deploy_days: "9999"
+    k8s_psa: baseline
+spec:
+  type: service
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  system: capstone
+  tier: ${{ values.tier }}

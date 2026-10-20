@@ -1,0 +1,68 @@
+# STARTER — workflow intencionalmente vulnerable e ineficiente.
+# El estudiante debe entregar una versión endurecida en .github/workflows/ci.yml
+# que cumpla la rúbrica. NO borrar los comentarios "VULN:" ni los TODO del starter;
+# re-escribir el archivo completo en el entregable.
+
+name: build-test-deploy
+
+on:
+  pull_request_target:            # VULN-A: trigger expone secrets a código del PR
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: write-all            # VULN-B: GITHUB_TOKEN con máximos privilegios
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4   # VULN-C: tag mutable + checkout del head del PR
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # VULN-D: interpolación directa del título del PR en un run: → script injection
+      - name: Greet PR
+        run: |
+          echo "Processing PR titled: ${{ github.event.pull_request.title }}"
+
+      # INEFICIENCIA-E: sin cache, instala desde cero en cada run
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest   # INEFICIENCIA-F: solo tag mutable
+      # FALTA-G: ni SBOM, ni attestation, ni firma
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    # VULN-H: credenciales AWS de larga vida en secrets (debe migrarse a OIDC)
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: aws s3 sync ./dist s3://my-prod-bucket/   # VULN-I: deploy directo a prod sin environment + approval
+      # FALTA-J: sin concurrency → dos pushes a main pueden pisarse en prod

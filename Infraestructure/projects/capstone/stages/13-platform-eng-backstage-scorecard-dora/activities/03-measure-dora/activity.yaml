@@ -1,0 +1,28 @@
+id: cap-13-03-measure-dora
+title: Reparar un events.json roto y computar las 4 metricas DORA
+technology: capstone
+module: 13-platform-eng-backstage-scorecard-dora
+level: intermediate
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - cap-13-01-register-in-backstage
+
+objectives:
+  - Diagnosticar JSON invalido y fechas no ISO en un stream de eventos
+  - Reparar relaciones commit<->deploy<->incident
+  - Correr compute_dora.py y clasificar capstone-app en un bucket consistente
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/cap-13-03"
+
+status: not-started

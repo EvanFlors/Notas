@@ -1,0 +1,31 @@
+id: cap-12-01-eso-vault-wiring
+title: Cablear External Secrets Operator contra Vault en el capstone
+technology: capstone
+module: 12-devsecops-eso-kyverno-falco-pac
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - cap-08-kubernetes
+  - cap-09-helm-argocd
+
+objectives:
+  - Instalar ESO con Helm en namespace dedicado
+  - Configurar un ClusterSecretStore apuntando a Vault con kubernetes-auth
+  - Crear un ExternalSecret que materialice `capstone-app`
+  - Verificar que el Secret se sincroniza y que el refresh funciona
+  - Comprobar que no queda ningun `kind: Secret` con `data:` en Git
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

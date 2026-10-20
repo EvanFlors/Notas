@@ -1,0 +1,3 @@
+line one has trailing spaces
+line two is clean
+line three also has them

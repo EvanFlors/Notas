@@ -1,0 +1,5 @@
+[project]
+name = "fastapi-notes"
+version = "0.0.0"
+description = "Capstone — Etapa 1 baseline, versioned by release-please from Etapa 2."
+requires-python = ">=3.11"

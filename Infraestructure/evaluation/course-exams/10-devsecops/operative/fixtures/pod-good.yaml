@@ -1,0 +1,14 @@
+# Dummy Pod that MUST pass the Kyverno verifyImages policy.
+# The image reference uses the acme/* prefix the policy guards.
+# This file is intentionally minimal; it is NOT scheduled anywhere.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-good
+  namespace: default
+  labels:
+    app: api
+spec:
+  containers:
+    - name: api
+      image: ghcr.io/acme/api:v1.2.3

@@ -1,0 +1,30 @@
+id: cap-03-01-wire-up-ci
+title: Cablear el pipeline de CI (lint + test + SAST + SCA + secret scan)
+technology: capstone
+module: 03-ci-lint-test-sast-sca-secret-scan
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - cap-01-app-tests-precommit
+  - cap-02-semver-and-releases
+
+objectives:
+  - Clonar los workflows ci.yml y pr.yml al repo del capstone
+  - Correr los seis jobs del pipeline con act o en GitHub Actions
+  - Interpretar y corregir un hallazgo intencional de bandit
+  - Verificar que los SARIF agregados aparezcan en Code Scanning
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

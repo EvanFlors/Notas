@@ -1,0 +1,30 @@
+id: cap-15-01-write-blameless-postmortem
+title: Escribir un postmortem blameless a partir del escenario inyectado
+technology: capstone
+module: 15-postmortem-simulated-runbook
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - cap-14-01-load-and-chaos-dr-plan
+
+objectives:
+  - Trasladar el escenario de incident/scenario.md a un postmortem completo
+  - Aplicar la plantilla Google SRE (summary, impact, timeline, root cause, resolution, action items, lessons learned)
+  - Cuantificar impacto con datos reales (requests, usuarios, SLO burn)
+  - Formular causa raíz hasta nivel de proceso, no solo técnico
+  - Producir al menos un action item preventive con owner y due date
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/cap-15-01"
+
+status: not-started

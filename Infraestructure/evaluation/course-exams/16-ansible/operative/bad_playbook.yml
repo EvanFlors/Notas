@@ -1,0 +1,22 @@
+---
+# ANTI-PATRÓN INTENCIONAL — no copies tal cual.
+# El estudiante debe reescribirlo en good_playbook.yml como ejercicio OP-task-2.
+# Problemas a corregir:
+#   - shell/command sin creates/removes ni changed_when (siempre reporta changed)
+#   - escritura de archivo con echo (no idempotente, sin diff)
+#   - "reinicio" simulado como task en vez de handler notificado
+#   - sin template, sin block/rescue, sin --check safety net
+- name: Bad playbook (anti-pattern)
+  hosts: local
+  gather_facts: false
+  tasks:
+    - name: Ensure app directory exists
+      ansible.builtin.shell: mkdir -p /tmp/ans-exam
+
+    - name: Write app config
+      ansible.builtin.shell: |
+        echo "port={{ app_port }}" > /tmp/ans-exam/app.conf
+        echo "env={{ app_env }}" >> /tmp/ans-exam/app.conf
+
+    - name: Restart app (fake)
+      ansible.builtin.shell: echo "restarting app at $(date)" >> /tmp/ans-exam/restart.log

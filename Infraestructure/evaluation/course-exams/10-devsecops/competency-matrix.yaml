@@ -1,0 +1,117 @@
+---
+# Matriz de competencias — Examen de certificación DevSecOps
+# Curso: devsecops (sec-01 … sec-14)
+# Nivel: intermedio-avanzado
+# Dimensión: todas (conceptual, operativa, arquitectónica)
+# Duración objetivo: 90–120 min
+# Umbral de aprobación: 70% del total ponderado
+
+exam:
+  course: devsecops
+  level: intermedio-avanzado
+  duration_min: 90
+  duration_max: 120
+  pass_threshold: 0.70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  # ------------- CONCEPTUAL -------------
+  - id: C1
+    text: "Distinguir las garantías de SLSA L1 vs L2 vs L3 y justificar qué ataque previene cada salto"
+    source_module: sec-08
+    dimension: conceptual
+    weight: 6
+
+  - id: C2
+    text: "Diferenciar SBOM (inventario) de provenance (historia) y explicar qué pregunta responde cada uno"
+    source_module: sec-08
+    dimension: conceptual
+    weight: 5
+
+  - id: C3
+    text: "Justificar por qué cosign keyless reduce el blast radius comparado con el modelo de claves custodiadas"
+    source_module: sec-09
+    dimension: conceptual
+    weight: 6
+
+  - id: C4
+    text: "Explicar qué garantiza (y qué NO garantiza) una verificación de firma sin --certificate-identity"
+    source_module: sec-09
+    dimension: conceptual
+    weight: 6
+
+  - id: C5
+    text: "Elegir Kyverno vs OPA/Gatekeeper vs policy-controller vs ValidatingAdmissionPolicy con criterio técnico"
+    source_module: sec-11
+    dimension: conceptual
+    weight: 6
+
+  - id: C6
+    text: "Explicar por qué CVSS, EPSS y KEV responden preguntas distintas y cuándo priorizar cada señal"
+    source_module: sec-03
+    dimension: conceptual
+    weight: 5
+
+  - id: C7
+    text: "Argumentar por qué rotar antes de reescribir historia es la secuencia correcta ante un leak de secreto"
+    source_module: sec-04
+    dimension: conceptual
+    weight: 5
+
+  - id: C8
+    text: "Diferenciar policy-as-code en IaC (Conftest sobre plan JSON) vs admisión en cluster (Kyverno)"
+    source_module: sec-10,sec-11
+    dimension: conceptual
+    weight: 5
+
+  # ------------- OPERATIVA -------------
+  - id: O1
+    text: "Generar un SBOM CycloneDX de una imagen con Syft y validar su contenido"
+    source_module: sec-08
+    dimension: operativa
+    weight: 8
+
+  - id: O2
+    text: "Escanear la misma imagen con Trivy, producir SARIF y aplicar política de severidad"
+    source_module: sec-05
+    dimension: operativa
+    weight: 7
+
+  - id: O3
+    text: "Escribir y testear una policy Rego con Conftest sobre un Terraform plan JSON"
+    source_module: sec-10
+    dimension: operativa
+    weight: 8
+
+  - id: O4
+    text: "Escribir una ClusterPolicy Kyverno que exija imágenes firmadas por una identity OIDC concreta"
+    source_module: sec-11
+    dimension: operativa
+    weight: 8
+
+  - id: O5
+    text: "Simular verificación cosign keyless (dry-run con dummy identity) y detectar un verify inseguro"
+    source_module: sec-09
+    dimension: operativa
+    weight: 7
+
+  # ------------- ARQUITECTONICA -------------
+  - id: A1
+    text: "Diseñar el contrato de gates de seguridad (block/warn/nightly) de una plataforma con trade-offs explícitos"
+    source_module: sec-14
+    dimension: arquitectonica
+    weight: 10
+
+  - id: A2
+    text: "Escribir un ADR que elija entre Kyverno, Gatekeeper y VAP para un escenario concreto"
+    source_module: sec-11
+    dimension: arquitectonica
+    weight: 8
+
+scoring:
+  # Peso por sección (coherente con pesos individuales)
+  conceptual_total: 44
+  operativa_total: 38
+  arquitectonica_total: 18
+  grand_total: 100
+  passing_score: 70

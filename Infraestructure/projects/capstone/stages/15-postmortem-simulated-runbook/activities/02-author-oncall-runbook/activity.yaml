@@ -1,0 +1,30 @@
+id: cap-15-02-author-oncall-runbook
+title: Escribir el runbook on-call para pool exhaustion
+technology: capstone
+module: 15-postmortem-simulated-runbook
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - cap-15-01-write-blameless-postmortem
+
+objectives:
+  - Transformar los aprendizajes del postmortem en un runbook ejecutable
+  - Aplicar el patrón symptoms -> diagnostics -> mitigations -> escalation -> recovery -> verification
+  - Ordenar mitigaciones de menos a más invasivas con criterios explícitos
+  - Especificar criterios cuantitativos de escalation y verification
+  - Documentar al menos dos descartes rápidos (falsas pistas típicas)
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/cap-15-02"
+
+status: not-started

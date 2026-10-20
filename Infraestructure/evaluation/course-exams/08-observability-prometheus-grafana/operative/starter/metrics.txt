@@ -1,0 +1,37 @@
+# /metrics sintético del servicio checkout-api — contiene 4 problemas plantados.
+# Problema A: nombre sin unidad y tipo incorrecto (counter que decrece).
+# Problema B: histogram con label de alta cardinalidad (path con UUID).
+# Problema C: summary con quantile exportado por target -> agregación entre
+#             targets es matemáticamente inválida.
+# Problema D: gauge nombrado como "_total" (sufijo reservado a counters).
+
+# HELP checkout_orders Total de ordenes procesadas (en realidad: pending gauge).
+# TYPE checkout_orders counter
+checkout_orders 42
+checkout_orders 41
+checkout_orders 44
+
+# HELP http_request_duration_seconds Latencia HTTP.
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{path="/items/9e1b4a2c-9d10-4b1f-8b8d-7a9e3c0f6a21",le="0.1"} 10
+http_request_duration_seconds_bucket{path="/items/9e1b4a2c-9d10-4b1f-8b8d-7a9e3c0f6a21",le="0.5"} 25
+http_request_duration_seconds_bucket{path="/items/9e1b4a2c-9d10-4b1f-8b8d-7a9e3c0f6a21",le="+Inf"} 30
+http_request_duration_seconds_sum{path="/items/9e1b4a2c-9d10-4b1f-8b8d-7a9e3c0f6a21"} 7.3
+http_request_duration_seconds_count{path="/items/9e1b4a2c-9d10-4b1f-8b8d-7a9e3c0f6a21"} 30
+
+# HELP http_latency Latencia (summary con cuantiles pre-computados por instancia).
+# TYPE http_latency summary
+http_latency{quantile="0.5"} 0.12
+http_latency{quantile="0.95"} 0.44
+http_latency{quantile="0.99"} 1.21
+http_latency_sum 123.4
+http_latency_count 1000
+
+# HELP active_connections_total Numero de conexiones TCP abiertas.
+# TYPE active_connections_total gauge
+active_connections_total 37
+
+# HELP http_requests_total Total requests.
+# TYPE http_requests_total counter
+http_requests_total{service="checkout-api",status="200"} 10234
+http_requests_total{service="checkout-api",status="500"} 123

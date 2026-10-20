@@ -1,0 +1,44 @@
+# Gitleaks config — capstone etapa 3.
+# Nunca commitees secretos reales. Los dummies de test deben llevar prefijo
+# obvio (`dummy_`, `example_`, `fake_`) y vivir bajo `tests/fixtures/`.
+
+title = "capstone-stage-03-gitleaks"
+
+[extend]
+# Hereda las reglas por defecto de gitleaks y agrega las propias.
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Reglas custom
+# ---------------------------------------------------------------------------
+[[rules]]
+id = "capstone-generic-api-token"
+description = "Token tipo api_key/api_token asignado como string"
+regex = '''(?i)(api[_-]?(key|token)|secret[_-]?key)\s*[:=]\s*["']([A-Za-z0-9_\-]{20,})["']'''
+tags = ["key", "custom"]
+
+[[rules]]
+id = "capstone-postgres-url"
+description = "Cadena de conexion Postgres con password embebido"
+regex = '''postgres(ql)?:\/\/[^:\/\s]+:[^@\/\s]{6,}@'''
+tags = ["db", "custom"]
+
+# ---------------------------------------------------------------------------
+# Allowlist — fixtures y dummies obvios
+# ---------------------------------------------------------------------------
+[allowlist]
+description = "Paths y patrones que no son secretos reales"
+paths = [
+  '''^tests/fixtures/''',
+  '''^docs/''',
+  '''\.gitleaks\.toml$''',
+  '''pyproject\.toml$''',
+  '''^README\.md$''',
+]
+regexes = [
+  '''dummy_[A-Za-z0-9_\-]+''',
+  '''example_[A-Za-z0-9_\-]+''',
+  '''fake_[A-Za-z0-9_\-]+''',
+  '''changeme''',
+  '''postgres:\/\/postgres:postgres@localhost''',
+]

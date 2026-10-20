@@ -1,0 +1,28 @@
+id: cap-01-02-pytest-coverage
+title: Elevar la cobertura de la app a >= 80% y justificar branches no cubiertas
+technology: capstone
+module: 01-app-tests-precommit
+level: intermediate
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - cap-01-01-bootstrap-app
+
+objectives:
+  - Escribir pruebas en pytest que cubran happy path y errores (404, 422)
+  - Correr pytest con --cov y leer el reporte de branches
+  - Justificar en REFERENCE.md por qué una branch no cubierta es aceptable
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/cap-01-02"
+
+status: not-started

@@ -1,0 +1,116 @@
+---
+# Matriz de competencias — Examen de certificación del curso Ansible
+# Nivel: intermedio-avanzado (cubre ans-04..ans-10, con base en ans-01..ans-03)
+# Dimensiones: conceptual, operativa, arquitectónica (todas)
+# Umbral de aprobación: 70%
+# Duración: 90-120 min
+exam:
+  course: ansible
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: C1
+    source_module: ans-01
+    statement: "Explicar el modelo de ejecución de Ansible (push + agentless + SSH + Python en el target) y justificar cuándo CM aporta frente a IaC o imágenes inmutables."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q1]
+
+  - id: C2
+    source_module: ans-02, ans-07
+    statement: "Diagnosticar por qué una task se reporta como changed en cada corrida y convertir un playbook no idempotente (shell/command) en uno idempotente real (creates/removes, changed_when, módulo nativo)."
+    dimension: conceptual, operativa
+    weight: 12
+    assessed_in: [Q2, OP-task-2]
+
+  - id: C3
+    source_module: ans-02
+    statement: "Explicar la semántica de handlers (notify, ejecución al final del play, una sola vez) y qué pasa si el play falla antes de que corran los handlers (--force-handlers)."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q3]
+
+  - id: C4
+    source_module: ans-03
+    statement: "Predecir el valor final de una variable considerando precedence (defaults de role < group_vars < host_vars < play vars < extra vars) y justificar por qué defaults vs vars no son intercambiables en un role."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q4]
+
+  - id: C5
+    source_module: ans-04
+    statement: "Diseñar roles cohesivos (responsabilidad única, defaults como contrato público, vars como implementación interna) y elegir include_role vs import_role según necesidad de evaluación lazy vs eager."
+    dimension: conceptual, arquitectonica
+    weight: 7
+    assessed_in: [Q5, ARCH]
+
+  - id: C6
+    source_module: ans-05
+    statement: "Gestionar collections con requirements.yml + lockfile y definir criterios para adoptar/rechazar una collection de terceros (mantenimiento, firma, cobertura de módulos usados)."
+    dimension: operativa, arquitectonica
+    weight: 6
+    assessed_in: [Q6, ARCH]
+
+  - id: C7
+    source_module: ans-06
+    statement: "Justificar por qué ansible-vault no basta como estrategia de secretos a escala y diseñar la integración con un secret manager externo (lookup en tiempo de ejecución, rotación, no_log)."
+    dimension: conceptual, arquitectonica
+    weight: 8
+    assessed_in: [Q7, ARCH]
+
+  - id: C8
+    source_module: ans-07
+    statement: "Elegir y aplicar patrones avanzados (delegate_to, run_once, serial, block/rescue, async/poll) justificando el trade-off frente a la alternativa simple."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q8, OP-task-3]
+
+  - id: C9
+    source_module: ans-08
+    statement: "Diseñar un pipeline de role con ansible-lint + Molecule (ciclo destroy→create→prepare→converge→idempotence→verify) y matrix CI de distros, explicando qué garantiza cada etapa."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q9, OP-task-4]
+
+  - id: C10
+    source_module: ans-09, ans-10
+    statement: "Definir el contrato Ansible de la organización: dónde aporta (Day-2 ops, legacy, bare metal, bootstrap) y dónde no (apps K8s, aprovisionamiento cloud, config de contenedores), defendiéndolo con criterios reproducibles."
+    dimension: arquitectonica
+    weight: 10
+    assessed_in: [Q10, ARCH]
+
+  - id: C11
+    source_module: ans-09
+    statement: "Comparar el patrón mutable (TF crea → Ansible configura long-lived hosts) con el inmutable (Packer+Ansible → AMI → TF usa AMI) y elegir fundamentadamente para un workload concreto."
+    dimension: arquitectonica
+    weight: 7
+    assessed_in: [Q11, ARCH]
+
+  - id: C12
+    source_module: ans-01, ans-07
+    statement: "Operar inventories dinámicos (filtros por tag/label) y aplicar --check/--diff como red de seguridad previa a producción, interpretando sus limitaciones (módulos que no soportan check mode)."
+    dimension: conceptual, operativa
+    weight: 5
+    assessed_in: [Q12, OP-task-1]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 40
+  arquitectonica_pct: 25
+
+red_flags:
+  - "Secretos (contraseñas, tokens, llaves privadas) hardcodeados en playbooks, inventory, group_vars o templates sin cifrar."
+  - "Uso de shell/command sin creates/removes ni changed_when, simulando idempotencia que no existe."
+  - "become: true o become_user: root global sin justificación task-por-task."
+  - "ansible-vault password en el repo, en variables de CI sin cifrar, o commiteado en el mismo repo que los archivos cifrados."
+  - "Playbook que despliega una aplicación corriendo en Kubernetes (debería ser Helm/Kustomize + GitOps)."
+  - "Aprovisionar recursos cloud con módulos community.aws cuando existe código Terraform en la organización (viola el contrato IaC vs CM)."
+  - "no_log omitido en tasks que manejan secretos (los imprime en stdout/logs de CI)."
+  - "Inventory dinámico con credenciales de larga vida en variables de entorno del runner en vez de workload identity."
+  - "Playbook sin ejecución previa en --check contra producción."
+  - "Role publicado sin README que documente variables requeridas, OS soportados y ejemplo mínimo."
+  - "Dependencia de collection sin versión fijada (requirements.yml sin version: ni lockfile)."
+  - "copy/paste de un playbook sin adaptar hosts:, variables ni rutas (señal de 'ejecutó sin entender')."

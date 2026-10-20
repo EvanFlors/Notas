@@ -1,0 +1,28 @@
+id: cap-09-01-build-helm-chart
+title: Chart Helm propio para la app FastAPI
+technology: capstone
+module: 09-helm-chart-argocd
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - cap-08-01-k8s-port
+
+objectives:
+  - Construir un chart Helm propio con _helpers.tpl, values.schema.json y NOTES.txt
+  - Correr helm lint y helm template sin errores
+  - Verificar que values.schema.json rechaza tipos invalidos
+  - Entender por que preferimos chart propio vs helm create
+
+paths:
+  instructions: README.md
+  starter: ../../charts/fastapi-app/
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

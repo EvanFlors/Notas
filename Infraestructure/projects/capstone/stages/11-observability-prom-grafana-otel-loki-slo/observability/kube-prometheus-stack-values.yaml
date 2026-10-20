@@ -1,0 +1,133 @@
+---
+# Values for prometheus-community/kube-prometheus-stack (chart >= 65.0.0).
+# Keep it small enough to run on a kind cluster or a 2-node EKS/GKE/AKS.
+# All credentials below are DUMMIES; replace via ExternalSecrets in stage 12.
+
+fullnameOverride: kps
+
+defaultRules:
+  create: true
+  rules:
+    # SLO/burn-rate rules live in a dedicated PrometheusRule we ship ourselves.
+    etcd: false
+    kubeScheduler: false
+
+alertmanager:
+  enabled: true
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: "null"
+      group_by: ["alertname", "service", "severity"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+        - matchers:
+            - severity = "page"
+          receiver: "webhook-dummy"
+          continue: true
+        - matchers:
+            - severity = "ticket"
+          receiver: "webhook-dummy"
+    receivers:
+      - name: "null"
+      - name: "webhook-dummy"
+        webhook_configs:
+          # Didactic receiver only. Replace with PagerDuty/Opsgenie later.
+          - url: "https://webhook.site/00000000-0000-0000-0000-000000000000"
+            send_resolved: true
+    inhibit_rules:
+      - source_matchers:
+          - severity = "page"
+        target_matchers:
+          - severity = "ticket"
+        equal: ["service", "slo"]
+  alertmanagerSpec:
+    replicas: 1
+    retention: 120h
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    replicas: 1
+    retention: 10d
+    retentionSize: "8GiB"
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    # The operator discovers ANY ServiceMonitor/PrometheusRule in ANY namespace,
+    # as long as it matches the labels we set below. This matches the stage 9
+    # convention of shipping SM/PR next to the app chart.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    serviceMonitorSelector:
+      matchLabels:
+        release: kps
+    ruleSelector:
+      matchLabels:
+        release: kps
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+    # remoteWrite is DISABLED by default; wire a managed Prometheus/AMP later.
+    remoteWrite: []
+
+grafana:
+  enabled: true
+  adminPassword: "dummy_change_me_do_not_commit_real_secrets"
+  defaultDashboardsEnabled: true
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+    datasources:
+      enabled: true
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki.observability.svc:3100
+      isDefault: false
+    - name: Tempo
+      type: tempo
+      access: proxy
+      url: http://tempo.observability.svc:3200
+      isDefault: false
+      jsonData:
+        tracesToLogsV2:
+          datasourceUid: loki
+          tags: [{ key: "service.name", value: "service" }]
+  service:
+    type: ClusterIP
+
+nodeExporter:
+  enabled: true
+kubeStateMetrics:
+  enabled: true
+prometheusOperator:
+  admissionWebhooks:
+    patch:
+      enabled: true

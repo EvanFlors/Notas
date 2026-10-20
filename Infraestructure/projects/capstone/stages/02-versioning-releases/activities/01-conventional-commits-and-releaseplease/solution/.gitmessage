@@ -1,0 +1,24 @@
+# <type>(<scope>): <short summary, imperative, <=72 chars>
+#
+# Allowed <type>:
+#   feat     — new user-facing feature            -> minor bump
+#   fix      — bug fix                            -> patch bump
+#   perf     — performance improvement            -> patch bump
+#   refactor — code change without feature/fix    -> no bump
+#   docs     — documentation only                 -> no bump
+#   test     — tests only                         -> no bump
+#   build    — build system / dependencies        -> no bump
+#   ci       — CI / release config                -> no bump
+#   chore    — housekeeping                       -> no bump
+#   revert   — revert of a previous commit        -> see footer
+#
+# <scope> is optional: api, db, auth, release, deps, ...
+#
+# ---- body (optional, wrap at 72) ----
+# Why the change is needed, what alternative was discarded,
+# links to issues (Refs: #123).
+#
+# ---- footer (optional) ----
+# BREAKING CHANGE: describe the incompatible change    -> major bump
+# Refs: #123
+# Co-authored-by: Name <email>

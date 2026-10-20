@@ -1,0 +1,49 @@
+---
+# Values for grafana/tempo chart >= 1.10.0. SingleBinary mode.
+# OTLP gRPC on :4317, OTLP HTTP on :4318, query API on :3200.
+
+tempo:
+  reportingEnabled: false
+  retention: 72h
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+  overrides:
+    defaults:
+      ingestion:
+        rate_limit_bytes: 20000000
+        burst_size_bytes: 30000000
+      metrics_generator:
+        processors: [service-graphs, span-metrics]
+
+persistence:
+  enabled: true
+  size: 10Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+serviceMonitor:
+  enabled: true
+  additionalLabels:
+    release: kps
+
+# Enable the metrics-generator so Tempo can emit service-graph + span-metrics
+# that Prometheus scrapes — unlocks the RED panels in Grafana without extra code.
+metricsGenerator:
+  enabled: true
+  remoteWriteUrl: http://kps-prometheus.observability.svc:9090/api/v1/write

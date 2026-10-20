@@ -1,0 +1,123 @@
+---
+# Matriz de competencias — Examen de certificación del curso Argo CD y GitOps
+# Nivel: intermedio-avanzado (cubre argo-04 a argo-11, con base en argo-01..03)
+# Dimensiones: conceptual, operativa, arquitectónica (todas)
+# Umbral de aprobación: 70%
+# Duración: 90-120 min
+exam:
+  course: argocd-gitops
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: C1
+    source_module: argo-01
+    statement: "Explicar los 4 principios OpenGitOps (declarative, versioned & immutable, pulled automatically, continuously reconciled) y detectar GitOps-washing (pipeline que ejecuta kubectl apply)."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q1]
+
+  - id: C2
+    source_module: argo-03
+    statement: "Diferenciar sync status y health status, y predecir el comportamiento ante drift segun selfHeal/prune habilitado o deshabilitado."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q2]
+
+  - id: C3
+    source_module: argo-03, argo-04
+    statement: "Justificar el uso de ignoreDifferences para campos gestionados por otros controllers (HPA/VPA) y predecir el fight-loop si no se aplica."
+    dimension: conceptual, operativa
+    weight: 6
+    assessed_in: [Q3, OP-task-2]
+
+  - id: C4
+    source_module: argo-04
+    statement: "Explicar por que Argo CD renderiza Helm con 'helm template' + apply (no helm install) y las implicaciones sobre hooks de Helm vs Argo CD hooks."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q4]
+
+  - id: C5
+    source_module: argo-05
+    statement: "Disenar politica de sync segura por ambiente (manual approval en prod vs automated+selfHeal en dev) y orquestar dependencias con sync-waves + PreSync hooks."
+    dimension: conceptual, operativa, arquitectonica
+    weight: 10
+    assessed_in: [Q5, OP-task-3, ARCH]
+
+  - id: C6
+    source_module: argo-06
+    statement: "Diferenciar Argo CD RBAC (quien hace que en Argo CD) de K8s RBAC (que hace Argo CD en el cluster target) y auditar un AppProject con destinations='*/*' proponiendo least-privilege."
+    dimension: conceptual, arquitectonica
+    weight: 8
+    assessed_in: [Q6, ARCH]
+
+  - id: C7
+    source_module: argo-07
+    statement: "Elegir entre app-of-apps y ApplicationSet con el generator apropiado (List/Cluster/Git/Matrix/PR) y justificar PR generator + delete-on-close para preview environments."
+    dimension: conceptual, operativa, arquitectonica
+    weight: 10
+    assessed_in: [Q7, OP-task-4, ARCH]
+
+  - id: C8
+    source_module: argo-08
+    statement: "Comparar in-cluster vs control-plane multi-cluster y defender un patron de bootstrap reproducible, incluyendo riesgos de 'Argo CD gestionado por Argo CD' y mitigaciones."
+    dimension: arquitectonica
+    weight: 8
+    assessed_in: [Q8, ARCH]
+
+  - id: C9
+    source_module: argo-09
+    statement: "Elegir entre SOPS/KSOPS, Sealed Secrets, ESO y CSI Driver segun blast radius, rotacion y dependencias organizacionales; justificar por que un Secret en claro en Git siempre viola GitOps."
+    dimension: conceptual, arquitectonica
+    weight: 8
+    assessed_in: [Q9, ARCH]
+
+  - id: C10
+    source_module: argo-10
+    statement: "Disenar criterios de analysis SLI-based (success rate, latencia p99) para una canary con auto-promotion y explicar la diferencia entre split por replicas vs split por traffic management explicito."
+    dimension: conceptual, arquitectonica
+    weight: 8
+    assessed_in: [Q10, ARCH]
+
+  - id: C11
+    source_module: argo-11
+    statement: "Auditar una instalacion default de Argo CD y producir plan de hardening priorizado (SSO obligatorio, deshabilitar admin local, Pod Security restricted, backup del namespace)."
+    dimension: conceptual, operativa, arquitectonica
+    weight: 10
+    assessed_in: [Q11, OP-task-5, ARCH]
+
+  - id: C12
+    source_module: argo-04, argo-05
+    statement: "Diagnosticar un Application atascado en OutOfSync/Degraded leyendo diff, events, logs del repo-server/application-controller, y aplicar la correccion minima."
+    dimension: operativa
+    weight: 10
+    assessed_in: [OP-task-1, OP-task-2]
+
+  - id: C13
+    source_module: argo-03
+    statement: "Explicar por que targetRevision=HEAD es un anti-patron en artefactos productivos y cuando usar branch vs tag vs commit SHA."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q12]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 40
+  arquitectonica_pct: 25
+
+red_flags:
+  - "Secretos en claro (tokens, passwords, kubeconfigs) commitados al repo de infra."
+  - "AppProject con sourceRepos='*', destinations='*/*' y clusterResourceWhitelist='*' sin justificacion."
+  - "Admin local de Argo CD habilitado en produccion sin SSO ni rotacion documentada."
+  - "selfHeal=true activado globalmente sin considerar incidentes (revierte parches de emergencia hechos con kubectl)."
+  - "targetRevision: HEAD o branch mutable (main) usado como referencia de release productiva."
+  - "Argo CD corriendo con cluster-admin en todos los clusters target sin razon tecnica documentada."
+  - "Pipeline externo (GitHub Actions, Jenkins) que ejecuta kubectl apply hacia prod y lo llama 'GitOps'."
+  - "Hooks de Helm (pre-install) copiados tal cual en charts gestionados por Argo CD sin convertirlos a sync-waves o Argo CD hooks."
+  - "Credenciales de repo (SSH key, PAT) hardcodeadas en argocd-cm o commitadas en el repo de bootstrap."
+  - "Uso de 'curl | bash' en initContainers o Jobs de PreSync desde fuentes no verificadas."
+  - "ApplicationSet con PR generator que no limpia Applications al cerrar el PR (fuga de recursos)."
+  - "Rollout con AnalysisTemplate que valida solo 'pod ready' y no SLIs reales (no detecta regresiones)."

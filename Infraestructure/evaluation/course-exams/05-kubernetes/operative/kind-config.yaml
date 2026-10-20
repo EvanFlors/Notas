@@ -1,0 +1,15 @@
+---
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: k8s-exam
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker
+networking:
+  disableDefaultCNI: false
+  # Kind's default CNI (kindnet) does NOT implement NetworkPolicy.
+  # For the NetworkPolicy sub-exercise the student may either:
+  #   (a) install Calico/Cilium on top of kindnet, or
+  #   (b) set `disableDefaultCNI: true` here and install Calico during setup.
+  # Document the choice in the deliverables.

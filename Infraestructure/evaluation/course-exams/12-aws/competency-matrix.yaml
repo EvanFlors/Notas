@@ -1,0 +1,136 @@
+---
+# Matriz de competencias — Examen de certificación del curso AWS
+# Nivel: intermedio-avanzado (cubre aws-02..aws-17 con énfasis en aws-06..aws-17)
+# Dimensiones: conceptual, operativa, arquitectónica (todas)
+# Umbral de aprobación: 70%
+# Duración: 90-120 min
+exam:
+  course: aws
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+  constraints:
+    - "No se evalúa contra una cuenta AWS real: validación con LocalStack o `terraform plan` offline."
+    - "Account IDs siempre dummy: 123456789012 (y 210987654321 para cross-account)."
+    - "Sin secretos reales en entregables."
+
+competencies:
+  - id: C1
+    source_module: aws-02, aws-06
+    statement: "Explicar la lógica de evaluación de IAM cuando intervienen SCP + resource-based policy + permission boundary + identity policy + session policy, y por qué un Deny en SCP no se compensa con Allow en identity."
+    dimension: conceptual
+    weight: 8
+    assessed_in: [Q1, Q2]
+
+  - id: C2
+    source_module: aws-02, aws-16
+    statement: "Diferenciar trust policy vs permission policy en un rol asumible, y escribir un trust policy OIDC para GitHub Actions con sub pinneado a repo/branch/env."
+    dimension: conceptual, operativa
+    weight: 7
+    assessed_in: [Q3, OP-task-2]
+
+  - id: C3
+    source_module: aws-03, aws-07
+    statement: "Diseñar una VPC multi-AZ con separación pública/privada, elegir entre NAT Gateway, NAT Instance y VPC endpoints justificando costo y egress, y distinguir SG (stateful) vs NACL (stateless, ordenadas)."
+    dimension: conceptual, arquitectonica
+    weight: 8
+    assessed_in: [Q4, ARCH]
+
+  - id: C4
+    source_module: aws-04
+    statement: "Explicar la cadena IMDSv2 → STS → credenciales temporales via instance profile, y por qué IMDSv1 habilita SSRF-to-credential-leak."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q5]
+
+  - id: C5
+    source_module: aws-05, aws-09
+    statement: "Configurar un bucket S3 con Block Public Access, versioning, SSE-KMS con CMK y bucket policy mínima; distinguir cuándo falla por key policy vs por IAM policy."
+    dimension: operativa, conceptual
+    weight: 8
+    assessed_in: [Q6, OP-task-1]
+
+  - id: C6
+    source_module: aws-07, aws-13
+    statement: "Justificar ALB vs NLB vs CloudFront para un escenario dado (L7 vs L4, PrivateLink, caching, TLS, región de ACM)."
+    dimension: conceptual, arquitectonica
+    weight: 6
+    assessed_in: [Q7, ARCH]
+
+  - id: C7
+    source_module: aws-11
+    statement: "Comparar IRSA vs EKS Pod Identity vs node IAM role: cómo cada mecanismo otorga permisos a un workload y cuándo preferir cada uno."
+    dimension: conceptual, arquitectonica
+    weight: 7
+    assessed_in: [Q8, ARCH]
+
+  - id: C8
+    source_module: aws-11, aws-10
+    statement: "Diferenciar task role vs execution role en ECS, y SA/IRSA vs node role en EKS; detectar cuándo un workload está sobre-permisionado por heredar permisos del nodo."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q9]
+
+  - id: C9
+    source_module: aws-12
+    statement: "Diseñar instrumentación con ADOT/OTel enviando a CloudWatch y Prometheus, y justificar política de retención y filtros de CloudWatch Logs para reducir costos sin perder señal."
+    dimension: conceptual, operativa
+    weight: 6
+    assessed_in: [Q10, OP-task-3]
+
+  - id: C10
+    source_module: aws-15, aws-06
+    statement: "Diseñar guardrails de Organizations: SCP baseline (deny regiones, deny leave-org, deny disable logging), permission boundaries para delegación y permission sets de IdC."
+    dimension: operativa, arquitectonica
+    weight: 7
+    assessed_in: [Q11, ARCH]
+
+  - id: C11
+    source_module: aws-17
+    statement: "Aplicar los 6 pilares del Well-Architected Framework a un diseño dado, y justificar trade-offs de DR (pilot-light vs warm standby vs multi-region active-active) con costo."
+    dimension: arquitectonica
+    weight: 8
+    assessed_in: [ARCH]
+
+  - id: C12
+    source_module: aws-09, aws-16
+    statement: "Explicar envelope encryption (KMS cifra data key, data key cifra payload) y por qué una key policy mal escrita bloquea acceso incluso con IAM policy correcta."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q12]
+
+  - id: C13
+    source_module: aws-16
+    statement: "Auditar un pipeline CI/CD en AWS buscando: uso de access keys humanas, trust policy OIDC sin pinning, secretos hardcodeados, imágenes sin escanear ni firmar."
+    dimension: operativa
+    weight: 6
+    assessed_in: [OP-task-2]
+
+  - id: C14
+    source_module: aws-17
+    statement: "Diagnosticar fuentes comunes de factura sorpresa en AWS: NAT GW (por hora + por GB), CloudWatch Logs ingestion, data egress inter-AZ, CloudTrail data events."
+    dimension: conceptual, arquitectonica
+    weight: 4
+    assessed_in: [Q13, ARCH]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 35
+  arquitectonica_pct: 30
+
+red_flags:
+  - "Uso de access keys IAM de larga duración para humanos o para pipelines CI/CD en lugar de IAM Identity Center u OIDC."
+  - "Trust policy OIDC para GitHub Actions sin pinnear sub a repo/branch/env (p. ej. `token.actions.githubusercontent.com:sub: *`)."
+  - "Credenciales, tokens o CMK ARNs sensibles hardcodeados en Terraform, user-data, Dockerfiles o repos."
+  - "Account IDs reales de clientes/empleadores (no 123456789012) en el entregable."
+  - "`\"Action\": \"*\"` + `\"Resource\": \"*\"` en policies productivas sin justificación."
+  - "IMDSv1 habilitado en EC2 nuevas sin razón documentada (riesgo SSRF→cred leak)."
+  - "S3 bucket sin Block Public Access habilitado o con ACLs públicas."
+  - "NAT Gateway por AZ en 3 AZ sin análisis de costo cuando una alternativa (endpoints, NAT centralizado) aplica."
+  - "SSH abierto a 0.0.0.0/0 cuando SSM Session Manager cubre el caso."
+  - "`cluster-admin` o `AdministratorAccess` otorgado a un workload (SA/role) sin justificación."
+  - "Secretos de aplicación en variables de entorno de task definition en texto plano en vez de Secrets Manager/SSM SecureString con referencia por ARN."
+  - "Logs de CloudTrail/VPC Flow/S3 escritos en la misma cuenta que origina el evento (no en cuenta log-archive aislada) en diseños multi-cuenta."
+  - "`cosign verify --insecure-ignore-tlog` o scanner de ECR deshabilitado sin justificación."
+  - "Cuenta de management de Organizations hospedando workloads de aplicación."

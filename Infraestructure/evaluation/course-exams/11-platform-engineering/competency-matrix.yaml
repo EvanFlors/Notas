@@ -1,0 +1,129 @@
+---
+# Matriz de competencias — Examen de certificación del curso Platform Engineering
+# Cubre plat-01..plat-12 (ROADMAP.md)
+# Nivel: avanzado
+# Dimensiones: todas (conceptual, operativa, arquitectónica)
+# Umbral de aprobación: 70%
+# Duración: 90-120 min
+exam:
+  course: platform-engineering
+  level: avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: C1
+    source_module: plat-01
+    statement: "Modelar una organización con Team Topologies y justificar por qué un platform team opera por default como X-as-a-Service (y qué degrada esa propuesta de valor)."
+    dimension: conceptual
+    weight: 7
+    assessed_in: [Q1, ARCH]
+
+  - id: C2
+    source_module: plat-02
+    statement: "Diferenciar golden path (opt-in, soportado) de mandato (forzado) y defender criterios para el primer golden path (volumen, variabilidad baja, dolor compartido, impacto medible)."
+    dimension: conceptual
+    weight: 7
+    assessed_in: [Q2, ARCH]
+
+  - id: C3
+    source_module: plat-03
+    statement: "Elegir entre Backstage, Port, OpsLevel/Cortex, CNOE y Humanitec en función de tamaño del equipo plataforma, grado de opinión y expertise interna; evitar la trampa 'Backstage por default'."
+    dimension: arquitectonica
+    weight: 8
+    assessed_in: [Q3, ARCH]
+
+  - id: C4
+    source_module: plat-04
+    statement: "Explicar que Backstage es un framework (no una app descargable) y las implicaciones operativas de upgrade continuo (Backend System 1.0, breaking changes de plugins)."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q4]
+
+  - id: C5
+    source_module: plat-05
+    statement: "Modelar entidades Backstage (Component/API/Resource/System/Domain/User/Group) con relaciones correctas (providesApi, consumesApi, dependsOn, partOf, memberOf) y detectar un catalog ruidoso por relaciones inválidas."
+    dimension: operativa, conceptual
+    weight: 10
+    assessed_in: [Q5, OP-task-1, OP-task-2]
+
+  - id: C6
+    source_module: plat-06
+    statement: "Diseñar templates/scaffolder como producto versionado (tests en CI que re-generan la referencia) y descomponer un 'mega-template' en piezas mantenibles."
+    dimension: conceptual, arquitectonica
+    weight: 6
+    assessed_in: [Q6, ARCH]
+
+  - id: C7
+    source_module: plat-07, plat-08
+    statement: "Priorizar qué 3 plugins de Backstage agregan más valor primero sobre un 'catálogo-only' y justificar docs-as-code vs wiki paralelo."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q7]
+
+  - id: C8
+    source_module: plat-09
+    statement: "Elegir entre Crossplane (XRDs + Claims) y templates que generan PRs a Terraform (Atlantis/GHA) según perfil organizacional, y diseñar guardrails (Kyverno sobre Claims)."
+    dimension: arquitectonica
+    weight: 8
+    assessed_in: [Q8, ARCH]
+
+  - id: C9
+    source_module: plat-10
+    statement: "Diseñar scorecards de madurez (5-8 checks iniciales) evitando gamificación, y medir adopción como KPI (% servicios > bronze/silver/gold)."
+    dimension: operativa, conceptual
+    weight: 10
+    assessed_in: [Q9, OP-task-3, OP-task-4]
+
+  - id: C10
+    source_module: plat-11
+    statement: "Combinar DORA (lead time, deploy frequency, change failure rate, MTTR) con SPACE (satisfacción, flujo) para evitar vanity metrics y Goodhart's Law; criticar un dashboard que celebra 'número de deploys' sin contexto."
+    dimension: operativa, conceptual
+    weight: 10
+    assessed_in: [Q10, OP-task-5]
+
+  - id: C11
+    source_module: plat-11
+    statement: "Defender la plataforma como producto: roadmap, backlog priorizado por valor, release notes, feedback loops, financiamiento (showback/chargeback)."
+    dimension: arquitectonica
+    weight: 6
+    assessed_in: [Q11, ARCH]
+
+  - id: C12
+    source_module: plat-12
+    statement: "Diseñar gobernanza a escala: multi-tenancy, deprecation policy con TTL (announce → warn → remove), platform SLOs (uptime Backstage, latencia scaffolder, freshness catalog, MTTR) e inner-source."
+    dimension: arquitectonica, operativa
+    weight: 10
+    assessed_in: [Q12, OP-task-6, ARCH]
+
+  - id: C13
+    source_module: plat-01, plat-12
+    statement: "Reconocer cuándo *no* construir una plataforma (equipo < 3, baja variabilidad, bajo volumen) y antipatterns ('ivory tower', 'ticketing-driven ops', 'dumping ground')."
+    dimension: conceptual
+    weight: 4
+    assessed_in: [Q13]
+
+  - id: C14
+    source_module: plat-11, plat-12
+    statement: "Operacionalizar freshness del catalog como señal de salud: detectar entradas stale (owner inexistente, repo archivado, última build > N días) y proponer política."
+    dimension: operativa
+    weight: 4
+    assessed_in: [OP-task-6]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 40
+  arquitectonica_pct: 25
+
+red_flags:
+  - "Secretos (tokens de GitHub, API keys de PagerDuty/Grafana, credenciales de Postgres) hardcodeados en catalog-info.yaml, app-config.yaml, templates o código Python entregado."
+  - "Platform team modelado como complicated-subsystem o stream-aligned sin justificación (confunde la propuesta X-as-a-Service)."
+  - "Golden path definido como mandato forzado sin opt-in ni ruta B soportada (anula la propuesta de valor)."
+  - "Scorecard con >20 checks de arranque, pesos arbitrarios, o criterios no observables ('equipo motivado')."
+  - "Dashboard DORA que reporta sólo deployment frequency sin change failure rate ni MTTR (Goodhart's Law)."
+  - "ADR de IDP que elige Backstage 'por default' sin considerar tamaño del equipo plataforma ni expertise Node/TS."
+  - "Crossplane propuesto para una org Terraform-first sin plan de capacitación ni migración incremental."
+  - "Deprecation policy sin TTL explícito, sin canal de comunicación ni plan de soporte durante la ventana."
+  - "RBAC cluster-admin para Backstage o para el scaffolder sin justificación de scoping."
+  - "Script del operativo que mezcla score y lógica de IO sin tests, o que hace curl | bash a fuentes externas."

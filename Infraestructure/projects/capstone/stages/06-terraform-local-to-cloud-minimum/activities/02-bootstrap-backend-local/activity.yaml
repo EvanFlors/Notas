@@ -1,0 +1,27 @@
+id: cap-06-02-bootstrap-backend-local
+title: Validar los tres stacks Terraform sin aplicar en la nube
+technology: capstone
+module: 06-terraform-local-to-cloud-minimum
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - cap-06-01-choose-cloud-adr
+
+objectives:
+  - Correr terraform fmt y terraform validate en AWS, GCP y Azure sin credenciales reales
+  - Verificar que los backends están parciales y nunca comitean valores sensibles
+  - Opcional, correr terraform init real contra LocalStack para AWS
+  - Confirmar que ningún archivo del stack trae IDs de cuenta, proyecto o tenant reales
+
+paths:
+  instructions: README.md
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

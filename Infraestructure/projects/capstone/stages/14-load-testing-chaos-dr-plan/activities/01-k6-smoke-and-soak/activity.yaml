@@ -1,0 +1,28 @@
+id: cap-14-01-k6-smoke-and-soak
+title: Correr k6 (smoke + ramp) contra la app y declarar baseline
+technology: capstone
+module: 14-load-testing-chaos-dr-plan
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - capstone-stages-1-13-done
+  - k6-installed-or-skip-acknowledged
+
+objectives:
+  - Ejecutar los escenarios smoke y ramp de k6 contra la app desplegada
+  - Interpretar los thresholds (p95, error rate) y versionar un baseline de performance
+  - Entender como el SOAK=1 cambia el perfil y por que no se corre en CI
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

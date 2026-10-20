@@ -1,0 +1,25 @@
+# Overrides para el ambiente dev del cluster kind.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/capstone/fastapi-app
+  tag: "0.9.0-dev"
+  pullPolicy: IfNotPresent
+
+env:
+  LOG_LEVEL: debug
+  APP_ENV: dev
+
+ingress:
+  enabled: false
+
+autoscaling:
+  enabled: false
+
+resources:
+  requests:
+    cpu: "20m"
+    memory: "64Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"

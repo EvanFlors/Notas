@@ -1,0 +1,10 @@
+# Starter Alertmanager — route plano, sin inhibition, un solo receiver.
+# Corregir en solution/alertmanager.yml con tree por severidad + inhibition.
+route:
+  receiver: default
+  group_by: [alertname]
+
+receivers:
+  - name: default
+    webhook_configs:
+      - url: http://localhost:9999/__REDACTED__

@@ -1,0 +1,92 @@
+---
+# Matriz de competencias — Certificación OpenTelemetry
+# Nivel: intermedio-avanzado
+# Dimensiones: conceptual, operativa, arquitectónica
+# Umbral de aprobación: 70%
+
+exam:
+  course: opentelemetry
+  level: intermedio-avanzado
+  duration_minutes: 110
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: OTEL-C1
+    source_module: otel-02
+    statement: >
+      Leer y descomponer un header W3C `traceparent`, identificar el
+      `trace-id`, `parent-id`, `trace-flags` y explicar su rol en la
+      continuidad del trace cross-service.
+    dimension: conceptual
+    weight: 10
+
+  - id: OTEL-C2
+    source_module: otel-02
+    statement: >
+      Aplicar Semantic Conventions vigentes (migración `http.method` →
+      `http.request.method`) y justificar el impacto de un cambio
+      breaking en dashboards y queries.
+    dimension: conceptual
+    weight: 10
+
+  - id: OTEL-C3
+    source_module: otel-07
+    statement: >
+      Diagnosticar un trace "cortado" entre dos servicios identificando
+      la causa en inject/extract, propagators no habilitados o
+      context perdido en ejecutores async.
+    dimension: conceptual
+    weight: 10
+
+  - id: OTEL-C4
+    source_module: otel-10
+    statement: >
+      Comparar head-based vs tail-based sampling y justificar la
+      elección en función de visibilidad de errores, costo y
+      consistencia (tracestate) entre servicios.
+    dimension: conceptual
+    weight: 10
+
+  - id: OTEL-C5
+    source_module: otel-05
+    statement: >
+      Explicar diferencia entre temporalidad `cumulative` y `delta` y
+      predecir el síntoma observable cuando no coincide con el backend.
+    dimension: conceptual
+    weight: 5
+
+  - id: OTEL-O1
+    source_module: otel-04
+    statement: >
+      Instrumentar una app Python/FastAPI con auto-instrumentation +
+      spans manuales de dominio con atributos, eventos y status; emitir
+      vía OTLP a un Collector local.
+    dimension: operativa
+    weight: 20
+
+  - id: OTEL-O2
+    source_module: otel-08
+    statement: >
+      Configurar un Collector multi-pipeline (traces/metrics/logs) con
+      receivers OTLP, processors `memory_limiter`+`batch`+`attributes`,
+      y exporters `debug`+`file`; validar con `otelcol validate`.
+    dimension: operativa
+    weight: 15
+
+  - id: OTEL-A1
+    source_module: otel-09
+    statement: >
+      Diseñar la topología de Collector (agent-only, gateway-only,
+      agent+gateway, sidecar) para una organización dada, con
+      trade-offs explícitos y ADR.
+    dimension: arquitectonica
+    weight: 10
+
+  - id: OTEL-A2
+    source_module: otel-10
+    statement: >
+      Diseñar política de sampling tail-based (errores + latencia +
+      probabilístico) con decision_wait y presupuesto de memoria.
+    dimension: arquitectonica
+    weight: 10

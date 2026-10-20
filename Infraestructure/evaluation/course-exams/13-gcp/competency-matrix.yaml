@@ -1,0 +1,130 @@
+---
+# Matriz de competencias — Examen de certificación del curso GCP
+# Nivel: intermedio-avanzado (cubre gcp-02 a gcp-10, con base en gcp-01)
+# Dimensiones: conceptual, operativa, arquitectónica (todas)
+# Umbral de aprobación: 70%
+# Duración: 90-120 min
+exam:
+  course: gcp
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: C1
+    source_module: gcp-02, gcp-09
+    statement: "Evaluar el resultado de una decisión IAM considerando la agregación de allow bindings por jerarquía (Org→Folder→Project) y el short-circuit de una Deny Policy por principal."
+    dimension: conceptual
+    weight: 8
+    assessed_in: [Q1]
+
+  - id: C2
+    source_module: gcp-02
+    statement: "Justificar por qué una Service Account key estática es un anti-patrón y proponer impersonation o Workload Identity Federation como alternativa."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q2, ARCH]
+
+  - id: C3
+    source_module: gcp-03
+    statement: "Explicar las consecuencias de diseño de una VPC global de GCP (subnets regionales alcanzables sin peering, firewall rules por service account o tag) frente al modelo regional AWS."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q3, ARCH]
+
+  - id: C4
+    source_module: gcp-04
+    statement: "Elegir el compute correcto (Cloud Run, GKE Autopilot, GCE MIG, Cloud Functions gen 2) para un workload dado, defendiendo el trade-off de cold-start, concurrencia y costo."
+    dimension: conceptual, arquitectonica
+    weight: 7
+    assessed_in: [Q4, ARCH]
+
+  - id: C5
+    source_module: gcp-05
+    statement: "Diferenciar Cloud SQL/AlloyDB, Firestore, Bigtable y Spanner por modelo de consistencia, escalabilidad y caso de uso, y justificar la elección para un workload concreto."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q5]
+
+  - id: C6
+    source_module: gcp-06
+    statement: "Decidir cuándo CMEK aporta valor sobre el cifrado por default de GCP y montar un secreto de Secret Manager en Cloud Run via IAM (sin env vars de texto plano en el repo)."
+    dimension: conceptual, operativa
+    weight: 5
+    assessed_in: [Q6]
+
+  - id: C7
+    source_module: gcp-07
+    statement: "Explicar por qué GKE Autopilot bloquea hostNetwork/hostPath/privileged y comparar Workload Identity (SA GCP ↔ SA K8s) con IRSA de EKS."
+    dimension: conceptual
+    weight: 7
+    assessed_in: [Q7, ARCH]
+
+  - id: C8
+    source_module: gcp-10
+    statement: "Diseñar un Workload Identity Pool + Provider para GitHub Actions con attribute mapping y conditions sobre `repository` y `ref`, y defender por qué previene suplantación entre repos."
+    dimension: conceptual, operativa, arquitectonica
+    weight: 12
+    assessed_in: [Q8, OP-task-1, OP-task-2, ARCH]
+
+  - id: C9
+    source_module: gcp-10
+    statement: "Configurar Binary Authorization en GKE Autopilot con un attestor basado en cosign, y explicar qué garantiza y qué no garantiza la admisión por firma."
+    dimension: conceptual, arquitectonica
+    weight: 10
+    assessed_in: [Q9, OP-task-3, ARCH]
+
+  - id: C10
+    source_module: gcp-08
+    statement: "Distinguir Admin Activity (gratis, siempre on) vs Data Access logs (opt-in, caros) y diseñar sink a BigQuery con filtros de exclusión para controlar costo."
+    dimension: conceptual, operativa
+    weight: 6
+    assessed_in: [Q10, OP-task-4]
+
+  - id: C11
+    source_module: gcp-09
+    statement: "Diseñar baseline de Organization con folders prod/dev/shared, org policies defensivas (disableServiceAccountKeyCreation, vmExternalIpAccess=deny, publicAccessPrevention) y bindings basados en grupos."
+    dimension: arquitectonica
+    weight: 10
+    assessed_in: [ARCH]
+
+  - id: C12
+    source_module: gcp-10, gcp-01
+    statement: "Habilitar FinOps en GCP via billing export a BigQuery, labels obligatorios y presupuestos con alerta; distinguir CUDs de Sustained Use Discounts."
+    dimension: conceptual, arquitectonica
+    weight: 5
+    assessed_in: [Q11, ARCH]
+
+  - id: C13
+    source_module: gcp-03, gcp-04
+    statement: "Publicar un servicio con Global HTTP(S) Load Balancer, managed TLS cert y Cloud Armor, y justificar el uso de anycast frente a Route53+ALB regional de AWS."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q12]
+
+  - id: C14
+    source_module: gcp-02, gcp-07, gcp-10
+    statement: "Auditar un entorno existente que usa service account keys estáticas en CI y proponer un plan de migración incremental a WIF + Binauthz sin downtime."
+    dimension: arquitectonica
+    weight: 8
+    assessed_in: [ARCH]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 35
+  arquitectonica_pct: 30
+
+red_flags:
+  - "Clave JSON de service account commiteada al repo o pegada en un secret de GitHub."
+  - "Binding IAM a un usuario individual en folder/project de producción (en vez de a un Google Group)."
+  - "Rol basic (roles/owner, roles/editor) otorgado a una service account de pipeline."
+  - "Workload Identity Federation sin attribute condition sobre `assertion.repository` (cualquier repo del org puede impersonar)."
+  - "Binary Authorization en modo dryrun o con policy evaluationMode=ALWAYS_ALLOW en producción."
+  - "Service Account key creation habilitada sin la org policy `iam.disableServiceAccountKeyCreation` o excepción justificada."
+  - "VM con IP externa en producción sin la org policy `compute.vmExternalIpAccess=deny` o excepción documentada."
+  - "Bucket GCS con `allUsers` o `allAuthenticatedUsers` en producción."
+  - "Secret inyectado como variable de entorno en texto plano en el Terraform o en el YAML de Cloud Run (en vez de referenciar Secret Manager)."
+  - "Pipeline que usa `gcloud auth activate-service-account --key-file=...` en vez de `google-github-actions/auth` con WIF."
+  - "Project IDs reales o billing account IDs reales en los entregables (deben ser placeholders tipo `my-project-dev-123`)."
+  - "Terraform apply contra GCP real durante el examen (el ejercicio operativo es plan-only / emuladores)."

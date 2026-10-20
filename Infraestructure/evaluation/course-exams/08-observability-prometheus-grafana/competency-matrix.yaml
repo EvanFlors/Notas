@@ -1,0 +1,113 @@
+---
+# Matriz de competencias — Examen de certificación del curso
+# Prometheus + Grafana (observability-prometheus-grafana)
+# Nivel: intermedio-avanzado (cubre obs-05 a obs-15, con base en obs-01..04)
+# Dimensiones: conceptual, operativa, arquitectónica (todas)
+# Umbral de aprobación: 70% ponderado + >=50% por dimensión
+# Duración: 90-120 min
+exam:
+  course: observability-prometheus-grafana
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: C1
+    source_module: obs-03, obs-04, obs-07
+    statement: "Elegir el tipo de métrica correcto (counter/gauge/histogram) y nombrarlo (unit suffix, snake_case) sin disparar cardinalidad; justificar por qué un summary agregado es matemáticamente inválido."
+    dimension: conceptual
+    weight: 7
+    assessed_in: [Q1, Q6, OP-task-2]
+
+  - id: C2
+    source_module: obs-04, obs-10
+    statement: "Escribir y depurar PromQL de nivel intermedio-avanzado: rate/irate/increase sobre counter, histogram_quantile sobre un histogram agregado por job, joins binarios con on/ignoring/group_left, subqueries y uso correcto de offset/@."
+    dimension: conceptual, operativa
+    weight: 12
+    assessed_in: [Q2, Q7, OP-task-1, OP-task-3]
+
+  - id: C3
+    source_module: obs-05, obs-06
+    statement: "Diferenciar relabel_configs vs metric_relabel_configs y aplicar relabel para filtrar/renombrar targets por annotation (pre-scrape) y métricas ruidosas (post-scrape); diagnosticar un target DOWN descubierto por SD."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q3, OP-task-2]
+
+  - id: C4
+    source_module: obs-09, obs-14
+    statement: "Diseñar alertas basadas en síntomas (SLO/user-impact) con for correcto, routing, grouping, inhibition e implementar multi-window multi-burn-rate (MWMBR) sobre error budget; evitar fatigue y alertas sin acción humana."
+    dimension: conceptual, operativa
+    weight: 15
+    assessed_in: [Q4, Q8, OP-task-3, OP-task-4]
+
+  - id: C5
+    source_module: obs-10
+    statement: "Diagnosticar cardinalidad explosiva (top offenders vía topk+count by (__name__)), decidir drop/keep/renombrar y definir recording rules útiles (convención job:metric:op5m) que amorticen queries costosas de dashboards y alertas."
+    dimension: operativa, conceptual
+    weight: 10
+    assessed_in: [Q6, OP-task-2]
+
+  - id: C6
+    source_module: obs-08
+    statement: "Construir dashboards eficaces (RED/USE), usar variables y templating, y provisionar dashboards/datasources como código; criticar un dashboard inútil y rediseñarlo."
+    dimension: operativa, arquitectonica
+    weight: 6
+    assessed_in: [Q5, ARCH]
+
+  - id: C7
+    source_module: obs-11
+    statement: "Elegir y defender un long-term store (Thanos vs Mimir vs VictoriaMetrics vs federation vs single-node) con criterios de retención, cardinalidad, tenancy y costo (series activas + egress + compute); explicar remote_write y downsampling."
+    dimension: arquitectonica, conceptual
+    weight: 10
+    assessed_in: [Q9, ARCH]
+
+  - id: C8
+    source_module: obs-12
+    statement: "Operar kube-prometheus-stack en K8s (ServiceMonitor/PodMonitor/PrometheusRule/AlertmanagerConfig) por GitOps; diagnosticar por qué el Operator no ve un ServiceMonitor (release label selectors)."
+    dimension: operativa, conceptual
+    weight: 7
+    assessed_in: [Q10, OP-task-2, ARCH]
+
+  - id: C9
+    source_module: obs-13
+    statement: "Decidir cuándo correlacionar logs ↔ métricas en Loki y cuándo generar una log-based metric vs instrumentar; evitar anti-patrones de cardinalidad en labels de Loki."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q11]
+
+  - id: C10
+    source_module: obs-14
+    statement: "Definir SLI/SLO/error-budget sobre señales de experiencia de usuario, derivar reglas MWMBR (p. ej. 2% presupuesto en 1h con corta de 5min) y criticar un SLO mal definido."
+    dimension: conceptual, operativa, arquitectonica
+    weight: 12
+    assessed_in: [Q4, Q8, OP-task-3, OP-task-4, ARCH]
+
+  - id: C11
+    source_module: obs-15
+    statement: "Defender un contrato de observabilidad de plataforma: dashboards/alertas as code, naming/labels obligatorios, SLO contract per service, costos (active series + logs ingested + egress) y gobernanza (folders, ownership, PR preview, promtool test rules en CI)."
+    dimension: arquitectonica
+    weight: 8
+    assessed_in: [Q12, ARCH]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 40
+  arquitectonica_pct: 25
+
+dimension_distribution_pct:
+  conceptual: 35
+  operativa: 40
+  arquitectonica: 25
+
+red_flags:
+  - "Usar un label de alta cardinalidad (user_id, request_id, trace_id, email, url completa con query string) en una métrica Prometheus o en Loki."
+  - "Aplicar histogram_quantile() sobre un summary agregado entre targets (resultado matemáticamente inválido)."
+  - "Usar rate() sobre un gauge o delta()/deriv() sobre un counter."
+  - "Alertar sobre una causa (CPU 90%) sin señal de impacto al usuario, o alerta sin runbook/annotation summary."
+  - "Definir alerta de SLO con una sola ventana (single burn rate) y pretender producción."
+  - "Enviar secretos (passwords, tokens, bearer) en labels, annotations, remote_write.url, provisioning YAML o alertmanager receivers hardcodeados."
+  - "ServiceMonitor sin label de release del kube-prometheus-stack y afirmar que el Operator debería recogerlo."
+  - "Pushgateway como mecanismo general en vez de excepción para jobs batch de vida corta."
+  - "Scrape sin filtro por annotation en un cluster con N>100 pods (genera N scrapes implícitos)."
+  - "Deshabilitar TLS/validación en remote_write a un long-term store sin justificación."

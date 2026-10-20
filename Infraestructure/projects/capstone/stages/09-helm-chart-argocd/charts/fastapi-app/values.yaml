@@ -1,0 +1,97 @@
+# Values por defecto del chart fastapi-app.
+# Toda sobreescritura de ambiente va a values-<env>.yaml o al bloque
+# `spec.source.helm.valuesObject` de la Application CR de Argo CD.
+
+image:
+  repository: ghcr.io/capstone/fastapi-app
+  tag: "0.9.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 2
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: fastapi.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+probes:
+  liveness:
+    path: /healthz
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  readiness:
+    path: /readyz
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+env:
+  LOG_LEVEL: info
+  APP_ENV: dev
+
+# Credenciales de BD — todas dummy; en entornos reales vienen de un
+# External Secret (etapa 12). NO poner secretos verdaderos aqui.
+database:
+  url: "postgresql+psycopg://capstone:dummy_pw_change_me@postgres:5432/capstone"
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

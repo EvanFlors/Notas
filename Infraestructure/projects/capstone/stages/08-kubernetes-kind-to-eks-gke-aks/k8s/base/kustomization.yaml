@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Base portable: no fija namespace, imagen, host ni réplicas.
+# Los overlays por ambiente aportan esos valores.
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/name: capstone-api
+      app.kubernetes.io/part-of: capstone
+      app.kubernetes.io/component: web
+
+resources:
+  - serviceaccount.yaml
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - networkpolicy.yaml

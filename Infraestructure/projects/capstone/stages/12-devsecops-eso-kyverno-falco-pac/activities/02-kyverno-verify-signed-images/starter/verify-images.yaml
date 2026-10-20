@@ -1,0 +1,9 @@
+# TODO: convertir este stub en una ClusterPolicy Kyverno completa que
+# rechace imagenes capstone sin firma cosign keyless.
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: verify-capstone-images
+spec:
+  validationFailureAction: Audit # TODO: subir a Enforce cuando termines
+  rules: [] # TODO

@@ -1,0 +1,27 @@
+id: cap-06-01-choose-cloud-adr
+title: Elegir cloud default y firmar la ADR 0006
+technology: capstone
+module: 06-terraform-local-to-cloud-minimum
+level: intermediate
+type: architecture
+
+estimated_minutes: 60
+
+prerequisites:
+  - cap-05-02-sign-and-publish-image
+
+objectives:
+  - Comparar AWS, GCP y Azure contra criterios ponderados del equipo
+  - Redactar la decisión en terraform/README.md (ADR 0006) con contexto, opciones y consecuencias
+  - Documentar el rollback si la decisión no funciona
+  - Dejar la ADR en estado accepted con fecha y autores reales
+
+paths:
+  instructions: README.md
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -1,0 +1,7 @@
+# Plantilla simulada de índice privado. El token se inyecta en build via --mount=type=secret.
+# NO rellenar aquí. El Dockerfile debe leerlo desde /run/secrets/gh_token y construir el PIP_INDEX_URL
+# en una capa que NO persista (ej. dentro del mismo RUN que ejecuta pip install).
+
+[global]
+index-url = https://x-access-token:${GH_TOKEN}@pypi.internal.acme.local/simple
+extra-index-url = https://pypi.org/simple

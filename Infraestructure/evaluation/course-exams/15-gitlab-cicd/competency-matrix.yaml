@@ -1,0 +1,123 @@
+---
+# Matriz de competencias — Examen de certificación del curso GitLab CI/CD
+# Nivel: intermedio-avanzado (cubre gl-04 a gl-10, con base en gl-01..03)
+# Dimensiones: conceptual, operativa, arquitectónica (todas)
+# Umbral de aprobación: 70%
+# Duración: 90-120 min
+exam:
+  course: gitlab-cicd
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: C1
+    source_module: gl-01, gl-02
+    statement: "Traducir conceptos GHA↔GitLab (reusable workflow, org runner, environments) y justificar por qué Group es la unidad clave para compartir runners, variables y templates."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q1]
+
+  - id: C2
+    source_module: gl-02
+    statement: "Diagnosticar por qué un job queda en estado `pending` indefinidamente y explicar la relación entre `tags:`, runners disponibles y `rules:` como contrato de scheduling."
+    dimension: conceptual, operativa
+    weight: 6
+    assessed_in: [Q2, OP]
+
+  - id: C3
+    source_module: gl-03
+    statement: "Aplicar jerarquía de variables (Instance→Group→Project→Environment→Pipeline) con `protected`/`masked` correctos y defender por qué una variable sin `protected` expone el valor a cualquier branch."
+    dimension: conceptual, operativa
+    weight: 7
+    assessed_in: [Q3, OP]
+
+  - id: C4
+    source_module: gl-04
+    statement: "Convertir un pipeline lineal a DAG con `needs:` prediciendo la reducción de wall-clock, y distinguir cuándo `workflow:` vs `rules:` es la capa correcta para filtrar."
+    dimension: conceptual, operativa
+    weight: 10
+    assessed_in: [Q4, Q5, OP]
+
+  - id: C5
+    source_module: gl-04
+    statement: "Diseñar `parallel: matrix:` para shardear tests y explicar el uso correcto de `CI_NODE_INDEX`/`CI_NODE_TOTAL`."
+    dimension: operativa
+    weight: 5
+    assessed_in: [OP]
+
+  - id: C6
+    source_module: gl-05
+    statement: "Decidir entre `include:`, `extends:` y CI/CD Components para un caso dado, justificando versionado SemVer y contrato `spec:inputs:` cuando aplica."
+    dimension: conceptual, arquitectonica
+    weight: 8
+    assessed_in: [Q6, ARCH]
+
+  - id: C7
+    source_module: gl-06
+    statement: "Elegir executor (shell/docker/kubernetes/fleeting) por workload justificando trade-offs (coste, aislamiento, escalado), y descartar `registration token` (deprecated) a favor de authentication token moderno."
+    dimension: arquitectonica, conceptual
+    weight: 7
+    assessed_in: [Q7, ARCH]
+
+  - id: C8
+    source_module: gl-03, gl-06
+    statement: "Configurar OIDC/ID Token desde GitLab a AWS/Vault sin credenciales de larga vida y pinnear la trust policy por `project_path`/`ref`/`environment`."
+    dimension: conceptual, operativa, arquitectonica
+    weight: 10
+    assessed_in: [Q8, OP, ARCH]
+
+  - id: C9
+    source_module: gl-07
+    statement: "Modelar Review Apps efímeros por MR con `on_stop:` y proteger `production` con approval rules, explicando qué garantiza y qué no `environment:action`."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q9, OP, ARCH]
+
+  - id: C10
+    source_module: gl-08
+    statement: "Habilitar scanners nativos (SAST, Secret Detection, Container Scanning, Dependency Scanning, IaC) vía `include:template:` y firmar imagen con cosign keyless usando el ID Token de GitLab como issuer OIDC."
+    dimension: operativa, conceptual
+    weight: 10
+    assessed_in: [Q10, OP, ARCH]
+
+  - id: C11
+    source_module: gl-09
+    statement: "Aplicar Compliance Pipeline + MR approval rules + Code Owners a nivel grupo y explicar por qué un project puede extender pero no omitir un Compliance Framework."
+    dimension: conceptual, arquitectonica
+    weight: 6
+    assessed_in: [Q11, ARCH]
+
+  - id: C12
+    source_module: gl-10
+    statement: "Diseñar migración GHA→GitLab reconociendo diferencias (claims OIDC distintas, modelo de permisos) y equivalencias (reusable workflow ≈ CI/CD Component), y defender la frontera GitLab (CI) + Argo CD (CD)."
+    dimension: arquitectonica
+    weight: 8
+    assessed_in: [ARCH]
+
+  - id: C13
+    source_module: gl-02, gl-03
+    statement: "Reconocer y refactorizar anti-patrones en `.gitlab-ci.yml`: `only/except` legacy, secretos como `variables:` planos, `image: latest` sin pin, uso de `curl | bash` desde fuente no verificada."
+    dimension: operativa
+    weight: 5
+    assessed_in: [OP]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 40
+  arquitectonica_pct: 25
+
+red_flags:
+  - "Credenciales/tokens hardcodeados en `.gitlab-ci.yml` o en `variables:` planas de un job."
+  - "Variable con secreto sin `protected: true` ni `masked: true` accesible desde branches no protegidas."
+  - "Uso de `only/except` en código nuevo en lugar de `rules:` (legacy, no evoluciona)."
+  - "`image:` o `services:` sin tag o con `:latest` en pipeline productivo."
+  - "`curl | bash` desde una URL no verificada dentro de `script:` o `before_script:`."
+  - "DinD con `privileged: true` sin `DOCKER_TLS_CERTDIR` ni justificación (preferir kaniko/buildkit)."
+  - "AWS/GCP access keys estáticas como CI/CD variables cuando existe ruta OIDC/ID Token viable."
+  - "Trust policy OIDC sin `sub` claim pinneado por `project_path`/`ref` (acepta cualquier proyecto del issuer)."
+  - "Deshabilitar scanners (`SAST_DISABLED: 'true'`) sin ADR ni compensación."
+  - "`cosign verify --insecure-ignore-tlog` o firmas no verificadas en el consumidor."
+  - "Compliance Pipeline evitada vía fork/mirror en lugar de extendida."
+  - "Review App sin `on_stop:` (recursos huérfanos al cerrar el MR)."

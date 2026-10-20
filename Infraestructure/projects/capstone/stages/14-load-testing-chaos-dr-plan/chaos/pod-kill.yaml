@@ -1,0 +1,17 @@
+# Capstone stage 14 — PodChaos: kill one fastapi pod and let the Deployment heal.
+# Blast radius: namespace=app, label app.kubernetes.io/part-of=capstone, mode=one.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: fastapi-pod-kill
+  namespace: app
+spec:
+  action: pod-kill
+  mode: one
+  duration: "30s"
+  selector:
+    namespaces:
+      - app
+    labelSelectors:
+      app.kubernetes.io/name: fastapi
+      app.kubernetes.io/part-of: capstone

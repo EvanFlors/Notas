@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: capstone-api
+data:
+  APP_ENV: "base"
+  LOG_LEVEL: "info"
+  METRICS_PATH: "/metrics"

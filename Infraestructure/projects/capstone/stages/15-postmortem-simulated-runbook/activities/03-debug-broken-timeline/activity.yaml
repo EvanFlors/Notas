@@ -1,0 +1,29 @@
+id: cap-15-03-debug-broken-timeline
+title: Reparar un postmortem roto (timeline + culpabilización + action items)
+technology: capstone
+module: 15-postmortem-simulated-runbook
+level: advanced
+type: debug
+
+estimated_minutes: 40
+
+prerequisites:
+  - cap-15-01-write-blameless-postmortem
+
+objectives:
+  - Detectar y reescribir pasajes culpabilizantes en lenguaje blameless
+  - Reparar una timeline con eventos faltantes o sin HH:MM
+  - Completar action items sin owner ni due date
+  - Entregar el postmortem reparado pasando el mismo validador que la actividad 01
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/cap-15-03"
+
+status: not-started

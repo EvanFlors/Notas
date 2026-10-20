@@ -1,0 +1,116 @@
+---
+# Matriz de competencias — Examen de certificación del curso Helm
+# Nivel: intermedio-avanzado (cubre helm-03 a helm-10, con base en helm-01..02)
+# Dimensiones: conceptual, operativa, arquitectónica (todas)
+# Umbral de aprobación: 70%
+# Duración: 90-120 min
+exam:
+  course: helm
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: C1
+    source_module: helm-01, helm-02
+    statement: "Explicar por qué `values.yaml` es la API pública del chart y por qué `helm upgrade --install` es el idiom idempotente en CI/CD; razonar dónde vive el estado del release y qué pasa si ese Secret se borra."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q1, Q2]
+
+  - id: C2
+    source_module: helm-03
+    statement: "Diseñar la anatomía de un chart propio (Chart.yaml v2, templates/, values.schema.json, crds/) y justificar por qué las CRDs del directorio `crds/` no se actualizan en `helm upgrade`."
+    dimension: conceptual, arquitectonica
+    weight: 7
+    assessed_in: [Q3, OP-task-1, ARCH]
+
+  - id: C3
+    source_module: helm-04
+    statement: "Distinguir `template` (acción) de `include` (función) y aplicar `include ... | nindent N` correctamente; usar `required` y `default` para proteger el contrato de inputs."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q4, OP-task-2]
+
+  - id: C4
+    source_module: helm-04
+    statement: "Diagnosticar errores de render YAML (indentación, null, listas vs mapas, scoping con `with`/`$`) a partir del output de `helm template --debug`."
+    dimension: operativa
+    weight: 8
+    assessed_in: [OP-task-3]
+
+  - id: C5
+    source_module: helm-05
+    statement: "Predecir el valor final para un conjunto dado de inputs (defaults → `-f` en orden → `--set`), explicar scoping en subcharts y uso disciplinado de `global:`/`import-values`."
+    dimension: conceptual, operativa
+    weight: 7
+    assessed_in: [Q5, OP-task-4]
+
+  - id: C6
+    source_module: helm-06
+    statement: "Elegir composición (umbrella) vs separación (chart-por-app) según acoplamiento de lifecycle y defender `Chart.lock` como garantía de reproducibilidad."
+    dimension: conceptual, arquitectonica
+    weight: 6
+    assessed_in: [Q6, ARCH]
+
+  - id: C7
+    source_module: helm-07
+    statement: "Elegir hook vs initContainer vs operator para migraciones; configurar `--atomic` + `--wait` como default seguro en CD; usar `helm test` para smoke."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q7, OP-task-5]
+
+  - id: C8
+    source_module: helm-08
+    statement: "Diferenciar firma clásica (`.prov` + GPG) de cosign + OCI (keyless, OIDC) y justificar cuándo elegir cada uno; publicar chart firmado a GHCR OCI y verificarlo."
+    dimension: conceptual, arquitectonica
+    weight: 7
+    assessed_in: [Q8, ARCH]
+
+  - id: C9
+    source_module: helm-09
+    statement: "Diseñar un pipeline de validación por capas (lint → template → helm-unittest → `ct install` en kind) y una matriz de versiones de K8s a soportar."
+    dimension: operativa, arquitectonica
+    weight: 7
+    assessed_in: [Q9, OP-task-6]
+
+  - id: C10
+    source_module: helm-10
+    statement: "Decidir el límite Helm vs Kustomize vs operador; diseñar un library chart o un platform chart como contrato interno; anticipar cómo Argo CD renderiza charts y qué rompe (hooks)."
+    dimension: arquitectonica
+    weight: 10
+    assessed_in: [Q10, ARCH]
+
+  - id: C11
+    source_module: helm-07, helm-10
+    statement: "Reconocer anti-patrones de release: secretos en values en claro, hooks que duplican lo que debería ser initContainer u operador, uso de `--force` o rollback manual que oculta un fallo real."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q11]
+
+  - id: C12
+    source_module: helm-05, helm-08
+    statement: "Diseñar el contrato multi-entorno (`values-dev/stg/prod.yaml` + `values.schema.json`) sin filtrar secretos y versionado SemVer del chart interno."
+    dimension: arquitectonica, operativa
+    weight: 6
+    assessed_in: [OP-task-4, ARCH]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 40
+  arquitectonica_pct: 25
+
+red_flags:
+  - "Secretos (DB_PASSWORD, API_KEY, tokens de registry) hardcodeados en `values.yaml`, templates o `Chart.yaml`."
+  - "Uso de `--force` o `helm uninstall && helm install` para 'arreglar' un upgrade fallido en vez de diagnosticar."
+  - "CRDs modificadas vía `templates/` esperando que `helm upgrade` las actualice (ignora la política de `crds/`)."
+  - "`template` encadenado con `| nindent` (no compila; debe ser `include`)."
+  - "`helm install --verify` deshabilitado o firma cosign con `--insecure-ignore-tlog` sin justificación."
+  - "Umbrella chart en producción que acopla el lifecycle de servicios de equipos distintos sin ADR que lo defienda."
+  - "Chart publicado con `appVersion` que no coincide con la imagen que el Deployment realmente despliega."
+  - "Values del subchart modificados desde el padre sin usar `global:` o `import-values` (acceso directo a `subchart.values` que no funciona)."
+  - "Hook `pre-upgrade` que ejecuta migraciones destructivas sin backup previo ni `--atomic`."
+  - "Chart publicado a repo HTTP sin TLS, sin `index.yaml` firmado, o sin pin por digest OCI en el consumidor."
+  - "`values.schema.json` ausente en chart interno multi-entorno (contrato implícito)."
+  - "`curl | bash` dentro de un hook o initContainer desde fuente no verificada."

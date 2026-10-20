@@ -1,0 +1,28 @@
+id: cap-14-02-chaos-mesh-pod-kill-latency-cpu
+title: Correr 3 experimentos de chaos-mesh y documentar blast radius
+technology: capstone
+module: 14-load-testing-chaos-dr-plan
+level: advanced
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - capstone-stages-1-13-done
+  - chaos-mesh-installed-or-skip-acknowledged
+
+objectives:
+  - Aplicar PodChaos, NetworkChaos y StressChaos acotados al namespace app
+  - Observar la respuesta de la app (healthchecks, latencia, HPA) y de las alertas
+  - Documentar en experiments.md el blast radius medido y el recovery time
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

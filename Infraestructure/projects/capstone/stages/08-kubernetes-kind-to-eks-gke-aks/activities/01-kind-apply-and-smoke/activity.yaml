@@ -1,0 +1,27 @@
+id: cap-08-01-kind-apply-and-smoke
+title: Levantar kind y aplicar overlay dev end-to-end
+technology: capstone
+module: 08-kubernetes-kind-to-eks-gke-aks
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - cap-07-cloud-deploy
+
+objectives:
+  - Crear un cluster kind con el kind-config.yaml provisto
+  - Aplicar overlays dev/staging/prod con --dry-run=client sin errores
+  - Instalar NGINX ingress y aplicar overlay dev de verdad
+  - Verificar rollout del Deployment y HPA activo
+
+paths:
+  instructions: README.md
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

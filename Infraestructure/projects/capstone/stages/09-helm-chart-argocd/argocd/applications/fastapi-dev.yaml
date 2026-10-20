@@ -1,0 +1,53 @@
+# Application CR que registra el chart propio fastapi-app en el ambiente dev.
+# Fuente: carpeta del chart dentro del propio repo (git source).
+# Para probar con el chart publicado como OCI, cambiar `source` a:
+#   source:
+#     repoURL: oci://ghcr.io/capstone/charts
+#     chart: fastapi-app
+#     targetRevision: 0.1.0
+#     helm:
+#       valuesObject: { ... }
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fastapi-dev
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: capstone
+    env: dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://example.invalid/capstone/fastapi-app.git
+    targetRevision: HEAD
+    path: projects/capstone/stages/09-helm-chart-argocd/charts/fastapi-app
+    helm:
+      releaseName: fastapi
+      valueFiles:
+        - values.yaml
+        - values-dev.yaml
+      # valuesObject permite inyectar overrides sin tocar values-dev.yaml,
+      # util cuando CI debe fijar el tag de la imagen recien publicada.
+      valuesObject:
+        image:
+          tag: "0.9.0-dev"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: fastapi-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

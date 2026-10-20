@@ -1,0 +1,36 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # Example of a follow-up step gated on a real release being cut.
+      # Later stages (4 and 5) will replace this echo with image build + push.
+      - name: Announce release
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: |
+          echo "Released ${{ steps.release.outputs.tag_name }}"
+
+  commitlint:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: wagoid/commitlint-github-action@v6

@@ -1,0 +1,195 @@
+{
+  "metadata": {
+    "source": "synthetic-backstage-like-catalog",
+    "generated_at": "2026-10-01T00:00:00Z",
+    "note": "No requiere Backstage real. Formato inspirado en backstage.io/v1alpha1 pero autocontenido."
+  },
+  "entities": [
+    {
+      "kind": "Component",
+      "metadata": {
+        "name": "checkout-api",
+        "annotations": {
+          "github.com/project-slug": "acme/checkout-api",
+          "backstage.io/techdocs-ref": "dir:.",
+          "pagerduty.com/integration-key": "pd-key-checkout",
+          "last_build_at": "2026-10-18T12:00:00Z",
+          "repo_archived": false
+        }
+      },
+      "spec": {
+        "type": "service",
+        "lifecycle": "production",
+        "owner": "group:payments",
+        "system": "payments",
+        "providesApis": ["checkout-v1"],
+        "consumesApis": ["pricing-v2"],
+        "dependsOn": ["resource:checkout-db"]
+      },
+      "signals": {
+        "has_runbook": true,
+        "has_slo": true,
+        "image_signed": true,
+        "critical_cves": 0,
+        "test_coverage_pct": 78,
+        "deploys_last_30d": 42,
+        "lead_time_minutes_p75": 95,
+        "change_failure_rate_pct": 8,
+        "mttr_minutes_p75": 35,
+        "on_call_configured": true
+      }
+    },
+    {
+      "kind": "Component",
+      "metadata": {
+        "name": "pricing-service",
+        "annotations": {
+          "github.com/project-slug": "acme/pricing-service",
+          "backstage.io/techdocs-ref": "dir:.",
+          "last_build_at": "2026-07-02T09:00:00Z",
+          "repo_archived": false
+        }
+      },
+      "spec": {
+        "type": "service",
+        "lifecycle": "production",
+        "owner": "group:ghost-team",
+        "system": "payments",
+        "providesApis": ["pricing-v2"],
+        "consumesApis": [],
+        "dependsOn": []
+      },
+      "signals": {
+        "has_runbook": false,
+        "has_slo": false,
+        "image_signed": false,
+        "critical_cves": 3,
+        "test_coverage_pct": 41,
+        "deploys_last_30d": 0,
+        "lead_time_minutes_p75": null,
+        "change_failure_rate_pct": null,
+        "mttr_minutes_p75": null,
+        "on_call_configured": false
+      }
+    },
+    {
+      "kind": "Component",
+      "metadata": {
+        "name": "notifications-worker",
+        "annotations": {
+          "github.com/project-slug": "acme/notifications-worker",
+          "backstage.io/techdocs-ref": "dir:.",
+          "last_build_at": "2026-10-10T15:30:00Z",
+          "repo_archived": false
+        }
+      },
+      "spec": {
+        "type": "service",
+        "lifecycle": "production",
+        "owner": "group:growth",
+        "system": "growth",
+        "providesApis": [],
+        "consumesApis": ["notifications-events-v1"],
+        "dependsOn": ["resource:notifications-queue"]
+      },
+      "signals": {
+        "has_runbook": true,
+        "has_slo": true,
+        "image_signed": true,
+        "critical_cves": 1,
+        "test_coverage_pct": 82,
+        "deploys_last_30d": 18,
+        "lead_time_minutes_p75": 140,
+        "change_failure_rate_pct": 12,
+        "mttr_minutes_p75": 60,
+        "on_call_configured": true
+      }
+    },
+    {
+      "kind": "Component",
+      "metadata": {
+        "name": "legacy-reports",
+        "annotations": {
+          "github.com/project-slug": "acme/legacy-reports",
+          "last_build_at": "2025-11-20T08:00:00Z",
+          "repo_archived": true
+        }
+      },
+      "spec": {
+        "type": "service",
+        "lifecycle": "deprecated",
+        "owner": "group:data",
+        "system": "analytics",
+        "providesApis": ["reports-v0"],
+        "consumesApis": ["pricing-v2", "nonexistent-api"],
+        "dependsOn": ["resource:reports-db"]
+      },
+      "signals": {
+        "has_runbook": false,
+        "has_slo": false,
+        "image_signed": false,
+        "critical_cves": 7,
+        "test_coverage_pct": 15,
+        "deploys_last_30d": 0,
+        "lead_time_minutes_p75": null,
+        "change_failure_rate_pct": null,
+        "mttr_minutes_p75": null,
+        "on_call_configured": false
+      }
+    },
+    {
+      "kind": "Component",
+      "metadata": {
+        "name": "catalog-ui",
+        "annotations": {
+          "github.com/project-slug": "acme/catalog-ui",
+          "backstage.io/techdocs-ref": "dir:.",
+          "last_build_at": "2026-10-19T10:00:00Z",
+          "repo_archived": false
+        }
+      },
+      "spec": {
+        "type": "website",
+        "lifecycle": "production",
+        "owner": "group:growth",
+        "system": "growth",
+        "providesApis": [],
+        "consumesApis": ["checkout-v1"],
+        "dependsOn": []
+      },
+      "signals": {
+        "has_runbook": true,
+        "has_slo": true,
+        "image_signed": true,
+        "critical_cves": 0,
+        "test_coverage_pct": 71,
+        "deploys_last_30d": 55,
+        "lead_time_minutes_p75": 80,
+        "change_failure_rate_pct": 5,
+        "mttr_minutes_p75": 25,
+        "on_call_configured": true
+      }
+    }
+  ],
+  "apis": [
+    {"kind": "API", "metadata": {"name": "checkout-v1"}, "spec": {"owner": "group:payments", "system": "payments", "type": "openapi", "lifecycle": "production"}},
+    {"kind": "API", "metadata": {"name": "pricing-v2"}, "spec": {"owner": "group:ghost-team", "system": "payments", "type": "openapi", "lifecycle": "production"}},
+    {"kind": "API", "metadata": {"name": "notifications-events-v1"}, "spec": {"owner": "group:growth", "system": "growth", "type": "asyncapi", "lifecycle": "production"}},
+    {"kind": "API", "metadata": {"name": "reports-v0"}, "spec": {"owner": "group:data", "system": "analytics", "type": "openapi", "lifecycle": "deprecated"}}
+  ],
+  "systems": [
+    {"kind": "System", "metadata": {"name": "payments"}, "spec": {"owner": "group:payments", "domain": "commerce"}},
+    {"kind": "System", "metadata": {"name": "growth"}, "spec": {"owner": "group:growth", "domain": "commerce"}},
+    {"kind": "System", "metadata": {"name": "analytics"}, "spec": {"owner": "group:data", "domain": "insights"}}
+  ],
+  "groups": [
+    {"kind": "Group", "metadata": {"name": "payments"}, "spec": {"type": "team", "members": ["alice", "bob"]}},
+    {"kind": "Group", "metadata": {"name": "growth"}, "spec": {"type": "team", "members": ["carol"]}},
+    {"kind": "Group", "metadata": {"name": "data"}, "spec": {"type": "team", "members": ["dave"]}}
+  ],
+  "resources": [
+    {"kind": "Resource", "metadata": {"name": "checkout-db"}, "spec": {"type": "database", "owner": "group:payments"}},
+    {"kind": "Resource", "metadata": {"name": "notifications-queue"}, "spec": {"type": "queue", "owner": "group:growth"}},
+    {"kind": "Resource", "metadata": {"name": "reports-db"}, "spec": {"type": "database", "owner": "group:data"}}
+  ]
+}

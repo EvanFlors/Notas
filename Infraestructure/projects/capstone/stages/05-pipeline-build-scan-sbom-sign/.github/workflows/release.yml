@@ -1,0 +1,143 @@
+name: release
+
+# Pipeline supply-chain: build -> trivy -> syft (SBOM) -> cosign keyless sign
+# -> cosign attest (SBOM + SLSA provenance) -> push por digest a GHCR.
+#
+# No usa credenciales de larga vida. Firma keyless via Sigstore + Fulcio
+# usando el id-token OIDC de GitHub. Publicar por digest (no por tag) blinda
+# la cadena de confianza: lo que firmas es exactamente lo que se despliega.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch: {}
+
+permissions: {}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-scan-sign:
+    name: Build, scan, sign and attest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read            # checkout
+      packages: write           # push a GHCR
+      id-token: write           # OIDC para cosign keyless + attestations
+      attestations: write       # SLSA build provenance attestation
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf  # v3.2.0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349  # v3.7.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567  # v3.3.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96  # v5.6.1
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=sha,format=long
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355  # v6.10.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # SBOM/provenance a nivel builder son interesantes, pero el gold
+          # standard de este stage es cosign-sign + cosign-attest explicitos
+          # abajo, para quedarnos con firmas verificables fuera del builder.
+          provenance: false
+          sbom: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ---- Trivy container scan (gate por severidad) ----
+      - name: Trivy container scan
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0  # 0.29.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          trivy-config: trivy.yaml
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@396bb3e45325a47dd9ef434068033c6d5bb0d11a  # v3.27.0
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image
+
+      # ---- Syft SBOM (SPDX JSON) ----
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@f325610c9f50a054015b6da1d1e7e4a4f8c1e57f  # v0.17.8
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: true
+          upload-release-assets: false
+
+      # ---- Cosign keyless sign (Fulcio + Rekor) ----
+      - name: Install cosign
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da  # v3.7.0
+        with:
+          cosign-release: v2.4.1
+
+      - name: Cosign keyless sign (by digest)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign sign --yes \
+            "${REGISTRY}/${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
+
+      - name: Cosign attest SBOM (in-toto predicate = SPDX)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign attest --yes \
+            --predicate sbom.spdx.json \
+            --type spdxjson \
+            "${REGISTRY}/${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
+
+      # ---- SLSA build provenance attestation (GitHub-native) ----
+      - name: Attest build provenance (SLSA)
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2  # v2.1.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Summary
+        run: |
+          {
+            echo "## Supply-chain summary"
+            echo "- Image: \`${REGISTRY}/${IMAGE_NAME}@${{ steps.build.outputs.digest }}\`"
+            echo "- Signed: cosign keyless (OIDC)"
+            echo "- Attestations: SBOM (SPDX) + SLSA build provenance"
+          } >> "$GITHUB_STEP_SUMMARY"

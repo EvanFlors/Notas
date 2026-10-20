@@ -1,0 +1,96 @@
+name: pr
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title-lint:
+    name: pr title (conventional commits)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            test
+            ci
+            build
+            perf
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            El subject del titulo debe empezar en minuscula.
+
+  changed-files:
+    name: changed files gate
+    runs-on: ubuntu-latest
+    outputs:
+      python_changed: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            python:
+              - 'app/**'
+              - 'tests/**'
+              - 'pyproject.toml'
+
+  diff-coverage:
+    name: diff-coverage (PR only)
+    needs: changed-files
+    if: needs.changed-files.outputs.python_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" || pip install pytest pytest-cov diff-cover
+      - name: Pytest with coverage
+        run: pytest --cov=app --cov-report=xml
+      - name: Diff cover (fail under 90% of changed lines)
+        run: diff-cover coverage.xml --compare-branch=origin/main --fail-under=90
+
+  comment-summary:
+    name: comment summary
+    needs: [pr-title-lint, changed-files]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post sticky summary
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: capstone-stage-03-ci
+          message: |
+            ### CI summary (etapa 3)
+
+            | Check | Status |
+            |---|---|
+            | pr-title-lint   | ${{ needs.pr-title-lint.result }} |
+            | changed-files   | ${{ needs.changed-files.result }} |
+
+            Los hallazgos SAST/SCA/secret-scan viven en el tab **Security → Code scanning** del repo.

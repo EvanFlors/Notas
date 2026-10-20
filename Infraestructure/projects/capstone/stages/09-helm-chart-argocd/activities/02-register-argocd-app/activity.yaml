@@ -1,0 +1,28 @@
+id: cap-09-02-register-argocd-app
+title: Instalar Argo CD y registrar el chart como Application
+technology: capstone
+module: 09-helm-chart-argocd
+level: intermediate
+type: independent
+
+estimated_minutes: 50
+
+prerequisites:
+  - cap-09-01-build-helm-chart
+
+objectives:
+  - Instalar Argo CD en el cluster kind con el script provisto
+  - Escribir y aplicar una Application CR que apunte al chart propio
+  - Observar sync Automated y selfHeal eliminando un pod a mano
+  - Validar que el app-of-apps descubre nuevas Applications sin manifest extra
+
+paths:
+  instructions: README.md
+  starter: ../../argocd/
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

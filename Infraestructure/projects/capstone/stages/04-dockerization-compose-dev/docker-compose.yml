@@ -1,0 +1,62 @@
+# Topología base: app + db. El collector OTEL vive detrás del perfil `otel`.
+# Para desarrollo normal: `docker compose up -d --build`
+# Con observabilidad local:  `docker compose --profile otel up -d --build`
+#
+# No hay secretos reales aquí: usamos literales obvios tipo `fake-password`
+# para que `grep` encuentre cualquier accidente.
+
+name: capstone-stage-04
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: capstone-app:dev
+    environment:
+      PORT: "8000"
+      DATABASE_URL: "postgresql+psycopg://capstone:fake-password@db:5432/capstone"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_SERVICE_NAME: "capstone-app"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=3).status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: "capstone"
+      POSTGRES_PASSWORD: "fake-password"
+      POSTGRES_DB: "capstone"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U capstone -d capstone"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    profiles: ["otel"]
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    # Configuración inline mínima vía bind sería ideal; aquí dejamos la
+    # imagen con la config por defecto para no acoplar un archivo extra en
+    # esta etapa. Etapa 11 reemplaza esto con config completa.
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    name: capstone_pgdata

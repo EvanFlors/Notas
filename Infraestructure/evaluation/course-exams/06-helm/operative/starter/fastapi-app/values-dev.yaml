@@ -1,0 +1,14 @@
+replicaCount: 1
+
+image:
+  tag: "1.0.0-dev"
+
+postgresql:
+  enabled: true
+
+ingress:
+  host: fastapi.dev.local
+
+env:
+  - name: LOG_LEVEL
+    value: debug

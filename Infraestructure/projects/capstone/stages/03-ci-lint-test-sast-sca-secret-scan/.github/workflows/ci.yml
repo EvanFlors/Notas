@@ -1,0 +1,155 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  lint:
+    name: lint (ruff + mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" || pip install ruff mypy
+      - name: ruff check
+        run: ruff check .
+      - name: ruff format --check
+        run: ruff format --check .
+      - name: mypy
+        run: mypy app
+
+  test:
+    name: test (pytest + coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" || pip install pytest pytest-cov
+      - name: pytest with coverage gate
+        run: pytest --cov=app --cov-report=xml --cov-report=term --cov-fail-under=80
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: warn
+
+  sast:
+    name: sast (bandit)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install bandit
+        run: pip install "bandit[sarif]"
+      - name: Run bandit (SARIF)
+        # exit 0 — subimos SARIF; el gate lo pone Code Scanning.
+        run: bandit -r app -f sarif -o bandit.sarif || true
+      - name: Upload bandit SARIF (job-local)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sarif-bandit
+          path: bandit.sarif
+
+  sca:
+    name: sca (pip-audit)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install pip-audit
+        run: pip install pip-audit
+      - name: Run pip-audit (SARIF)
+        run: pip-audit -f sarif -o pip-audit.sarif || true
+      - name: Upload pip-audit SARIF
+        uses: actions/upload-artifact@v4
+        with:
+          name: sarif-pip-audit
+          path: pip-audit.sarif
+
+  secret-scan:
+    name: secret-scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+          GITLEAKS_ENABLE_SUMMARY: "true"
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  aggregate-sarif:
+    name: aggregate-sarif → Code Scanning
+    needs: [sast, sca]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download bandit SARIF
+        uses: actions/download-artifact@v4
+        with:
+          name: sarif-bandit
+          path: sarif/
+      - name: Download pip-audit SARIF
+        uses: actions/download-artifact@v4
+        with:
+          name: sarif-pip-audit
+          path: sarif/
+      - name: Upload bandit to Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif/bandit.sarif
+          category: bandit
+      - name: Upload pip-audit to Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif/pip-audit.sarif
+          category: pip-audit

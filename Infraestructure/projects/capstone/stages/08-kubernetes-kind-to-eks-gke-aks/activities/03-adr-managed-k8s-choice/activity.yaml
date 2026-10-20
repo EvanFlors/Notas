@@ -1,0 +1,26 @@
+id: cap-08-03-adr-managed-k8s-choice
+title: ADR eligiendo nube gestionada para el stage 9+
+technology: capstone
+module: 08-kubernetes-kind-to-eks-gke-aks
+level: intermediate
+type: architecture
+
+estimated_minutes: 45
+
+prerequisites:
+  - cap-08-02-eks-tf-plan-walkthrough
+
+objectives:
+  - Escribir un ADR eligiendo EKS, GKE Autopilot o AKS para el capstone
+  - Justificar la decision con criterios explicitos (costo, madurez, ergonomia)
+  - Listar consecuencias y lo que se pierde con la opcion no elegida
+
+paths:
+  instructions: README.md
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

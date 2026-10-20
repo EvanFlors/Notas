@@ -1,0 +1,30 @@
+id: cap-12-03-conftest-policy-as-code-ci
+title: Reparar policy-check CI con conftest + opa test
+technology: capstone
+module: 12-devsecops-eso-kyverno-falco-pac
+level: intermediate
+type: debug
+
+estimated_minutes: 50
+
+prerequisites:
+  - cap-03-ci
+  - cap-12-02-kyverno-verify-signed-images
+
+objectives:
+  - Diagnosticar por que `policy-check.yml` esta en rojo
+  - Corregir la Rego defectuosa que deja pasar un hostPath
+  - Hacer que el pipeline rechace bad.yaml y acepte good.yaml
+  - Dejar `opa test` verde en todas las policies
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

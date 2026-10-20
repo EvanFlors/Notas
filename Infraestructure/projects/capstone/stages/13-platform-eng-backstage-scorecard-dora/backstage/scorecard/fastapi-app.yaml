@@ -1,0 +1,51 @@
+# Scorecard model for capstone services.
+# Niveles como conjuntos (no pesos sumables): un servicio en "gold" cumple
+# todos los checks de gold, no "la mayoria".
+name: capstone-maturity
+levels: [bronze, silver, gold]
+
+checks:
+  - id: has-owner
+    weight: bronze
+    field: spec.owner
+    operator: is_set
+    description: "Owner definido en spec.owner."
+  - id: has-slo
+    weight: silver
+    field: metadata.annotations.slo_url
+    operator: is_set
+    description: "SLO publicado y enlazado."
+  - id: has-runbook
+    weight: silver
+    field: metadata.annotations.runbook_url
+    operator: is_set
+    description: "Runbook enlazado."
+  - id: has-oncall
+    weight: silver
+    field: metadata.annotations.oncall_rotation
+    operator: is_set
+    description: "Rotacion on-call activa."
+  - id: image-signed
+    weight: gold
+    field: metadata.annotations.image_signed
+    operator: equals
+    value: "true"
+    description: "Imagen firmada con cosign."
+  - id: no-critical-cves
+    weight: gold
+    field: metadata.annotations.cves_critical
+    operator: equals
+    value: "0"
+    description: "Sin CVEs criticos en la imagen."
+  - id: deployed-recently
+    weight: gold
+    field: metadata.annotations.last_deploy_days
+    operator: less_than
+    value: 90
+    description: "Deploy a prod en los ultimos 90 dias."
+  - id: psa-restricted
+    weight: gold
+    field: metadata.annotations.k8s_psa
+    operator: equals
+    value: restricted
+    description: "Namespace con PodSecurityAdmission restricted."

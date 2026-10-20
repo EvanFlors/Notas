@@ -1,0 +1,35 @@
+# verify-images: toda imagen del registry capstone debe traer firma cosign
+# keyless producida por el workflow release.yml del repo (etapa 5). Si falta la
+# firma o el subject no coincide, el pod no se admite.
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: verify-capstone-images
+  annotations:
+    policies.kyverno.io/title: Verify cosign keyless signature on capstone images
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: verify-signature-keyless
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/acme/capstone*"
+          mutateDigest: true
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    subject: "https://github.com/acme/capstone/.github/workflows/release.yml@refs/heads/main"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev

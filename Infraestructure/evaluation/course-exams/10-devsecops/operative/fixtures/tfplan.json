@@ -1,0 +1,55 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.6.0",
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.public_logs",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "public_logs",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "bucket": "acme-public-logs-dummy",
+          "acl": "public-read",
+          "tags": {
+            "Environment": "dev"
+          }
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket.app_data",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "app_data",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "bucket": "acme-app-data-dummy",
+          "acl": "private",
+          "tags": {
+            "Environment": "prod",
+            "Owner": "team-platform"
+          }
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket.reports",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "reports",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "bucket": "acme-reports-dummy",
+          "acl": "private",
+          "tags": {
+            "Environment": "stg"
+          }
+        }
+      }
+    }
+  ]
+}

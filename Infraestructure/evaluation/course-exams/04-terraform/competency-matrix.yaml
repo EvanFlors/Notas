@@ -1,0 +1,96 @@
+---
+# Matriz de competencias — Examen de certificación Terraform
+# Nivel: intermedio-avanzado (cubre tf-06 a tf-14 con prerequisitos de tf-01 a tf-05)
+# Dimensiones evaluadas: conceptual, operativa, arquitectónica
+# Umbral de aprobación: 70% ponderado
+
+course: terraform
+level: intermedio-avanzado
+total_weight: 100
+pass_threshold_pct: 70
+duration_min_minutes: 90
+duration_max_minutes: 120
+
+competencies:
+  - id: tf-c-06-01
+    source_module: tf-06-modules
+    verb_outcome: "diseñar módulos pequeños, cohesivos y versionados con contrato claro de inputs/outputs"
+    dimension: arquitectónica
+    weight: 10
+
+  - id: tf-c-07-01
+    source_module: tf-07-expressions-for_each-count-dynamic
+    verb_outcome: "justificar for_each sobre count y refactorizar un count que reindexa"
+    dimension: conceptual
+    weight: 8
+
+  - id: tf-c-07-02
+    source_module: tf-07-expressions-for_each-count-dynamic
+    verb_outcome: "generar N recursos a partir de un mapa usando for_each y dynamic blocks"
+    dimension: operativa
+    weight: 10
+
+  - id: tf-c-08-01
+    source_module: tf-08-environments-workspaces-vs-directories
+    verb_outcome: "elegir patrón de ambientes (workspaces vs directorios) y defender riesgos de cada uno"
+    dimension: arquitectónica
+    weight: 8
+
+  - id: tf-c-09-01
+    source_module: tf-09-providers-deep-and-lifecycle
+    verb_outcome: "aplicar lifecycle (create_before_destroy, prevent_destroy, ignore_changes) y moved blocks sin recrear recursos"
+    dimension: operativa
+    weight: 10
+
+  - id: tf-c-09-02
+    source_module: tf-09-providers-deep-and-lifecycle
+    verb_outcome: "diagnosticar un plan que destruye un recurso y proponer corrección con lifecycle/moved"
+    dimension: conceptual
+    weight: 8
+
+  - id: tf-c-10-01
+    source_module: tf-10-internals-graph-and-plan-algorithm
+    verb_outcome: "explicar las fases del plan (refresh + diff) y por qué -target y -refresh=false son escape hatches"
+    dimension: conceptual
+    weight: 7
+
+  - id: tf-c-11-01
+    source_module: tf-11-remote-backends-and-locking
+    verb_outcome: "diseñar splitting de state por bounded context y backend por ambiente"
+    dimension: arquitectónica
+    weight: 10
+
+  - id: tf-c-11-02
+    source_module: tf-11-remote-backends-and-locking
+    verb_outcome: "recuperar un lock colgado con criterio y sin corromper el state"
+    dimension: conceptual
+    weight: 5
+
+  - id: tf-c-12-01
+    source_module: tf-12-testing-and-policy-as-code
+    verb_outcome: "diferenciar análisis estático sobre HCL vs análisis sobre plan JSON y ubicarlos en el pipeline"
+    dimension: conceptual
+    weight: 7
+
+  - id: tf-c-12-02
+    source_module: tf-12-testing-and-policy-as-code
+    verb_outcome: "escribir validation blocks y referenciar policies externas en el stack"
+    dimension: operativa
+    weight: 5
+
+  - id: tf-c-13-01
+    source_module: tf-13-cicd-and-opentofu
+    verb_outcome: "justificar plan guardado + apply as-is y OIDC vs access keys en CI/CD"
+    dimension: conceptual
+    weight: 6
+
+  - id: tf-c-14-01
+    source_module: tf-14-platform-patterns-drift-and-refactoring-at-scale
+    verb_outcome: "defender el contrato de un módulo golden ante trade-offs autonomía dev vs control"
+    dimension: arquitectónica
+    weight: 6
+
+dimension_distribution_pct:
+  conceptual: 41
+  operativa: 25
+  architectónica: 34

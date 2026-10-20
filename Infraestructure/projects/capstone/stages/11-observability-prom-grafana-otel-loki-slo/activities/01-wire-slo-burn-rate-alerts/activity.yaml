@@ -1,0 +1,27 @@
+id: cap-11-01-wire-slo-burn-rate-alerts
+title: Cablear el SLO 99.9% y validar MWMBR burn-rate alerts
+technology: capstone
+module: 11-observability-prom-grafana-otel-loki-slo
+level: advanced
+type: independent
+
+estimated_minutes: 70
+
+prerequisites:
+  - cap-10-01-gitops-rollouts-canary
+
+objectives:
+  - Validar sintacticamente los manifiestos ServiceMonitor, PrometheusRule y los values de kube-prometheus-stack
+  - Entender la expresion MWMBR y por que mezcla ventana corta con larga en AND
+  - Inyectar errores 500 sinteticos y verificar que HighErrorBudgetBurnFast entra en firing en menos de 5 minutos
+  - Dejar escrito un postmortem corto que explique cuanto error budget se gasto en el ejercicio
+
+paths:
+  instructions: README.md
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

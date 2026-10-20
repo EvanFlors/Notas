@@ -1,0 +1,110 @@
+# Backstage Software Catalog manifest for the capstone FastAPI service.
+# Four kinds in one multi-doc file: Component, API, Resource, System.
+# The annotations block is the contract consumed by the Scorecard.
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: capstone-app
+  description: >
+    FastAPI + PostgreSQL backend of the capstone. Deployed to Kubernetes under
+    GitOps (Argo CD + Argo Rollouts). Observed with Prometheus, Grafana and
+    OpenTelemetry. Images signed with cosign.
+  tags:
+    - python
+    - fastapi
+    - postgres
+    - capstone
+  links:
+    - url: https://example.invalid/capstone-app/dashboard
+      title: Grafana dashboard
+      icon: dashboard
+    - url: https://example.invalid/capstone-app/runbook
+      title: Runbook
+      icon: docs
+  annotations:
+    # Platform plumbing
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: dummy-org/capstone-app
+    # Observability
+    grafana/dashboard-selector: "service=capstone-app"
+    prometheus.io/rule: capstone-app
+    # Scorecard contract — these are the fields the Scorecard engine reads.
+    slo_url: https://example.invalid/capstone-app/slo
+    runbook_url: https://example.invalid/capstone-app/runbook
+    oncall_rotation: team-capstone-primary
+    image_signed: "true"
+    cves_critical: "0"
+    last_deploy_days: "3"
+    k8s_psa: restricted
+spec:
+  type: service
+  lifecycle: production
+  owner: team-capstone
+  system: capstone
+  providesApis:
+    - capstone-api
+  dependsOn:
+    - resource:capstone-db
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: capstone-api
+  description: REST API of the capstone backend (tasks CRUD + healthz).
+  tags:
+    - rest
+    - openapi
+spec:
+  type: openapi
+  lifecycle: production
+  owner: team-capstone
+  system: capstone
+  definition: |
+    openapi: 3.0.3
+    info:
+      title: capstone-api
+      version: "1.0.0"
+    paths:
+      /healthz:
+        get:
+          summary: Liveness probe
+          responses:
+            "200":
+              description: OK
+      /tasks:
+        get:
+          summary: List tasks
+          responses:
+            "200":
+              description: Array of Task
+        post:
+          summary: Create task
+          responses:
+            "201":
+              description: Created
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: capstone-db
+  description: Managed PostgreSQL 16 instance backing capstone-app.
+  tags:
+    - postgres
+    - stateful
+  annotations:
+    backup_policy: daily-pitr-7d
+spec:
+  type: database
+  owner: team-capstone
+  system: capstone
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: capstone
+  description: >
+    Capstone system: the FastAPI backend, its REST API and its Postgres
+    database. Owned end-to-end by team-capstone.
+spec:
+  owner: team-capstone

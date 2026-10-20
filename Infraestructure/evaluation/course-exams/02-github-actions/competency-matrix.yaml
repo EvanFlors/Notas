@@ -1,0 +1,125 @@
+---
+# Matriz de competencias — Examen de certificación GitHub Actions
+# Cubre gha-06 a gha-15 con prerrequisitos de gha-01 a gha-05.
+# Dimensión: todas (conceptual + operativa + arquitectónica)
+# Nivel: intermedio-avanzado
+# Duración: 90-120 min take-home + 30 min live follow-up
+# Umbral de aprobación: 70% ponderado
+# Formato: Spanish prose / English code (identificadores, nombres de archivos y YAML en inglés)
+
+exam:
+  course: github-actions
+  level: intermedio-avanzado
+  take_home_minutes: [90, 120]
+  live_followup_minutes: 30
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+  total_weight: 100
+
+competencies:
+  - id: C1
+    source_module: gha-02, gha-13
+    statement: "Explicar la mecánica de script injection vía ${{ ... }} interpolado en run: y aplicar la mitigación por indirección a env."
+    dimension: conceptual
+    weight: 7
+    assessed_in: [Q1, OP-task-1]
+
+  - id: C2
+    source_module: gha-03, gha-13
+    statement: "Distinguir pull_request vs pull_request_target y justificar por qué el segundo requiere no hacer checkout del head sin aislamiento."
+    dimension: conceptual
+    weight: 8
+    assessed_in: [Q2, OP-task-2]
+
+  - id: C3
+    source_module: gha-04, gha-13
+    statement: "Defender el pinning a commit SHA de actions de terceros frente a tags mutables, con evidencia de un incidente de supply chain."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q3, OP-task-3]
+
+  - id: C4
+    source_module: gha-05, gha-13
+    statement: "Diseñar permissions: mínimas por workflow y escalada selectiva por job, y auditar permissions: write-all."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q4, OP-task-4]
+
+  - id: C5
+    source_module: gha-06
+    statement: "Razonar el comportamiento de concurrency + cancel-in-progress en pipelines de deploy y elegir política por environment."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q5]
+
+  - id: C6
+    source_module: gha-07
+    statement: "Diagnosticar un cache miss (clave, scope o restore-keys stale) y defender cuándo un miss es preferible a un hit falso."
+    dimension: conceptual, operativa
+    weight: 6
+    assessed_in: [Q6, OP-task-5]
+
+  - id: C7
+    source_module: gha-08
+    statement: "Decidir entre composite action y reusable workflow justificando runner compartido, modelo de permisos y versionado."
+    dimension: arquitectonica
+    weight: 7
+    assessed_in: [Q7, ARCH]
+
+  - id: C8
+    source_module: gha-09, gha-11
+    statement: "Modelar la cadena dev→staging→prod con environments, approvals, deployment branches y claim OIDC gated por environment."
+    dimension: arquitectonica, operativa
+    weight: 10
+    assessed_in: [ARCH, OP-task-6]
+
+  - id: C9
+    source_module: gha-11, gha-13
+    statement: "Auditar un trust policy de OIDC vulnerable (sub pin solo a repo:owner/*) y escribir uno restrictivo por repo + ref/environment."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q8, OP-task-7]
+
+  - id: C10
+    source_module: gha-10, gha-15
+    statement: "Decidir hosted vs self-hosted (ARC) considerando aislamiento, costo y superficie de ataque; identificar cuándo self-hosted es incorrecto."
+    dimension: arquitectonica
+    weight: 7
+    assessed_in: [ARCH]
+
+  - id: C11
+    source_module: gha-14
+    statement: "Producir y verificar la cadena SBOM + attestation de build-provenance + firma cosign keyless sobre una imagen publicada a GHCR."
+    dimension: operativa, conceptual
+    weight: 9
+    assessed_in: [OP-task-8]
+
+  - id: C12
+    source_module: gha-15
+    statement: "Diseñar el 'platform contract' org-level (required workflows via rulesets, golden-path reusables, cost governance) y defenderlo frente a DX/seguridad/costo."
+    dimension: arquitectonica
+    weight: 10
+    assessed_in: [ARCH]
+
+  - id: C13
+    source_module: gha-06, gha-07
+    statement: "Diseñar un pipeline fan-out/fan-in con matrix, needs y artefactos sin acoplar jobs por filesystem compartido."
+    dimension: operativa
+    weight: 8
+    assessed_in: [OP-task-9]
+
+weighting_summary:
+  conceptual_block: 35   # Q1..Q8
+  operative_block: 35    # OP-task-1..9
+  architectural_block: 30 # ARCH scenario
+  total: 100
+
+grading:
+  pass: ">=70"
+  distinction: ">=85 y sin red flag crítica"
+  fail_regardless_of_score:
+    - "Secreto hardcodeado en workflow o commit."
+    - "Trust policy OIDC con sub pin solo a repo:owner/* (comodín de repo)."
+    - "pull_request_target haciendo checkout de github.event.pull_request.head.sha y ejecutando código de ese checkout."
+    - "permissions: write-all en el workflow endurecido entregado."
+    - "Action de terceros sin pin a SHA en el entregable operativo."

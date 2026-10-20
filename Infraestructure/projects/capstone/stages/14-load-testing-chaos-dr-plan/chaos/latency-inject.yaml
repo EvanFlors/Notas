@@ -1,0 +1,30 @@
+# Capstone stage 14 — NetworkChaos: inject 200ms +/- 50ms latency between
+# the fastapi pods and postgres for 1 minute.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: postgres-latency
+  namespace: app
+spec:
+  action: delay
+  mode: all
+  duration: "1m"
+  selector:
+    namespaces:
+      - app
+    labelSelectors:
+      app.kubernetes.io/name: fastapi
+      app.kubernetes.io/part-of: capstone
+  delay:
+    latency: "200ms"
+    jitter: "50ms"
+    correlation: "25"
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - app
+      labelSelectors:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: capstone

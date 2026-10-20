@@ -1,0 +1,145 @@
+---
+# Matriz de competencias — Examen de certificación del curso Azure
+# Nivel: intermedio-avanzado (cubre az-02..az-10, con base en az-01)
+# Dimensiones: conceptual, operativa, arquitectónica (todas)
+# Umbral de aprobación: 70%
+# Duración: 90-120 min
+exam:
+  course: azure
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+  constraints:
+    - "No se evalúa contra una suscripción Azure real: validación offline con `terraform init -backend=false && terraform validate` y, si están disponibles, emuladores (Azurite para Blob/Queue/Table, Cosmos DB Linux Emulator). SKIP del paso que requiera emulador si el entorno no lo tiene instalado — documentarlo en el entregable."
+    - "Tenant ID, Subscription IDs, Object IDs y Client IDs siempre dummy: '00000000-0000-0000-0000-000000000000' y variantes incrementales. Nunca GUIDs reales de un tenant corporativo."
+    - "Sin secretos reales ni Service Principal secrets en los entregables (ni siquiera 'ficticios' con formato plausible)."
+    - "Sin recursos que generen costo real en Azure: la rúbrica penaliza cualquier `az ... create` o `terraform apply` contra cloud."
+
+competencies:
+  - id: C1
+    source_module: az-01
+    statement: "Justificar la unidad de blast radius del Resource Group (un RG = un ambiente de un workload) y explicar por qué `az group delete` en cascada es un arma de doble filo frente a la jerarquía MG → Subscription → RG."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q1]
+
+  - id: C2
+    source_module: az-02
+    statement: "Explicar el modelo de evaluación de Azure RBAC (allow-based con herencia por scope) y por qué no existe un 'SCP deny' equivalente — se cubre con Azure Policy `deny` effect."
+    dimension: conceptual
+    weight: 7
+    assessed_in: [Q2, Q3]
+
+  - id: C3
+    source_module: az-02, az-06
+    statement: "Diferenciar system-assigned vs user-assigned Managed Identity vs Service Principal con secreto, y defender por qué una MI + role `Key Vault Secrets User` elimina la necesidad de almacenar credenciales en el workload."
+    dimension: conceptual, operativa
+    weight: 8
+    assessed_in: [Q4, OP-task-2]
+
+  - id: C4
+    source_module: az-03
+    statement: "Diseñar una topología Hub-Spoke con Private Endpoints a servicios PaaS (Storage, Key Vault) justificando por qué sustituye a Service Endpoints y qué resuelve respecto al egress por internet."
+    dimension: arquitectonica, conceptual
+    weight: 8
+    assessed_in: [Q5, ARCH]
+
+  - id: C5
+    source_module: az-03
+    statement: "Explicar el patrón NSG + ASG (reglas por identidad lógica, no por lista de IPs) y predecir el conflicto cuando NSGs se aplican simultáneamente a subnet y a NIC."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q6]
+
+  - id: C6
+    source_module: az-04
+    statement: "Elegir entre Container Apps, AKS, App Service y Functions para un workload dado, con criterios de scale-to-zero, Dapr, SLA, control sobre K8s y modelo de precios."
+    dimension: arquitectonica, conceptual
+    weight: 7
+    assessed_in: [Q7, ARCH]
+
+  - id: C7
+    source_module: az-05
+    statement: "Elegir el nivel de consistency de Cosmos DB (strong, bounded staleness, session, consistent prefix, eventual) para un caso dado y justificar el trade-off latencia/disponibilidad/correctness."
+    dimension: conceptual, arquitectonica
+    weight: 6
+    assessed_in: [Q8]
+
+  - id: C8
+    source_module: az-07
+    statement: "Explicar AKS Workload Identity (federated credential entre K8s ServiceAccount y Entra ID app registration vía OIDC) y por qué sucede a Pod Identity v1 — mapear el modelo a IRSA de EKS."
+    dimension: conceptual, operativa
+    weight: 9
+    assessed_in: [Q9, ARCH, OP-task-3]
+
+  - id: C9
+    source_module: az-08
+    statement: "Diagnosticar costo descontrolado en Log Analytics (ingestion por GB + retention) y proponer políticas de diagnostic settings, retention tiering y filtros KQL que preserven la señal de seguridad."
+    dimension: operativa, conceptual
+    weight: 5
+    assessed_in: [Q10]
+
+  - id: C10
+    source_module: az-09
+    statement: "Diseñar una jerarquía Management Groups (CAF Landing Zone: Platform + Landing Zones + Sandbox + Decommissioned) y traducir SCPs AWS a Azure Policy `deny`/`deployIfNotExists` con scope correcto."
+    dimension: arquitectonica, operativa
+    weight: 10
+    assessed_in: [OP-task-1, ARCH]
+
+  - id: C11
+    source_module: az-09
+    statement: "Explicar el efecto `deployIfNotExists` (auto-remediation que requiere una Managed Identity con permisos para operar) y qué garantías adicionales da frente a `audit`."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q11]
+
+  - id: C12
+    source_module: az-10
+    statement: "Configurar OIDC Federation GitHub Actions → Entra ID app registration con `subject` claim pinneado a `repo:owner/repo:environment:prod` (o branch), eliminando Service Principal secrets del pipeline."
+    dimension: operativa, conceptual
+    weight: 9
+    assessed_in: [Q12, OP-task-3]
+
+  - id: C13
+    source_module: az-10
+    statement: "Auditar un pipeline Azure que usa SP secrets, imágenes sin firmar y ACR público, y proponer una ruta de migración a OIDC + ACR Premium con Private Link + cosign keyless + Defender for Containers."
+    dimension: operativa, arquitectonica
+    weight: 8
+    assessed_in: [ARCH]
+
+  - id: C14
+    source_module: az-06
+    statement: "Justificar el uso de Key Vault RBAC data-plane sobre access policies legacy y explicar qué garantiza `soft delete + purge protection` en entornos productivos."
+    dimension: conceptual
+    weight: 4
+    assessed_in: [Q13]
+
+  - id: C15
+    source_module: az-10, az-07
+    statement: "Explicar la cadena build → push a ACR → firma cosign keyless (OIDC) → admission controller verifica firma en AKS, y qué garantiza (y qué no) la firma respecto a vulnerabilidades."
+    dimension: conceptual
+    weight: 4
+    assessed_in: [Q14]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 35
+  arquitectonica_pct: 30
+
+red_flags:
+  - "Service Principal secret hardcodeado en un pipeline, Terraform, Dockerfile o repo — teniendo OIDC Federation o Managed Identity disponibles."
+  - "Trust/federated credential de OIDC a Entra ID sin pinnear `subject` (p. ej. `repo:owner/repo:*`), aceptando cualquier branch o PR."
+  - "Tenant ID, Subscription ID o Object ID reales (no dummy '00000000-...') en los entregables."
+  - "Role `Owner` o `Contributor` otorgado a un workload o pipeline sin justificación cuando un role scoped (`Storage Blob Data Reader`, `Key Vault Secrets User`, etc.) cubre el caso."
+  - "Key Vault con `soft delete` o `purge protection` deshabilitados en una ruta que se declara productiva."
+  - "Workload en AKS leyendo secretos vía variables de entorno planas en el manifest en vez de CSI Secrets Store + Workload Identity o referencia `@Microsoft.KeyVault(...)`."
+  - "Storage Account, Cosmos DB o Key Vault con `publicNetworkAccess = Enabled` y sin Private Endpoint en un diseño que se presenta como productivo."
+  - "ACR SKU Basic en producción con Private Link requerido (requiere Premium) o `anonymousPullEnabled = true` sin justificación."
+  - "Azure Policy con effect `audit` cuando el enunciado pide prevenir — audit no bloquea, solo reporta."
+  - "`deployIfNotExists` sin asignar la Managed Identity necesaria o sin role assignment correspondiente — la policy no remedia nada."
+  - "Management Group root (`Tenant Root Group`) usado como scope de policies de workload — bypassa el modelo CAF LZ y afecta a toda la organización."
+  - "`cosign verify --insecure-ignore-tlog` o Defender for Containers desactivado 'para la demo' sin justificación."
+  - "VM con SSH `0.0.0.0/0` cuando Azure Bastion o Entra ID login for VMs cubren el caso."
+  - "Pod Identity v1 (deprecated) propuesto en un diseño nuevo en vez de AKS Workload Identity."
+  - "Uso de Blueprints (deprecados) para una Landing Zone nueva en lugar de Deployment Stacks + Azure Policy."

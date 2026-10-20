@@ -1,0 +1,41 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/example/fastapi-app
+  tag: ""           # Si queda vacío, debe caer en .Chart.AppVersion vía `default`.
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+podLabels: {}
+podAnnotations: {}
+
+env: []
+# - name: LOG_LEVEL
+#   value: info
+
+# Database: subchart opcional. En prod se desactiva y se consume RDS/CloudSQL externo.
+postgresql:
+  enabled: false
+
+# Hook de migración (helm-07). Debe correr como Job pre-upgrade.
+migrations:
+  enabled: false
+  image:
+    repository: ghcr.io/example/fastapi-app-migrations
+    tag: ""
+
+# Required: si queda null, el chart NO debe renderizar.
+ingress:
+  host: null

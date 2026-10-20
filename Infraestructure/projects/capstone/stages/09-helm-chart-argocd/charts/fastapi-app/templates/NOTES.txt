@@ -1,0 +1,25 @@
+1. La app FastAPI quedo instalada como release "{{ .Release.Name }}" en el namespace "{{ .Release.Namespace }}".
+
+2. Para ver los pods:
+
+   kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+3. Para probar el endpoint /healthz con port-forward:
+
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "fastapi-app.fullname" . }} 8080:{{ .Values.service.port }}
+   curl -s http://localhost:8080{{ .Values.probes.liveness.path }}
+
+{{- if .Values.ingress.enabled }}
+
+4. Ingress habilitado. Hosts configurados:
+{{- range .Values.ingress.hosts }}
+   - http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+
+4. Ingress deshabilitado. Habilitar con --set ingress.enabled=true si tu cluster tiene un IngressController.
+{{- end }}
+
+5. Recordatorio: el Secret del DATABASE_URL en este chart es DUMMY y solo apto
+   para dev local. En staging/prod ese Secret DEBE provenir de External Secrets
+   Operator (etapa 12 del capstone).

@@ -1,0 +1,43 @@
+# VCS y entornos locales
+.git
+.gitignore
+.github
+.venv
+venv
+env
+
+# Caches de Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# IDE / editores
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Tests pesados / datos locales
+tests/fixtures/large/
+*.sqlite
+*.db
+
+# Artefactos Docker/Compose locales
+docker-compose.override.yml
+*.tar
+
+# Documentación que no entra al runtime
+README.md
+docs/
+*.md
+
+# Secrets locales (nunca deberían estar aquí, pero por si acaso)
+.env
+.env.*
+secrets/

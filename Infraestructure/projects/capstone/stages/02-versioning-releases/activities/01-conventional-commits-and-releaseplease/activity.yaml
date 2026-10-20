@@ -1,0 +1,29 @@
+id: cap-02-01-conventional-commits-and-releaseplease
+title: Montar la pipeline de releases automatizada con release-please
+technology: capstone
+module: 02-versioning-releases
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - cap-01-01-fastapi-base-app
+
+objectives:
+  - Materializar release-please + commitlint + husky sobre la app FastAPI de la Etapa 1
+  - Producir el primer tag SemVer y GitHub Release a partir de commits convencionales
+  - Explicar el mapeo tipo de commit -> bump SemVer (incluyendo BREAKING CHANGE)
+  - Dejar CHANGELOG.md y .release-please-manifest.json sincronizados con main
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

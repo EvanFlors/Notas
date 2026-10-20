@@ -1,0 +1,20 @@
+# Capstone stage 14 — StressChaos: 2 CPU workers at 80% load on fastapi
+# for 2 minutes. Expect HPA (etapa 11) to kick in if configured.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: fastapi-cpu-stress
+  namespace: app
+spec:
+  mode: one
+  duration: "2m"
+  selector:
+    namespaces:
+      - app
+    labelSelectors:
+      app.kubernetes.io/name: fastapi
+      app.kubernetes.io/part-of: capstone
+  stressors:
+    cpu:
+      workers: 2
+      load: 80

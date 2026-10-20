@@ -1,0 +1,15 @@
+# TODO: completar.
+# Debe quedar un YAML multi-doc con 4 documentos:
+#   Component (capstone-app) + API (capstone-api) + Resource (capstone-db) + System (capstone)
+# El Component tiene que incluir anotaciones usadas por el Scorecard.
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: capstone-app
+  annotations: {}
+spec:
+  type: service
+  lifecycle: production
+  owner: team-capstone
+  system: capstone

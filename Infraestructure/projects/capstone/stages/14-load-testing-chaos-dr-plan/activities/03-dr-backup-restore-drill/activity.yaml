@@ -1,0 +1,28 @@
+id: cap-14-03-dr-backup-restore-drill
+title: Backup + restore drill de Postgres y medir RTO/RPO reales
+technology: capstone
+module: 14-load-testing-chaos-dr-plan
+level: advanced
+type: debug
+
+estimated_minutes: 75
+
+prerequisites:
+  - capstone-stages-1-13-done
+  - postgres-running-in-cluster
+
+objectives:
+  - Ejecutar un backup logico de Postgres y verificar su integridad
+  - Correr el restore drill en un namespace desechable
+  - Medir RTO empirico y compararlo con el target del DR-PLAN
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

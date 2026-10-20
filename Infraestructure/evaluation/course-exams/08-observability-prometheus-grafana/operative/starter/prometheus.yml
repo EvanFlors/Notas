@@ -1,0 +1,24 @@
+# Starter: contiene errores deliberados. Corregir en solution/prometheus.yml.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: dev-local
+
+rule_files:
+  - rules/rules.yml
+
+scrape_configs:
+  # Problema 1: static_configs apunta a un target muerto y no hay relabel.
+  - job_name: checkout-api
+    static_configs:
+      - targets: ["checkout-api.default.svc:8080"]
+
+  # Problema 2: kubernetes_sd sin filtro por annotation -> scrapea TODOS los pods del cluster.
+  - job_name: kube-pods
+    kubernetes_sd_configs:
+      - role: pod
+    # Falta relabel_configs para filtrar por prometheus.io/scrape=true,
+    # respetar prometheus.io/port y prometheus.io/path, y limpiar __meta_* a labels útiles.
+
+  # Problema 3: no hay metric_relabel_configs para drop de cardinalidad conocida.

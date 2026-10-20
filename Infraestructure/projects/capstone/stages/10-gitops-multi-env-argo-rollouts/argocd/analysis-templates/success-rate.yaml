@@ -1,0 +1,43 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+  labels:
+    app.kubernetes.io/part-of: capstone
+    capstone.stage: "10"
+spec:
+  args:
+    - name: service-name
+    - name: namespace
+    - name: prometheus-address
+      value: http://prometheus-server.monitoring.svc.cluster.local:9090
+  metrics:
+    - name: success-rate
+      interval: 30s
+      count: 5
+      initialDelay: 60s
+      successCondition: result[0] >= 0.95
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: '{{ args.prometheus-address }}'
+          query: |
+            sum(
+              rate(
+                http_requests_total{
+                  service="{{ args.service-name }}",
+                  namespace="{{ args.namespace }}",
+                  status!~"5.."
+                }[2m]
+              )
+            )
+            /
+            sum(
+              rate(
+                http_requests_total{
+                  service="{{ args.service-name }}",
+                  namespace="{{ args.namespace }}"
+                }[2m]
+              )
+            )

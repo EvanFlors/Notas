@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: app-prd
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+images:
+  - name: ghcr.io/example/capstone-api
+    newTag: prd-0.1.0
+
+replicas:
+  - name: capstone-api
+    count: 3
+
+configMapGenerator:
+  - name: capstone-api
+    behavior: merge
+    literals:
+      - APP_ENV=prod
+      - LOG_LEVEL=warn
+
+patches:
+  - path: patch-hpa.yaml
+    target:
+      kind: HorizontalPodAutoscaler
+      name: capstone-api
+  - path: patch-ingress.yaml
+    target:
+      kind: Ingress
+      name: capstone-api

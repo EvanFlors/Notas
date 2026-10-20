@@ -1,0 +1,112 @@
+---
+# Matriz de competencias — Examen de certificación del curso Docker
+# Nivel: intermedio-avanzado (cubre dkr-06 a dkr-14, con base en dkr-01..05)
+# Dimensiones: conceptual, operativa, arquitectónica (todas)
+# Umbral de aprobación: 70%
+# Duración: 90-120 min
+exam:
+  course: docker
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+
+competencies:
+  - id: C1
+    source_module: dkr-01, dkr-10
+    statement: "Explicar qué es un contenedor en términos del kernel (namespaces + cgroups + overlayfs) y diferenciarlo de una VM."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q1, Q2]
+
+  - id: C2
+    source_module: dkr-03, dkr-06
+    statement: "Diferenciar CMD vs ENTRYPOINT y forma shell vs exec, y predecir el impacto sobre el manejo de señales de PID 1."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q3]
+
+  - id: C3
+    source_module: dkr-06, dkr-07
+    statement: "Diagnosticar y reordenar un Dockerfile para maximizar aprovechamiento de caché y aplicar BuildKit (cache mounts, secret mounts, multi-stage)."
+    dimension: operativa
+    weight: 10
+    assessed_in: [OP-task-1, OP-task-2]
+
+  - id: C4
+    source_module: dkr-07
+    statement: "Demostrar que un secreto de build no quedó filtrado en las capas de la imagen final (uso de --mount=type=secret vs anti-patrón ARG)."
+    dimension: conceptual, operativa
+    weight: 6
+    assessed_in: [Q4, OP-task-3]
+
+  - id: C5
+    source_module: dkr-08
+    statement: "Justificar por qué docker compose no sustituye un orquestador en producción y qué garantías ofrece/no ofrece depends_on."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q5]
+
+  - id: C6
+    source_module: dkr-09, dkr-12
+    statement: "Explicar la diferencia entre tag mutable y digest inmutable, y defender política de tagging/pinning en pipeline de producción."
+    dimension: conceptual, arquitectonica
+    weight: 7
+    assessed_in: [Q6, ARCH]
+
+  - id: C7
+    source_module: dkr-10
+    statement: "Identificar qué namespaces aisla un contenedor estándar y cuáles no, y razonar por qué un contenedor privileged ≈ root en host."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q7]
+
+  - id: C8
+    source_module: dkr-11
+    statement: "Elegir y defender una base image (slim/alpine/distroless/chainguard/scratch) considerando tamaño, superficie de ataque, musl vs glibc y cold-start."
+    dimension: arquitectonica
+    weight: 8
+    assessed_in: [Q8, ARCH, OP-task-4]
+
+  - id: C9
+    source_module: dkr-13
+    statement: "Aplicar hardening de runtime (USER no-root, --read-only, cap-drop, no-new-privileges, --pids-limit) y auditar un docker run inseguro."
+    dimension: operativa, conceptual
+    weight: 10
+    assessed_in: [Q9, OP-task-5]
+
+  - id: C10
+    source_module: dkr-14
+    statement: "Producir y verificar la cadena build → SBOM → scan → sign → attest → verify (syft, trivy, cosign keyless) sobre una imagen local."
+    dimension: operativa, arquitectonica
+    weight: 12
+    assessed_in: [OP-task-6, OP-task-7, ARCH]
+
+  - id: C11
+    source_module: dkr-12
+    statement: "Explicar qué es un manifest index (imagen multi-arch) y las fuentes comunes de no-reproducibilidad entre builds."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q10]
+
+  - id: C12
+    source_module: dkr-04, dkr-05, dkr-13
+    statement: "Diagnosticar un montaje de /var/run/docker.sock dentro de un contenedor como escalada de privilegios equivalente a root en el host."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q11, OP-task-5]
+
+scoring:
+  conceptual_pct: 35
+  operativa_pct: 40
+  arquitectonica_pct: 25
+
+red_flags:
+  - "Credenciales/tokens hardcodeados en Dockerfile, compose.yaml o scripts."
+  - "Imagen final corre como root sin justificación documentada."
+  - "Montaje de /var/run/docker.sock dentro de un contenedor de aplicación."
+  - "Uso de ARG para inyectar secretos de build (quedan en docker history)."
+  - "FROM sin tag o con :latest en artefacto productivo."
+  - "Uso de curl | bash desde fuente no verificada en un RUN."
+  - "Instalar paquetes sin --no-install-recommends/--no-cache-dir equivalentes y sin cleanup en la misma capa."
+  - "Desactivar verificación de firma (cosign verify --insecure-ignore-tlog) sin justificación."

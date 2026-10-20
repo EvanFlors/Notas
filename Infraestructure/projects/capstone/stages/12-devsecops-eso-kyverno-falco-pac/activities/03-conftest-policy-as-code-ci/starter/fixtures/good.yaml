@@ -1,0 +1,14 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good
+  namespace: capstone
+  labels:
+    app.kubernetes.io/name: capstone
+    app.kubernetes.io/owner: platform
+    app.kubernetes.io/env: dev
+spec:
+  containers:
+    - name: api
+      image: ghcr.io/acme/capstone:v1.0.0

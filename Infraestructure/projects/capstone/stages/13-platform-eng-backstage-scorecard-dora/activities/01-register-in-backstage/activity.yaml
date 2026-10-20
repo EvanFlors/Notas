@@ -1,0 +1,28 @@
+id: cap-13-01-register-in-backstage
+title: Registrar la app FastAPI en el catalogo de Backstage
+technology: capstone
+module: 13-platform-eng-backstage-scorecard-dora
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites:
+  - cap-01-01-bootstrap-app
+
+objectives:
+  - Escribir un catalog-info.yaml multi-doc con 4 kinds (Component + API + Resource + System)
+  - Anotar el Component con los campos que el Scorecard necesita (slo_url, runbook_url, image_signed...)
+  - Validar que el YAML carga limpio y que ningun campo del scorecard queda huerfano
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/cap-13-01"
+
+status: not-started

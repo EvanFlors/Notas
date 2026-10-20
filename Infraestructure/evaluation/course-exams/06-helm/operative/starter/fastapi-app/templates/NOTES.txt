@@ -1,0 +1,3 @@
+La aplicación {{ include "fastapi-app.fullname" . }} se ha instalado.
+Host de ingress: {{ .Values.ingress.host | default "(no ingress)" }}
+Imagen: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}

@@ -1,0 +1,48 @@
+---
+# Pre-commit config for Capstone stage 1.
+# Run once: pre-commit install
+# Run all:  pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+        files: ^projects/capstone/stages/01-app-tests-precommit/app/
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        files: ^projects/capstone/stages/01-app-tests-precommit/app/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        files: ^projects/capstone/stages/01-app-tests-precommit/app/app/
+        additional_dependencies:
+          - "pydantic==2.9.2"
+          - "sqlalchemy==2.0.35"
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", "projects/capstone/stages/01-app-tests-precommit/.secrets.baseline"]
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: ["-d", "{extends: default, rules: {line-length: {max: 160}, document-start: disable}}"]
+        files: ^projects/capstone/stages/01-app-tests-precommit/.*\.(ya?ml)$

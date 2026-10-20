@@ -1,0 +1,31 @@
+id: cap-05-01-write-signed-release-workflow
+title: Write a signed release workflow (build + Trivy + Syft + cosign + SLSA)
+technology: capstone
+module: 05-pipeline-build-scan-sbom-sign
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - cap-04-dockerize
+  - gh-13-03-oidc-federation-to-cloud
+
+objectives:
+  - Escribir un release.yml que construya una imagen y la publique por digest en GHCR
+  - Añadir un gate de Trivy (HIGH,CRITICAL, ignore-unfixed) usando trivy.yaml
+  - Generar un SBOM SPDX con Syft como artifact
+  - Firmar la imagen con cosign keyless (OIDC → Fulcio → Rekor) y adjuntar attestations SBOM + SLSA provenance
+  - Escribir un verify.yml reutilizable (workflow_call) que verifica firma y attestations antes de desplegar
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/cap-05"
+
+status: not-started

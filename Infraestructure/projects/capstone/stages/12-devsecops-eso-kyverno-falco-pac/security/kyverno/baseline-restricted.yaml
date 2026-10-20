@@ -1,0 +1,59 @@
+# baseline-restricted: espejo mínimo del Pod Security Standard 'restricted'.
+# Enforce en todo namespace: ningun pod puede correr como root, escalar
+# privilegios, con capabilities extras, con rootfs escribible o sin seccomp.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: baseline-restricted
+  annotations:
+    policies.kyverno.io/title: Baseline restricted PSS
+    policies.kyverno.io/category: Pod Security Standards
+    policies.kyverno.io/severity: high
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: run-as-nonroot
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "containers must set securityContext.runAsNonRoot=true"
+        pattern:
+          spec:
+            =(securityContext):
+              =(runAsNonRoot): "true"
+            containers:
+              - name: "*"
+                securityContext:
+                  runAsNonRoot: true
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                      - "ALL"
+                  readOnlyRootFilesystem: true
+    - name: deny-privileged
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "privileged containers are not allowed"
+        pattern:
+          spec:
+            containers:
+              - =(securityContext):
+                  =(privileged): "false"
+    - name: require-seccomp
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "seccompProfile.type must be RuntimeDefault or Localhost"
+        pattern:
+          spec:
+            =(securityContext):
+              seccompProfile:
+                type: "RuntimeDefault | Localhost"

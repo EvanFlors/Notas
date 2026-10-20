@@ -1,0 +1,27 @@
+id: cap-01-01-bootstrap-app
+title: Levantar la app FastAPI del capstone desde cero
+technology: capstone
+module: 01-app-tests-precommit
+level: beginner
+type: guided-lab
+
+estimated_minutes: 40
+
+prerequisites: []
+
+objectives:
+  - Crear un venv Python 3.12 y resolver deps desde pyproject.toml
+  - Correr migraciones Alembic contra SQLite local
+  - Hacer un roundtrip HTTP contra /healthz y /tasks
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/cap-01-01"
+
+status: not-started

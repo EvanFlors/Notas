@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fastapi-app
+description: Chart canónico del curso para el examen de certificación Helm.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

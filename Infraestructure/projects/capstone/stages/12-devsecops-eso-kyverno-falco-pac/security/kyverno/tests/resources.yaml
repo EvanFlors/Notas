@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-labels
+  namespace: capstone
+  labels:
+    app.kubernetes.io/name: capstone
+    app.kubernetes.io/owner: platform
+    app.kubernetes.io/env: dev
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: app
+      image: ghcr.io/acme/capstone:v1.0.0
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-without-labels
+  namespace: capstone
+spec:
+  containers:
+    - name: app
+      image: ghcr.io/acme/capstone:v1.0.0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-privileged
+  namespace: capstone
+  labels:
+    app.kubernetes.io/name: capstone
+    app.kubernetes.io/owner: platform
+    app.kubernetes.io/env: dev
+spec:
+  containers:
+    - name: app
+      image: ghcr.io/acme/capstone:v1.0.0
+      securityContext:
+        privileged: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-good
+  namespace: capstone
+  labels:
+    app.kubernetes.io/name: capstone
+    app.kubernetes.io/owner: platform
+    app.kubernetes.io/env: dev
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: app
+      image: ghcr.io/acme/capstone:v1.0.0
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]

@@ -1,0 +1,25 @@
+{{- /*
+TODO (estudiante): Este template debe:
+  1. Fallar en render con mensaje claro si `.Values.ingress.host` está vacío
+     o nulo (usar `required`).
+  2. No renderizar nada si el host no está definido en entornos que no
+     necesiten ingress (reconsiderar: ¿`required` o `if`? justifícalo).
+*/ -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "fastapi-app.fullname" . }}
+  labels:
+    {{- include "fastapi-app.labels" . | nindent 4 }}
+spec:
+  rules:
+    - host: {{ .Values.ingress.host }}   # BUG: si es null renderiza `host: null`.
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "fastapi-app.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}

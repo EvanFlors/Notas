@@ -1,0 +1,27 @@
+[
+  {"type": "commit_merged", "service": "capstone-app", "sha": "cc001",
+   "merged_at": "2026-10-01T08:00:00Z"},
+  {"type": "deploy", "service": "capstone-app", "id": "dep-001",
+   "env": "prod", "commit_sha": "cc001",
+   "started_at": "2026-10-01T09:00:00Z",
+   "finished_at": "2026-10-01T09:12:00Z", "status": "success"},
+
+  {"type": "commit_merged", "service": "capstone-app", "sha": "cc002",
+   "merged_at": "2026/10/05 10:00:00"},
+  {"type": "deploy", "service": "capstone-app", "id": "dep-002",
+   "env": "prod", "commit_sha": "cc002-TYPO",
+   "started_at": "2026-10-05T11:00:00Z",
+   "finished_at": "2026-10-05T11:14:00Z", "status": "success"},
+
+  {"type": "commit_merged", "service": "capstone-app", "sha": "cc003",
+   "merged_at": "2026-10-10T13:00:00Z"},
+  {"type": "deploy", "service": "capstone-app", "id": "dep-003",
+   "env": "prod", "commit_sha": "cc003",
+   "started_at": "2026-10-10T14:00:00Z",
+   "finished_at": "2026-10-10T14:20:00Z", "status": "success"},
+
+  {"type": "incident", "service": "capstone-app",
+   "caused_by_deploy_id": "dep-999-DOES-NOT-EXIST",
+   "started_at": "2026-10-10T14:30:00Z",
+   "resolved_at": "2026-10-10T15:00:00Z"},
+]

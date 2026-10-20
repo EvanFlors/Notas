@@ -1,0 +1,27 @@
+id: cap-08-02-eks-tf-plan-walkthrough
+title: Terraform plan EKS/GKE/AKS + walkthrough escrito
+technology: capstone
+module: 08-kubernetes-kind-to-eks-gke-aks
+level: intermediate
+type: independent
+
+estimated_minutes: 90
+
+prerequisites:
+  - cap-08-01-kind-apply-and-smoke
+
+objectives:
+  - Ejecutar terraform init -backend=false y validate en las 3 nubes
+  - Ejecutar terraform plan en las 3 nubes y guardar el output
+  - Escribir WALKTHROUGH.md respondiendo 5 preguntas sobre el plan
+  - Comparar costo y ergonomia entre EKS, GKE Autopilot y AKS
+
+paths:
+  instructions: README.md
+  tests: tests/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

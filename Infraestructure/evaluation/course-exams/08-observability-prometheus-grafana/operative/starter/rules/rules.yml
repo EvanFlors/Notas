@@ -1,0 +1,11 @@
+groups:
+  - name: checkout-api-naive
+    rules:
+      # Alerta single-window ingenua. Rediseñar en solution/rules.yml como MWMBR.
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.001
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: "Error rate > 0.1%"

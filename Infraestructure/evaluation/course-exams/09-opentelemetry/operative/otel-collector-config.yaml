@@ -1,0 +1,46 @@
+# Starter de configuración del Collector para el ejercicio operativo.
+# Completa los `# TODO`. Debe pasar `otelcol-contrib validate --config <file>`.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      # TODO (opcional): habilitar http en 4318 si quieres probar con curl OTLP/HTTP
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  batch:
+    send_batch_size: 512
+    timeout: 2s
+  attributes:
+    actions:
+      # TODO: insertar atributo env=exam en TODOS los spans
+      # - key: env
+      #   value: exam
+      #   action: insert
+      # TODO: borrar cualquier atributo cuyo nombre empiece por user.email
+      # - key: user.email
+      #   action: delete
+      []
+
+exporters:
+  debug:
+    verbosity: detailed
+  file:
+    path: ./out/traces.json
+    # rotation: deshabilitada para que el jq del validate.sh encuentre el archivo
+
+service:
+  telemetry:
+    logs:
+      level: info
+  pipelines:
+    traces:
+      receivers: [otlp]
+      # TODO: ordenar correctamente los processors (memory_limiter PRIMERO)
+      processors: []
+      exporters: [debug, file]

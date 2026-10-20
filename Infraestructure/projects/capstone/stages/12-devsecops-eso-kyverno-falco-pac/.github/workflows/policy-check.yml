@@ -1,0 +1,66 @@
+# Policy-as-Code gate: corre en todo PR que toque manifiestos K8s / Helm /
+# politicas Rego. Primero valida que las Rego pasan sus propios tests
+# unitarios (opa test), y luego las aplica a los manifiestos (conftest test).
+# Fail-fast: cualquier violacion bloquea el merge.
+name: policy-check
+
+on:
+  pull_request:
+    paths:
+      - "projects/capstone/stages/12-devsecops-eso-kyverno-falco-pac/**"
+      - ".github/workflows/policy-check.yml"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  STAGE_DIR: projects/capstone/stages/12-devsecops-eso-kyverno-falco-pac
+  CONFTEST_VERSION: "0.56.0"
+  OPA_VERSION: "0.68.0"
+
+jobs:
+  policy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install opa
+        run: |
+          set -eu
+          curl -sSfL "https://openpolicyagent.org/downloads/v${OPA_VERSION}/opa_linux_amd64_static" -o /usr/local/bin/opa
+          chmod +x /usr/local/bin/opa
+          opa version
+
+      - name: Install conftest
+        run: |
+          set -eu
+          curl -sSfL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
+            | tar -xz -C /tmp conftest
+          sudo mv /tmp/conftest /usr/local/bin/conftest
+          conftest --version
+
+      - name: OPA unit tests (rego)
+        working-directory: ${{ env.STAGE_DIR }}
+        run: opa test security/conftest/policies/ -v
+
+      - name: Conftest — good fixture (must pass)
+        working-directory: ${{ env.STAGE_DIR }}
+        run: |
+          conftest test \
+            --policy security/conftest/policies \
+            security/conftest/tests/fixtures/good.yaml
+
+      - name: Conftest — bad fixture (must fail)
+        working-directory: ${{ env.STAGE_DIR }}
+        run: |
+          if conftest test \
+               --policy security/conftest/policies \
+               security/conftest/tests/fixtures/bad.yaml; then
+            echo "::error::bad.yaml passed conftest, policies are too lax."
+            exit 1
+          else
+            echo "OK — bad fixture correctly rejected."
+          fi

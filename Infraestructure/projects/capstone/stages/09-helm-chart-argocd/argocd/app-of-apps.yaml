@@ -1,0 +1,32 @@
+# "App of apps": una sola Application CR que apunta a la carpeta
+# argocd/applications/ y hace que Argo CD reconcilie cada Application
+# hija (fastapi-dev, fastapi-staging, etc.) en cascada.
+# En la etapa 10 (GitOps multi-ambiente) esto se expande a ApplicationSet.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: capstone-root
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # Reemplazar por la URL real del repo del capstone cuando se publique.
+    repoURL: https://example.invalid/capstone/fastapi-app.git
+    targetRevision: HEAD
+    path: projects/capstone/stages/09-helm-chart-argocd/argocd/applications
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

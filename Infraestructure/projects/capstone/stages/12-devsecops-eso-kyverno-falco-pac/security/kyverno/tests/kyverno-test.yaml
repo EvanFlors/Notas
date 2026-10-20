@@ -1,0 +1,33 @@
+# kyverno test harness. Run offline with: `kyverno test security/kyverno/`
+# (reads this file, loads the referenced policies and resources, and asserts
+# the expected result per resource/rule).
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: capstone-admission-tests
+policies:
+  - ../required-labels.yaml
+  - ../baseline-restricted.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: require-ownership-labels
+    rule: check-labels
+    resource: pod-with-labels
+    kind: Pod
+    result: pass
+  - policy: require-ownership-labels
+    rule: check-labels
+    resource: pod-without-labels
+    kind: Pod
+    result: fail
+  - policy: baseline-restricted
+    rule: deny-privileged
+    resource: pod-privileged
+    kind: Pod
+    result: fail
+  - policy: baseline-restricted
+    rule: run-as-nonroot
+    resource: pod-good
+    kind: Pod
+    result: pass

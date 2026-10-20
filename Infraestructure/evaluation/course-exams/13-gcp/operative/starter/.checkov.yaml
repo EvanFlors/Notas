@@ -1,0 +1,15 @@
+framework:
+  - terraform
+  - terraform_plan
+
+soft-fail-on:
+  - LOW
+
+skip-check:
+  # The exam is plan-only against placeholder project IDs; skip checks that
+  # require live project state. Any additional skip MUST be justified with
+  # a `# JUSTIFICATION:` comment in the HCL where it applies.
+  - CKV_GCP_49  # project default SA key creation (we rely on org policy, not resource-level)
+
+quiet: true
+compact: true

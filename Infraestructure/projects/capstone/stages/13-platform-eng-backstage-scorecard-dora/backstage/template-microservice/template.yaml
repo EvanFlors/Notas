@@ -1,0 +1,90 @@
+# Backstage Software Template: scaffolds a new FastAPI microservice
+# that nace registrado en el catalog con sus anotaciones correctas.
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: fastapi-microservice
+  title: FastAPI microservice (capstone paved road)
+  description: >
+    Crea un microservicio FastAPI alineado al paved road del capstone:
+    pyproject + healthz + catalog-info.yaml anotado + tests placeholder.
+  tags:
+    - python
+    - fastapi
+    - recommended
+spec:
+  owner: team-capstone
+  type: service
+
+  parameters:
+    - title: Identidad del servicio
+      required:
+        - name
+        - description
+      properties:
+        name:
+          title: Nombre del servicio
+          type: string
+          description: slug kebab-case; usado como nombre del repo y del componente.
+          pattern: "^[a-z][a-z0-9-]{2,30}$"
+        description:
+          title: Descripción corta
+          type: string
+          maxLength: 160
+    - title: Ownership y tier
+      required:
+        - owner
+        - tier
+      properties:
+        owner:
+          title: Owner team
+          type: string
+          description: nombre del equipo en Backstage (ej. team-payments).
+          default: team-capstone
+        tier:
+          title: Tier de criticidad
+          type: string
+          enum: [tier-1, tier-2, tier-3]
+          default: tier-2
+    - title: Destino del repo
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repo URL (dummy en entorno local)
+          type: string
+          default: github.com?owner=dummy-org&repo=svc-new
+
+  steps:
+    - id: fetch
+      name: Render skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          tier: ${{ parameters.tier }}
+
+    # publish:github deshabilitado en local; déjalo documentado.
+    # - id: publish
+    #   name: Publish to GitHub
+    #   action: publish:github
+    #   input:
+    #     repoUrl: ${{ parameters.repoUrl }}
+    #     description: ${{ parameters.description }}
+    #     defaultBranch: main
+
+    - id: register
+      name: Register in catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Catalog entry
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

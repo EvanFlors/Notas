@@ -1,0 +1,112 @@
+---
+# Matriz de competencias — Examen de certificación del curso Git & GitHub
+# Cubre gh-06..gh-13 con base en gh-01..gh-05.
+# Dimensión: todas (conceptual + operativa + arquitectónica)
+# Nivel: intermedio-avanzado
+# Umbral de aprobación: 70% (Competente)
+# Duración: 90-120 min take-home + 30 min live defense
+exam:
+  course: git-and-github
+  level: intermedio-avanzado
+  duration_minutes: [90, 120]
+  live_defense_minutes: 30
+  environment: take-home + live defense
+  passing_threshold_pct: 70
+  dimensions: [conceptual, operativa, arquitectonica]
+  grade_bands:
+    insuficiente: "0-49%"
+    basico: "50-69%"
+    competente: "70-84%"
+    experto: "85-100%"
+
+competencies:
+  - id: C1
+    source_module: gh-06, gh-09
+    statement: "Explicar por qué rebase reescribe hashes y qué garantías pierde/mantiene respecto a merge, y justificar cuándo rebasar y cuándo no."
+    dimension: conceptual
+    weight: 8
+    assessed_in: [Q1, OP]
+
+  - id: C2
+    source_module: gh-09
+    statement: "Describir el modelo de objetos de Git (blob/tree/commit) y predecir qué objetos crea una operación dada (amend, rebase, cherry-pick)."
+    dimension: conceptual
+    weight: 7
+    assessed_in: [Q2]
+
+  - id: C3
+    source_module: gh-06
+    statement: "Reescribir historia local con rebase interactivo (reorder + fixup + reword) produciendo una secuencia atómica y revisable."
+    dimension: operativa
+    weight: 15
+    assessed_in: [OP]
+
+  - id: C4
+    source_module: gh-10
+    statement: "Recuperar trabajo tras un reset destructivo usando reflog y objetos huérfanos, y explicar la ventana de supervivencia."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q3]
+
+  - id: C5
+    source_module: gh-07, gh-08
+    statement: "Elegir estrategia de merge (merge commit / squash / rebase) y modelo de ramificación (trunk-based / GitHub Flow / GitFlow) justificándolo contra restricciones de equipo, release cadence y auditoría."
+    dimension: arquitectonica
+    weight: 12
+    assessed_in: [Q4, AR]
+
+  - id: C6
+    source_module: gh-11
+    statement: "Diseñar un juego de hooks (local vs servidor, framework pre-commit) alineado al riesgo que mitigan, y justificar qué controles no pertenecen al hook."
+    dimension: conceptual
+    weight: 6
+    assessed_in: [Q5]
+
+  - id: C7
+    source_module: gh-12
+    statement: "Diseñar branch protection via Rulesets + CODEOWNERS + environments con approvals, articulando cada regla contra un riesgo concreto en términos de seguridad y velocidad."
+    dimension: arquitectonica
+    weight: 12
+    assessed_in: [AR]
+
+  - id: C8
+    source_module: gh-12, gh-13
+    statement: "Elegir el método de autenticación correcto (SSH / PAT classic / fine-grained PAT / GitHub App / OIDC federation) para un caso dado y justificar el trade-off entre blast radius y rotación."
+    dimension: conceptual
+    weight: 8
+    assessed_in: [Q6, AR]
+
+  - id: C9
+    source_module: gh-13
+    statement: "Explicar qué garantiza (y qué no) una attestation SLSA emitida por GitHub Actions y una firma de commit verificada."
+    dimension: conceptual
+    weight: 7
+    assessed_in: [Q7]
+
+  - id: C10
+    source_module: gh-13, gh-12
+    statement: "Diseñar la cadena de controles de supply chain (secret scanning + push protection + Dependabot + CodeQL + attestations) priorizándolos por costo/beneficio frente a un modelo de amenaza explícito."
+    dimension: arquitectonica
+    weight: 10
+    assessed_in: [AR]
+
+  - id: C11
+    source_module: gh-10, gh-09
+    statement: "Localizar el commit introductor de una regresión usando bisect y pickaxe (-S/-G), y distinguir cada herramienta por tipo de evidencia."
+    dimension: conceptual
+    weight: 5
+    assessed_in: [Q8]
+
+  - id: C12
+    source_module: gh-04, gh-06
+    statement: "Explicar la diferencia entre push --force y push --force-with-lease y el modo de falla concreto que mitiga el segundo."
+    dimension: conceptual
+    weight: 4
+    assessed_in: [Q1, OP]
+
+weights_total: 100
+
+scoring:
+  conceptual_block_pct: 45   # Q1..Q8
+  operative_block_pct:  30   # OP
+  architectural_block_pct: 25 # AR

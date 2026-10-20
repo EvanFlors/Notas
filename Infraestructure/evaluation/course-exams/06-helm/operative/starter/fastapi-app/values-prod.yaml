@@ -1,0 +1,28 @@
+replicaCount: 4
+
+image:
+  tag: "1.0.0"
+  pullPolicy: Always
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+postgresql:
+  enabled: false
+
+ingress:
+  host: fastapi.prod.example.com
+
+migrations:
+  enabled: true
+  image:
+    tag: "1.0.0"
+
+env:
+  - name: LOG_LEVEL
+    value: info

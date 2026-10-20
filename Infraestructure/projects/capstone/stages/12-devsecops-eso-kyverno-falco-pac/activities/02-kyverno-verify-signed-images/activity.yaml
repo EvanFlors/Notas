@@ -1,0 +1,30 @@
+id: cap-12-02-kyverno-verify-signed-images
+title: Admitir solo imagenes capstone firmadas con cosign keyless
+technology: capstone
+module: 12-devsecops-eso-kyverno-falco-pac
+level: advanced
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - cap-05-pipeline-sbom-sign
+  - cap-08-kubernetes
+
+objectives:
+  - Escribir una ClusterPolicy Kyverno `verifyImages` keyless propia
+  - Fijar subject/issuer coherentes con el workflow release.yml del capstone
+  - Dejar `kyverno test` verde con casos pass y fail
+  - Documentar como se degradaria a Audit mode sin romper el cluster
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

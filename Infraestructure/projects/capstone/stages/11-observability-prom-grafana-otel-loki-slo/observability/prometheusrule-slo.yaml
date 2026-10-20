@@ -1,0 +1,149 @@
+---
+# SLO 99.9% availability for the capstone FastAPI service.
+# Error budget: 0.1% ~= 43m 50s / 30 days.
+# MWMBR alerts follow the Google SRE workbook ("Alerting on SLOs") pattern:
+# a short+long window pair with a burn-rate threshold that catches both acute
+# incidents (page) and slow leaks (ticket).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: capstone-api-slo
+  namespace: observability
+  labels:
+    release: kps
+    app.kubernetes.io/name: capstone-api
+    app.kubernetes.io/part-of: capstone
+spec:
+  groups:
+    - name: capstone-api.slis
+      interval: 30s
+      rules:
+        - record: slo:http_requests:rate5m
+          expr: |
+            sum by (service) (
+              rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz"}[5m])
+            )
+        - record: slo:http_requests_errors:rate5m
+          expr: |
+            sum by (service) (
+              rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz", status=~"5.."}[5m])
+            )
+        - record: slo:http_requests_error_ratio:rate5m
+          expr: |
+            (
+              slo:http_requests_errors:rate5m
+              /
+              slo:http_requests:rate5m > 0
+            ) or on() vector(0)
+        - record: slo:http_requests_error_ratio:rate30m
+          expr: |
+            (
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz", status=~"5.."}[30m]))
+              /
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz"}[30m])) > 0
+            ) or on() vector(0)
+        - record: slo:http_requests_error_ratio:rate1h
+          expr: |
+            (
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz", status=~"5.."}[1h]))
+              /
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz"}[1h])) > 0
+            ) or on() vector(0)
+        - record: slo:http_requests_error_ratio:rate2h
+          expr: |
+            (
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz", status=~"5.."}[2h]))
+              /
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz"}[2h])) > 0
+            ) or on() vector(0)
+        - record: slo:http_requests_error_ratio:rate6h
+          expr: |
+            (
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz", status=~"5.."}[6h]))
+              /
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz"}[6h])) > 0
+            ) or on() vector(0)
+        - record: slo:http_requests_error_ratio:rate24h
+          expr: |
+            (
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz", status=~"5.."}[1d]))
+              /
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz"}[1d])) > 0
+            ) or on() vector(0)
+        - record: slo:http_requests_error_ratio:rate3d
+          expr: |
+            (
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz", status=~"5.."}[3d]))
+              /
+              sum by (service) (rate(http_requests_total{service="capstone-api", handler!~"/metrics|/healthz"}[3d])) > 0
+            ) or on() vector(0)
+
+    - name: capstone-api.slo.burnrate
+      interval: 30s
+      rules:
+        # ---- PAGE: fast burn (5m + 1h), threshold 14.4x => budget gone in ~2h.
+        - alert: HighErrorBudgetBurnFast
+          expr: |
+            slo:http_requests_error_ratio:rate5m > (14.4 * 0.001)
+            and
+            slo:http_requests_error_ratio:rate1h > (14.4 * 0.001)
+          for: 2m
+          labels:
+            severity: page
+            service: capstone-api
+            slo: availability-99-9
+          annotations:
+            summary: "capstone-api: fast burn of error budget (14.4x) for availability SLO"
+            description: |
+              The 5m AND 1h error ratio both exceed 14.4x of the 0.001 budget.
+              At this pace, the full 30d budget is consumed in roughly 2 hours.
+            runbook_url: "https://runbooks.example.local/capstone/slo-burn"
+            dashboard_url: "https://grafana.example.local/d/capstone-golden-signals"
+
+        # ---- PAGE: medium-fast (30m + 6h), threshold 6x => budget gone in ~5h.
+        - alert: HighErrorBudgetBurnMediumFast
+          expr: |
+            slo:http_requests_error_ratio:rate30m > (6 * 0.001)
+            and
+            slo:http_requests_error_ratio:rate6h  > (6 * 0.001)
+          for: 15m
+          labels:
+            severity: page
+            service: capstone-api
+            slo: availability-99-9
+          annotations:
+            summary: "capstone-api: medium-fast burn of error budget (6x)"
+            description: |
+              The 30m AND 6h error ratio both exceed 6x of the 0.001 budget.
+              Budget exhausted in ~5h at this pace.
+            runbook_url: "https://runbooks.example.local/capstone/slo-burn"
+
+        # ---- TICKET: slow (2h + 24h), threshold 3x => budget gone in ~10h.
+        - alert: HighErrorBudgetBurnSlow
+          expr: |
+            slo:http_requests_error_ratio:rate2h  > (3 * 0.001)
+            and
+            slo:http_requests_error_ratio:rate24h > (3 * 0.001)
+          for: 1h
+          labels:
+            severity: ticket
+            service: capstone-api
+            slo: availability-99-9
+          annotations:
+            summary: "capstone-api: slow burn of error budget (3x)"
+            runbook_url: "https://runbooks.example.local/capstone/slo-burn"
+
+        # ---- TICKET: very slow (6h + 72h), threshold 1x => budget gone in ~30d.
+        - alert: HighErrorBudgetBurnVerySlow
+          expr: |
+            slo:http_requests_error_ratio:rate6h > (1 * 0.001)
+            and
+            slo:http_requests_error_ratio:rate3d > (1 * 0.001)
+          for: 3h
+          labels:
+            severity: ticket
+            service: capstone-api
+            slo: availability-99-9
+          annotations:
+            summary: "capstone-api: chronic 1x burn — budget will be gone by month end"
+            runbook_url: "https://runbooks.example.local/capstone/slo-burn"
