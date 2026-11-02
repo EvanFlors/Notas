@@ -1,0 +1,11 @@
+[Unit]
+Description=Backup diario de /srv/data a /var/backups/data
+Documentation=file:///usr/local/bin/backup.sh
+
+[Service]
+Type=oneshot
+User=root
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/bin/backup.sh --target /srv/data --dest /var/backups/data
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,32 @@
+id: sys-17-01-select-menu-runbook
+title: Runbook interactivo con el builtin `select`
+technology: 00-sysadmin
+module: 17-interactive-scripts-select-dialog-zenity
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-16-loops-and-iteration
+
+optional_dependencies: []
+
+objectives:
+  - Construir un menú TUI con el builtin `select` sin dependencias externas
+  - Implementar 4 operaciones y despacharlas con un `case` sobre `$REPLY`
+  - Pedir confirmación `y/N` segura (default "no") antes de acciones destructivas
+  - Terminar el loop limpiamente con `break` al elegir "Salir"
+  - Validar el script con el test automatizado del módulo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

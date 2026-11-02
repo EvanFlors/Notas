@@ -1,0 +1,32 @@
+id: sys-13-01-first-parameterized-script
+title: Primer script parametrizado — greet.sh
+technology: 00-Sysadmin
+module: 13-bash-scripting-fundamentals
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - sys-01-bash-cli-foundations
+  - sys-02-shell-command-anatomy
+
+objectives:
+  - Convertir un comando `echo` suelto en un script ejecutable con shebang y modo estricto
+  - Aceptar parametros posicionales con default razonable
+  - Abortar con mensaje claro cuando falta un parametro obligatorio
+  - Usar printf en lugar de echo para output estructurado
+  - Pasar el script por shellcheck sin warnings
+  - Validar el script con el test incluido
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

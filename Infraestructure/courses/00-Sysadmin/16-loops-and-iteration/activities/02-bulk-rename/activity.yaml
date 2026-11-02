@@ -1,0 +1,30 @@
+id: sys-16-02-bulk-rename
+title: Renombrado masivo idempotente de fotos
+technology: 00-Sysadmin
+module: 16-loops-and-iteration
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-16-01-safe-file-iteration
+
+objectives:
+  - Iterar un conjunto de archivos y transformar sus nombres de forma segura
+  - Implementar --dry-run como default (modo seguro)
+  - Diseñar la operación como idempotente ante segunda ejecución
+  - Resolver colisiones con sufijo determinista
+  - Pasar shellcheck sin warnings
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/sys16-photos"
+
+status: not-started

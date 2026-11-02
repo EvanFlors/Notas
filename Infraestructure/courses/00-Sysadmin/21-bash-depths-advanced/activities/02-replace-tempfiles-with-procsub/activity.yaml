@@ -1,0 +1,29 @@
+id: sys-21-02-replace-tempfiles-with-procsub
+title: Reemplazar temporales por process substitution
+technology: 00-Sysadmin
+module: 21-bash-depths-advanced
+level: advanced
+type: debug
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-18
+  - sys-19
+
+objectives:
+  - Reconocer patrones donde un mktemp es evitable con process substitution
+  - Reescribir código legacy preservando output
+  - Verificar ausencia de leftovers en /tmp
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

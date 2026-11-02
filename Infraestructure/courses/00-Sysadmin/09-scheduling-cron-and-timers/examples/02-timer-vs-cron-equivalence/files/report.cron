@@ -1,0 +1,6 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=sysadmin@example.com
+
+# m  h  dom mon dow  user     command
+0    3  *   *   *    reports  /usr/local/bin/with-jitter.sh 300 /usr/local/bin/report.sh >> /var/log/report.log 2>&1

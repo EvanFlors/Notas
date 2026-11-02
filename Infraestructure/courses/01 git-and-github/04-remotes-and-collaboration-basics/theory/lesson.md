@@ -1,4 +1,4 @@
-# Lección: Remotes and collaboration basics
+o# Lección: Remotes and collaboration basics
 
 > **ID:** `gh-04-remotes-and-collaboration-basics` · **Nivel:** fundamentos · **Duración:** 3 h
 > **Prerrequisitos:** `gh-03-branching-and-merging-basics`.

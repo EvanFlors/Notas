@@ -1,0 +1,31 @@
+id: sys-05-01-signals-dojo
+title: Signals dojo — instalar los trap correctos
+technology: sysadmin
+module: 05-processes-and-job-control
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - sys-01-shell-and-filesystem
+  - sys-05-processes-and-job-control (lectura de theory/lesson.md)
+
+objectives:
+  - Instalar un trap unico para TERM, INT y HUP (graceful shutdown)
+  - Instalar un trap para USR1 que recargue config sin salir
+  - Instalar un trap para USR2 que imprima estado interno
+  - Instalar un trap EXIT como cleanup garantizado
+  - Verificar empiricamente que KILL y STOP no entran al handler
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/trap-me.sh"
+
+status: not-started

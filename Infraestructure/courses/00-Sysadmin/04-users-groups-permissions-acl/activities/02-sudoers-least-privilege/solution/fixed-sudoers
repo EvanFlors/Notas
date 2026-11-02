@@ -1,0 +1,10 @@
+# /etc/sudoers.d/50-webops
+# Permite al grupo webops operar nginx (y solo nginx).
+# Validar: visudo -cf fixed-sudoers
+
+Cmnd_Alias NGINX_OPS = /usr/bin/systemctl restart nginx, \
+                       /usr/bin/systemctl reload  nginx, \
+                       /usr/bin/systemctl status  nginx, \
+                       /usr/bin/systemctl is-active nginx
+
+%webops ALL=(root) NOPASSWD: NGINX_OPS

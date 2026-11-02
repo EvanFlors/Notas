@@ -1,0 +1,30 @@
+id: sys-14-02-shellcheck-cleanup
+title: Limpiar un script sucio con shellcheck
+technology: 00-Sysadmin
+module: 14-robust-scripts-and-error-handling
+level: intermediate
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - sys-13-bash-scripting-fundamentals
+
+objectives:
+  - Leer la salida de shellcheck y mapear códigos SC a problemas reales
+  - Arreglar quoting, SC2086/SC2046, de forma sistemática
+  - Separar local de asignación (SC2155) sin perder exit codes
+  - Reemplazar antipatrones (p. ej. `cd foo` sin || exit) por su variante segura
+  - Pasar shellcheck -S warning con 0 findings sin romper la lógica
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

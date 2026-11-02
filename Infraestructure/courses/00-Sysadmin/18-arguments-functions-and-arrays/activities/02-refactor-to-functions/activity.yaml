@@ -1,0 +1,30 @@
+id: sys-18-02-refactor-to-functions
+title: Refactorizar un monolito a funciones + arrays asociativos
+technology: 00-Sysadmin
+module: 18-arguments-functions-and-arrays
+level: intermediate
+type: independent
+
+estimated_minutes: 75
+
+prerequisites:
+  - sys-18-01-cli-with-getopts
+
+objectives:
+  - Partir un script monolítico de ~150 líneas en funciones con responsabilidad única
+  - Reemplazar duplicación de "if ambiente == dev; elif == prod" por lookup en array asociativo
+  - Aislar estado con `local` dentro de cada función
+  - Introducir un `main` y un patrón de parsing+validación+ejecución
+  - Preservar la misma salida observable que el monolito
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

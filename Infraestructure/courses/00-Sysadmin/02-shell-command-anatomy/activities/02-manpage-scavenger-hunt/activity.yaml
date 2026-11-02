@@ -1,0 +1,19 @@
+id: sys-02-02-manpage-scavenger-hunt
+module: sys-02-shell-command-anatomy
+type: challenge
+difficulty: intermediate
+duration_minutes: 45
+
+prerequisites:
+  - sys-02-shell-command-anatomy (lectura completa)
+  - sys-02-01-categorize-the-coreutils (recomendado)
+
+objectives:
+  - Navegar manpages reales usando /pat, n, N, g, G, q
+  - Elegir la sección correcta de man cuando el nombre vive en varias
+  - Combinar apropos/whatis/man -k para localizar la página adecuada
+  - Extraer la respuesta exacta (flag, código de exit, nombre de env var) sin ejecutar los comandos
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"

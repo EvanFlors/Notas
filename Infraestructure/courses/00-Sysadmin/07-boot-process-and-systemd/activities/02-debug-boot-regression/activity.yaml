@@ -1,0 +1,30 @@
+id: sys-07-02-debug-boot-regression
+title: Diagnosticar una regresión de boot
+technology: 00-Sysadmin
+module: 07-boot-process-and-systemd
+level: intermediate
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - sys-07-01-write-a-service-unit
+
+objectives:
+  - Instalar una unidad defectuosa y observar el failure
+  - Localizar el error con systemd-analyze verify
+  - Correlacionar el log de journalctl con una línea específica
+  - Aplicar un fix mínimo (idealmente una línea)
+  - Re-verificar sin regresión
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

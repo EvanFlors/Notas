@@ -58,9 +58,9 @@ M es un **merge commit**: tiene **dos padres** (G y C). La historia queda ramifi
 **Opción 2: rebase** (`git switch feature && git rebase main`):
 
 ```
-                      A'--B'--C'   feature
-                     /
-    D---E---F---G                  main
+                   A'--B'--C'   feature
+                  /
+    D---E---F---G               main
 ```
 
 A, B, C se **reaplican** uno a uno sobre G, produciendo commits nuevos A', B', C' con mismos cambios pero padres distintos (A'→G, B'→A', C'→B'). La rama feature ahora es *lineal* respecto a main. Si después haces `git switch main && git merge feature`, es un **fast-forward**: main simplemente avanza hasta C'.

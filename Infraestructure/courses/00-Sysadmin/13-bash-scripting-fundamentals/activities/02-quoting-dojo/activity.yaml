@@ -1,0 +1,29 @@
+id: sys-13-02-quoting-dojo
+title: Quoting dojo — reparar un script roto por mal quoting
+technology: 00-Sysadmin
+module: 13-bash-scripting-fundamentals
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-13-01-first-parameterized-script
+
+objectives:
+  - Diagnosticar fallos de word splitting y globbing en un script existente
+  - Reparar el script para que maneje nombres con espacios, globs literales y newlines
+  - Elegir entre comillas simples y dobles segun el caso
+  - Dejar el script shellcheck-clean sin suprimir warnings reales
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

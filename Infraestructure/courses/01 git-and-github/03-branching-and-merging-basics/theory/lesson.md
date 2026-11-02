@@ -95,18 +95,45 @@ Dadas dos ramas `A` y `B`:
 - **Fast-forward**: `B` es un **ancestro directo** de `A` (no divergieron). Mergear `A` dentro de `B` equivale a mover la ref `B` hacia adelante hasta `A`. **No se crea commit nuevo.** Historia queda lineal.
 - **3-way merge**: `A` y `B` divergieron (ambas avanzaron desde su ancestro común). Git construye un **tree combinando tres snapshots**: la **merge base** (ancestro común), **ours** (`B`, la rama en la que estamos) y **theirs** (`A`, la rama que estamos mergeando). Si no hay cambios conflictivos, lo hace automáticamente y produce un **merge commit** con dos padres.
 
+**1. FAST-FORWARD MERGE (main no tiene commits nuevos)**
 ```
-Antes de FF:                    Antes de 3-way:
-                                                  C ← main
-A o---o---o              B      B o---o---o
-         \                               \
-          o---o B                         o---o A
-                                              ↑ feature
+Antes de 'git merge feature':
 
-Después de FF (git merge A):    Después de 3-way (git merge A):
-A o---o---o---o---o B                  o---o---o---M ← main (merge commit)
-                                         \       /
-                                          o-----o
+   main
+    ↓
+o───o
+     \
+      o───o
+          ↑
+       feature
+
+
+Después de 'git merge feature':
+
+o───o───o───o
+            ↑
+      feature, main  (el puntero 'main' solo avanza; no hay commit nuevo)
+```
+
+**2. 3-WAY MERGE (ambas ramas han divergido)**
+
+```
+Antes de 'git merge feature':
+
+       main
+        ↓
+o───o───o
+     \
+      o───o
+          ↑
+       feature
+
+
+Después de 'git merge feature':
+
+o───o───o───────o M ← main (se crea el merge commit M)
+     \         /
+      o───────o   ← feature
 ```
 
 Puedes **forzar** cada caso con flags:
@@ -168,7 +195,7 @@ Dado `git merge feature` estando en `main`:
 ### 4.3 Anatomía de un marcador de conflicto
 
 ```
-<<<<<<< HEAD                 ← inicio de "ours" (lo que había en tu rama)
+<<<<<<< HEAD                  ← inicio de "ours" (lo que había en tu rama)
 hello from main
 =======                       ← separador
 hello from feature            ← "theirs" (lo que trae la rama que estás mergeando)
@@ -410,7 +437,7 @@ git branch -d feature/add-logout
 | Historia de `main` como feed cronológico | `--no-ff` | Cada merge commit = una PR. |
 | Historia de `main` como secuencia atómica | `--ff` + rebase antes del merge | Para `bisect` perfecto. |
 
-La **política correcta** no existe en el vacío: depende del contrato que tenga el equipo con `main`. Si vuestras PRs se mergean con "squash and merge" en GitHub, estás en el modelo `--ff` lineal (lo veremos en `gh-07`).
+La **política correcta** no existe en el vacío: depende del contrato que tenga el equipo con `main`. Si git **confirma** que nuestras PRs se mergean con "squash and merge" en GitHub, estás en el modelo `--ff` lineal (lo veremos en `gh-07`).
 
 ### 6.4 `switch` vs `checkout`: equivalencias
 

@@ -1,0 +1,90 @@
+# dataset.txt — positivos (+) y negativos (-) por clase.
+# Formato: CLASE<+|-> <string>
+# El validador ignora lineas en blanco y comentarios (# ...).
+
+# --- IPV4 ---
+IPV4+ 192.168.0.1
+IPV4+ 10.0.0.1
+IPV4+ 0.0.0.0
+IPV4+ 255.255.255.255
+IPV4+ 8.8.8.8
+IPV4+ 172.16.254.1
+IPV4- 10.0.0.256
+IPV4- 10.0.0
+IPV4- 10.0.0.1.1
+IPV4- 999.999.999.999
+IPV4- 10..0.1
+IPV4- a.b.c.d
+IPV4- 10.0.0.-1
+
+# --- EMAIL (pragmatico) ---
+EMAIL+ ada@example.com
+EMAIL+ linus.torvalds@kernel.org
+EMAIL+ a_b-c+tag@sub.example.co.uk
+EMAIL+ user123@example.io
+EMAIL- ada@
+EMAIL- @example.com
+EMAIL- ada@example.
+EMAIL- ada@@example.com
+EMAIL- ada example.com
+EMAIL- ada@ex ample.com
+
+# --- ISODATE (YYYY-MM-DD, 1900-2099) ---
+ISODATE+ 2026-05-12
+ISODATE+ 1999-12-31
+ISODATE+ 2000-01-01
+ISODATE+ 2099-11-30
+ISODATE- 2026-5-12
+ISODATE- 2026-13-01
+ISODATE- 2026-00-10
+ISODATE- 2026-05-32
+ISODATE- 1899-12-31
+ISODATE- 2100-01-01
+ISODATE- 20260512
+
+# --- UUID (v1-v5, canonical) ---
+UUID+ 550e8400-e29b-41d4-a716-446655440000
+UUID+ 123e4567-e89b-12d3-a456-426614174000
+UUID+ 123E4567-E89B-12D3-A456-426614174000
+UUID- 550e8400e29b41d4a716446655440000
+UUID- 550e8400-e29b-41d4-a716
+UUID- not-a-uuid-at-all-really-no
+UUID- 550e8400-e29b-61d4-a716-446655440000
+
+# --- BASHVAR ---
+BASHVAR+ PATH
+BASHVAR+ _hidden
+BASHVAR+ x
+BASHVAR+ MY_VAR_42
+BASHVAR+ x9
+BASHVAR- 9x
+BASHVAR- my-var
+BASHVAR- my var
+BASHVAR- $PATH
+BASHVAR-
+
+# --- URL ---
+URL+ https://example.com
+URL+ http://example.com/
+URL+ https://example.com:8080/path/to/x
+URL+ https://sub.example.co.uk/a/b?q=1&r=2
+URL+ http://localhost:3000
+URL- ftp://example.com
+URL- example.com
+URL- https://
+URL- http:/example.com
+URL- https://exa mple.com
+
+# --- HEXCOLOR (#rgb o #rrggbb, case-insensitive) ---
+HEXCOLOR+ #fff
+HEXCOLOR+ #FFF
+HEXCOLOR+ #ffffff
+HEXCOLOR+ #AaBbCc
+HEXCOLOR+ #123
+HEXCOLOR+ #abc123
+HEXCOLOR- fff
+HEXCOLOR- #ff
+HEXCOLOR- #ffff
+HEXCOLOR- #gggggg
+HEXCOLOR- #1234567
+HEXCOLOR- #

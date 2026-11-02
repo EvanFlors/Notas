@@ -1,0 +1,30 @@
+id: sys-05-02-tame-runaway-process
+title: Domar un proceso runaway que ignora SIGTERM
+technology: sysadmin
+module: 05-processes-and-job-control
+level: intermediate
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - sys-05-01-signals-dojo
+
+objectives:
+  - Localizar un proceso por patron con pgrep/pkill
+  - Enviar SIGTERM y verificar colaboracion
+  - Esperar un grace period explicito antes de escalar
+  - Escalar a SIGKILL solo cuando sea necesario
+  - Confirmar ausencia de zombies tras el escalado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

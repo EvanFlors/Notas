@@ -1,0 +1,30 @@
+id: sys-01-02-io-redirection-dojo
+title: I/O redirection dojo — pipes, tee, pipefail y entorno
+technology: 00-Sysadmin
+module: 01-bash-cli-foundations
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-01-01-cli-tour
+
+objectives:
+  - Redirigir stdout y stderr a destinos separados o combinados sin bugs de orden
+  - Usar >>, 2>> y here-docs correctamente
+  - Construir pipelines con tee y pipefail, leer PIPESTATUS
+  - Distinguir en la práctica shell variable vs variable exportada
+  - Modificar PATH sin romperlo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

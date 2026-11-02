@@ -1,0 +1,33 @@
+id: sys-08-02-lvm-snapshot-and-rollback
+title: Snapshot LVM y rollback con verificación por hash
+technology: 00-Sysadmin
+module: 08-storage-volumes-and-lvm
+level: intermediate
+type: independent
+
+estimated_minutes: 60
+
+privileges: elevated   # requiere sudo (losetup, lvm, mount)
+
+prerequisites:
+  - sys-08-theory-read
+  - sys-08-01-grow-a-filesystem-online
+
+objectives:
+  - Crear un snapshot LVM dimensionado adecuadamente
+  - Explicar el modelo COW y las condiciones de invalidación de un snapshot
+  - Montar un snapshot read-only para inspección
+  - Hacer rollback con lvconvert --merge
+  - Verificar la restauración por hash
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "sudo -E bash tests/validate.sh"
+
+status: not-started

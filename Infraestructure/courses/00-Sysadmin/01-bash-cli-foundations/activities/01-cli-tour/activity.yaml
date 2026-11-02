@@ -1,0 +1,30 @@
+id: sys-01-01-cli-tour
+title: CLI tour — navegación, archivos e historial
+technology: 00-Sysadmin
+module: 01-bash-cli-foundations
+level: beginner
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites: []
+
+objectives:
+  - Navegar con pushd/popd y volver con cd -
+  - Listar con ls -lAh y entender cada columna
+  - Crear jerarquía con mkdir -p y archivos con touch
+  - Distinguir hardlink de symlink inspeccionando con stat
+  - Configurar HISTCONTROL, HISTSIZE y HISTTIMEFORMAT
+  - Instalar un PS1 propio en ~/.bashrc
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

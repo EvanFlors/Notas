@@ -1,0 +1,29 @@
+id: sys-21-01-expansion-oracle
+title: El oráculo de la expansión
+technology: 00-Sysadmin
+module: 21-bash-depths-advanced
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-18
+  - sys-19
+
+objectives:
+  - Predecir el output de snippets Bash sin ejecutarlos
+  - Aplicar el orden de expansión y la tabla de parameter expansion
+  - Reconocer cuándo un glob falla silencioso y cuándo con nullglob
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh answers.md"
+
+status: not-started

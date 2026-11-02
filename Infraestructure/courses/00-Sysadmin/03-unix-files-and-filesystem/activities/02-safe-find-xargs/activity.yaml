@@ -1,0 +1,30 @@
+id: sys-03-02-safe-find-xargs
+title: Safe find + xargs
+technology: linux-sysadmin
+module: 03-unix-files-and-filesystem
+level: intermediate
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - sys-03-01-fhs-treasure-hunt
+
+objectives:
+  - Explicar por que iterar con `for f in $(find ...)` es incorrecto
+  - Usar find -print0 | xargs -0 idiomaticamente
+  - Usar find -exec ... + como alternativa
+  - Proteger comandos de archivos cuyo nombre empieza por `-` usando `--`
+  - Entregar un script robusto frente a nombres hostiles
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/messy/find-biggest.sh /tmp/messy"
+
+status: not-started

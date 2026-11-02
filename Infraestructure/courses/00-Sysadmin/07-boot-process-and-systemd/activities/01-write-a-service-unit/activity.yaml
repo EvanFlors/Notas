@@ -1,0 +1,31 @@
+id: sys-07-01-write-a-service-unit
+title: Escribir un unit file de servicio
+technology: 00-Sysadmin
+module: 07-boot-process-and-systemd
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-05-processes-and-signals
+  - linux-with-systemd
+
+objectives:
+  - Escribir un .service con las tres secciones y defender cada directiva
+  - Instalarlo en /etc/systemd/system/ y habilitarlo correctamente
+  - Verificar que los logs van al journal
+  - Confirmar que Restart=on-failure respeta un kill -9
+  - Validar la unidad con systemd-analyze verify sin warnings
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

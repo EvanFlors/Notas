@@ -1,0 +1,32 @@
+id: sys-12-02-selinux-port-and-fcontext
+title: SELinux - nginx en puerto no estándar bajo enforcing
+technology: 00-Sysadmin
+module: 12-firewall-and-selinux
+level: advanced
+type: debug
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-10
+  - sys-12-01-nftables-first-ruleset
+  - sudo-or-root
+  - selinux-enforcing
+
+objectives:
+  - Diagnosticar un fallo bajo SELinux enforcing leyendo AVCs con ausearch
+  - Añadir un puerto no estándar al tipo http_port_t con semanage port
+  - Arrancar nginx en 8443 sin desactivar SELinux
+  - Entender cuándo basta semanage port y cuándo hace falta restorecon o un módulo custom
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

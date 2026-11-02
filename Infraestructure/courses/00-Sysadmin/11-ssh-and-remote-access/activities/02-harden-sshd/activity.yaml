@@ -1,0 +1,29 @@
+id: sys-11-02-harden-sshd
+title: Endurecer un sshd_config
+technology: 00-Sysadmin
+module: 11-ssh-and-remote-access
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-04
+  - sys-10
+
+objectives:
+  - Convertir un sshd_config laxo en uno endurecido
+  - Validar sintaxis offline con sshd -t -f antes de recargar
+  - Distinguir controles de seguridad real de security theater util
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh sshd_config.hardened"
+
+status: not-started

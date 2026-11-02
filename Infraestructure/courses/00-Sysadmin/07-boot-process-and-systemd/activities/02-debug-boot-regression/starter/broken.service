@@ -1,0 +1,20 @@
+[Unit]
+Description=sys-07 broken service (debug lab)
+Documentation=file:///dev/null
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+# BUG: ExecStart no es una ruta absoluta. systemd exige rutas absolutas aquí.
+ExecStart=bash -c 'while true; do echo "broken tick $(date -Is)"; sleep 2; done'
+Restart=on-failure
+RestartSec=3s
+PrivateTmp=true
+ProtectSystem=strict
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

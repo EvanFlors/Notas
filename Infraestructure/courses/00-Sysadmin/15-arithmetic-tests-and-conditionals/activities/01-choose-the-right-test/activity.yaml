@@ -1,0 +1,28 @@
+id: sys-15-01-choose-the-right-test
+title: Elegir el operador de test correcto
+technology: sysadmin
+module: 15-arithmetic-tests-and-conditionals
+level: intermediate
+type: independent
+
+estimated_minutes: 45
+
+prerequisites:
+  - sys-13-bash-scripting-fundamentals
+
+objectives:
+  - Diferenciar operadores de archivo, string y numéricos sin consultar la tabla
+  - Elegir entre [[ ]], [ ] y (( )) según el tipo de dato comparado
+  - Reconocer cuándo un enunciado exige regex, glob o comparación literal
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh starter/questions.md"
+
+status: not-started

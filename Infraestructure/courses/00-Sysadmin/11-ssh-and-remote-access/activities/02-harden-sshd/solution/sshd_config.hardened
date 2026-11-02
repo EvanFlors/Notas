@@ -1,0 +1,35 @@
+# sshd_config HARDENED - solucion de referencia sys-11-02
+# Valores educativos; en produccion revisa tambien Ciphers/KexAlgorithms/MACs
+# segun la guia de Mozilla OpenSSH (modern).
+
+# Puerto no estandar: NO es seguridad real, pero reduce ruido en logs.
+Port 2222
+
+# Autenticacion
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+UsePAM yes
+MaxAuthTries 3
+
+# Allowlist explicita de usuarios autorizados
+AllowUsers deploy evan
+
+# Forwarding cerrado por defecto
+X11Forwarding no
+AllowAgentForwarding no
+
+# Timeouts
+ClientAliveInterval 300
+ClientAliveCountMax 2
+LoginGraceTime 20
+
+# Logging verboso para forense
+LogLevel VERBOSE
+
+# Solo SSH-2
+Protocol 2
+
+Subsystem sftp /usr/lib/openssh/sftp-server

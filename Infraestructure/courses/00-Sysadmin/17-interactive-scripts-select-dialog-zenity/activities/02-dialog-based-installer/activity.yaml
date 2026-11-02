@@ -1,0 +1,34 @@
+id: sys-17-02-dialog-based-installer
+title: Instalador interactivo con dialog y fallback a select
+technology: 00-sysadmin
+module: 17-interactive-scripts-select-dialog-zenity
+level: intermediate
+type: mini-project
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-17-01-select-menu-runbook
+
+optional_dependencies:
+  - dialog
+  - whiptail
+
+objectives:
+  - Diseñar un script dual-mode (flags para CI, prompts para humanos)
+  - Usar `dialog --inputbox`, `--checklist`, `--yesno` y `--gauge`
+  - Detectar la ausencia de dependencias opcionales y caer a `select`
+  - Detectar ausencia de TTY y fallar temprano con mensaje claro
+  - Pasar el test automatizado con y sin dialog/whiptail instalado
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

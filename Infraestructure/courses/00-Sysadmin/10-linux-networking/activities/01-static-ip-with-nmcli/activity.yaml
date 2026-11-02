@@ -1,0 +1,37 @@
+id: sys-10-01-static-ip-with-nmcli
+title: IP estática persistente con el gestor correcto
+technology: sysadmin
+module: 10-linux-networking
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-05-processes-and-job-control
+  - sys-06-package-management-upgrades
+
+objectives:
+  - Detectar qué frontend de red gestiona el host (NetworkManager, netplan, systemd-networkd)
+  - Configurar una IP estática persistente con la herramienta del stack detectado
+  - Verificar que la configuración sobrevive a un reinicio del servicio
+  - Revertir la configuración limpia sin dejar basura
+
+requires_privileged: true
+dangerous: true
+
+warnings:
+  - "Modifica configuración de red persistente. EJECUTA SOLO EN UNA VM DESECHABLE."
+  - "El script aborta si no detecta `I_UNDERSTAND_THIS_IS_DISPOSABLE=1`."
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "sudo -E bash tests/validate.sh"
+
+status: not-started

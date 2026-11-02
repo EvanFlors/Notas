@@ -1,0 +1,17 @@
+queue aeiou house mouse
+rhythm xyz
+alice bob carol
+alice alice there
+bob bob again
+hello world
+contact: ada@example.com
+contact: linus@kernel.org
+contact: grace@navy.com
+precio $42 pesos
+precio $100 pesos
+total 42 unidades
+UUID 550e8400-e29b-41d4-a716-446655440000
+UUID not-a-uuid-at-all
+visit https://example.com/path?q=1
+visit http://localhost:8080/
+beautiful audio queue

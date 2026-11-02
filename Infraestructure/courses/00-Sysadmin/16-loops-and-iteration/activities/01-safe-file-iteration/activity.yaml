@@ -1,0 +1,30 @@
+id: sys-16-01-safe-file-iteration
+title: Iteración segura sobre archivos con nombres hostiles
+technology: 00-Sysadmin
+module: 16-loops-and-iteration
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-15-arithmetic-tests-and-conditionals
+
+objectives:
+  - Iterar un directorio sin perder archivos con espacios, newlines o metacaracteres
+  - Aplicar el patrón find -print0 + read -d '' (o mapfile -d '')
+  - Evitar la expansión de código ante nombres maliciosos
+  - Diseñar el script como idempotente
+  - Pasar shellcheck sin warnings
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh /tmp/sys16-tricky"
+
+status: not-started

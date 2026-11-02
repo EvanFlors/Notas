@@ -1,0 +1,39 @@
+# sshd_config LAX - sys-11-02 starter
+# PROPOSITO: punto de partida inseguro deliberado.
+# NO desplegar nunca en un sistema real.
+
+Port 22
+
+# Problema: deja entrar como root directo
+PermitRootLogin yes
+
+# Problema: acepta contrasenas (fuerza bruta facilitada)
+PasswordAuthentication yes
+KbdInteractiveAuthentication yes
+PermitEmptyPasswords yes
+
+# OK pero conviene ser explicito
+PubkeyAuthentication yes
+
+# Problema: superficie extra que no se usa
+X11Forwarding yes
+AllowAgentForwarding yes
+
+# Problema: sin AllowUsers -> cualquier cuenta local puede entrar
+# AllowUsers (no definido)
+
+# Problema: timeouts enormes -> sesiones zombies
+ClientAliveInterval 0
+ClientAliveCountMax 10
+LoginGraceTime 120
+
+# Problema: logs minimos, forense dificil
+LogLevel INFO
+
+# Problema: 10 intentos de auth por conexion
+MaxAuthTries 10
+
+# No deberia aparecer; SSH-1 esta muerto desde hace +15 anios
+Protocol 2,1
+
+Subsystem sftp /usr/lib/openssh/sftp-server

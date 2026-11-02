@@ -1,0 +1,30 @@
+id: sys-04-02-sudoers-least-privilege
+title: Sudoers de mínimo privilegio (debug)
+technology: 00-Sysadmin
+module: 04-users-groups-permissions-acl
+level: intermediate
+type: debug
+
+difficulty: 2
+duration_minutes: 45
+
+prerequisites:
+  - sys-04-01-user-model-for-a-team
+
+objectives:
+  - Diagnosticar errores de sintaxis en archivos sudoers con visudo -cf
+  - Reescribir una regla sudoers aplicando mínimo privilegio
+  - Usar Cmnd_Alias para agrupar comandos relacionados
+  - Entender por qué NOPASSWD ALL o rutas no absolutas son antipatrones
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

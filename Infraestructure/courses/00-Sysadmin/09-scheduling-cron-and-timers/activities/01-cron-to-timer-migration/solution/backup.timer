@@ -1,0 +1,11 @@
+[Unit]
+Description=Dispara backup.service todos los días a las 02:30
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+RandomizedDelaySec=10min
+Unit=backup.service
+
+[Install]
+WantedBy=timers.target

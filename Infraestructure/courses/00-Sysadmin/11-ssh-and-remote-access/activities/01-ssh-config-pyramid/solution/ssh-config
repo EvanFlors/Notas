@@ -1,0 +1,38 @@
+# Solucion de referencia - sys-11-01-ssh-config-pyramid
+# Hosts y claves son PLACEHOLDERS didacticos.
+
+Host bastion.example.com
+    HostName bastion.example.com
+    User jump
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519_bastion
+    IdentitiesOnly yes
+
+Host app1
+    HostName 10.0.1.10
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519_app1
+    IdentitiesOnly yes
+    ProxyJump bastion.example.com
+
+Host app2
+    HostName 10.0.1.11
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519_app2
+    IdentitiesOnly yes
+    ProxyJump bastion.example.com
+
+Host db1
+    HostName 10.0.2.10
+    User dbadmin
+    IdentityFile ~/.ssh/id_ed25519_db1
+    IdentitiesOnly yes
+    ProxyJump bastion.example.com
+
+Host *
+    AddKeysToAgent yes
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    HashKnownHosts yes
+    ForwardAgent no
+    ForwardX11 no

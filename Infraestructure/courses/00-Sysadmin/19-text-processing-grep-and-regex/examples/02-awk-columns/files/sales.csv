@@ -1,0 +1,17 @@
+region,product,units,amount
+north,widget,10,120.00
+south,widget,4,48.00
+north,gadget,2,80.00
+east,widget,7,84.00
+west,gizmo,1,25.00
+north,gizmo,3,75.00
+south,gadget,5,200.00
+east,gadget,1,40.00
+west,widget,12,144.00
+north,widget,6,72.00
+south,gizmo,2,50.00
+east,gizmo,4,100.00
+west,gadget,3,120.00
+north,gadget,1,40.00
+south,widget,9,108.00
+east,widget,2,24.00

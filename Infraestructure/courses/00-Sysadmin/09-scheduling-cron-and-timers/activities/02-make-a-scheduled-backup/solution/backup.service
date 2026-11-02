@@ -1,0 +1,14 @@
+[Unit]
+Description=Backup diario (tarball + rotación) de /srv/myapp
+Documentation=file:///usr/local/bin/backup.sh
+
+[Service]
+Type=oneshot
+User=root
+Environment=SRC=/srv/myapp
+Environment=DST=/var/backups/myapp
+Environment=KEEP=7
+Environment=LOCK=/var/lock/backup.lock
+ExecStart=/usr/local/bin/backup.sh
+StandardOutput=journal
+StandardError=journal

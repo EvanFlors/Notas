@@ -10,7 +10,7 @@
 
 ## Objetivo
 
-Instalar Git, configurar identidad y editor, y **construir el modelo mental correcto** (DVCS, snapshots inmutables, DAG, tres áreas, objetos). Al terminar, deberías poder abrir `.git/` y explicar qué es cada cosa.
+Instalar Git, configurar identidad y editor, y **construir el modelo mental correcto** (DVCS Distributed Version Control System, snapshots inmutables, DAG Directed Acyclic Graph, tres áreas, objetos). Al terminar, deberías poder abrir `.git/` y explicar qué es cada cosa.
 
 ## Alcance
 

@@ -1,0 +1,35 @@
+id: sys-06-02-rollback-a-bad-upgrade
+title: Revertir un upgrade con dnf history undo
+technology: 00-Sysadmin
+module: 06-package-management-upgrades
+level: intermediate
+type: debug
+
+estimated_minutes: 45
+
+prerequisites:
+  - sys-04-users-groups-permissions-acl
+  - rhel-family-vm-or-container
+
+environment:
+  requires_vm_or_container: true
+  recommended: "Rocky Linux 9, AlmaLinux 9 o Fedora 41+ (VM o contenedor desechable)"
+  network: outbound-https
+
+objectives:
+  - Localizar la transacción culpable usando `dnf history` y `dnf history info`
+  - Entender el formato (ID, Action(s), Altered) de las entradas de historial
+  - Ejecutar `dnf history undo <id>` y validar el estado posterior
+  - Explicar al menos una condición en la que `undo` fallaría y la mitigación
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

@@ -240,7 +240,7 @@ build/
 ```
 
 Reglas que confunden:
-- **Un archivo ya tracked no se desya** por ponerlo en `.gitignore`. Necesitas `git rm --cached <file>` + commit.
+- **Un archivo ya tracked no se deja de rastrear** por ponerlo en `.gitignore`. Necesitas `git rm --cached <file>` + commit.
 - **Patrones son relativos al archivo `.gitignore`**. Un `.gitignore` dentro de `src/` solo aplica a `src/`.
 - **La negación** (`!pattern`) solo funciona si el ancestro directorio *no* está ignorado.
 
@@ -274,8 +274,8 @@ Controla el comportamiento *por path* para operaciones de Git. Casos típicos:
 *.zip filter=lfs diff=lfs merge=lfs -text
 
 # Exportar a archive sin ciertos archivos (para `git archive`)
-.github/      export-ignore
-tests/        export-ignore
+.github/       export-ignore
+tests/         export-ignore
 .gitattributes export-ignore
 ```
 
@@ -430,6 +430,7 @@ Escribe `restore`/`switch`. Lee ambos.
 ### 8.4 Convenciones de commit: ¿Conventional Commits sí o no?
 
 **Sí si**: automatizas releases con `semantic-release` / `release-please`; generas CHANGELOG; equipo grande con disciplina.
+
 **No necesariamente si**: equipo pequeño, releases manuales, convención propia ya establecida y clara.
 
 Lo importante: **tener una convención y aplicarla**. "Fixed stuff" y "update" son el enemigo real, no la elección de formato.
@@ -517,11 +518,11 @@ Fix retroactivo: ver `gh-10` (reescribir autor con `git commit --amend --author=
 - **`add -p` como default.** Rompe el hábito de `add .`.
 - **Mensaje imperativo en línea 1, ≤ 72 chars.** `add logging to parser`, no `added logging stuff`.
 - **Cuerpo opcional explica el *por qué*.** El *qué* ya está en el diff.
-- **`.gitignore` desde el commit 1.** Más fácil añadir patrones que limpiar basura.
-- **`.gitattributes` para equipos multi-OS.** `core.autocrlf` local no basta.
-- **`git diff --staged` antes del commit.** Siempre. Es tu último filtro antes de que un hash viva para siempre.
-- **`--amend` solo pre-push.** Nunca sobre ramas compartidas.
-- **`revert`, no `reset`, en producción.**
+    - **`.gitignore` desde el commit 1.** Más fácil añadir patrones que limpiar basura.
+    - **`.gitattributes` para equipos multi-OS.** `core.autocrlf` local no basta.
+    - **`git diff --staged` antes del commit.** Siempre. Es tu último filtro antes de que un hash viva para siempre.
+    - **`--amend` solo pre-push.** Nunca sobre ramas compartidas.
+    - **`revert`, no `reset`, en producción.**
 - **Nunca commitees secretos.** Si pasa: rotar primero, limpiar después.
 - **Mensajes en inglés** si el proyecto es público o internacional; español si es interno y el equipo lo prefiere. **Consistente**: no mezcles.
 

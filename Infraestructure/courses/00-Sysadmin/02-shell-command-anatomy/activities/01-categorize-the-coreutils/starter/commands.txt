@@ -1,0 +1,47 @@
+# 40 comandos para clasificar.
+# Produce un archivo classification.md con una tabla:
+#   | comando | categoría | una línea de uso típica |
+# Las categorías permitidas están en theory/lesson.md sección 6.
+#
+# No ejecutes `man` para todos — usa whatis/apropos/tldr cuando no conozcas uno.
+#
+ls
+cp
+rm
+find
+grep
+sed
+awk
+cut
+sort
+uniq
+wc
+head
+tail
+cat
+less
+xxd
+ps
+top
+kill
+nice
+ss
+ip
+curl
+dig
+chmod
+chown
+sudo
+id
+apt
+dnf
+systemctl
+journalctl
+df
+du
+lsblk
+tar
+gzip
+sha256sum
+gpg
+type

@@ -1,0 +1,30 @@
+id: sys-14-01-trap-and-lock
+title: Job robusto con trap + flock
+technology: 00-Sysadmin
+module: 14-robust-scripts-and-error-handling
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-13-bash-scripting-fundamentals
+
+objectives:
+  - Encender set -euo pipefail y entender qué cubre cada flag
+  - Instrumentar trap EXIT para cleanup incondicional del tmpdir
+  - Serializar invocaciones concurrentes con flock -n
+  - Devolver exit codes semánticos (0 ok, 75 ya corriendo, 70 bug)
+  - Validar el comportamiento con el test incluido
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

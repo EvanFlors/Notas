@@ -1,4 +1,4 @@
-# Actividad 01 — Branch, merge, resuelve un conflicto simple
+g# Actividad 01 — Branch, merge, resuelve un conflicto simple
 
 ## 1. Identificación
 

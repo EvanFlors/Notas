@@ -1,0 +1,30 @@
+id: sys-09-01-cron-to-timer-migration
+title: Migración de cron a systemd timer
+technology: 00-Sysadmin
+module: 09-scheduling-cron-and-timers
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - sys-07-boot-process-and-systemd
+
+objectives:
+  - Traducir una expresión cron de 5 campos a OnCalendar=
+  - Reproducir el entorno (User, PATH) en el .service
+  - Configurar Persistent=true y RandomizedDelaySec= en el .timer
+  - Instalar e inspeccionar la unit con systemctl y journalctl
+  - Entregar un install.sh idempotente, shellcheck-clean
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh ./solution"
+
+status: not-started

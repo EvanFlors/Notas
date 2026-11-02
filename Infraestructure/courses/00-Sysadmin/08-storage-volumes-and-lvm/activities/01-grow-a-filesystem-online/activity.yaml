@@ -1,0 +1,33 @@
+id: sys-08-01-grow-a-filesystem-online
+title: Crecer un filesystem en caliente con LVM
+technology: 00-Sysadmin
+module: 08-storage-volumes-and-lvm
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+privileges: elevated   # requiere sudo (losetup, lvm, mount)
+
+prerequisites:
+  - sys-08-theory-read
+  - sys-08-example-02-lvm-on-loopback
+
+objectives:
+  - Crear un stack PV->VG->LV->ext4 desde cero sobre loopback
+  - Añadir un segundo PV al VG con vgextend
+  - Extender un LV en caliente con lvextend sin desmontar
+  - Crecer el filesystem ext4 con resize2fs
+  - Verificar integridad de datos previos tras el crecimiento
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "sudo -E bash tests/validate.sh"
+
+status: not-started

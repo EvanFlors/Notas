@@ -1,0 +1,31 @@
+id: sys-09-02-make-a-scheduled-backup
+title: Backup programado idempotente con rotación y logs al journal
+technology: 00-Sysadmin
+module: 09-scheduling-cron-and-timers
+level: intermediate
+type: mini-project
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-07-boot-process-and-systemd
+  - sys-09-01-cron-to-timer-migration
+
+objectives:
+  - Diseñar un script Bash defensivo, idempotente y shellcheck-clean
+  - Implementar rotación de copias por retención
+  - Proteger ejecuciones concurrentes con flock
+  - Entregar una pareja .timer + .service válida con Persistent=true
+  - Loguear al journal sin crear archivos de log propios
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh ./solution"
+
+status: not-started

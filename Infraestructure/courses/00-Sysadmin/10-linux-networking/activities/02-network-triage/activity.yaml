@@ -1,0 +1,31 @@
+id: sys-10-02-network-triage
+title: Triage de red por capas (DNS, ruta, TLS)
+technology: sysadmin
+module: 10-linux-networking
+level: advanced
+type: debug
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-10-01-static-ip-with-nmcli
+
+objectives:
+  - Clasificar un fallo de red en la capa correcta antes de intentar arreglos
+  - Usar la herramienta mínima suficiente por capa (dig, ip, ss, curl, openssl)
+  - Documentar causa raíz y comando que la demostró
+  - Distinguir connection refused vs timeout vs TLS vs DNS
+
+requires_privileged: false
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

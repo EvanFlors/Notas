@@ -1,0 +1,8 @@
+host,load
+web-01,12
+web-02,35
+db-01,78
+db-02,91
+cache-01,8
+cache-02,55
+batch-01,99

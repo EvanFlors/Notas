@@ -409,41 +409,41 @@ Regla general: **menos tokens, con menos permisos, viviendo menos tiempo**.
 ### 8.1 SSH vs HTTPS+PAT vs `gh auth`
 
 **SSH**:
-- + Setup una vez por máquina y olvídate.
-- + No depende de tokens que expiran.
-- + Mejor UX para pushes frecuentes.
-- − Hay que generar y cargar por máquina.
-- − Si olvidaste subir la pública, los errores son crípticos ("Permission denied (publickey)").
-- − Bloqueado en redes corporativas que cierran 22 (mitigable con `ssh.github.com:443`).
+- Setup una vez por máquina y olvídate.
+- No depende de tokens que expiran.
+- Mejor UX para pushes frecuentes.
+- Hay que generar y cargar por máquina.
+- Si olvidaste subir la pública, los errores son crípticos ("Permission denied (publickey)").
+- Bloqueado en redes corporativas que cierran 22 (mitigable con `ssh.github.com:443`).
 
 **HTTPS + PAT**:
-- + Funciona en cualquier red (443 nunca está bloqueado).
-- + Útil para scripts y CI simples.
-- − Tokens son credenciales de larga vida que acaban en logs, histórico de shell, archivos de config...
-- − Los *classic* dan permisos amplios por default; es fácil "sobre-concederlos".
-- − Expiran, hay que rotar.
+- Funciona en cualquier red (443 nunca está bloqueado).
+- Útil para scripts y CI simples
+- Tokens son credenciales de larga vida que acaban en logs, histórico de shell, archivos de config...
+- Los *classic* dan permisos amplios por default; es fácil "sobre-concederlos".
+- Expiran, hay que rotar.
 
 **`gh auth login`**:
-- + Device flow sin pegar tokens.
-- + Instala credential helper que resuelve todo HTTPS sin fricción.
-- + Encaja con `gh` para issues/PRs/releases.
-- − Requiere `gh` instalado.
-- − Para CI headless hay que generar un token separado igual.
+- Device flow sin pegar tokens.
+- Instala credential helper que resuelve todo HTTPS sin fricción.
+- Encaja con `gh` para issues/PRs/releases.
+- Requiere `gh` instalado.
+- Para CI headless hay que generar un token separado igual.
 
-Mi default: **`gh auth` en laptops**, **SSH key** si eres purista o quieres independencia de `gh`, **GitHub App / OIDC** en CI serio, **fine-grained PAT** solo cuando los dos anteriores no aplican.
+Default: **`gh auth` en laptops**, **SSH key** si eres purista o quieres independencia de `gh`, **GitHub App / OIDC** en CI serio, **fine-grained PAT** solo cuando los dos anteriores no aplican.
 
 ### 8.2 Repo público vs privado
 
 **Público**:
-- + Portfolio visible, atrae colaboradores y recruiters.
-- + Minutos de Actions gratis más generosos.
-- − Todo el mundo lo lee: cualquier error (secretos, data) es *leaked*.
-- − Issues públicos: puede haber ruido o abuse.
+- Portfolio visible, atrae colaboradores y recruiters.
+- Minutos de Actions gratis más generosos.
+- Todo el mundo lo lee: cualquier error (secretos, data) es *leaked*.
+- Issues públicos: puede haber ruido o abuse.
 
 **Privado**:
-- + Mientras pulgas, nadie te juzga.
-- + Datos sensibles ok (pero sigue: no comitees secretos).
-- − Si abandonas el proyecto se vuelve invisible.
+- Mientras pulgas, nadie te juzga.
+- Datos sensibles ok (pero sigue: no comitees secretos).
+- Si abandonas el proyecto se vuelve invisible.
 
 Recomendación: **arranca privado, hazlo público cuando esté decente**. Es trivial cambiar (`gh repo edit --visibility public`).
 

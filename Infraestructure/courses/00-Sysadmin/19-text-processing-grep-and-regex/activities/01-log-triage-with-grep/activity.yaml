@@ -1,0 +1,31 @@
+id: sys-19-01-log-triage-with-grep
+title: Triage de un access.log con grep y amigos
+technology: 00-Sysadmin
+module: 19-text-processing-grep-and-regex
+level: advanced
+type: guided
+
+estimated_minutes: 75
+
+prerequisites:
+  - sys-19-00-theory
+  - sys-02-shell-command-anatomy
+  - sys-16-logs-journald-rsyslog
+
+objectives:
+  - Responder preguntas operativas sobre un access.log usando solo CLI
+  - Elegir entre grep, awk, sed, sort, uniq -c segun el tipo de pregunta
+  - Construir pipelines reproducibles que se puedan pegar en un runbook
+  - Diferenciar cuando una pregunta exige awk sobre cuando basta grep -c
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh starter/answers.sh"
+
+status: not-started

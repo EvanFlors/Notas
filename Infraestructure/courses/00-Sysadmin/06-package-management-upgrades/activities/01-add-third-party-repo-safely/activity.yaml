@@ -1,0 +1,37 @@
+id: sys-06-01-add-third-party-repo-safely
+title: Añadir un repo APT de terceros con firma GPG verificada
+technology: 00-Sysadmin
+module: 06-package-management-upgrades
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 50
+
+prerequisites:
+  - sys-04-users-groups-permissions-acl
+  - debian-or-ubuntu-vm
+
+environment:
+  requires_vm_or_container: true
+  recommended: "Debian 12 o Ubuntu 22.04+ (VM o contenedor desechable)"
+  network: outbound-https
+
+objectives:
+  - Descargar la clave pública GPG de un repo de terceros desde su fuente oficial
+  - Verificar manualmente el fingerprint contra la publicación oficial del proyecto
+  - Instalar la clave en /etc/apt/keyrings/ con permisos canónicos (0644 root:root)
+  - Crear un archivo .sources (DEB822) con la directiva Signed-By apuntando a la clave
+  - Confirmar con `apt update` que el repo es reconocido sin warnings de firma
+  - Explicar por qué NO se usa /etc/apt/trusted.gpg.d/ ni `apt-key add`
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

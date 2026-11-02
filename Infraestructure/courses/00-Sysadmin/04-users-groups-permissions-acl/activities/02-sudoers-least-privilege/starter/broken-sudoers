@@ -1,0 +1,13 @@
+# /etc/sudoers.d/50-webops
+# "arreglo rápido" para que webops opere nginx.
+# Editado con vim por error. Está roto y es inseguro.
+
+Cmnd_Alias webops_cmds = systemctl restart nginx, \
+                         systemctl reload nginx
+                         /bin/systemctl status nginx
+
+Cmnd_Alias DANGER = /usr/bin/systemctl, /bin/bash, /usr/bin/vim
+
+%webops ALL=(ALL) NOPASSWD= ALL
+%webops ALL=(root) NOPASSWD: DANGER
+%webops ALL=(root) NOPASSWD: webops_cmds

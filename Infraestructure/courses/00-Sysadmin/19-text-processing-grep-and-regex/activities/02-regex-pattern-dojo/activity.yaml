@@ -1,0 +1,30 @@
+id: sys-19-02-regex-pattern-dojo
+title: Dojo de patrones regex
+technology: 00-Sysadmin
+module: 19-text-processing-grep-and-regex
+level: advanced
+type: independent
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-19-00-theory
+  - sys-19-01-log-triage-with-grep
+
+objectives:
+  - Escribir regexes ERE y PCRE que acepten los positivos y rechacen los negativos
+  - Diferenciar cuando una regex necesita anclas ^$ y cuando no
+  - Reconocer errores clasicos (punto sin escapar, uso incorrecto de \b)
+  - Entender el valor de un dataset con casos frontera
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh starter/patterns.sh"
+
+status: not-started

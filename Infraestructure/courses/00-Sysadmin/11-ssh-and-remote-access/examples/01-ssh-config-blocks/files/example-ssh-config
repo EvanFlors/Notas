@@ -1,0 +1,69 @@
+# ============================================================
+# Ejemplo didactico de ~/.ssh/config
+# Reglas: especifico arriba, defaults abajo.
+# Todos los hosts y claves son PLACEHOLDERS. No usar tal cual.
+# ============================================================
+
+# ---------- Bastion unico de la red privada ----------
+Host bastion.example.com
+    HostName bastion.example.com
+    User jump
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519_bastion
+    IdentitiesOnly yes
+
+# ---------- Hosts de produccion detras del bastion ----------
+Host app1
+    HostName 10.0.1.10
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519_prod
+    IdentitiesOnly yes
+    ProxyJump bastion.example.com
+
+Host app2
+    HostName 10.0.1.11
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519_prod
+    IdentitiesOnly yes
+    ProxyJump bastion.example.com
+
+Host db1
+    HostName 10.0.2.10
+    User dbadmin
+    IdentityFile ~/.ssh/id_ed25519_db
+    IdentitiesOnly yes
+    ProxyJump bastion.example.com
+
+# ---------- Hosts de staging (wildcard por dominio) ----------
+Host *.staging.example.com
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519_staging
+    IdentitiesOnly yes
+    ProxyJump bastion.example.com
+
+# ---------- GitHub (no pasa por bastion) ----------
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_github
+    IdentitiesOnly yes
+
+# ---------- Match: config distinto segun el usuario ----------
+# Cuando conectas como 'evan@app1' usa clave personal; cuando el
+# bloque Host app1 corre con usuario 'deploy', usa la de prod.
+Match User evan Host app1
+    IdentityFile ~/.ssh/id_ed25519_personal
+    IdentitiesOnly yes
+
+# ---------- Defaults globales ----------
+Host *
+    AddKeysToAgent yes
+    # UseKeychain yes          # habilita si estas en macOS
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    HashKnownHosts yes
+    StrictHostKeyChecking ask
+    VerifyHostKeyDNS no
+    # Nunca por defecto; actvalo solo en bloques puntuales si lo necesitas:
+    ForwardAgent no
+    ForwardX11 no

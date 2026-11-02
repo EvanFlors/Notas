@@ -1,0 +1,29 @@
+id: sys-15-02-arithmetic-report
+title: Reporte aritmético con case desde CSV
+technology: sysadmin
+module: 15-arithmetic-tests-and-conditionals
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-15-01-choose-the-right-test
+
+objectives:
+  - Leer un CSV línea a línea en Bash validando campos
+  - Calcular sum/avg/min/max con aritmética entera y bc
+  - Clasificar rangos con case ... esac
+  - Mantener el script shellcheck-clean
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh ./report.sh"
+
+status: not-started

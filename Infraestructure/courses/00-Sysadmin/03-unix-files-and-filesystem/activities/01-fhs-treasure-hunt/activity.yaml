@@ -1,0 +1,30 @@
+id: sys-03-01-fhs-treasure-hunt
+title: FHS treasure hunt
+technology: linux-sysadmin
+module: 03-unix-files-and-filesystem
+level: beginner
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-03-theory
+
+objectives:
+  - Localizar configuración, logs y binarios siguiendo FHS 3.0
+  - Diferenciar /etc, /var, /usr, /opt, /run, /tmp operativamente
+  - Leer y entender la salida de mount, findmnt y df -hT
+  - Explicar por qué /proc y /sys no gastan disco
+  - Resolver symlinks del sistema con readlink -f
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: mixed
+  command: "bash tests/validate.sh /tmp/fhs-answers.md"
+
+status: not-started

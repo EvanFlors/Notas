@@ -1,0 +1,11 @@
+[Unit]
+Description=Reporte diario
+Documentation=man:report.sh(1)
+
+[Service]
+Type=oneshot
+User=reports
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/local/bin/report.sh
+StandardOutput=journal
+StandardError=journal

@@ -169,7 +169,7 @@ git log --oneline --graph --decorate --all
 git rev-list --count HEAD
 
 # Autor
-git log --format='%an <%ae>' -n1
+git log --format='%an <%ae>' -n 1
 
 # Objetos sueltos en objects/
 find .git/objects -type f | grep -v pack | wc -l

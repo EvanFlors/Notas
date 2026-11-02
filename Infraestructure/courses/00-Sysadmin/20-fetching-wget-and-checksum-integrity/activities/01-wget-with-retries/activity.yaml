@@ -1,0 +1,30 @@
+id: sys-20-01-wget-with-retries
+title: Descarga con resume, timeouts y reintentos
+technology: 00-Sysadmin
+module: 20-fetching-wget-and-checksum-integrity
+level: advanced
+type: guided-lab
+
+estimated_minutes: 45
+
+prerequisites:
+  - sys-14-robust-scripts-and-error-handling
+
+objectives:
+  - Escribir un script wget con --continue, --tries, timeouts y --retry-connrefused
+  - Fallar con exit code semantico no-cero cuando se agotan los reintentos
+  - Nunca usar --no-check-certificate ni silenciar verificacion TLS
+  - Loggear a stderr con timestamp cada intento y resultado
+  - Pasar shellcheck -S warning sin findings
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

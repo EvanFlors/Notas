@@ -1,0 +1,22 @@
+[Unit]
+Description=Hello world minimal service
+Documentation=https://example.org/hello
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+ExecStart=/bin/bash -c 'while true; do echo "hello $(date -Is)"; sleep 5; done'
+Restart=on-failure
+RestartSec=3s
+StartLimitIntervalSec=60
+StartLimitBurst=5
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

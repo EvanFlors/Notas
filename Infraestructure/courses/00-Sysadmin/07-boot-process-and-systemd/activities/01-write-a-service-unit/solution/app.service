@@ -1,0 +1,30 @@
+[Unit]
+Description=sys-07 lab app (supervised bash loop)
+Documentation=file:///usr/local/share/doc/sys07-app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+ExecStart=/usr/local/bin/sys07-app
+Restart=on-failure
+RestartSec=3s
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# Hardening
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Env opcional (lee /etc/default/sys07-app si existe)
+EnvironmentFile=-/etc/default/sys07-app
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,30 @@
+id: sys-11-01-ssh-config-pyramid
+title: Piramide de ~/.ssh/config con bastion
+technology: 00-Sysadmin
+module: 11-ssh-and-remote-access
+level: advanced
+type: guided-lab
+
+estimated_minutes: 60
+
+prerequisites:
+  - sys-04
+  - sys-10
+
+objectives:
+  - Modelar acceso a red privada con ProxyJump
+  - Elegir el orden correcto de bloques Host (especifico -> generico)
+  - Usar IdentitiesOnly yes para evitar fugas de identidades
+  - Validar un config con ssh -G sin conectar
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh ssh-config"
+
+status: not-started

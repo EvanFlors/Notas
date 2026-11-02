@@ -1,0 +1,18 @@
+id: sys-02-01-categorize-the-coreutils
+module: sys-02-shell-command-anatomy
+type: independent
+difficulty: intermediate
+duration_minutes: 45
+
+prerequisites:
+  - sys-02-shell-command-anatomy (lectura de theory/lesson.md, sección 6)
+
+objectives:
+  - Clasificar 40 comandos reales en las 14 categorías canónicas
+  - Escribir una línea de uso típica por comando (sin copiar man)
+  - Diferenciar categorías vecinas (p. ej. búsqueda vs navegación/FS)
+  - Usar whatis/apropos/tldr para resolver comandos desconocidos
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"

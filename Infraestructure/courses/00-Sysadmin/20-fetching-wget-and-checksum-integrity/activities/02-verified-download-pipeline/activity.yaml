@@ -1,0 +1,30 @@
+id: sys-20-02-verified-download-pipeline
+title: Pipeline de descarga verificada (checksum + firma GPG)
+technology: 00-Sysadmin
+module: 20-fetching-wget-and-checksum-integrity
+level: advanced
+type: mini-project
+
+estimated_minutes: 75
+
+prerequisites:
+  - sys-20-01-wget-with-retries
+
+objectives:
+  - Orquestar fetch + verificacion SHA256 + verificacion GPG en un solo script
+  - Abortar con exit code semantico en cualquier mismatch
+  - Loggear cada paso con timestamp a stderr
+  - Nunca silenciar verificacion TLS ni confiar en Good signature sin fingerprint
+  - Soportar modo offline (artefacto y firma generados localmente) para labs sin red
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

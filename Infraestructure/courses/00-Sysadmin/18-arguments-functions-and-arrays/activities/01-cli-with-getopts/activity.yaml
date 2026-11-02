@@ -1,0 +1,31 @@
+id: sys-18-01-cli-with-getopts
+title: Construir una CLI con getopts, exit codes y "--"
+technology: 00-Sysadmin
+module: 18-arguments-functions-and-arrays
+level: intermediate
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - sys-14-robust-scripts-and-error-handling
+  - sys-15-arithmetic-tests-and-conditionals
+
+objectives:
+  - Parsear -v, -o FILE, -n COUNT, -h con getopts en silent mode
+  - Imprimir --help a stdout y mensajes de error a stderr
+  - Distinguir exit codes 0 (éxito/help), 1 (ejecución), 2 (uso)
+  - Respetar "--" como fin de opciones
+  - Validar tipo (entero) y presencia de posicional ARG
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh"
+
+status: not-started

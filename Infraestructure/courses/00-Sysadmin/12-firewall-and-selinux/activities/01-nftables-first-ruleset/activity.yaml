@@ -1,0 +1,32 @@
+id: sys-12-01-nftables-first-ruleset
+title: Tu primera ruleset nftables default-deny
+technology: 00-Sysadmin
+module: 12-firewall-and-selinux
+level: advanced
+type: guided-lab
+
+estimated_minutes: 75
+
+prerequisites:
+  - sys-10
+  - sudo-or-root
+  - disposable-vm-recommended
+
+objectives:
+  - Escribir una ruleset nftables default-deny inbound
+  - Permitir loopback, conntrack established/related e ICMP útil
+  - Restringir SSH a una subred /24 concreta
+  - Exponer HTTPS a cualquier origen
+  - Validar sintaxis con nft -c -f antes de aplicar
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "bash tests/validate.sh solution/nftables.conf"
+
+status: not-started

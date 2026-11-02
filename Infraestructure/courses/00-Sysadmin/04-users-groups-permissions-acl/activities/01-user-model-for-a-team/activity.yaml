@@ -1,0 +1,32 @@
+id: sys-04-01-user-model-for-a-team
+title: Modelo de usuarios para un equipo
+technology: 00-Sysadmin
+module: 04-users-groups-permissions-acl
+level: intermediate
+type: architecture
+
+difficulty: 3
+duration_minutes: 60
+
+prerequisites:
+  - sys-04-setup-and-mental-model-of-permissions
+  - sys-03
+
+objectives:
+  - Diseñar un modelo de grupos y usuarios a partir de una spec de equipo
+  - Crear usuarios con shell, home y grupo primario adecuados
+  - Construir un directorio compartido con setgid y default ACL
+  - Aplicar política de expiración de contraseñas con chage
+  - Dejar un directorio de auditoría de solo lectura para un grupo
+
+paths:
+  instructions: README.md
+  starter: starter/
+  tests: tests/
+  solution: solution/
+
+validation:
+  type: automated
+  command: "sudo bash tests/validate.sh"
+
+status: not-started

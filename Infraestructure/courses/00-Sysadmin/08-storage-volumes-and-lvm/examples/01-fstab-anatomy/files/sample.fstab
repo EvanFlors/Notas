@@ -1,0 +1,46 @@
+# /etc/fstab — ejemplo anotado para sys-08
+#
+# Formato:
+# <spec>                                   <mountpoint>  <fstype>  <options>                   <dump> <pass>
+#
+# <spec>       : qué montar  (UUID= / LABEL= / /dev/... / tmpfs / ruta a swap file)
+# <mountpoint> : dónde montar (debe existir; 'none' para swap y bind source)
+# <fstype>     : ext4, xfs, vfat, tmpfs, swap, nfs, none (bind), ...
+# <options>    : separadas por coma, sin espacios. 'defaults' = rw,suid,dev,exec,auto,nouser,async
+# <dump>       : siempre 0 (dump(8) está obsoleto)
+# <pass>       : orden de fsck al boot — 1 para /, 2 para otros fs, 0 para omitir
+# -----------------------------------------------------------------------------
+
+# Raíz: errors=remount-ro protege ante corrupción detectada en vivo.
+UUID=4e3a1c88-7f6c-4b9d-9d2a-7e0a6b3c1f22  /             ext4   defaults,errors=remount-ro    0  1
+
+# /boot separado: facilita cifrado del root, GRUB necesita acceso.
+UUID=0b22b4e0-aa11-4b7f-9f2d-1a8c0e4d9bb2  /boot         ext4   defaults                      0  2
+
+# Partición EFI (vfat). umask=0077 oculta a usuarios no-root.
+UUID=8CAC-21E3                             /boot/efi     vfat   umask=0077                    0  1
+
+# /home en xfs, noatime para menos escrituras en lecturas.
+UUID=f1a0d7e2-33ab-4211-9c4e-5c2d8e9b1a04  /home         xfs    defaults,noatime              0  0
+
+# /var en LV LVM — nombre device-mapper legible.
+/dev/mapper/vg_sys-lv_var                  /var          ext4   defaults,noatime              0  2
+
+# tmpfs en /tmp: datos efímeros en RAM, tope 2G, modo sticky.
+tmpfs                                      /tmp          tmpfs  defaults,size=2G,mode=1777    0  0
+
+# Swap como archivo (no partición). 'sw' = swap options genéricas.
+/swap.img                                  none          swap   sw                            0  0
+
+# Disco externo USB — 'nofail' evita colgar el boot si no está presente.
+LABEL=backup                               /mnt/backup   ext4   defaults,nofail,x-systemd.device-timeout=5s  0  0
+
+# Automount perezoso: monta en el primer acceso, desmonta tras idle.
+LABEL=archivo                              /mnt/archivo  ext4   defaults,noauto,x-systemd.automount,x-systemd.idle-timeout=600  0  0
+
+# Bind mount: expone /srv/projects también en /home/eva/projects.
+# Tipo 'none', opción 'bind'. mountpoint source va en <spec>.
+/srv/projects                              /home/eva/projects  none  bind                      0  0
+
+# NFS remoto (ejemplo). _netdev difiere montaje hasta que haya red.
+# nas.local:/export/shared                 /mnt/shared   nfs    defaults,_netdev,soft,timeo=30  0  0
