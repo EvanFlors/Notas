@@ -178,9 +178,9 @@ Supongamos base tip = `B`, head tiene commits `C1 → C2 → C3`.
 
 **Merge commit (`--no-ff`)**:
 ```
-... ─ A ─ B ─────────── M            ← nuevo commit M, 2 padres
-                \      /
-                 C1 ─ C2 ─ C3
+... ─ A ─ B ─────────── M      ← nuevo commit M, 2 padres
+            \          /
+            C1 ─ C2 ─ C3
 ```
 `M.parents = [B, C3]`. `C1..C3` preservan autor, fecha, hash. `M` es nuevo (committer: GitHub, autor: quien pulsó el botón).
 

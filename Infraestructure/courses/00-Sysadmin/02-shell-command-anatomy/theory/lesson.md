@@ -153,16 +153,16 @@ Cada vez que pulsas Enter, Bash realiza un pipeline fijo:
 │   gramatical  │  comandos simples/compuestos.
 └───────┬───────┘
         ▼
-┌───────────────┐
-│ 4. Expansiones (ORDEN FIJO, aprende este orden):
-│   a. Brace     ─  {a,b,c}, {1..9}
-│   b. Tilde     ─  ~, ~user
-│   c. Parameter ─  $var, ${var:-x}, ${var/pat/rep}
-│   d. Arithmetic─  $(( 1+2 ))
-│   e. Command   ─  $(cmd), `cmd`
-│   f. Word split─  divide por IFS (default: espacio/tab/newline)
-│   g. Pathname  ─  *, ?, [a-z] contra el filesystem
-└───────┬───────┘
+┌───────────────────────────────────────────────────────────────────┐
+│ 4. Expansiones (ORDEN FIJO, aprende este orden):                  │
+│   a. Brace     ─  {a,b,c}, {1..9}                                 │
+│   b. Tilde     ─  ~, ~user                                        │
+│   c. Parameter ─  $var, ${var:-x}, ${var/pat/rep}                 │
+│   d. Arithmetic─  $(( 1+2 ))                                      │
+│   e. Command   ─  $(cmd), `cmd`                                   │
+│   f. Word split─  divide por IFS (default: espacio/tab/newline)   │
+│   g. Pathname  ─  *, ?, [a-z] contra el filesystem                │
+└───────┬───────────────────────────────────────────────────────────┘
         ▼
 ┌───────────────┐
 │ 5. Resolución │  ¿Qué es la primera palabra?

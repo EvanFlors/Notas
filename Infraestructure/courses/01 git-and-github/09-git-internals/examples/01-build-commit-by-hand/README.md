@@ -4,7 +4,7 @@
 
 Que un commit es, por debajo, **el resultado de encadenar cuatro llamadas** a comandos plumbing: `hash-object` (blob) → `mktree` (tree) → `commit-tree` (commit) → `update-ref` (ref).
 
-Al terminar deberías poder decir "sé exactamente qué hace `git commit`" sin manos sudorosas.
+Al termin ar deberías poder decir "sé exactamente qué hace `git commit`" sin manos sudorosas.
 
 ## Contexto
 

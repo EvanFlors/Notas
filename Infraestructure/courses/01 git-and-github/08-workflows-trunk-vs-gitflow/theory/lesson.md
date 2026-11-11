@@ -106,14 +106,14 @@ Idéntico al DAG anterior, pero sin énfasis explícito en flags; típicamente *
              feature/auth       feature/search
                   o---o              o---o
                  /     \            /     \
-    develop  o-o-------o----------o-------o---o-------o---o  develop
-             |                              \         |     \
-             |                               \        |      \
-             |                                \       |       release/1.1
+    develop  o-o--------o----------o-------o---o-------o---o  develop
+             |                              \          |     \
+             |                               \         |      \
+             |                                \        |       release/1.1
              |                                 release/1.0.0   o---o
              |                                 o---o          /     \
              |                                /     \        /       \
-    main    o--------------------------------o-------o------o---------o  main
+    main     o-------------------------------o-------o------o---------o  main
                                              v1.0.0  hotfix v1.0.1
                                                      o
                                                     /|
@@ -304,42 +304,42 @@ Es un proyecto de 3–12 meses, no un `git branch -D develop` de viernes por la 
 ### 8.1 Trunk-based vs GitFlow
 
 **TBD**:
-- + Lead time muy bajo, feedback rápido.
-- + Historia simple de leer y bisectar.
-- − Exige disciplina de PRs chicas y feature flags.
-- − Testing en flags cuesta.
+- Lead time muy bajo, feedback rápido.
+- Historia simple de leer y bisectar.
+- Exige disciplina de PRs chicas y feature flags.
+- Testing en flags cuesta.
 
 **GitFlow**:
-- + Scope de release claramente demarcado.
-- + Natural para múltiples versiones en soporte.
-- − Doble merge (release y hotfix a `main` + `develop`) propenso a error.
-- − `develop` tiende a acumular estado "casi listo" sin fecha.
-- − Latencia alta entre dev y usuario → feedback tardío → decisiones basadas en opiniones no datos.
+- Scope de release claramente demarcado.
+- Natural para múltiples versiones en soporte.
+- Doble merge (release y hotfix a `main` + `develop`) propenso a error.
+- `develop` tiende a acumular estado "casi listo" sin fecha.
+- Latencia alta entre dev y usuario → feedback tardío → decisiones basadas en opiniones no datos.
 
 ### 8.2 Feature flags vs ramas largas
 
 **Flags**:
-- + Permiten mergear temprano.
-- + Permiten rollback instantáneo (apagar flag).
-- − Deuda si no se retiran.
-- − Testing combinatorio.
+- Permiten mergear temprano.
+- Permiten rollback instantáneo (apagar flag).
+- Deuda si no se retiran.
+- Testing combinatorio.
 
 **Ramas largas**:
-- + "Más simple" en apariencia.
-- − Merge hell cuadrático.
-- − Rollback = revert de merge → doloroso.
+- "Más simple" en apariencia.
+- Merge hell cuadrático.
+- Rollback = revert de merge → doloroso.
 
 ### 8.3 Environment branches vs tags + GitOps
 
 **Env branches**:
-- + Modelo visual atractivo.
-- − Divergen inevitablemente con cherry-picks.
-- − Convierten `main` en 2 líneas de verdad.
+- Modelo visual atractivo.
+- Divergen inevitablemente con cherry-picks.
+- Convierten `main` en 2 líneas de verdad.
 
 **Tags + GitOps**:
-- + Una línea de verdad (código).
-- + El estado por entorno vive en otro repo (de deployment).
-- − Más piezas móviles iniciales.
+- Una línea de verdad (código).
+- El estado por entorno vive en otro repo (de deployment).
+- Más piezas móviles iniciales.
 
 ### 8.4 Merge commit vs squash vs rebase (en TBD)
 

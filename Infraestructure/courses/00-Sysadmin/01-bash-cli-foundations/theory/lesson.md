@@ -61,17 +61,17 @@ Si cualquier paso falla, el error se enruta por stderr (fd 2) y `$?` queda != 0.
 ### 2.3 fork + execve: el modelo UNIX de ejecución
 
 ```
-                       Bash (PID 1234)
-                             │
-                      ls -l /tmp
-                             │
+                   Bash (PID 1234)
+                         │
+                    ls -l /tmp
+                         │
                        fork()
                        /    \
                       /      \
-                  PID 1234    PID 5678  <- clon exacto del padre
+                PID 1234     PID 5678  <- clon exacto del padre
                  (padre)      (hijo)
                    │             │
-                 wait()        execve("/bin/ls", ["ls","-l","/tmp"], environ)
+                 wait()       execve("/bin/ls", ["ls","-l","/tmp"], environ)
                    │             │
                    │          /bin/ls reemplaza la imagen de memoria del hijo
                    │             │
